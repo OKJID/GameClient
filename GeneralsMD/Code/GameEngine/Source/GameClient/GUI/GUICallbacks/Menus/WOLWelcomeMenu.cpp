@@ -472,7 +472,13 @@ void HandleOverallStats( const char* szHTTPStats, unsigned len )
 //called only from WOLWelcomeMenuInit to set %win stats
 static void updateOverallStats(void)
 {
-	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->GetGlobalStats([=](GlobalStats stats)
+	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+	if (pStatsInterface == nullptr)
+	{
+		return;
+	}
+
+	pStatsInterface->GetGlobalStats([=](GlobalStats stats)
 		{
 			UnicodeString percStr;
 			AsciiString wndName;
@@ -563,7 +569,7 @@ void UpdateLocalPlayerStats(void)
 	{
 		PopulatePlayerInfoWindows( "WOLQuickMatchMenu.wnd" );
 	}
-	
+
 	return;
 }
 
@@ -636,8 +642,13 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	if (staticTextTitle)
 	{
 		UnicodeString title;
-		title.format(TheGameText->fetch("GUI:WOLWelcome"), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
-		GadgetStaticTextSetText(staticTextTitle, title);
+
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface != nullptr)
+		{
+			title.format(L"Welcome to Generals Online, %s", pAuthInterface->GetDisplayNameW().c_str());
+			GadgetStaticTextSetText(staticTextTitle, title);
+		}
 	}
 #endif
 
@@ -785,8 +796,7 @@ void WOLWelcomeMenuShutdown( WindowLayout *layout, void *userData )
 //-------------------------------------------------------------------------------------------------
 void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 {
-
-	// We'll only be successful if we've requested to 
+	// We'll only be successful if we've requested to
 	if(isShuttingDown && TheShell->isAnimFinished() && TheTransitionHandler->isFinished())
 		shutdownComplete(layout);
 
@@ -820,7 +830,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 			TheFirewallHelper->writeFirewallBehavior();
 
 			TheFirewallHelper->flagNeedToRefresh(FALSE); // 2/19/03 BGC, we're done, so we don't need to refresh the NAT anymore.
-			
+
 			// we are now done with the firewall helper
 			delete TheFirewallHelper;
 			TheFirewallHelper = NULL;
@@ -903,7 +913,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 WindowMsgHandledType WOLWelcomeMenuInput( GameWindow *window, UnsignedInt msg,
 																			 WindowMsgData mData1, WindowMsgData mData2 )
 {
-	switch( msg ) 
+	switch( msg )
 	{
 
 		// --------------------------------------------------------------------------------------------
@@ -920,14 +930,14 @@ WindowMsgHandledType WOLWelcomeMenuInput( GameWindow *window, UnsignedInt msg,
 				// ----------------------------------------------------------------------------------------
 				case KEY_ESC:
 				{
-					
+
 					//
 					// send a simulated selected event to the parent window of the
 					// back/exit button
 					//
 					if( BitIsSet( state, KEY_STATE_UP ) )
 					{
-						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED, 
+						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED,
 																							(WindowMsgData)buttonBack, buttonBackID );
 
 					}  // end if
@@ -949,18 +959,18 @@ WindowMsgHandledType WOLWelcomeMenuInput( GameWindow *window, UnsignedInt msg,
 //-------------------------------------------------------------------------------------------------
 /** WOL Welcome Menu window system callback */
 //-------------------------------------------------------------------------------------------------
-WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg, 
+WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 														 WindowMsgData mData1, WindowMsgData mData2 )
 {
 	UnicodeString txtInput;
 
 	switch( msg )
 	{
-		
-		
+
+
 		case GWM_CREATE:
 			{
-				
+
 				break;
 			} // case GWM_DESTROY:
 
@@ -970,7 +980,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 			} // case GWM_DESTROY:
 
 		case GWM_INPUT_FOCUS:
-			{	
+			{
 				// if we're givin the opportunity to take the keyboard focus we must say we want it
 				if( mData1 == TRUE )
 					*(Bool *)mData2 = TRUE;
@@ -991,7 +1001,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				{
 					//DEBUG_ASSERTCRASH(TheGameSpyChat->getPeer(), ("No GameSpy Peer object!"));
 					//TheGameSpyChat->disconnectFromChat();
-					
+
 #if defined(GENERALS_ONLINE)
 					// NGMP: Don't need to logout here, just kill the WS connection, that triggers a log out
 					NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
@@ -1032,7 +1042,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 
 				} //if ( controlID == buttonBack )
 				else if (controlID == buttonOptionsID)
-				{					
+				{
 					GameSpyOpenOverlay( GSOVERLAY_OPTIONS );
 				}
 				else if (controlID == buttonQuickMatchID)
@@ -1051,8 +1061,13 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}// else if
 				else if (controlID == buttonMyInfoID )
 				{
-					SetLookAtPlayer(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID(), NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
-					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
+					// TODO_NGMP: This needs work for unicode once we support this
+					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+					if (pAuthInterface != nullptr)
+					{
+						SetLookAtPlayer(pAuthInterface->GetUserID(), UnicodeString(pAuthInterface->GetDisplayNameW().c_str()));
+						GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
+					}
 				}
 				else if (controlID == buttonLobbyID)
 				{
@@ -1101,7 +1116,7 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}
 				break;
 			}// case GBM_SELECTED:
-	
+
 		case GEM_EDIT_DONE:
 			{
 				break;

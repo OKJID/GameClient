@@ -19,6 +19,57 @@ extern "C"
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
+
+NetworkMesh* NGMP_OnlineServicesManager::GetNetworkMesh()
+{
+	if (m_pOnlineServicesManager != nullptr)
+	{
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = GetInterface< NGMP_OnlineServices_LobbyInterface>();
+		if (pLobbyInterface != nullptr)
+		{
+			return pLobbyInterface->GetNetworkMeshForLobby();
+		}
+	}
+
+	return nullptr;
+}
+
+
+void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(void)> cbOnDone)
+{
+	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ServiceConfig");
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			try
+			{
+				if (bSuccess && statusCode == 200)
+				{
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					m_ServiceConfig = jsonObject.get<ServiceConfig>();
+				}
+				else
+				{
+					// It's OK to fail, we'll just use the sensible defaults
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Status code: %d", statusCode);
+					m_ServiceConfig = ServiceConfig();
+				}
+				
+			}
+			catch (...)
+			{
+				// It's OK to fail, we'll just use the sensible defaults
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Exception.");
+				m_ServiceConfig = ServiceConfig();
+			}
+
+			if (cbOnDone != nullptr)
+			{
+				cbOnDone();
+			}
+		});
+}
+
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
 enum class EVersionCheckResponseResult : int
@@ -53,15 +104,15 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 {
 	if (g_Environment == EEnvironment::DEV)
 	{
-		return std::format("https://localhost:9000/env/test/contract/1/{}", szEndpoint);
+		return std::format("https://localhost:9000/env/dev/contract/1/{}", szEndpoint);
 	}
 	else if (g_Environment == EEnvironment::TEST)
 	{
-		return std::format("https://cloud.playgenerals.online:8000/env/dev/contract/1/{}", szEndpoint);
+		return std::format("https://api.playgenerals.online/env/test/contract/1/{}", szEndpoint);
 	}
 	else // PROD
 	{
-		return std::format("https://cloud.playgenerals.online:9000/env/dev/contract/1/{}", szEndpoint);
+		return std::format("https://api.playgenerals.online/env/prod/contract/1/{}", szEndpoint);
 	}
 }
 
@@ -145,7 +196,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 
 void NGMP_OnlineServicesManager::ContinueUpdate()
 {
-	if (m_vecFilesToDownload.size() > 0) // download next
+	if (m_vecFilesToDownload.size() > 0 && m_pHTTPManager != nullptr) // download next
 	{
 		std::string strDownloadPath = m_vecFilesToDownload.front();
 		m_vecFilesToDownload.pop();
@@ -158,7 +209,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 
 		// this isnt a super nice way of doing this, lets make a download manager
 		std::map<std::string, std::string> mapHeaders;
-		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		m_pHTTPManager->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				// set done
 				TheDownloadManager->OnProgressUpdate(downloadSize, downloadSize, 0, 0);
@@ -384,9 +435,15 @@ void NGMP_OnlineServicesManager::Tick()
 
 void NGMP_OnlineServicesManager::InitSentry()
 {
+	std::string strDumpPath = std::format("{}/GeneralsOnlineCrashData/", TheGlobalData->getPath_UserData().str());
+	if (!std::filesystem::exists(strDumpPath))
+	{
+		std::filesystem::create_directory(strDumpPath);
+	}
+
 	sentry_options_t* options = sentry_options_new();
 	sentry_options_set_dsn(options, "{REPLACE_SENTRY_DSN}");
-	sentry_options_set_database_path(options, ".sentry-native");
+	sentry_options_set_database_path(options, strDumpPath.c_str());
 	sentry_options_set_release(options, "generalsonline-client@0.1");
 
 #if _DEBUG
@@ -426,22 +483,21 @@ void WebSocket::Shutdown()
 	Disconnect();
 }
 
-void WebSocket::SendData_ChangeName(const char* szNewName)
+void WebSocket::SendData_ChangeName(UnicodeString& strNewName)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::PLAYER_NAME_CHANGE;
-	j["name"] = szNewName;
+	j["name"] = to_utf8(strNewName.str());
 	std::string strBody = j.dump();
 
 	Send(strBody.c_str());
 }
 
-
-void WebSocket::SendData_LobbyChatMessage(const char* szMessage, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost)
+void WebSocket::SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::LOBBY_ROOM_CHAT_FROM_CLIENT;
-	j["message"] = szMessage;
+	j["message"] = to_utf8(msg.str());
 	j["action"] = bIsAction;
 	j["announcement"] = bIsAnnouncement;
 	j["show_announcement_to_host"] = bShowAnnouncementToHost;
@@ -456,12 +512,23 @@ void WebSocket::SendData_LeaveNetworkRoom()
 }
 
 
-void WebSocket::SendData_Signalling(const std::string& s)
+void WebSocket::SendData_RequestSignalling(int64_t targetUserID)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND REQUEST SIGNALING!");
+	nlohmann::json j;
+	j["msg_id"] = EWebSocketMessageID::NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING;
+	j["target_user_id"] = targetUserID;
+	std::string strBody = j.dump();
+	Send(strBody.c_str());
+}
+
+void WebSocket::SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload)
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND SIGNAL!");
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::NETWORK_SIGNAL;
-	j["signal"] = s;
+	j["target_user_id"] = targetUserID;
+	j["payload"] = vecPayload;
 	std::string strBody = j.dump();
 	Send(strBody.c_str());
 }

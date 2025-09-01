@@ -76,7 +76,7 @@ void NeutronMissileUpdateModuleData::buildFieldParse(MultiIniFieldParse& p)
 {
   UpdateModuleData::buildFieldParse(p);
 
-	static const FieldParse dataFieldParse[] = 
+	static const FieldParse dataFieldParse[] =
 	{
 		{ "DistanceToTravelBeforeTurning",	INI::parseReal,		NULL, offsetof( NeutronMissileUpdateModuleData, m_initialDist ) },
 		{ "MaxTurnRate",			INI::parseAngularVelocityReal,		NULL, offsetof( NeutronMissileUpdateModuleData, m_maxTurnRate ) },
@@ -115,7 +115,11 @@ NeutronMissileUpdate::NeutronMissileUpdate( Thing *thing, const ModuleData* modu
 	m_vel.zero();
 
 	m_state = PRELAUNCH;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_stateTimestamp = TheGameLogic->getFrameLegacy();
+#else
 	m_stateTimestamp = TheGameLogic->getFrame();
+#endif
 	m_isArmed = false;
 	m_isLaunched = false;
 	m_launcherID = INVALID_ID;
@@ -126,7 +130,7 @@ NeutronMissileUpdate::NeutronMissileUpdate( Thing *thing, const ModuleData* modu
 
 	m_exhaustSysTmpl = NULL;
 
-} 
+}
 
 //-------------------------------------------------------------------------------------------------
 NeutronMissileUpdate::~NeutronMissileUpdate( void )
@@ -169,7 +173,11 @@ void NeutronMissileUpdate::projectileFireAtObjectOrPosition( const Object *victi
 	m_exhaustSysTmpl = exhaustSysOverride;
 
 	m_state = LAUNCH;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_stateTimestamp = TheGameLogic->getFrameLegacy();
+#else
 	m_stateTimestamp = TheGameLogic->getFrame();
+#endif
 
 	if( victim )
 	{
@@ -230,7 +238,7 @@ void NeutronMissileUpdate::doLaunch( void )
 
 		//
 		// the missile on the raising up launch platform is actually 45 degrees from the missile
-		// that is flying around the world ... we want to rotate it "on end and in place" so 
+		// that is flying around the world ... we want to rotate it "on end and in place" so
 		// that we don't see any decals on the side of the missile 'pop' to the new angle
 		/// @todo, this should not be a hard coded value ... I love demos!!!
 		//
@@ -249,7 +257,12 @@ void NeutronMissileUpdate::doLaunch( void )
 
 		FXList::doFXObj(getNeutronMissileUpdateModuleData()->m_launchFX, getObject());
 		m_heightAtLaunch = getObject()->getPosition()->z;
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+		m_frameAtLaunch = TheGameLogic->getFrameLegacy();
+#else
 		m_frameAtLaunch = TheGameLogic->getFrame();
+#endif
 
 	}
 
@@ -263,12 +276,16 @@ void NeutronMissileUpdate::doLaunch( void )
 	getObject()->setPosition( &pos );
 
 	FXList::doFXObj(getNeutronMissileUpdateModuleData()->m_ignitionFX, getObject());
-	
+
 	if (m_exhaustSysTmpl != NULL)
 		TheParticleSystemManager->createAttachedParticleSystemID(m_exhaustSysTmpl, getObject());
 
 	m_state = ATTACK;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_stateTimestamp = TheGameLogic->getFrameLegacy();
+#else
 	m_stateTimestamp = TheGameLogic->getFrame();
+#endif
 
 	// arm the missile's "warhead"
 	m_isArmed = true;
@@ -338,7 +355,7 @@ void NeutronMissileUpdate::doAttack( void )
 
 	if (getNeutronMissileUpdateModuleData()->m_targetFromDirectlyAbove && m_reachedIntermediatePos)
 		speed *= STRAIGHT_DOWN_SLOW_FACTOR;
-	
+
 	// if we're still in the no-turning-time, OR if we're out of fuel
 	if (m_noTurnDistLeft > 0.0f)
 	{
@@ -365,7 +382,7 @@ void NeutronMissileUpdate::doAttack( void )
 	Vector3 trueDir = mx.Get_X_Vector();
 	trueDir.Normalize();
 
-	// 
+	//
 	// Move forward along forward direction
 	//
 	Real damping = getNeutronMissileUpdateModuleData()->m_forwardDamping;
@@ -380,7 +397,12 @@ void NeutronMissileUpdate::doAttack( void )
 	Coord3D pos = *getObject()->getPosition();
 
 	const NeutronMissileUpdateModuleData* d = getNeutronMissileUpdateModuleData();
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	UnsignedInt now = TheGameLogic->getFrameLegacy();
+#else
 	UnsignedInt now = TheGameLogic->getFrame();
+#endif
 	if (d->m_specialSpeedTime > 0 && now <= m_frameAtLaunch + d->m_specialSpeedTime)
 	{
 		getObject()->getDrawable()->setInstanceMatrix(NULL);
@@ -471,6 +493,13 @@ void NeutronMissileUpdate::detonate()
  */
 UpdateSleepTime NeutronMissileUpdate::update( void )
 {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (!TheGameLogic->HasLegacyFrameAdvanced())
+	{
+		return UPDATE_SLEEP_NONE;
+	}
+#endif
+
 	m_deliveryDecal.update();
 
 	if (!m_reachedIntermediatePos)
@@ -484,7 +513,7 @@ UpdateSleepTime NeutronMissileUpdate::update( void )
 			Real vel = m_vel.length();
 			m_vel.x = 0;
 			m_vel.y = 0;
-			m_vel.z = -vel * STRAIGHT_DOWN_SLOW_FACTOR;	
+			m_vel.z = -vel * STRAIGHT_DOWN_SLOW_FACTOR;
 
 		}
 	}

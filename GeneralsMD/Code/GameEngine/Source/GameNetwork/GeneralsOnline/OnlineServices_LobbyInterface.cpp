@@ -23,7 +23,7 @@ UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyDisplayName()
 
 	if (IsInLobby())
 	{
-		strDisplayName.format(L"%hs", m_CurrentLobby.name.c_str());
+		strDisplayName = UnicodeString(from_utf8(m_CurrentLobby.name).c_str());
 	}
 
 	return strDisplayName;
@@ -278,7 +278,12 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobbyMaxCameraHeight(uint1
 	{
 		UnicodeString strInform;
 		strInform.format(L"The host has set the maximum camera height to %lu.", maxCameraHeight);
-		NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SendAnnouncementMessageToCurrentLobby(strInform, true);
+
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (pLobbyInterface != nullptr)
+		{
+			pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
+		}
 
 		// reset autostart if host changes anything (because ready flag will reset too)
 		ClearAutoReadyCountdown();
@@ -458,20 +463,21 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_ForceReady()
 
 void NGMP_OnlineServices_LobbyInterface::SendChatMessageToCurrentLobby(UnicodeString& strChatMsgUnicode, bool bIsAction)
 {
-	// TODO_NGMP: Support unicode again
-	AsciiString strChatMsg;
-	strChatMsg.translate(strChatMsgUnicode);
-
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), bIsAction, false, false);
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyChatMessage(strChatMsgUnicode, bIsAction, false, false);
+	}
 }
 
 // TODO_NGMP: Just send a separate packet for each announce, more efficient and less hacky
 void NGMP_OnlineServices_LobbyInterface::SendAnnouncementMessageToCurrentLobby(UnicodeString& strAnnouncementMsgUnicode, bool bShowToHost)
 {
-	AsciiString strChatMsg;
-	strChatMsg.translate(strAnnouncementMsgUnicode);
-
-	NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LobbyChatMessage(strChatMsg.str(), false, true, bShowToHost);
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
+	if (pWS != nullptr)
+	{
+		pWS->SendData_LobbyChatMessage(strAnnouncementMsgUnicode, false, true, bShowToHost);
+	}
 }
 
 NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
@@ -502,23 +508,23 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 			for (const auto& lobbyEntryIter : jsonObject["lobbies"])
 			{
 				LobbyEntry lobbyEntry;
-				lobbyEntryIter["id"].get_to(lobbyEntry.lobbyID);
-				lobbyEntryIter["owner"].get_to(lobbyEntry.owner);
-				lobbyEntryIter["name"].get_to(lobbyEntry.name);
-				lobbyEntryIter["map_name"].get_to(lobbyEntry.map_name);
-				lobbyEntryIter["map_path"].get_to(lobbyEntry.map_path);
-				lobbyEntryIter["map_official"].get_to(lobbyEntry.map_official);
-				lobbyEntryIter["current_players"].get_to(lobbyEntry.current_players);
-				lobbyEntryIter["max_players"].get_to(lobbyEntry.max_players);
-				lobbyEntryIter["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
-				lobbyEntryIter["starting_cash"].get_to(lobbyEntry.starting_cash);
-				lobbyEntryIter["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
-				lobbyEntryIter["track_stats"].get_to(lobbyEntry.track_stats);
-				lobbyEntryIter["passworded"].get_to(lobbyEntry.passworded);
-				lobbyEntryIter["allow_observers"].get_to(lobbyEntry.allow_observers);
-				lobbyEntryIter["max_cam_height"].get_to(lobbyEntry.max_cam_height);
-				lobbyEntryIter["exe_crc"].get_to(lobbyEntry.exe_crc);
-				lobbyEntryIter["ini_crc"].get_to(lobbyEntry.ini_crc);
+				lobbyEntryIter["LobbyID"].get_to(lobbyEntry.lobbyID);
+				lobbyEntryIter["Owner"].get_to(lobbyEntry.owner);
+				lobbyEntryIter["Name"].get_to(lobbyEntry.name);
+				lobbyEntryIter["MapName"].get_to(lobbyEntry.map_name);
+				lobbyEntryIter["MapPath"].get_to(lobbyEntry.map_path);
+				lobbyEntryIter["IsMapOfficial"].get_to(lobbyEntry.map_official);
+				lobbyEntryIter["NumCurrentPlayers"].get_to(lobbyEntry.current_players);
+				lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
+				lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
+				lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
+				lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
+				lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
+				lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
+				lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
+				lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
+				lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
+				lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
 
 				// correct map path
 				if (lobbyEntry.map_official)
@@ -533,30 +539,15 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				// NOTE: These fields won't be present becauase they're private properties
 				//memberEntryIter["enc_key"].get_to(strEncKey);
 
-				for (const auto& memberEntryIter : lobbyEntryIter["members"])
+				for (const auto& memberEntryIter : lobbyEntryIter["Members"])
 				{
 					LobbyMemberEntry memberEntry;
 
-					memberEntryIter["user_id"].get_to(memberEntry.user_id);
-					memberEntryIter["display_name"].get_to(memberEntry.display_name);
-					memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
-					memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
-					memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
-
-					// NOTE: These fields won't be present becauase they're private properties
-					//memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
-					//memberEntryIter["port"].get_to(memberEntry.preferredPort);
-
-
-					// TODO_NGMP: MAybe surface the player slots via tooltip?
-
-					// NOTE: These fields wont be presen't because they really don't matter until you're in the match
-					//memberEntryIter["side"].get_to(memberEntry.side);
-					//memberEntryIter["color"].get_to(memberEntry.color);
-					//memberEntryIter["team"].get_to(memberEntry.team);
-					//memberEntryIter["startpos"].get_to(memberEntry.startpos);
-					//memberEntryIter["has_map"].get_to(memberEntry.has_map);
-
+					memberEntryIter["UserID"].get_to(memberEntry.user_id);
+					memberEntryIter["DisplayName"].get_to(memberEntry.display_name);
+					memberEntryIter["IsReady"].get_to(memberEntry.m_bIsReady);
+					memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
+					memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
 
 					lobbyEntry.members.push_back(memberEntry);
 				}
@@ -578,7 +569,8 @@ bool NGMP_OnlineServices_LobbyInterface::IsHost()
 {
 	if (IsInLobby())
 	{
-		int64_t myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		int64_t myUserID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 		return m_CurrentLobby.owner == myUserID;
 	}
 
@@ -592,14 +584,18 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	// TODO_NGMP: Support unreadying again when player changes team etc
 	// are we ready?
 
-	GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
-	if (IsHost())
+	WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();;
+	if (pWS != nullptr)
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(true);
-	}
-	else
-	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_MarkReady(pLocalSlot->isAccepted());
+		GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
+		if (IsHost())
+		{
+			pWS->SendData_MarkReady(true);
+		}
+		else
+		{
+			pWS->SendData_MarkReady(pLocalSlot->isAccepted());
+		}
 	}
 }
 
@@ -643,27 +639,30 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						nlohmann::json jsonObjectRoot = nlohmann::json::parse(strBody);
 
-						auto lobbyEntryJSON = jsonObjectRoot["lobby"];
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "LOBBY JSON");
+						NetworkLog(ELogVerbosity::LOG_DEBUG, strBody.c_str());
+
+						auto lobbyEntryIter = jsonObjectRoot["lobby"];
 
 						LobbyEntry lobbyEntry;
-						lobbyEntryJSON["id"].get_to(lobbyEntry.lobbyID);
-						lobbyEntryJSON["owner"].get_to(lobbyEntry.owner);
-						lobbyEntryJSON["name"].get_to(lobbyEntry.name);
-						lobbyEntryJSON["map_name"].get_to(lobbyEntry.map_name);
-						lobbyEntryJSON["map_path"].get_to(lobbyEntry.map_path);
-						lobbyEntryJSON["map_official"].get_to(lobbyEntry.map_official);
-						lobbyEntryJSON["current_players"].get_to(lobbyEntry.current_players);
-						lobbyEntryJSON["max_players"].get_to(lobbyEntry.max_players);
-						lobbyEntryJSON["vanilla_teams"].get_to(lobbyEntry.vanilla_teams);
-						lobbyEntryJSON["starting_cash"].get_to(lobbyEntry.starting_cash);
-						lobbyEntryJSON["limit_superweapons"].get_to(lobbyEntry.limit_superweapons);
-						lobbyEntryJSON["track_stats"].get_to(lobbyEntry.track_stats);
-						lobbyEntryJSON["allow_observers"].get_to(lobbyEntry.allow_observers);
-						lobbyEntryJSON["passworded"].get_to(lobbyEntry.passworded);
-						lobbyEntryJSON["rng_seed"].get_to(lobbyEntry.rng_seed);
-						lobbyEntryJSON["max_cam_height"].get_to(lobbyEntry.max_cam_height);
-						lobbyEntryJSON["exe_crc"].get_to(lobbyEntry.exe_crc);
-						lobbyEntryJSON["ini_crc"].get_to(lobbyEntry.ini_crc);
+						lobbyEntryIter["LobbyID"].get_to(lobbyEntry.lobbyID);
+						lobbyEntryIter["Owner"].get_to(lobbyEntry.owner);
+						lobbyEntryIter["Name"].get_to(lobbyEntry.name);
+						lobbyEntryIter["MapName"].get_to(lobbyEntry.map_name);
+						lobbyEntryIter["MapPath"].get_to(lobbyEntry.map_path);
+						lobbyEntryIter["IsMapOfficial"].get_to(lobbyEntry.map_official);
+						lobbyEntryIter["NumCurrentPlayers"].get_to(lobbyEntry.current_players);
+						lobbyEntryIter["MaxPlayers"].get_to(lobbyEntry.max_players);
+						lobbyEntryIter["IsVanillaTeamsOnly"].get_to(lobbyEntry.vanilla_teams);
+						lobbyEntryIter["RNGSeed"].get_to(lobbyEntry.rng_seed);
+						lobbyEntryIter["StartingCash"].get_to(lobbyEntry.starting_cash);
+						lobbyEntryIter["IsLimitSuperweapons"].get_to(lobbyEntry.limit_superweapons);
+						lobbyEntryIter["IsTrackingStats"].get_to(lobbyEntry.track_stats);
+						lobbyEntryIter["IsPassworded"].get_to(lobbyEntry.passworded);
+						lobbyEntryIter["AllowObservers"].get_to(lobbyEntry.allow_observers);
+						lobbyEntryIter["MaximumCameraHeight"].get_to(lobbyEntry.max_cam_height);
+						lobbyEntryIter["ExeCRC"].get_to(lobbyEntry.exe_crc);
+						lobbyEntryIter["IniCRC"].get_to(lobbyEntry.ini_crc);
 
 						// correct map path
 						if (lobbyEntry.map_official)
@@ -688,7 +687,8 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						bool bFoundSelfInOld = false;
 						bool bFoundSelfInNew = false;
-						int64_t	myUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+						int64_t myUserID = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 
 						// check for user in old lobby data
 						for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
@@ -704,22 +704,21 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							}
 						}
 
-						for (const auto& memberEntryIter : lobbyEntryJSON["members"])
+						for (const auto& memberEntryIter : lobbyEntryIter["Members"])
 						{
 							LobbyMemberEntry memberEntry;
 
-							memberEntryIter["user_id"].get_to(memberEntry.user_id);
-							memberEntryIter["display_name"].get_to(memberEntry.display_name);
-							memberEntryIter["ready"].get_to(memberEntry.m_bIsReady);
-							memberEntryIter["ip_addr"].get_to(memberEntry.strIPAddress);
-							memberEntryIter["port"].get_to(memberEntry.preferredPort);
-							memberEntryIter["side"].get_to(memberEntry.side);
-							memberEntryIter["color"].get_to(memberEntry.color);
-							memberEntryIter["team"].get_to(memberEntry.team);
-							memberEntryIter["startpos"].get_to(memberEntry.startpos);
-							memberEntryIter["has_map"].get_to(memberEntry.has_map);
-							memberEntryIter["slot_index"].get_to(memberEntry.m_SlotIndex);
-							memberEntryIter["slot_state"].get_to(memberEntry.m_SlotState);
+							memberEntryIter["UserID"].get_to(memberEntry.user_id);
+							memberEntryIter["DisplayName"].get_to(memberEntry.display_name);
+							memberEntryIter["IsReady"].get_to(memberEntry.m_bIsReady);
+							memberEntryIter["Port"].get_to(memberEntry.preferredPort);
+							memberEntryIter["Side"].get_to(memberEntry.side);
+							memberEntryIter["Color"].get_to(memberEntry.color);
+							memberEntryIter["Team"].get_to(memberEntry.team);
+							memberEntryIter["StartingPosition"].get_to(memberEntry.startpos);
+							memberEntryIter["HasMap"].get_to(memberEntry.has_map);
+							memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
+							memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
 
 							lobbyEntry.members.push_back(memberEntry);
 
@@ -728,9 +727,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							// TODO_NGMP: handle failure to connect to some users
 
 							bool bMapOwnershipStateChanged = true;
-
-							// is it a new member? connect
-							bool bIsNew = true;
 							for (LobbyMemberEntry& currentMember : m_CurrentLobby.members)
 							{
 								if (memberEntry.IsHuman())
@@ -749,19 +745,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 											bMapOwnershipStateChanged = false;
 										}
 
-										bIsNew = false;
 										break;
-									}
-								}
-							}
-							if (bIsNew)
-							{
-								// if we're joining as a client (not host), lobby mesh will be null here, but it's ok because the initial creation will sync to everyone
-								if (m_pLobbyMesh != nullptr)
-								{
-									if (memberEntry.IsHuman())
-									{
-										m_pLobbyMesh->ConnectToSingleUser(memberEntry);
 									}
 								}
 							}
@@ -784,12 +768,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "We were kicked from the lobby...");
 							OnKickedFromLobby();
-						}
-
-						// disconnect from anyone who is no longer in the lobby
-						if (m_pLobbyMesh != nullptr)
-						{
-							m_pLobbyMesh->SyncConnectionListToLobbyMemberList(lobbyEntry.members);
 						}
 
 						// did the host change?
@@ -848,13 +826,13 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 	return;
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index, const char* szPassword)
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(int index, std::string strPassword)
 {
 	LobbyEntry lobbyInfo = GetLobbyFromIndex(index);
-	JoinLobby(lobbyInfo, szPassword);
+	JoinLobby(lobbyInfo, strPassword);
 }
 
-void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const char* szPassword)
+void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::string strPassword)
 {
 	if (m_bAttemptingToJoinLobby)
 	{
@@ -865,143 +843,153 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, const c
 	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 
-	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyInfo.lobbyID);
-	std::map<std::string, std::string> mapHeaders;
-
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
-
-	bool bHasMap = TheMapCache->findMap(AsciiString(lobbyInfo.map_path.c_str()));
-
-	nlohmann::json j;
-	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-	j["has_map"] = bHasMap;
-
-	if (szPassword != nullptr && strlen(szPassword) > 0)
-	{
-		j["password"] = szPassword;
-	}
-
-	std::string strPostData = j.dump();
-
-	// convert
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-	{
-		// reset trying to join
-		ResetLobbyTryingToJoin();
-
-		// TODO_NGMP: Dont do extra get here, just return it in the put...
-		EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
-
-		if (statusCode == 200 && bSuccess)
+	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
-			JoinResult = EJoinLobbyResult::JoinLobbyResult_Success;
-		}
-		else if (statusCode == 401)
-		{
-			JoinResult = EJoinLobbyResult::JoinLobbyResult_BadPassword;
-		}
-		else if (statusCode == 406)
-		{
-			JoinResult = EJoinLobbyResult::JoinLobbyResult_FullRoom;
-		}
-		// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
+			std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), lobbyInfo.lobbyID);
+			std::map<std::string, std::string> mapHeaders;
 
-		// no response body from this, just http codes
-		if (JoinResult == EJoinLobbyResult::JoinLobbyResult_Success)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joined lobby");
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
 
-			m_CurrentLobby = lobbyInfo;
+			bool bHasMap = TheMapCache->findMap(AsciiString(lobbyInfo.map_path.c_str()));
 
-			// failing to parse this isnt really a fatal error, but would be weird
-			try
+			nlohmann::json j;
+			j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+			j["has_map"] = bHasMap;
+
+			if (!strPassword.empty())
 			{
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				JoinLobbyResponse resp = jsonObject.get<JoinLobbyResponse>();
-
-				m_strTURNUsername = resp.turn_username;
-				m_strTURNToken = resp.turn_token;
-				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
-			}
-			catch (...)
-			{
-
+				j["password"] = strPassword.c_str();
 			}
 
-			// for safety
-			if (TheNGMPGame != nullptr)
+			std::string strPostData = j.dump();
+
+			// create our mesh
+			if (m_pLobbyMesh == nullptr)
 			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
-				delete TheNGMPGame;
-				TheNGMPGame = nullptr;
+				m_pLobbyMesh = new NetworkMesh();
 			}
 
-			// TODO_NGMP: Cleanup game + dont store 2 ptrs
-			if (TheNGMPGame == nullptr)
-			{
-				TheNGMPGame = new NGMPGame();
-
-				AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-				TheNGMPGame->setLocalName(localName);
-
-				// set in game, this actually means in lobby... not in game play, and is necessary to start the game
-				TheNGMPGame->setInGame();
-
-				// set some initial dummy data so the game doesnt balk, we'll do UpdateRoomDataCache immediately below before invoking callback and doing the UI transition, user will never see it
-				TheNGMPGame->setStartingCash(TheGlobalData->m_defaultStartingCash);
-
-				// dont need to do these here, updateroomdatacache does it for us
-				//TheNGMPGame->SyncWithLobby(m_CurrentLobby);
-				//TheNGMPGame->UpdateSlotsFromCurrentLobby();
-
-				// TODO_NGMP: Rest of these
-				/*
-				TheNGMPGame.setExeCRC(info->getExeCRC());
-				TheNGMPGame.setIniCRC(info->getIniCRC());
-					
-				TheNGMPGame.setHasPassword(info->getHasPassword());
-				TheNGMPGame.setGameName(info->getGameName());
-				*/
-			}
-
-			// we need to get more lobby info before triggering the game callback...
-			UpdateRoomDataCache([=]()
+			// convert
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
-					OnJoinedOrCreatedLobby(false, [=]()
+					// reset trying to join
+					ResetLobbyTryingToJoin();
+
+					// TODO_NGMP: Dont do extra get here, just return it in the put...
+					EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
+
+					if (statusCode == 200 && bSuccess)
+					{
+						JoinResult = EJoinLobbyResult::JoinLobbyResult_Success;
+					}
+					else if (statusCode == 401)
+					{
+						JoinResult = EJoinLobbyResult::JoinLobbyResult_BadPassword;
+					}
+					else if (statusCode == 406)
+					{
+						JoinResult = EJoinLobbyResult::JoinLobbyResult_FullRoom;
+					}
+					// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
+
+					// no response body from this, just http codes
+					if (JoinResult == EJoinLobbyResult::JoinLobbyResult_Success)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joined lobby");
+
+						m_CurrentLobby = lobbyInfo;
+
+						// failing to parse this isnt really a fatal error, but would be weird
+						try
 						{
-							m_bAttemptingToJoinLobby = false;
-							if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
+							nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+							JoinLobbyResponse resp = jsonObject.get<JoinLobbyResponse>();
+
+							m_strTURNUsername = resp.turn_username;
+							m_strTURNToken = resp.turn_token;
+							NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
+						}
+						catch (...)
+						{
+
+						}
+
+						// for safety
+						if (TheNGMPGame != nullptr)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+							delete TheNGMPGame;
+							TheNGMPGame = nullptr;
+						}
+
+						// TODO_NGMP: Cleanup game + dont store 2 ptrs
+						if (TheNGMPGame == nullptr)
+						{
+							TheNGMPGame = new NGMPGame();
+
+							// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+							TheNGMPGame->setInGame();
+
+							// set some initial dummy data so the game doesnt balk, we'll do UpdateRoomDataCache immediately below before invoking callback and doing the UI transition, user will never see it
+							TheNGMPGame->setStartingCash(TheGlobalData->m_defaultStartingCash);
+
+							// dont need to do these here, updateroomdatacache does it for us
+							//TheNGMPGame->SyncWithLobby(m_CurrentLobby);
+							//TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
+							// TODO_NGMP: Rest of these
+							/*
+							TheNGMPGame.setExeCRC(info->getExeCRC());
+							TheNGMPGame.setIniCRC(info->getIniCRC());
+
+							TheNGMPGame.setHasPassword(info->getHasPassword());
+							TheNGMPGame.setGameName(info->getGameName());
+							*/
+						}
+
+						OnJoinedOrCreatedLobby(false, [=]()
 							{
-								NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
-							}
-						});
+								m_bAttemptingToJoinLobby = false;
+								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+								if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
+								{
+									pLobbyInterface->m_callbackJoinedLobby(JoinResult);
+								}
+							});
+
+						// get latest lobby info immediately
+						UpdateRoomDataCache([=]()
+							{
+
+							});
+					}
+					else if (statusCode == 401)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Couldn't join lobby, unauthorized, probably the wrong password");
+					}
+					else if (statusCode == 404)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby not found");
+					}
+					else if (statusCode == 406)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby is full");
+					}
+
+
+					if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
+					{
+						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+						if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackJoinedLobby != nullptr)
+						{
+							pLobbyInterface->m_callbackJoinedLobby(JoinResult);
+						}
+						m_bAttemptingToJoinLobby = false;
+					}
+
+
 				});
-		}
-		else if (statusCode == 401)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Couldn't join lobby, unauthorized, probably the wrong password");
-		}
-		else if (statusCode == 404)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby not found");
-		}
-		else if (statusCode == 406)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby is full");
-		}
-			
-
-		if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
-		{
-			if (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby != nullptr)
-			{
-				NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->m_callbackJoinedLobby(JoinResult);
-			}
-			m_bAttemptingToJoinLobby = false;
-		}
-
-			
-	});
+		});
 }
 
 void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
@@ -1058,149 +1046,148 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id, turn_username, turn_token)
 };
 
-void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword, bool bAllowObservers)
+void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
 {
-	m_CurrentLobby = LobbyEntry();
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies");
-	std::map<std::string, std::string> mapHeaders;
-
-	// convert
-	AsciiString strName = AsciiString();
-	strName.translate(strLobbyName);
-
-	AsciiString strMapName = AsciiString();
-	strMapName.translate(strInitialMapName);
-
-	// sanitize map path
-	// we need to parse out the map name for custom maps... its an absolute path
-	// it's safe to just get the file name, dir name and file name MUST be the same. Game enforces this
-	AsciiString sanitizedMapPath = strInitialMapPath;
-	if (sanitizedMapPath.reverseFind('\\'))
-	{
-		sanitizedMapPath = sanitizedMapPath.reverseFind('\\') + 1;
-	}
-
-	nlohmann::json j;
-	j["name"] = strName.str();
-	j["map_name"] = strMapName.str();
-	j["map_path"] = sanitizedMapPath.str();
-	j["map_official"] = bIsOfficial;
-	j["max_players"] = initialMaxSize;
-	j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-	j["vanilla_teams"] = bVanillaTeamsOnly;
-	j["track_stats"] = bTrackStats;
-	j["starting_cash"] = startingCash;
-	j["passworded"] = bPassworded;
-	j["password"] = szPassword;
-	j["allow_observers"] = bAllowObservers;
-	j["exe_crc"] = TheGlobalData->m_exeCRC;
-	j["ini_crc"] = TheGlobalData->m_iniCRC;
-	j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
-
-	std::string strPostData = j.dump();
-
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
-			try
+			m_CurrentLobby = LobbyEntry();
+			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("Lobbies");
+			std::map<std::string, std::string> mapHeaders;
+
+			// convert
+			AsciiString strMapName = AsciiString();
+			strMapName.translate(strInitialMapName);
+
+			// sanitize map path
+			// we need to parse out the map name for custom maps... its an absolute path
+			// it's safe to just get the file name, dir name and file name MUST be the same. Game enforces this
+			AsciiString sanitizedMapPath = strInitialMapPath;
+			if (sanitizedMapPath.reverseFind('\\'))
 			{
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
+				sanitizedMapPath = sanitizedMapPath.reverseFind('\\') + 1;
+			}
 
-				m_strTURNUsername = resp.turn_username;
-				m_strTURNToken = resp.turn_token;
-				NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
+			nlohmann::json j;
+			j["name"] = to_utf8(strLobbyName.str());
+			j["map_name"] = strMapName.str();
+			j["map_path"] = sanitizedMapPath.str();
+			j["map_official"] = bIsOfficial;
+			j["max_players"] = initialMaxSize;
+			j["preferred_port"] = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+			j["vanilla_teams"] = bVanillaTeamsOnly;
+			j["track_stats"] = bTrackStats;
+			j["starting_cash"] = startingCash;
+			j["passworded"] = bPassworded;
+			j["password"] = strPassword;
+			j["allow_observers"] = bAllowObservers;
+			j["exe_crc"] = TheGlobalData->m_exeCRC;
+			j["ini_crc"] = TheGlobalData->m_iniCRC;
+			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
 
+			std::string strPostData = j.dump();
 
-				if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
+			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
-					// for safety
-					if (TheNGMPGame != nullptr)
+					try
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
-						delete TheNGMPGame;
-						TheNGMPGame = nullptr;
-					}
+						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+						CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();
+
+						m_strTURNUsername = resp.turn_username;
+						m_strTURNToken = resp.turn_token;
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "Got TURN username: %s, token: %s", m_strTURNUsername.c_str(), m_strTURNToken.c_str());
 
 
-					// TODO_NGMP: Cleanup game + dont store 2 ptrs
-					if (TheNGMPGame == nullptr)
-					{
-						TheNGMPGame = new NGMPGame();
-					}
-
-					// reset before copy
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ResetCachedRoomData();
-					 
-					// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
-					
-					// store the basic info (lobby id), we will immediately kick off a full get				
-					m_CurrentLobby.lobbyID = resp.lobby_id;
-					m_CurrentLobby.owner = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
-
-					m_CurrentLobby.name = std::string(strName.str());
-					m_CurrentLobby.map_name = std::string(strMapName.str());
-					m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
-					m_CurrentLobby.current_players = 1;
-					m_CurrentLobby.max_players = initialMaxSize;
-					m_CurrentLobby.passworded = bPassworded;
-					m_CurrentLobby.password = std::string(szPassword);
-
-					LobbyMemberEntry me;
-
-					me.user_id = m_CurrentLobby.owner;
-					me.display_name = std::string(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName().str());
-					me.m_bIsReady = true; // host is always ready
-					me.strIPAddress = "127.0.0.1"; // TODO_NGMP: use localhost for non-host players too that are local...
-					me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
-
-					m_CurrentLobby.members.push_back(me);
-
-					
-
-
-					AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-					TheNGMPGame->setLocalName(localName);
-
-					// set in game, this actually means in lobby... not in game play, and is necessary to start the game
-					TheNGMPGame->setInGame();
-
-					TheNGMPGame->SyncWithLobby(m_CurrentLobby);
-					TheNGMPGame->UpdateSlotsFromCurrentLobby();
-
-					// we always need to get the enc key etc
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->OnJoinedOrCreatedLobby(false, [=]()
+						if (resp.result == ECreateLobbyResponseResult::SUCCEEDED)
 						{
-							// TODO_NGMP: Impl
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+							// for safety
+							if (TheNGMPGame != nullptr)
+							{
+								NetworkLog(ELogVerbosity::LOG_RELEASE, "NGMP_OnlineServices_LobbyInterface::JoinLobby - Safety check - Expected NGMPGame to be null by now, it wasn't so forcefully destroying");
+								delete TheNGMPGame;
+								TheNGMPGame = nullptr;
+							}
 
-							// Set our properties
-							NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
-						});
-				}
-				else
-				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to create lobby!\n");
 
-					// TODO_NGMP: Impl
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+							// TODO_NGMP: Cleanup game + dont store 2 ptrs
+							if (TheNGMPGame == nullptr)
+							{
+								TheNGMPGame = new NGMPGame();
+							}
 
-					// Set our properties
-					NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->ApplyLocalUserPropertiesToCurrentNetworkRoom();
-				}
+							// reset before copy
+							pLobbyInterface->ResetCachedRoomData();
 
-				
-			}
-			catch (...)
-			{
+							// TODO: Do we need more info here? we kick off a lobby GET immediately, maybe that should be the response to creating
 
-			}
+							// store the basic info (lobby id), we will immediately kick off a full get				
+							m_CurrentLobby.lobbyID = resp.lobby_id;
+							m_CurrentLobby.owner = pAuthInterface->GetUserID();
 
+							AsciiString strName = AsciiString();
+
+							m_CurrentLobby.name = to_utf8(strLobbyName.str());
+							m_CurrentLobby.map_name = std::string(strMapName.str());
+							m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
+							m_CurrentLobby.current_players = 1;
+							m_CurrentLobby.max_players = initialMaxSize;
+							m_CurrentLobby.passworded = bPassworded;
+							m_CurrentLobby.password = strPassword;
+
+							LobbyMemberEntry me;
+
+							me.user_id = m_CurrentLobby.owner;
+							me.display_name = pAuthInterface->GetDisplayName();
+							me.m_bIsReady = true; // host is always ready
+							me.preferredPort = NGMP_OnlineServicesManager::GetInstance()->GetPortMapper().GetOpenPort();
+
+							m_CurrentLobby.members.push_back(me);
+
+							// set in game, this actually means in lobby... not in game play, and is necessary to start the game
+							TheNGMPGame->setInGame();
+
+							TheNGMPGame->SyncWithLobby(m_CurrentLobby);
+							TheNGMPGame->UpdateSlotsFromCurrentLobby();
+
+							// we always need to get the enc key etc
+							pLobbyInterface->OnJoinedOrCreatedLobby(false, [=]()
+								{
+									// TODO_NGMP: Impl
+									pLobbyInterface->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+
+									// Set our properties
+									pLobbyInterface->ApplyLocalUserPropertiesToCurrentNetworkRoom();
+								});
+						}
+						else
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to create lobby!\n");
+
+							pLobbyInterface->InvokeCreateLobbyCallback(resp.result == ECreateLobbyResponseResult::SUCCEEDED);
+						}
+
+
+					}
+					catch (...)
+					{
+
+					}
+
+				});
 		});
-	return;
 }
 
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback)
 {
+	// join the network mesh too
+	if (m_pLobbyMesh == nullptr)
+	{
+		m_pLobbyMesh = new NetworkMesh();
+	}
+
 	m_bMarkedGameAsFinished = false;
 
 	// reset timer
@@ -1212,13 +1199,6 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 	{
 		UpdateRoomDataCache([=]()
 			{
-				// join the network mesh too
-				if (m_pLobbyMesh == nullptr)
-				{
-					m_pLobbyMesh = new NetworkMesh();
-					m_pLobbyMesh->ConnectToMesh(m_CurrentLobby);
-				}
-
 				fnCallback();
 			});
 	}

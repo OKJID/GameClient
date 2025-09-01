@@ -29,11 +29,13 @@
 #define NATPMP_STATICLIB 1
 #define PLUM_STATIC 1
 
-#define FRAME_GROUPING_CAP 2
-
 #define GENERALS_ONLINE_VERSION 1
 #define GENERALS_ONLINE_NET_VERSION 1
 #define GENERALS_ONLINE_SERVICE_VERSION 1
+
+#if !_DEBUG
+#define GENERALS_ONLINE_ENCRYPT_CREDENTIALS 1
+#endif
 
 // annoying game assertions, we'll catch real things in the debugger
 #define DISABLE_DEBUG_CRASHING 1
@@ -50,6 +52,12 @@
 
 #define GENERALS_ONLINE_HIGH_FPS_SERVER 1
 
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+#define GENERALS_ONLINE_CLIENT_ID "gen_online_60hz"
+#else
+#define GENERALS_ONLINE_CLIENT_ID "gen_online_30hz"
+#endif
+
 
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
@@ -61,6 +69,12 @@
 	#define GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER 1
 
 	#define GENERALS_ONLINE_HIGH_FPS_RENDER 1 // This is optional on 30fps, but will boost/unlock the framerate, similar to gentool
+#endif
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+static int FRAME_GROUPING_CAP = 32;
+#else
+static int FRAME_GROUPING_CAP = 64;
 #endif
 
 // useful for testing release builds with multiple logins

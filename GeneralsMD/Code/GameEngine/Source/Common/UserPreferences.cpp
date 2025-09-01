@@ -107,7 +107,7 @@ static AsciiString realAsStr(Real val)
 
 
 //-----------------------------------------------------------------------------
-// UserPreferences Class 
+// UserPreferences Class
 //-----------------------------------------------------------------------------
 
 UserPreferences::UserPreferences( void )
@@ -240,7 +240,7 @@ void UserPreferences::setAsciiString(AsciiString key, AsciiString val)
 }
 
 //-----------------------------------------------------------------------------
-// QuickMatchPreferences base class 
+// QuickMatchPreferences base class
 //-----------------------------------------------------------------------------
 
 QuickMatchPreferences::QuickMatchPreferences()
@@ -248,7 +248,9 @@ QuickMatchPreferences::QuickMatchPreferences()
 	AsciiString userPrefFilename;
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t localProfile = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 	userPrefFilename.format("GeneralsOnlineData\\QMPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -431,7 +433,7 @@ Int QuickMatchPreferences::getSide( void )
 }
 
 //-----------------------------------------------------------------------------
-// CustomMatchPreferences base class 
+// CustomMatchPreferences base class
 //-----------------------------------------------------------------------------
 
 #include <filesystem>
@@ -441,7 +443,9 @@ CustomMatchPreferences::CustomMatchPreferences()
 
 #if defined(GENERALS_ONLINE)
 	// NOTE: We need to use a different folder to avoid conflict with GS/Revora
-	int64_t user_id = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+	int64_t user_id = pAuthInterface != nullptr ? pAuthInterface->GetUserID() : -1;
 	userPrefFilename.format("GeneralsOnlineData\\CustomPref%lld.ini", user_id);
 
 	AsciiString prefsDirectory = TheGlobalData->getPath_UserData();
@@ -701,7 +705,7 @@ AsciiString CustomMatchPreferences::getPreferredMap(void)
 		ret = getDefaultOfficialMap();
 		return ret;
 	}
-	
+
 	//can only use official maps if recording stats
 	if( getUseStats() && !isOfficialMap(ret) )
 		ret = getDefaultOfficialMap();
@@ -723,7 +727,7 @@ Bool CustomMatchPreferences::getSuperweaponRestricted(void) const
   {
     return false;
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -740,19 +744,19 @@ Money CustomMatchPreferences::getStartingCash(void) const
   {
     return TheMultiplayerSettings->getDefaultStartingMoney();
   }
-  
+
   Money money;
   money.deposit( strtoul( it->second.str(), NULL, 10 ), FALSE  );
-  
+
   return money;
 }
 
 void CustomMatchPreferences::setStartingCash( const Money & startingCash )
 {
   AsciiString option;
-  
+
   option.format( "%d", startingCash.countMoney() );
-  
+
   (*this)[startingCashKey] = option;
 }
 
@@ -767,7 +771,7 @@ Bool CustomMatchPreferences::getFactionsLimited(void) const
   {
     return false; // The default
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -786,7 +790,7 @@ Bool CustomMatchPreferences::getUseStats(void) const
   {
     return true; // The default
   }
-  
+
   return ( it->second.compareNoCase( "yes" ) == 0 );
 }
 
@@ -796,7 +800,7 @@ void CustomMatchPreferences::setUseStats( Bool useStats )
 }
 
 //-----------------------------------------------------------------------------
-// GameSpyMiscPreferences base class 
+// GameSpyMiscPreferences base class
 //-----------------------------------------------------------------------------
 
 GameSpyMiscPreferences::GameSpyMiscPreferences()
@@ -804,7 +808,8 @@ GameSpyMiscPreferences::GameSpyMiscPreferences()
 	AsciiString userPrefFilename;
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t localProfile = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	userPrefFilename.format("GeneralsOnlineData\\GSMiscPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -847,7 +852,7 @@ Int GameSpyMiscPreferences::getMaxMessagesPerUpdate( void )
 	return getInt("MaxMessagesPerUpdate", 100);
 }
 //-----------------------------------------------------------------------------
-// IgnorePreferences base class 
+// IgnorePreferences base class
 //-----------------------------------------------------------------------------
 
 IgnorePreferences::IgnorePreferences()
@@ -856,7 +861,8 @@ IgnorePreferences::IgnorePreferences()
 //	if(!TheGameSpyInfo)
 	
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t localProfile = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	userPrefFilename.format("GeneralsOnlineData\\IgnorePref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -886,7 +892,7 @@ void IgnorePreferences::setIgnore(const AsciiString& userName, Int profileID, Bo
 IgnorePrefMap IgnorePreferences::getIgnores(void)
 {
 	IgnorePrefMap ignores;
-	
+
 	IgnorePreferences::iterator it;
 	for (it = begin(); it != end(); ++it)
 	{
@@ -901,7 +907,7 @@ IgnorePrefMap IgnorePreferences::getIgnores(void)
 }
 
 //-----------------------------------------------------------------------------
-// LadderPreferences base class 
+// LadderPreferences base class
 //-----------------------------------------------------------------------------
 
 LadderPreferences::LadderPreferences()

@@ -51,6 +51,17 @@ Bool NextGenTransport::update(void)
 		retval = FALSE;
 	}
 
+	// flush
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pMesh != nullptr)
+	{
+		pMesh->Flush();
+	}
+	else
+	{
+		retval = FALSE;
+	}
+
 	return retval;
 }
 
@@ -63,77 +74,85 @@ Bool NextGenTransport::doRecv(void)
 
 	int numRead = 0;
 
-	std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->GetAllConnections();
-	for (auto& kvPair : connections)
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface != nullptr)
 	{
-		SteamNetworkingMessage_t* pMsg[255];
-		int numPackets = kvPair.second.Recv(pMsg);
-
-		for (int i = 0; i < numPackets; ++i)
+		NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+		if (pMesh != nullptr)
 		{
-			NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
-			
-			uint32_t numBytes = pMsg[i]->m_cbSize;
+			std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
+			for (auto& kvPair : connections)
+			{
+				SteamNetworkingMessage_t* pMsg[255];
+				int numPackets = kvPair.second.Recv(pMsg);
 
-			++numRead;
-			bRet = true;
+				for (int i = 0; i < numPackets; ++i)
+				{
+					NetworkLog(ELogVerbosity::LOG_DEBUG, "[GAME PACKET] Received message of size %d\n", pMsg[i]->m_cbSize);
 
-			memcpy(buf, pMsg[i]->m_pData, numBytes);
+					uint32_t numBytes = pMsg[i]->m_cbSize;
 
-			// Free message struct and buffer.
-			pMsg[i]->Release();
+					++numRead;
+					bRet = true;
+
+					memcpy(buf, pMsg[i]->m_pData, numBytes);
+
+					// Free message struct and buffer.
+					pMsg[i]->Release();
 
 
-			// generals logic
+					// generals logic
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
 // Packet loss simulation
-			if (m_usePacketLoss)
-			{
-				if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
-				{
-					continue;
-				}
-			}
+					if (m_usePacketLoss)
+					{
+						if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
+						{
+							continue;
+						}
+					}
 #endif
 
-			incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
+					incomingMessage.length = numBytes - sizeof(TransportMessageHeader);
 
-			// is it a generals packet?
-			if (isGeneralsPacket(&incomingMessage))
-			{
-				//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
-			}
-			else
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
-			}
+					// is it a generals packet?
+					if (isGeneralsPacket(&incomingMessage))
+					{
+						//NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is a generals packet");
+					}
+					else
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Game Packet Recv: Is NOT a generals packet");
+					}
 
-			if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
-				//if (numBytes <= sizeof(TransportMessageHeader))
-			{
-				m_unknownPackets[m_statisticsSlot]++;
-				m_unknownBytes[m_statisticsSlot] += numBytes;
-				continue;
-			}
+					if (numBytes <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
+						//if (numBytes <= sizeof(TransportMessageHeader))
+					{
+						m_unknownPackets[m_statisticsSlot]++;
+						m_unknownBytes[m_statisticsSlot] += numBytes;
+						continue;
+					}
 
-			// Something there; stick it somewhere
-	//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
-			m_incomingPackets[m_statisticsSlot]++;
-			m_incomingBytes[m_statisticsSlot] += numBytes;
+					// Something there; stick it somewhere
+			//		DEBUG_LOG(("Saw %d bytes from %d:%d\n", len, ntohl(from.sin_addr.S_un.S_addr), ntohs(from.sin_port)));
+					m_incomingPackets[m_statisticsSlot]++;
+					m_incomingBytes[m_statisticsSlot] += numBytes;
 
-			for (int i = 0; i < MAX_MESSAGES; ++i)
-			{
-				if (m_inBuffer[i].length == 0)
-				{
-					// Empty slot; use it
-					m_inBuffer[i].length = incomingMessage.length;
+					for (int i = 0; i < MAX_MESSAGES; ++i)
+					{
+						if (m_inBuffer[i].length == 0)
+						{
+							// Empty slot; use it
+							m_inBuffer[i].length = incomingMessage.length;
 
-					// dont care about address anymore
-					//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
-					//m_inBuffer[i].port = ntohs(from.sin_port);
+							// dont care about address anymore
+							//m_inBuffer[i].addr = ntohl(from.sin_addr.S_un.S_addr);
+							//m_inBuffer[i].port = ntohs(from.sin_port);
 
-					memcpy(&m_inBuffer[i], buf, numBytes);
-					break;
+							memcpy(&m_inBuffer[i], buf, numBytes);
+							break;
+						}
+					}
 				}
 			}
 		}
@@ -158,11 +177,24 @@ Bool NextGenTransport::doSend(void)
 			// TODO_NGMP: Get this from game info, not the lobby, we should tear lobby down probably
 			// addr is actually player index...
 			// TODO: What if it's empty?
-			NGMPGameSlot* pSlot = (NGMPGameSlot*)NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
+			NGMP_OnlineServicesManager* pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
+
+			if (pOnlineServicesManager == nullptr)
+			{
+				return FALSE;
+			}
+
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			if (pLobbyInterface == nullptr)
+			{
+				return FALSE;
+			}
+
+			NGMPGameSlot* pSlot = (NGMPGameSlot*)pLobbyInterface->GetCurrentGame()->getSlot(m_outBuffer[i].addr);
 
 			if (pSlot != nullptr)
 			{
-				retval = (NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID) >= 0);
+				retval = (NGMP_OnlineServicesManager::GetNetworkMesh()->SendGamePacket((void*)(&m_outBuffer[i]), (uint32_t)m_outBuffer[i].length + sizeof(TransportMessageHeader), pSlot->m_userID) >= 0);
 			}
 			else
 			{

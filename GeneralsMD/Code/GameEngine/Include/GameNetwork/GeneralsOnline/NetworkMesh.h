@@ -74,13 +74,15 @@ public:
 	std::string GetConnectionType();
 
 	void UpdateState(EConnectionState newState, NetworkMesh* pOwningMesh);
-	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh);
+	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh, bool bIsRetrying);
 	
 	int64_t m_userID = -1;
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	
 	int64_t pingSent = -1;
+
+	int m_SignallingAttempts = 0;
 	
 	int GetLatency();
 
@@ -109,10 +111,13 @@ public:
 		}
 	}
 
+	void Flush();
+
+	void RegisterConnectivity(int64_t userID);
 	void UpdateConnectivity(PlayerConnection* connection);
 
-	std::function<void(int64_t, std::string, PlayerConnection*)> m_cbOnConnected = nullptr;
-	void RegisterForConnectionEvents(std::function<void(int64_t, std::string, PlayerConnection*)> cb)
+	std::function<void(int64_t, std::wstring, PlayerConnection*)> m_cbOnConnected = nullptr;
+	void RegisterForConnectionEvents(std::function<void(int64_t, std::wstring, PlayerConnection*)> cb)
 	{
 		m_cbOnConnected = cb;
 	}
@@ -161,14 +166,8 @@ public:
 	QueuedGamePacket RecvGamePacket();
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
-	void SyncConnectionListToLobbyMemberList(std::vector<LobbyMemberEntry> vecLobbyMembers);
-
-	void ConnectToSingleUser(LobbyMemberEntry& member, bool bIsReconnect = false);
-
-	void ConnectToUserViaRelay(Int64 user_id);
-
-	bool ConnectToMesh(LobbyEntry& lobby);
-
+	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
+	void DisconnectUser(int64_t remoteUserID);
 	void Disconnect();
 
 	void Tick();

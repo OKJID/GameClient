@@ -1,17 +1,34 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
 #include <mutex>
-#include "libsodium/sodium/crypto_aead_xchacha20poly1305.h"
-#include "libsodium/sodium/randombytes.h"
+#include <string>
+#include <locale>
+#include <codecvt>
+#include "../OnlineServices_Init.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 
+std::string to_utf8(const std::wstring& wstr)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.to_bytes(wstr);
+}
+
+std::wstring from_utf8(const std::string& utf8_str)
+{
+	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+	return converter.from_bytes(utf8_str);
+}
+
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 {
-	if (logVerbosity < g_LogVerbosity)
+	if (!NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging())
 	{
-		return;
+		if (logVerbosity < g_LogVerbosity)
+		{
+			return;
+		}
 	}
 
 	std::scoped_lock scopedLock { m_logMutex };
@@ -21,7 +38,10 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		auto now = std::chrono::system_clock::now();
 		auto in_time_t = std::chrono::system_clock::to_time_t(now);
 
-		std::stringstream ss;
+
+		m_strNetworkLogFileName = std::format("{}\\GeneralsOnlineData\\GeneralsOnline.log", TheGlobalData->getPath_UserData().str());
+		/*
+			std::stringstream ss;
 
 #if defined(_DEBUG)
 		if (IsDebuggerPresent())
@@ -37,7 +57,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 #else
 		ss << "GeneralsOnline.log";
 #endif
-		m_strNetworkLogFileName = ss.str();
+*/
 		std::ofstream overwriteFile(m_strNetworkLogFileName);
 
 		// log start msg
@@ -145,73 +165,6 @@ std::vector<uint8_t> Base64Decode(const std::string& encodedData) {
 	}
 
 	return decodedData;
-}
-
-void PrepareChallenge(nlohmann::json & json)
-{
-	// prepare challenge
-	const char* szChallenge = "Can we have some shoes?";
-
-	json["challenge"] = szChallenge;
-	json["nonce"] = "";
-	/*
-
-#if defined(_DEBUG)
-	const unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
-#else
-	const unsigned char key[crypto_aead_xchacha20poly1305_ietf_KEYBYTES] = { 1, 4, 2, 6, 1, 9, 3, 5, 6, 2, 1, 0, 0, 7, 0, 1, 7, 9, 4, 4, 6, 1, 3, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
-#endif
-
-	// encrypt
-	std::vector<unsigned char> ciphertext((strlen(szChallenge) * sizeof(char)) + crypto_aead_xchacha20poly1305_ietf_ABYTES);
-	unsigned long long ciphertext_len = 0;
-
-	std::vector<uint8_t> nonce(crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-	randombytes_buf(nonce.data(), nonce.size());
-
-	crypto_aead_xchacha20poly1305_ietf_encrypt(&ciphertext.data()[0], &ciphertext_len,
-		(unsigned char*)szChallenge, strlen(szChallenge) * sizeof(char),
-		nullptr, 0,
-		NULL, &nonce[0], &key[0]);
-
-	// resize buffer and copy back
-	ciphertext.resize(ciphertext_len);
-
-	json["challenge"] = Base64Encode(ciphertext);
-	json["nonce"] = Base64Encode(nonce);
-	*/
-}
-
-std::string DecryptServiceToken(std::string strServiceToken)
-{
-#if defined(USE_ENCRYPTED_SERVICE_TOKENS)
-	const unsigned char key[32] = { 0, 7, 0, 1, 7, 9, 4, 1, 4, 6, 2, 1, 0, 4, 6, 1, 3, 2, 6, 1, 9, 3, 5, 9, 3, 1, 2, 2, 3, 4, 1, 6 };
-	const unsigned char iv[12] = { 6, 9, 5, 4, 1, 2, 3, 6, 5, 8, 7, 4 };
-
-	std::vector<uint8_t> vecDecodedToken = Base64Decode(strServiceToken);
-
-	std::vector<unsigned char> vecDecryptedBytes;
-	unsigned long long decrypted_len = 0;
-	if (crypto_aead_xchacha20poly1305_ietf_decrypt(&vecDecryptedBytes.data()[0], &decrypted_len,
-		NULL,
-		&vecDecodedToken.data()[0], vecDecodedToken.size(),
-		nullptr,
-		0,
-		&iv[0], &key[0]) != 0)
-	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "Token decrypt failed");
-		return "";
-	}
-	else
-	{
-		vecDecryptedBytes.resize(decrypted_len);
-		std::string decryptedTokenString(vecDecryptedBytes.begin(), vecDecryptedBytes.end());
-
-		return decryptedTokenString;
-	}
-#else
-	return strServiceToken;
-#endif
 }
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval)

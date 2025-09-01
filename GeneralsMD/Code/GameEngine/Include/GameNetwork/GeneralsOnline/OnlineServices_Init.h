@@ -11,6 +11,10 @@ class NGMP_OnlineServices_RoomsInterface;
 class NGMP_OnlineServices_StatsInterface;
 class NGMP_OnlineServices_MatchmakingInterface;
 
+class NetworkMesh;
+
+#include <mutex>
+
 #pragma comment(lib, "libcurl/libcurl.lib")
 #pragma comment(lib, "sentry/sentry.lib")
 
@@ -37,7 +41,13 @@ enum EWebSocketMessageID
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
 	LOBBY_CHAT_FROM_SERVER = 11,
 	NETWORK_SIGNAL = 12,
-	START_GAME = 13
+	START_GAME = 13,
+	PING = 14,
+	PONG = 15,
+	PROBE = 16,
+	NETWORK_CONNECTION_START_SIGNALLING = 17,
+	NETWORK_CONNECTION_DISCONNECT_PLAYER = 18,
+	NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING = 19,
 };
 
 enum class EQoSRegions
@@ -139,19 +149,20 @@ public:
 		return m_bConnected;
 	}
 
-	std::string strBuf;
+	std::vector<char> m_vecWSPartialBuffer;
 
 	void Shutdown();
 
-	void SendData_ChangeName(const char* szMessage);
-	void SendData_RoomChatMessage(const char* szMessage, bool bIsAction);
-	void SendData_LobbyChatMessage(const char* szMessage, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost);
+	void SendData_ChangeName(UnicodeString& strNewName);
+	void SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction);
+	void SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost);
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
 	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
-	void SendData_Signalling(const std::string& s);
+	void SendData_RequestSignalling(int64_t targetUserID);
+	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);
 	void SendData_StartGame();
 
 	void Tick();
@@ -161,14 +172,20 @@ public:
 	void Send(const char* message);
 
 	// TODO_STEAM: clear this on connect
-	std::queue<std::string> m_pendingSignals;
+	std::queue<std::vector<uint8_t>> m_pendingSignals;
+
+	std::recursive_mutex& GetLock() { return m_mutex; }
 
 private:
 	CURL* m_pCurl = nullptr;
 	bool m_bConnected = false;
 
+	int64_t m_lastPong = -1;
 	int64_t m_lastPing = -1;
-	int64_t m_timeBetweenUserPings = 5000;
+	const int64_t m_timeBetweenUserPings = 1000;
+	const int64_t m_timeForWSTimeout = 10000;
+
+	std::recursive_mutex m_mutex;
 };
 
 enum class ERoomFlags : int
@@ -200,6 +217,20 @@ private:
 	int m_RoomID;
 	UnicodeString m_strRoomDisplayName;
 	ERoomFlags m_RoomFlags = ERoomFlags::ROOM_FLAGS_DEFAULT;
+};
+
+struct ServiceConfig
+{
+	bool retry_signalling = false;
+	bool use_mapped_port = true;
+	int min_run_ahead_frames = 4;
+	int ra_update_frequency_frames = 10;
+	bool relay_all_traffic = false;
+	int ra_slack_percent = 20;
+	int frame_grouping_frames = 2;
+	bool enable_host_migration = true;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ServiceConfig, retry_signalling, use_mapped_port, min_run_ahead_frames, ra_update_frequency_frames, relay_all_traffic, ra_slack_percent, frame_grouping_frames, enable_host_migration)
 };
 
 class NGMP_OnlineServicesManager
@@ -258,7 +289,52 @@ public:
 		return m_pOnlineServicesManager;
 	}
 
+	static WebSocket* GetWebSocket()
+	{
+		if (m_pOnlineServicesManager != nullptr)
+		{
+			return m_pOnlineServicesManager->Internal_GetWebSocket();
+		}
+
+		return nullptr;
+	}
+
+	template<typename T>
+	static T* GetInterface()
+	{
+		// need the root mgr first
+		if (m_pOnlineServicesManager != nullptr)
+		{
+			if constexpr (std::is_same<T, NGMP_OnlineServices_AuthInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pAuthInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_LobbyInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pLobbyInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_RoomsInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pRoomInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_StatsInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pStatsInterface;
+			}
+			else if constexpr (std::is_same<T, NGMP_OnlineServices_MatchmakingInterface>::value)
+			{
+				return m_pOnlineServicesManager->m_pMatchmakingInterface;
+			}
+		}
+
+		return nullptr;
+	}
+
+	static NetworkMesh* GetNetworkMesh();
+
 	void Shutdown();
+
+	void GetAndParseServiceConfig(std::function<void(void)> cbOnDone);
 
 	~NGMP_OnlineServicesManager()
 	{
@@ -301,7 +377,7 @@ public:
 
 	void StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
 
-	WebSocket* GetWebSocket() const { return m_pWebSocket; }
+	WebSocket* Internal_GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }
 
 	void CancelUpdate();
@@ -309,11 +385,13 @@ public:
 	void StartDownloadUpdate(std::function<void(void)> cb);
 	void ContinueUpdate();
 
+	/*
 	NGMP_OnlineServices_AuthInterface* GetAuthInterface() const { return m_pAuthInterface; }
 	NGMP_OnlineServices_LobbyInterface* GetLobbyInterface() const { return m_pLobbyInterface; }
 	NGMP_OnlineServices_RoomsInterface* GetRoomsInterface() const { return m_pRoomInterface; }
 	NGMP_OnlineServices_StatsInterface* GetStatsInterface() const { return m_pStatsInterface; }
 	NGMP_OnlineServices_MatchmakingInterface* GetMatchmakingInterface() const { return m_pMatchmakingInterface; }
+	*/
 	QoSManager& GetQoSManager() { return m_qosMgr; }
 	QoSManager m_qosMgr;
 
@@ -349,13 +427,19 @@ private:
 
 		std::string GetPatcherDirectoryPath();
 
-private:
+public:
 	NGMP_OnlineServices_AuthInterface* m_pAuthInterface = nullptr;
 	NGMP_OnlineServices_LobbyInterface* m_pLobbyInterface = nullptr;
 	NGMP_OnlineServices_RoomsInterface* m_pRoomInterface = nullptr;
 	NGMP_OnlineServices_StatsInterface* m_pStatsInterface = nullptr;
 	NGMP_OnlineServices_MatchmakingInterface* m_pMatchmakingInterface = nullptr;
+
+	ServiceConfig& GetServiceConfig() { return m_ServiceConfig; }
+
+private:
 	PortMapper m_PortMapper;
+
+	ServiceConfig m_ServiceConfig;
 
 	HTTPManager* m_pHTTPManager = nullptr;
 

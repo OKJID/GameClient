@@ -4,34 +4,66 @@
 #include "NetworkMesh.h"
 #include "../GameSpy/PeerDefs.h"
 #include "OnlineServices_Init.h"
+#include "Common/MultiplayerSettings.h"
+
+extern NGMPGame* TheNGMPGame;
 
 enum class EChatMessageType
 {
 	CHAT_MESSAGE_TYPE_NETWORK_ROOM,
 	CHAT_MESSAGE_TYPE_LOBBY
 };
-static GameSpyColors DetermineColorForChatMessage(EChatMessageType chatMessageType, Bool isPublic, Bool isAction)
+static Color DetermineColorForChatMessage(EChatMessageType chatMessageType, Bool isPublic, Bool isAction, int lobbySlot = -1)
 {
-	GameSpyColors style;
+	Color style = GameMakeColor(255, 255, 255, 255);
 
 	// TODO_NGMP: Support owner chat again
 	Bool isOwner = false;
 
 	if (isPublic && isAction)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_OWNER_EMOTE : GSCOLOR_CHAT_EMOTE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_OWNER_EMOTE] : GameSpyColor[GSCOLOR_CHAT_EMOTE];
 	}
 	else if (isPublic)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_OWNER : GSCOLOR_CHAT_NORMAL;
+		// use lobby colors
+		if (chatMessageType == EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY)
+		{
+			if (lobbySlot == -1)
+			{
+				return GameMakeColor(255, 255, 255, 255);
+			}
+			else
+			{
+				if (TheNGMPGame)
+				{
+					GameSlot* pSlot = TheNGMPGame->getSlot(lobbySlot);
+
+					if (pSlot != nullptr)
+					{
+						int numColors = TheMultiplayerSettings->getNumColors();
+						int color = pSlot->getColor();
+						if (color > -1 && color < numColors)
+						{
+							MultiplayerColorDefinition* def = TheMultiplayerSettings->getColor(color);
+							style = def->getColor();
+						}
+					}
+				}
+			}
+		}
+		else
+		{
+			style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_OWNER] : GameSpyColor[GSCOLOR_CHAT_NORMAL];
+		}
 	}
 	else if (isAction)
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER_EMOTE : GSCOLOR_CHAT_PRIVATE_EMOTE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_PRIVATE_OWNER_EMOTE] : GameSpyColor[GSCOLOR_CHAT_PRIVATE_EMOTE];
 	}
 	else
 	{
-		style = (isOwner) ? GSCOLOR_CHAT_PRIVATE_OWNER : GSCOLOR_CHAT_PRIVATE;
+		style = (isOwner) ? GameSpyColor[GSCOLOR_CHAT_PRIVATE_OWNER] : GameSpyColor[GSCOLOR_CHAT_PRIVATE];
 	}
 
 	// filters language
@@ -66,11 +98,15 @@ public:
 
 	void LeaveRoom()
 	{
-		NGMP_OnlineServicesManager::GetInstance()->GetWebSocket()->SendData_LeaveNetworkRoom();
+		WebSocket* pWS = NGMP_OnlineServicesManager::GetWebSocket();
+		if (pWS != nullptr)
+		{
+			pWS->SendData_LeaveNetworkRoom();
+		}
 	}
 
-	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
+	std::function<void(UnicodeString strMessage, Color color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, Color color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}
@@ -130,10 +166,7 @@ public:
 
 	void Tick()
 	{
-		if (m_pNetRoomMesh != nullptr)
-		{
-			m_pNetRoomMesh->Tick();
-		}
+
 	}
 
 	std::vector<NetworkRoom> GetGroupRooms()
@@ -148,9 +181,6 @@ public:
 
 private:
 	int m_CurrentRoomID = -1;
-	
-	// TODO_NGMP: cleanup
-	NetworkMesh* m_pNetRoomMesh = nullptr;
 
 	std::vector<NetworkRoom> m_vecRooms;
 

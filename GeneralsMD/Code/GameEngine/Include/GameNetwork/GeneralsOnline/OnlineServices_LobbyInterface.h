@@ -13,7 +13,6 @@ extern NGMPGame* TheNGMPGame;
 struct LobbyMemberEntry : public NetworkMemberBase
 {
 
-	std::string strIPAddress;
 	uint16_t preferredPort;
 	// NOTE: NetworkMemberBase is not deserialized
 
@@ -123,7 +122,7 @@ public:
 	UnicodeString m_PendingCreation_LobbyName;
 	UnicodeString m_PendingCreation_InitialMapDisplayName;
 	AsciiString m_PendingCreation_InitialMapPath;
-	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, const char* szPassword, bool bAllowObservers);
+	void CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers);
 
 	void OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(void)> fnCallback);
 
@@ -334,8 +333,8 @@ public:
 		m_OnCannotConnectToLobbyCallback = nullptr;
 	}
 
-	std::function<void(UnicodeString strMessage, GameSpyColors color)> m_OnChatCallback = nullptr;
-	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, GameSpyColors color)> cb)
+	std::function<void(UnicodeString strMessage, Color color)> m_OnChatCallback = nullptr;
+	void RegisterForChatCallback(std::function<void(UnicodeString strMessage, Color color)> cb)
 	{
 		m_OnChatCallback = cb;
 	}
@@ -367,10 +366,10 @@ public:
 
 	bool IsInLobby() const { return m_CurrentLobby.lobbyID != -1; }
 
-	NetworkMesh* GetNetworkMesh() { return m_pLobbyMesh; }
+	NetworkMesh* GetNetworkMeshForLobby() { return m_pLobbyMesh; }
 
-	void JoinLobby(int index, const char* szPassword);
-	void JoinLobby(LobbyEntry lobby, const char* szPassword);
+	void JoinLobby(int index, std::string strPassword);
+	void JoinLobby(LobbyEntry lobby, std::string strPassword);
 
 	void LeaveCurrentLobby();
 

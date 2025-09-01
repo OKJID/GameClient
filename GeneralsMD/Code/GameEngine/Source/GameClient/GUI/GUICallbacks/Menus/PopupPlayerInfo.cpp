@@ -91,6 +91,7 @@ static GameWindow *checkBoxNonAsianFont = NULL;
 static Bool isOverlayActive = false;
 static Bool raiseMessageBox = false;
 static int64_t lookAtPlayerID = 0;
+
 static std::string lookAtPlayerName;
 
 
@@ -245,18 +246,21 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 // default values
 RankPoints::RankPoints(void)
 {
-	auto statsInterface = NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface();
+	NGMP_OnlineServices_StatsInterface* statsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
 
-	m_ranks[RANK_PRIVATE]							= 0;
-	m_ranks[RANK_CORPORAL]						= statsInterface->getPointsForRank(RANK_CORPORAL); // 5
-	m_ranks[RANK_SERGEANT]						= statsInterface->getPointsForRank(RANK_SERGEANT); // 10
-	m_ranks[RANK_LIEUTENANT]					= statsInterface->getPointsForRank(RANK_LIEUTENANT); // 20
-	m_ranks[RANK_CAPTAIN]							= statsInterface->getPointsForRank(RANK_CAPTAIN); // 50
-	m_ranks[RANK_MAJOR]								= statsInterface->getPointsForRank(RANK_MAJOR); // 100
-	m_ranks[RANK_COLONEL]							= statsInterface->getPointsForRank(RANK_COLONEL); // 200
-	m_ranks[RANK_BRIGADIER_GENERAL]		= statsInterface->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
-	m_ranks[RANK_GENERAL]							= statsInterface->getPointsForRank(RANK_GENERAL); // 1000
-	m_ranks[RANK_COMMANDER_IN_CHIEF]	= statsInterface->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+	if (statsInterface != nullptr)
+	{
+		m_ranks[RANK_PRIVATE] = 0;
+		m_ranks[RANK_CORPORAL] = statsInterface->getPointsForRank(RANK_CORPORAL); // 5
+		m_ranks[RANK_SERGEANT] = statsInterface->getPointsForRank(RANK_SERGEANT); // 10
+		m_ranks[RANK_LIEUTENANT] = statsInterface->getPointsForRank(RANK_LIEUTENANT); // 20
+		m_ranks[RANK_CAPTAIN] = statsInterface->getPointsForRank(RANK_CAPTAIN); // 50
+		m_ranks[RANK_MAJOR] = statsInterface->getPointsForRank(RANK_MAJOR); // 100
+		m_ranks[RANK_COLONEL] = statsInterface->getPointsForRank(RANK_COLONEL); // 200
+		m_ranks[RANK_BRIGADIER_GENERAL] = statsInterface->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
+		m_ranks[RANK_GENERAL] = statsInterface->getPointsForRank(RANK_GENERAL); // 1000
+		m_ranks[RANK_COMMANDER_IN_CHIEF] = statsInterface->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+	}
 
 	m_winMultiplier = 3.0f;
 	m_lostMultiplier = 0.0f;
@@ -267,11 +271,19 @@ RankPoints::RankPoints(void)
 
 RankPoints *TheRankPointValues = NULL;
 
+#if defined(GENERALS_ONLINE)
+void SetLookAtPlayer(int64_t id, UnicodeString nick)
+{
+	lookAtPlayerID = id;
+	lookAtPlayerName = to_utf8(nick.str());
+}
+#else
 void SetLookAtPlayer(int64_t id, AsciiString nick)
 {
 	lookAtPlayerID = id;
 	lookAtPlayerName = nick.str();
 }
+#endif
 
 //	BATTLE_HONOR_LADDER_CHAMP		= 0x0000001,
 //	BATTLE_HONOR_STREAK					= 0x0000002,
@@ -826,7 +838,14 @@ static GameWindow* findWindow(GameWindow *parent, AsciiString baseWindow, AsciiS
 
 void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 {
-	int64_t localID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+	if (pAuthInterface == nullptr || pStatsInterface == nullptr)
+	{
+		return;
+	}
+
+	int64_t localID = pAuthInterface->GetUserID();
 	int64_t lookupID = localID;
 	if(parentWindowName == "PopupPlayerInfo.wnd")
 	{
@@ -835,7 +854,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 			return;
 	}
 
-	NGMP_OnlineServicesManager::GetInstance()->GetStatsInterface()->findPlayerStatsByID(lookupID, [=](bool bSuccess, PSPlayerStats stats)
+	pStatsInterface->findPlayerStatsByID(lookupID, [=](bool bSuccess, PSPlayerStats stats)
 		{
 			Bool weHaveStats = bSuccess;
 
@@ -889,7 +908,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 
 				// NGMP: Dont show the "from <locale> anymore...
 #if defined(GENERALS_ONLINE)
-				uStr.format(L"%hs", lookAtPlayerName.c_str());
+				uStr.format(L"%s", from_utf8(lookAtPlayerName).c_str());
 #else
 				uStr.format(TheGameText->fetch("GUI:PlayerStatistics"), lookAtPlayerName.c_str(), TheGameText->fetch(localeID).str());
 #endif
@@ -1289,6 +1308,12 @@ void HandlePersistentStorageResponses( void )
 //-------------------------------------------------------------------------------------------------
 void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 {
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface == nullptr)
+	{
+		return;
+	}
+
 	parentID = TheNameKeyGenerator->nameToKey( "PopupPlayerInfo.wnd:PopupParent" );
 	buttonCloseID = TheNameKeyGenerator->nameToKey( "PopupPlayerInfo.wnd:ButtonClose" );
 	buttonBuddiesID = TheNameKeyGenerator->nameToKey( "PopupPlayerInfo.wnd:ButtonCommunicator" );
@@ -1324,7 +1349,7 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 	PopulatePlayerInfoWindows("PopupPlayerInfo.wnd");
 
 	// we're on the myinfo screen
-	if(lookAtPlayerID == NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID())
+	if(lookAtPlayerID == pAuthInterface->GetUserID())
 	{
 		//buttonbuttonOptions->winHide(FALSE);
 		buttonSetLocale->winHide(TRUE);
@@ -1560,9 +1585,18 @@ WindowMsgHandledType GameSpyPlayerInfoOverlaySystem( GameWindow *window, Unsigne
 static void messageBoxYes( void )
 {
 	// log out of account
-	NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->LogoutOfMyAccount();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface != nullptr)
+	{
+		pAuthInterface->LogoutOfMyAccount();
 
-	NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_LOGOUT);
+		if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+		{
+			NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_LOGOUT);
+		}
+	}
+
+	
 
 	// and go back
 	RefreshGameListBoxes();

@@ -143,7 +143,7 @@ ConnectionManager::ConnectionManager(void)
 /**
  * Initialize the connection manager and any subsystems.
  */
-void ConnectionManager::init() 
+void ConnectionManager::init()
 {
 //	if (m_transport == NULL) {
 //		m_transport = new Transport;
@@ -218,7 +218,7 @@ void ConnectionManager::init()
 /**
  * Reset the connection manager and any subsystems.
  */
-void ConnectionManager::reset() 
+void ConnectionManager::reset()
 {
 //	if (m_transport == NULL) {
 //		m_transport = new Transport;
@@ -462,14 +462,14 @@ Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_FRAMEINFO) {
 		processFrameInfo((NetFrameCommandMsg *)msg);
-		
+
 		// need to set the relay so we don't send it to ourselves.
 		UnsignedByte relay = ref->getRelay();
 		relay = relay & (0xff ^ (1 << m_localSlot));
 		ref->setRelay(relay);
 		return FALSE;
 	}
-	
+
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_PROGRESS)
 	{
 		//DEBUG_LOG(("ConnectionManager::processNetCommand - got a progress net command from player %d", msg->getPlayerID()));
@@ -517,17 +517,17 @@ Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_CHAT) {
 		processChat((NetChatCommandMsg *)msg);
 		return FALSE;
-	} 
+	}
 
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_FILE) {
 		processFile((NetFileCommandMsg *)msg);
 		return FALSE;
-	} 
+	}
 
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_FILEANNOUNCE) {
 		processFileAnnounce((NetFileAnnounceCommandMsg *)msg);
 		return FALSE;
-	} 
+	}
 
 	if (msg->getNetCommandType() == NETCOMMANDTYPE_FILEPROGRESS) {
 		processFileProgress((NetFileProgressCommandMsg *)msg);
@@ -545,7 +545,7 @@ Bool ConnectionManager::processNetCommand(NetCommandRef *ref) {
 void ConnectionManager::processFrameResendRequest(NetFrameResendRequestCommandMsg *msg) {
 	// first make sure this is a valid slot
 	Int playerID = msg->getPlayerID();
-	if ((playerID < 0) || (playerID >= MAX_SLOTS)) {	
+	if ((playerID < 0) || (playerID >= MAX_SLOTS)) {
 		return;
 	}
 
@@ -560,7 +560,7 @@ void ConnectionManager::processFrameResendRequest(NetFrameResendRequestCommandMs
 /**
  * We have received a wrapper for a command too big to fit in a packet.
  */
-void ConnectionManager::processWrapper(NetCommandRef *ref) 
+void ConnectionManager::processWrapper(NetCommandRef *ref)
 {
 	NetWrapperCommandMsg *wrapperMsg = (NetWrapperCommandMsg *)(ref->getCommand());
 	UnsignedShort commandID = wrapperMsg->getWrappedCommandID();
@@ -607,7 +607,7 @@ void ConnectionManager::processWrapper(NetCommandRef *ref)
 /**
  * A client has sent us their run ahead metrics, lets store them away for future calculations.
  */
-void ConnectionManager::processRunAheadMetrics(NetRunAheadMetricsCommandMsg *msg) 
+void ConnectionManager::processRunAheadMetrics(NetRunAheadMetricsCommandMsg *msg)
 {
 	UnsignedInt player = msg->getPlayerID();
 	if ((player >= 0) && (player < MAX_SLOTS) && (isPlayerConnected(player))) {
@@ -631,7 +631,7 @@ void ConnectionManager::processRunAheadMetrics(NetRunAheadMetricsCommandMsg *msg
 	}
 }
 
-void ConnectionManager::processDisconnectChat(NetDisconnectChatCommandMsg *msg) 
+void ConnectionManager::processDisconnectChat(NetDisconnectChatCommandMsg *msg)
 {
 	UnicodeString unitext;
 	UnicodeString name;
@@ -646,7 +646,7 @@ void ConnectionManager::processDisconnectChat(NetDisconnectChatCommandMsg *msg)
 	TheDisconnectMenu->showChat(unitext); // <-- need to implement this
 }
 
-void ConnectionManager::processChat(NetChatCommandMsg *msg) 
+void ConnectionManager::processChat(NetChatCommandMsg *msg)
 {
 	UnicodeString unitext;
 	UnicodeString name;
@@ -661,7 +661,7 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 	}
 	unitext.format(L"[%ls] %ls", name.str(), msg->getText().str());
 //	DEBUG_LOG(("ConnectionManager::processChat - got message from player %d (mask %8.8X), message is %ls", playerID, msg->getPlayerMask(), unitext.str()));
-	
+
 	AsciiString playerName;
 	playerName.format("player%d", msg->getPlayerID());
 	const Player *player = ThePlayerList->findPlayerWithNameKey( TheNameKeyGenerator->nameToKey( playerName ) );
@@ -670,11 +670,11 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 		TheInGameUI->message(UnicodeString(L"%ls"), unitext.str());
 		return;
 	}
-	
+
 	Bool fromObserver = !player->isPlayerActive();
 	Bool amIObserver = !ThePlayerList->getLocalPlayer()->isPlayerActive();
 	Bool canSeeChat = (amIObserver || !fromObserver) && !TheGameInfo->getConstSlot(playerID)->isMuted();
-	
+
 	if ( ((1<<m_localSlot) & msg->getPlayerMask() ) && canSeeChat  )
 	{
 		RGBColor rgb;
@@ -691,7 +691,7 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 	}
 }
 
-void ConnectionManager::processFile(NetFileCommandMsg *msg) 
+void ConnectionManager::processFile(NetFileCommandMsg *msg)
 {
 #ifdef DEBUG_LOGGING
 	UnicodeString log;
@@ -756,7 +756,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 	}
 
 	DEBUG_LOG(("ConnectionManager::processFile() - sending a NetFileProgressCommandMsg"));
-	
+
 	Int commandID = msg->getID();
 	Int newProgress = 100;
 
@@ -785,7 +785,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 #endif // COMPRESS_TARGAS
 }
 
-void ConnectionManager::processFileAnnounce(NetFileAnnounceCommandMsg *msg) 
+void ConnectionManager::processFileAnnounce(NetFileAnnounceCommandMsg *msg)
 {
 	DEBUG_LOG(("ConnectionManager::processFileAnnounce() - expecting '%s' (%s) in command %d", msg->getPortableFilename().str(), msg->getRealFilename().str(), msg->getFileID()));
 	s_fileCommandMap[msg->getFileID()] = msg->getRealFilename();
@@ -803,7 +803,7 @@ void ConnectionManager::processFileAnnounce(NetFileAnnounceCommandMsg *msg)
 	}
 }
 
-void ConnectionManager::processFileProgress(NetFileProgressCommandMsg *msg) 
+void ConnectionManager::processFileProgress(NetFileProgressCommandMsg *msg)
 {
 	DEBUG_LOG(("ConnectionManager::processFileProgress() - command %d is at %d%%",
 		msg->getFileID(), msg->getProgress()));
@@ -860,7 +860,7 @@ void ConnectionManager::processAckStage1(NetCommandMsg *msg) {
 		DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::processAck - processing ack for command %d from player %d", ((NetAckStage1CommandMsg *)msg)->getCommandID(), playerID));
 	}
 #endif
-	
+
 	if ((playerID >= 0) && (playerID < NUM_CONNECTIONS)) {
 		if (m_connections[playerID] != NULL) {
 			ref = m_connections[playerID]->processAck(msg);
@@ -1280,14 +1280,28 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			DEBUG_LOG_LEVEL(DEBUG_LEVEL_NET, ("ConnectionManager::updateRunAhead - minFps after adjustment is %d", minFps));
 			Int newRunAhead = 0;
+
+#if defined(GENERALS_ONLINE)
+			float latency = getMaximumLatency() * (1.0f + TheGlobalData->m_networkRunAheadSlack / 100.0f);
+			newRunAhead = ceilf(latency * (Real)minFps);
+#else
 			newRunAhead = (Int)(ceil((getMaximumLatency() / 2.0) * (Real)minFps));
+#endif
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "New run ahead is %d, formula is maxlat is %f (div 2: %f), minfps is %d", newRunAhead, getMaximumLatency(), getMaximumLatency() / 2.f, minFps);
 
-#if !defined(GENERALS_ONLINE)
-			newRunAhead += (newRunAhead * TheGlobalData->m_networkRunAheadSlack) / 100; // Add in 10% of slack to the run ahead in case of network hiccups.
-#else
-			newRunAhead += ceil(((float)TheGlobalData->m_networkRunAheadSlack / 100.f) * newRunAhead);// Add in 10% of slack to the run ahead in case of network hiccups.
-#endif
+			if (getMaximumLatency() >= 0.4f)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Writing advanced networking stats:");
+
+				std::map<int64_t, PlayerConnection>& connections = NGMP_OnlineServicesManager::GetNetworkMesh()->GetAllConnections();
+				for (auto& kvPair : connections)
+				{
+					PlayerConnection& conn = kvPair.second;
+
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Connection to user %lld: %s", kvPair.first, conn.GetStats().c_str());
+				}
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[ADV NET STATS] Advanced networking stats dumped");
+			}
 
 			
 			if (newRunAhead < MIN_RUNAHEAD) {
@@ -1321,12 +1335,15 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			}
 
 #if defined(GENERALS_ONLINE) // provide instant responsiveness if there are no remote human players
-			NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
-			if (pMesh != nullptr)
+			if (TheNGMPGame != nullptr)
 			{
-				if (pMesh->GetAllConnections().size() == 0)
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+				if (pMesh != nullptr)
 				{
-					newRunAhead = 0;
+					if (pMesh->GetAllConnections().size() == 0)
+					{
+						newRunAhead = 0;
+					}
 				}
 			}
 #endif
@@ -1402,17 +1419,8 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 #if defined(GENERALS_ONLINE)
 			if (TheNGMPGame != nullptr)
 			{
-				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+				msg->setAverageLatency(m_frameMetrics.getAverageLatency());
 
-				if (pMesh != nullptr)
-				{
-					float maxLatency = (float)pMesh->getMaximumHistoricalLatency();
-					msg->setAverageLatency(maxLatency / 1000.f);
-				}
-				else
-				{
-					msg->setAverageLatency(m_frameMetrics.getAverageLatency());
-				}
 			}
 			else
 			{
@@ -1441,6 +1449,18 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 }
 
 Real ConnectionManager::getMaximumLatency() {
+#if defined(GENERALS_ONLINE)
+	Real Maxlat = 0.0f;
+
+	for (Int i = 0; i < MAX_SLOTS; ++i) {
+		if (isPlayerConnected(i) && m_latencyAverages[i] > Maxlat) {
+			Maxlat = m_latencyAverages[i];
+		}
+	}
+
+	// TheSuperHackers @info the latencyAverage is the roundtrip latency
+	return Maxlat;
+#else
 	// This works for 2 player games because the latency for the packet router is always 0.
 	Real lat1 = 0.0;
 	Real lat2 = 0.0;
@@ -1459,6 +1479,7 @@ Real ConnectionManager::getMaximumLatency() {
 	}
 
 	return (lat1 + lat2);
+#endif
 }
 
 void ConnectionManager::getMinimumFps(Int &minFps, Int &minFpsPlayer) {
@@ -1711,7 +1732,7 @@ void ConnectionManager::handleAllCommandsReady(void)
  *       frames so we can potentially send those commands to the other players in the
  *       game so they can catch up.
  */
-NetCommandList *ConnectionManager::getFrameCommandList(UnsignedInt frame) 
+NetCommandList *ConnectionManager::getFrameCommandList(UnsignedInt frame)
 {
 	NetCommandList *retlist = newInstance(NetCommandList);
 	retlist->init();

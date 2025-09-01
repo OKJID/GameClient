@@ -4,9 +4,14 @@ class NGMP_OnlineServices_AuthInterface
 {
 public:
 
-	AsciiString GetDisplayName()
+	std::string GetDisplayName()
 	{
-		return AsciiString(m_strDisplayName.c_str());
+		return m_strDisplayName;
+	}
+
+	std::wstring GetDisplayNameW()
+	{
+		return from_utf8(m_strDisplayName);
 	}
 
 	int64_t GetUserID() const { return m_userID; }
@@ -14,6 +19,7 @@ public:
 	void GoToDetermineNetworkCaps();
 
 	void BeginLogin();
+	void DoReAuth();
 
 	void Tick();
 
@@ -41,9 +47,8 @@ public:
 private:
 	void LoginAsSecondaryDevAccount();
 
-	void SaveCredentials(const char* szToken);
-	bool DoCredentialsExist();
-	std::string GetCredentials();
+	void SaveCredentials(const char* szRefreshToken);
+	bool GetCredentials(std::string& strRefreshToken);
 
 	std::string GetCredentialsFilePath();
 

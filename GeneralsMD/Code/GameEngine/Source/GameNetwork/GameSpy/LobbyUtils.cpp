@@ -560,17 +560,17 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
 
-	std::string strOwnerName = "";
+	std::wstring strOwnerName = L"";
 	for (LobbyMemberEntry& member : lobbyInfo.members)
 	{
 		if (member.user_id == lobbyInfo.owner)
 		{
-			strOwnerName = member.display_name;
+			strOwnerName = from_utf8(member.display_name);
 		}
 	}
 
 	UnicodeString gameName;
-	gameName.format(L"%hs (%hs)", lobbyInfo.name.c_str(), strOwnerName.c_str());
+	gameName.format(L"%s (%s)", UnicodeString(from_utf8(lobbyInfo.name).c_str()), strOwnerName.c_str());
 
 	int numPlayers = lobbyInfo.current_players;
 	int maxPlayers = lobbyInfo.max_players;
@@ -861,9 +861,9 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
       const Image *img = TheMappedImageCollection->findImageByName("GoodStatsIcon");
       GadgetListBoxAddEntryImage(win, img, index, COLUMN_USE_STATS, img->getImageHeight(), img->getImageWidth());
 	}
-    
+
   }
-  
+
 	s.format(L"%d", game->getPingAsInt());
 	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_PING);
 	Int ping = game->getPingAsInt();
@@ -897,6 +897,12 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	if (!win)
 		return;
 
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	// save off selection
 	Int selectedIndex = -1;
 	Int indexToSelect = -1;
@@ -911,7 +917,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 	// empty listbox
 	GadgetListBoxReset(win);
 
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->SearchForLobbies(
+	pLobbyInterface->SearchForLobbies(
 		[=]()
 		{
 			win->winEnable(false);

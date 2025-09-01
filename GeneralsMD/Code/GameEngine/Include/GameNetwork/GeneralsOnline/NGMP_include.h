@@ -16,6 +16,8 @@ ELogVerbosity::LOG_RELEASE;
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...);
 
+std::string to_utf8(const std::wstring& wstr);
+std::wstring from_utf8(const std::string& utf8_str);
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval);
 int ConvertMSLatencyToFrames(int ms);
@@ -85,5 +87,3 @@ static std::unordered_map<int, std::string> g_mapServiceIndexToPlayerTemplateStr
 
 std::string Base64Encode(const std::vector<uint8_t>& data);
 std::vector<uint8_t> Base64Decode(const std::string& encodedData);
-void PrepareChallenge(nlohmann::json& json);
-std::string DecryptServiceToken(std::string strServiceToken);

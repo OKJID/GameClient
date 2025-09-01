@@ -15,8 +15,6 @@
 NGMPGameSlot::NGMPGameSlot()
 {
 	GameSlot();
-	m_gameSpyLogin.clear();
-	m_gameSpyLocale.clear();
 	m_profileID = 0;
 	m_wins = 0;
 	m_losses = 0;
@@ -31,12 +29,15 @@ NGMPGameSlot::NGMPGameSlot()
 
 NGMPGame::NGMPGame()
 {
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	cleanUpSlotPointers();
 
 	setLocalIP(0);
-	//m_transport = NULL;
-
-	m_localName = "localhost";
 
 	m_ladderIP.clear();
 	m_ladderPort = 0;
@@ -44,7 +45,7 @@ NGMPGame::NGMPGame()
 	enterGame(); // this is done on join in the GS impl, and must be called before setMap
 
 	// NGMP: Store map
-	setMap(NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetCurrentLobbyMapPath());
+	setMap(pLobbyInterface->GetCurrentLobbyMapPath());
 
 	// init
 	//init();
@@ -81,14 +82,10 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 
 	setHasPassword(lobby.passworded);
 
-	AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-	TheNGMPGame->setLocalName(localName);
-
 	setExeCRC(lobby.exe_crc);
 	setIniCRC(lobby.ini_crc);
 
-	UnicodeString lobbyName;
-	lobbyName.format(L"%hs", lobby.name.c_str());
+	UnicodeString lobbyName = UnicodeString(from_utf8(lobby.name).c_str());
 	setGameName(lobbyName);
 
 	// starting cash
@@ -108,10 +105,16 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		return;
 	}
 
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
 		// this list is provided by the service, ordered by slot index, so we dont need to look up / use the slot index from the member
-		LobbyMemberEntry pLobbyMember = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetRoomMemberFromIndex(i);
+		LobbyMemberEntry pLobbyMember = pLobbyInterface->GetRoomMemberFromIndex(i);
 
 		// TODO_NGMP: Support spectators
 		int playerTemplate = -1;
@@ -129,13 +132,10 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		{
 			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
 
-			UnicodeString str;
-			str.translate(pLobbyMember.display_name.c_str());
-
 			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
 
 			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
-			slot->setState((SlotState)pLobbyMember.m_SlotState, str, pLobbyMember.m_SlotIndex);
+			slot->setState((SlotState)pLobbyMember.m_SlotState, UnicodeString(from_utf8(pLobbyMember.display_name).c_str()), pLobbyMember.m_SlotIndex);
 
 
 			// TODO_NGMP_URGENT: not yet impl, but being out of sync causes mismatch
@@ -210,7 +210,8 @@ void NGMPGame::setPingString(AsciiString pingStr)
 
 Bool NGMPGame::amIHost(void) const
 {
-	return NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->IsHost();
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	return pLobbyInterface == nullptr ? false : pLobbyInterface->IsHost();
 }
 
 void NGMPGame::resetAccepted(void)
@@ -233,7 +234,13 @@ Int NGMPGame::getLocalSlotNum(void) const
 	if (!m_inGame)
 		return -1;
 
-	Int64 localUserID = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	if (pAuthInterface == nullptr)
+	{
+		return -1;
+	}
+
+	Int64 localUserID = pAuthInterface->GetUserID();
 
 	for (Int i = 0; i < MAX_SLOTS; ++i)
 	{
@@ -246,20 +253,6 @@ Int NGMPGame::getLocalSlotNum(void) const
 			return i;
 		}
 	}
-
-	//AsciiString localName = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName();
-	// NGMP_CHANGE: This was using a string compare... moved it to use user id comparison, quicker
-	/*
-	for (Int i = 0; i < MAX_SLOTS; ++i)
-	{
-		const GameSlot* slot = getConstSlot(i);
-		if (slot == NULL) {
-			continue;
-		}
-		if (slot->isPlayer(localName))
-			return i;
-	}
-	*/
 
 	return -1;
 }
@@ -284,7 +277,6 @@ void NGMPGame::startGame(Int gameID)
 			++numHumans;
 			AsciiString gsName;
 			gsName.translate(m_Slots[i].getName());
-			m_Slots[i].setLoginName(gsName);
 
 			if (m_isQM)
 			{
@@ -356,8 +348,27 @@ void NGMPGame::launchGame(void)
 	TheWritableGlobalData->m_showMetrics = true;
 #endif
 
-	TheWritableGlobalData->m_networkRunAheadMetricsTime = 16;
-	TheWritableGlobalData->m_networkRunAheadSlack = 10;
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
+	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
+#else
+	TheWritableGlobalData->m_networkFPSHistoryLength = 10;
+	TheWritableGlobalData->m_networkLatencyHistoryLength = 10;
+#endif
+
+	// process service config
+	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pOnlineServicesMgr != nullptr)
+	{
+		ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
+		MIN_RUNAHEAD = serviceConf.min_run_ahead_frames;
+
+		TheWritableGlobalData->m_networkRunAheadSlack = serviceConf.ra_slack_percent;
+		TheWritableGlobalData->m_networkRunAheadMetricsTime = serviceConf.ra_update_frequency_frames * (float)(1000.f/GENERALS_ONLINE_HIGH_FPS_LIMIT);
+
+		FRAME_GROUPING_CAP = serviceConf.frame_grouping_frames * (float)(1000.f / GENERALS_ONLINE_HIGH_FPS_LIMIT);
+	}
+	
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	TheWritableGlobalData->m_horizontalScrollSpeedFactor = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
@@ -394,7 +405,7 @@ void NGMPGame::launchGame(void)
 	TheNetwork = NetworkInterface::createNetwork();
 	TheNetwork->init();
 	
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->GetNetworkMesh();
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
 	if (pMesh != nullptr)
 	{
 

@@ -24,12 +24,12 @@
 
 // FILE: PopupHostGame.cpp /////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
-//                                                                          
-//                       Electronic Arts Pacific.                          
-//                                                                          
-//                       Confidential Information                           
-//                Copyright (C) 2002 - All Rights Reserved                  
-//                                                                          
+//
+//                       Electronic Arts Pacific.
+//
+//                       Confidential Information
+//                Copyright (C) 2002 - All Rights Reserved
+//
 //-----------------------------------------------------------------------------
 //
 //	created:	Jul 2002
@@ -37,7 +37,7 @@
 //	Filename: 	PopupHostGame.cpp
 //
 //	author:		Chris Huybregts
-//	
+//
 //	purpose:	Contains the Callbacks for the Host Game Popus
 //
 //-----------------------------------------------------------------------------
@@ -263,7 +263,8 @@ void PopulateCustomLadderComboBox( void )
 	AsciiString userPrefFilename;
 
 #if defined(GENERALS_ONLINE)
-	int64_t localProfile = NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetUserID();
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	int64_t localProfile = pAuthInterface == nullptr ? -1 : pAuthInterface->GetUserID();
 	userPrefFilename.format("GeneralsOnline\\CustomPref%lld.ini", localProfile);
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();
@@ -426,7 +427,7 @@ void PopupHostGameUpdate( WindowLayout * layout, void *userData)
 //-------------------------------------------------------------------------------------------------
 WindowMsgHandledType PopupHostGameInput( GameWindow *window, UnsignedInt msg, WindowMsgData mData1, WindowMsgData mData2 )
 {
-	switch( msg ) 
+	switch( msg )
 	{
 
 		// --------------------------------------------------------------------------------------------
@@ -443,14 +444,14 @@ WindowMsgHandledType PopupHostGameInput( GameWindow *window, UnsignedInt msg, Wi
 				// ----------------------------------------------------------------------------------------
 				case KEY_ESC:
 				{
-					
+
 					//
 					// send a simulated selected event to the parent window of the
 					// back/exit button
 					//
 					if( BitIsSet( state, KEY_STATE_UP ) )
 					{
-						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED, 
+						TheWindowManager->winSendSystemMsg( window, GBM_SELECTED,
 																							(WindowMsgData)buttonCancel, buttonCancelID );
 
 					}  // end if
@@ -475,7 +476,7 @@ WindowMsgHandledType PopupHostGameInput( GameWindow *window, UnsignedInt msg, Wi
 //-------------------------------------------------------------------------------------------------
 WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, WindowMsgData mData1, WindowMsgData mData2 )
 {
-  switch( msg ) 
+  switch( msg )
 	{
 
 		// --------------------------------------------------------------------------------------------
@@ -564,7 +565,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 		{
 			GameWindow *control = (GameWindow *)mData1;
 			Int controlID = control->winGetWindowId();
-     
+
       if( controlID == buttonCancelID )
 			{
 				parentPopup = NULL;
@@ -578,8 +579,16 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				name.trim();
 				if(name.getLength() <= 0)
 				{
-					name.translate(NGMP_OnlineServicesManager::GetInstance()->GetAuthInterface()->GetDisplayName());
-					GadgetTextEntrySetText(textEntryGameName, name);
+					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+					if (pAuthInterface != nullptr)
+					{
+						name.format(L"%s", pAuthInterface->GetDisplayName());
+						GadgetTextEntrySetText(textEntryGameName, name);
+					}
+					else
+					{
+						name = L"Generals Online Lobby";
+					}
 				}
 				createGame();
 				parentPopup = NULL;
@@ -623,7 +632,14 @@ void createGame( void )
 
 
 	// NGMP:NOTE: We count money here because mods etc sometimes change the starting money, so we dont want to hard code it, just create with whatever the client is telling us is a sensible amount
-	NGMP_OnlineServicesManager::GetInstance()->GetLobbyInterface()->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_isOfficial, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), passwd.str(), bAllowObservers);
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (!pLobbyInterface)
+	{
+		GSMessageBoxOk(UnicodeString(L"Error"), UnicodeString(L"Failed to get Online Services Lobby Interface!"));
+		return;
+	}
+
+	pLobbyInterface->CreateLobby(gameName, md->m_displayName, md->m_fileName, md->m_isOfficial, md->m_numPlayers, limitArmies, useStats, TheGlobalData->m_defaultStartingCash.countMoney(), passwd.isNotEmpty(), std::string(passwd.str()), bAllowObservers);
 
 	GSMessageBoxCancel(UnicodeString(L"Creating Lobby"), UnicodeString(L"Lobby Creation is in progress..."), nullptr);
 
