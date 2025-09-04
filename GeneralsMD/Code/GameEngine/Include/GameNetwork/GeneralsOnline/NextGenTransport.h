@@ -7,9 +7,8 @@
 #include "../../Transport.h"
 #include "../NGMP_include.h"
 
-
-#pragma comment(lib, "ENet/enet.lib")
 #include "GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h"
+
 #pragma comment(lib, "ValveNetworkingSockets/GameNetworkingSockets.lib")
 #pragma comment(lib, "ValveNetworkingSockets/abseil_dll.lib")
 #pragma comment(lib, "ValveNetworkingSockets/libcrypto.lib")

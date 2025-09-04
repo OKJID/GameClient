@@ -22,7 +22,7 @@ int WebSocket::Ping()
 {
 	size_t sent;
 	CURLcode result = curl_ws_send(m_pCurl, "wsping", strlen("wsping"), &sent, 0,
-			CURLWS_PING);
+		CURLWS_PING);
 
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::PING;
@@ -109,17 +109,6 @@ void WebSocket::SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction)
 	Send(strBody.c_str());
 }
 
-void WebSocket::SendData_ConnectionRelayUpgrade(int64_t userID)
-{
-	nlohmann::json j;
-	j["msg_id"] = EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE;
-	j["target_user_id"] = userID;
-	
-	std::string strBody = j.dump();
-
-	Send(strBody.c_str());
-}
-
 void WebSocket::SendData_MarkReady(bool bReady)
 {
 	nlohmann::json j;
@@ -173,7 +162,7 @@ void WebSocket::Send(const char* send_payload)
 
 	size_t sent;
 	CURLcode result = curl_ws_send(m_pCurl, send_payload, strlen(send_payload), &sent, 0,
-			CURLWS_BINARY);
+		CURLWS_BINARY);
 
 	if (result != CURLE_OK)
 	{
@@ -208,6 +197,14 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkDisconnectPlayer, msg_id, lobby_id, user_id)
 };
 
+class WebSocketMessage_MatchmakingAction_JoinPrearrangedLobby : public WebSocketMessageBase
+{
+public:
+	int64_t lobby_id;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_MatchmakingAction_JoinPrearrangedLobby, msg_id, lobby_id)
+};
+
 
 class WebSocketMessage_RoomChatIncoming : public WebSocketMessageBase
 {
@@ -239,12 +236,12 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_LobbyChatIncoming, msg_id, message, action, announcement, show_announcement_to_host, user_id)
 };
 
-class WebSocketMessage_RelayUpgrade : public WebSocketMessageBase
+class WebSocketMessage_MatchmakingMessage : public WebSocketMessageBase
 {
 public:
-	int64_t target_user_id = -1;
+	std::string message;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RelayUpgrade, msg_id, target_user_id)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_MatchmakingMessage, msg_id, message)
 };
 
 class WebSocketMessage_NetworkRoomMemberListUpdate : public WebSocketMessageBase
@@ -255,6 +252,52 @@ public:
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkRoomMemberListUpdate, names, ids)
 };
+
+static bool JSONDeserialize(const char* szBuffer, nlohmann::json* jsonObject)
+{
+	try
+	{
+		*jsonObject = nlohmann::json::parse(szBuffer);
+		return true;
+	}
+	catch (nlohmann::json::exception& jsonException)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s (%s)", szBuffer, jsonException.what());
+		return false;
+	}
+	catch (...)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONDeserialize: Unparsable JSON: %s", szBuffer);
+		return false;
+	}
+
+	return false;
+}
+
+template<typename T>
+static bool JSONGetAsObject(nlohmann::json& jsonObject, T* outMsg)
+{
+	try
+	{
+		*outMsg = jsonObject.get<T>();
+
+		return true;
+	}
+	catch (nlohmann::json::exception& jsonException)
+	{
+		std::string targetTypeName = typeid(T).name();
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONGetAsObject: Unparsable JSON: Target Type is %s (%s)", targetTypeName.c_str(), jsonException.what());
+		return false;
+	}
+	catch (...)
+	{
+		std::string targetTypeName = typeid(T).name();
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "JSONGetAsObject: Unparsable JSON: Target Type is %s", targetTypeName.c_str());
+		return false;
+	}
+
+	return false;
+}
 
 //static std::string strSignal = "str:1 ";
 void WebSocket::Tick()
@@ -300,9 +343,8 @@ void WebSocket::Tick()
 	char bufferThisRecv[8196 * 4] = { 0 };
 
 	CURLcode ret = CURL_LAST;
-	ret = curl_ws_recv(m_pCurl, bufferThisRecv, sizeof(bufferThisRecv) - 1, &rlen, &meta);
-	bufferThisRecv[rlen] = 0; // Ensure null-termination
-	
+	ret = curl_ws_recv(m_pCurl, bufferThisRecv, sizeof(bufferThisRecv), &rlen, &meta);
+
 	if (ret != CURLE_RECV_ERROR && ret != CURL_LAST && ret != CURLE_AGAIN && ret != CURLE_GOT_NOTHING)
 	{
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
@@ -318,8 +360,6 @@ void WebSocket::Tick()
 			}
 			else if (meta->flags & CURLWS_TEXT)
 			{
-				NetworkLog(ELogVerbosity::LOG_DEBUG, "websocket recv buffer is: %s", bufferThisRecv);
-
 				bool bMessageComplete = false;
 
 				m_vecWSPartialBuffer.resize(m_vecWSPartialBuffer.size() + rlen);
@@ -346,209 +386,290 @@ void WebSocket::Tick()
 				{
 					try
 					{
+						// null terminate buffer
+						m_vecWSPartialBuffer.push_back('\0');
+
 						// process it
-						nlohmann::json jsonObject = nlohmann::json::parse(m_vecWSPartialBuffer);
+						nlohmann::json jsonObject;
+						bool bDeserializedOK = JSONDeserialize(m_vecWSPartialBuffer.data(), &jsonObject);
 
 						// clear buffer and resize
 						m_vecWSPartialBuffer.clear();
 						m_vecWSPartialBuffer.resize(0);
 
-
-						if (jsonObject.contains("msg_id"))
+						if (bDeserializedOK)
 						{
-							WebSocketMessageBase msgDetails = jsonObject.get<WebSocketMessageBase>();
-							EWebSocketMessageID msgID = msgDetails.msg_id;
-
-							switch (msgID)
+							if (jsonObject.contains("msg_id"))
 							{
+								WebSocketMessageBase msgDetails;
+								bool bParsedBase = JSONGetAsObject<WebSocketMessageBase>(jsonObject, &msgDetails);
 
-							case EWebSocketMessageID::PONG:
-							{
-								int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-								m_lastPong = currTime;
-							}
-							break;
-
-							case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
-							{
-								WebSocketMessage_RoomChatIncoming chatData = jsonObject.get<WebSocketMessage_RoomChatIncoming>();
-
-								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
-
-								Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
-
-								NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-								if (pRoomsInterface != nullptr && pRoomsInterface->m_OnChatCallback != nullptr)
+								if (bParsedBase)
 								{
-									pRoomsInterface->m_OnChatCallback(unicodeStr, color);
-								}
-							}
-							break;
+									EWebSocketMessageID msgID = msgDetails.msg_id;
 
-							case EWebSocketMessageID::START_GAME:
-							{
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
-								{
-									pLobbyInterface->m_callbackStartGamePacket();
-								}
-							}
-							break;
-
-
-							case EWebSocketMessageID::NETWORK_CONNECTION_START_SIGNALLING:
-							{
-								WebSocketMessage_NetworkStartSignalling startSignallingData = jsonObject.get<WebSocketMessage_NetworkStartSignalling>();
-
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
-
-									if (pMesh != nullptr)
+									switch (msgID)
 									{
-										pMesh->StartConnectionSignalling(startSignallingData.user_id, startSignallingData.preferred_port);
-									}
-									else
+
+									case EWebSocketMessageID::PONG:
 									{
-										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Network mesh is null");
-										break;
+										int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+										m_lastPong = currTime;
 									}
-								}
-								else
-								{
-									NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Lobby interface is null");
 									break;
-								}
-							}
-							break;
 
-							case EWebSocketMessageID::NETWORK_CONNECTION_DISCONNECT_PLAYER:
-							{
-								WebSocketMessage_NetworkDisconnectPlayer disconnectPlayerData = jsonObject.get<WebSocketMessage_NetworkDisconnectPlayer>();
-
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									int64_t currentLobbyID = pLobbyInterface->GetCurrentLobby().lobbyID;
-
-									if (currentLobbyID == -1 || currentLobbyID != disconnectPlayerData.lobby_id)
+									case EWebSocketMessageID::NETWORK_ROOM_CHAT_FROM_SERVER:
 									{
-										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby ID mismatch! Expected %lld, got %lld", currentLobbyID, disconnectPlayerData.lobby_id);
-										break;
-									}
+										WebSocketMessage_RoomChatIncoming chatData;
+										bool bParsed = JSONGetAsObject(jsonObject, &chatData);
 
-									NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
-
-									if (pMesh != nullptr)
-									{
-										pMesh->DisconnectUser(disconnectPlayerData.user_id);
-									}
-									else
-									{
-										NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Network mesh is null");
-										break;
-									}
-								}
-								else
-								{
-									NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby interface is null");
-									break;
-								}
-							}
-							break;
-
-							case EWebSocketMessageID::NETWORK_SIGNAL:
-							{
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
-								WebSocketMessage_NetworkSignal signalData = jsonObject.get<WebSocketMessage_NetworkSignal>();
-
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
-								m_pendingSignals.push(signalData.payload);
-							}
-							break;
-
-							case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
-							{
-								WebSocketMessage_LobbyChatIncoming chatData = jsonObject.get<WebSocketMessage_LobbyChatIncoming>();
-
-								UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
-
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									int lobbySlot = -1;
-									auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
-									for (const auto& lobbyMember : lobbyMembers)
-									{
-										if (lobbyMember.user_id == chatData.user_id)
+										if (bParsed)
 										{
-											lobbySlot = lobbyMember.m_SlotIndex;
-											break;
+											UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
+
+											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action);
+
+											NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+											if (pRoomsInterface != nullptr && pRoomsInterface->m_OnChatCallback != nullptr)
+											{
+												pRoomsInterface->m_OnChatCallback(unicodeStr, color);
+											}
 										}
 									}
+									break;
 
-									Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, lobbySlot);
-
-									if (pLobbyInterface->m_OnChatCallback != nullptr)
+									case EWebSocketMessageID::START_GAME:
 									{
-										pLobbyInterface->m_OnChatCallback(unicodeStr, color);
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
+										{
+											pLobbyInterface->m_callbackStartGamePacket();
+										}
+									}
+									break;
+
+
+									case EWebSocketMessageID::NETWORK_CONNECTION_START_SIGNALLING:
+									{
+										WebSocketMessage_NetworkStartSignalling startSignallingData;
+										bool bParsed = JSONGetAsObject(jsonObject, &startSignallingData);
+
+										if (bParsed)
+										{
+											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+											if (pLobbyInterface != nullptr)
+											{
+												NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
+
+												if (pMesh != nullptr)
+												{
+													pMesh->StartConnectionSignalling(startSignallingData.user_id, startSignallingData.preferred_port);
+												}
+												else
+												{
+													NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Network mesh is null");
+													break;
+												}
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_START_SIGNALLING] Lobby interface is null");
+												break;
+											}
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::NETWORK_CONNECTION_DISCONNECT_PLAYER:
+									{
+										WebSocketMessage_NetworkDisconnectPlayer disconnectPlayerData;
+										bool bParsed = JSONGetAsObject(jsonObject, &disconnectPlayerData);
+
+										if (bParsed)
+										{
+											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+											if (pLobbyInterface != nullptr)
+											{
+												int64_t currentLobbyID = pLobbyInterface->GetCurrentLobby().lobbyID;
+
+												if (currentLobbyID == -1 || currentLobbyID != disconnectPlayerData.lobby_id)
+												{
+													NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby ID mismatch! Expected %lld, got %lld", currentLobbyID, disconnectPlayerData.lobby_id);
+													break;
+												}
+
+												NetworkMesh* pMesh = pLobbyInterface->GetNetworkMeshForLobby();
+
+												if (pMesh != nullptr)
+												{
+													pMesh->DisconnectUser(disconnectPlayerData.user_id);
+												}
+												else
+												{
+													NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Network mesh is null");
+													break;
+												}
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby interface is null");
+												break;
+											}
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::NETWORK_SIGNAL:
+									{
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] GOT SIGNAL!");
+
+										WebSocketMessage_NetworkSignal signalData;
+										bool bParsed = JSONGetAsObject(jsonObject, &signalData);
+
+										if (bParsed)
+										{
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
+											m_pendingSignals.push(signalData.payload);
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
+									{
+										WebSocketMessage_LobbyChatIncoming chatData;
+										bool bParsed = JSONGetAsObject(jsonObject, &chatData);
+
+										if (bParsed)
+										{
+											UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
+
+											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+											if (pLobbyInterface != nullptr)
+											{
+												int lobbySlot = -1;
+												auto lobbyMembers = pLobbyInterface->GetMembersListForCurrentRoom();
+												for (const auto& lobbyMember : lobbyMembers)
+												{
+													if (lobbyMember.user_id == chatData.user_id)
+													{
+														lobbySlot = lobbyMember.m_SlotIndex;
+														break;
+													}
+												}
+
+												Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, lobbySlot);
+
+												if (pLobbyInterface->m_OnChatCallback != nullptr)
+												{
+													pLobbyInterface->m_OnChatCallback(unicodeStr, color);
+												}
+											}
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
+									{
+										WebSocketMessage_NetworkRoomMemberListUpdate memberList;
+										bool bParsed = JSONGetAsObject(jsonObject, &memberList);
+
+										if (bParsed)
+										{
+											NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+											if (pRoomsInterface != nullptr)
+											{
+												pRoomsInterface->OnRosterUpdated(memberList.names, memberList.ids);
+											}
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
+									{
+										// re-get the room info as it is stale
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr)
+										{
+											pLobbyInterface->UpdateRoomDataCache(nullptr);
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
+									{
+										// re-get the room info as it is stale
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr)
+										{
+											pLobbyInterface->SetLobbyListDirty();
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MATCHMAKING_ACTION_JOIN_PREARRANGED_LOBBY:
+									{
+										WebSocketMessage_MatchmakingAction_JoinPrearrangedLobby mmEvent;
+										bool bParsed = JSONGetAsObject(jsonObject, &mmEvent);
+
+										if (bParsed)
+										{
+											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+											if (pLobbyInterface != nullptr)
+											{
+												// TODO_QUICKMATCH: Only if really in quickmatch
+
+												// basic info needed to join
+												LobbyEntry lobbyEntry;
+												lobbyEntry.lobbyID = mmEvent.lobby_id;
+												lobbyEntry.map_path = "Maps\\Homeland Alliance\\Homeland Alliance.map";
+
+												pLobbyInterface->JoinLobby(lobbyEntry, std::string());
+											}
+											else
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[NETWORK_CONNECTION_DISCONNECT_PLAYER] Lobby interface is null");
+												break;
+											}
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MATCHMAKING_ACTION_START_GAME:
+									{
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr)
+										{
+											pLobbyInterface->InvokeMatchmakingStartGameCallback();
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MATCHMAKING_MESSAGE:
+									{
+										 WebSocketMessage_MatchmakingMessage matchmakingMsg;
+										bool bParsed = JSONGetAsObject(jsonObject, &matchmakingMsg);
+
+										if (bParsed)
+										{
+											NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+											if (pLobbyInterface != nullptr)
+											{
+												pLobbyInterface->InvokeMatchmakingMessageCallback(matchmakingMsg.message);
+											}
+										}
+									}
+									break;
+
+									default:
+										NetworkLog(ELogVerbosity::LOG_RELEASE, "Unhandled WebSocketMessage: %d", (int)msgID);
+										break;
 									}
 								}
-							}
-							break;
-
-							// TODO_STEAM: remove relay upgrade path from everything
-							case EWebSocketMessageID::PLAYER_CONNECTION_RELAY_UPGRADE:
-							{
-								WebSocketMessage_RelayUpgrade relayUpgrade = jsonObject.get<WebSocketMessage_RelayUpgrade>();
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "Got relay upgrade for user %lld", relayUpgrade.target_user_id);
-								NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-								if (pMesh != nullptr)
+								else
 								{
-									// TODO_STEAM
-									//pMesh->OnRelayUpgrade(relayUpgrade.target_user_id);
+									NetworkLog(ELogVerbosity::LOG_RELEASE, "Malformed WebSocketMessage: couldn't parse as WebSocketMessageBase");
 								}
-							}
-							break;
-
-							case EWebSocketMessageID::NETWORK_ROOM_MEMBER_LIST_UPDATE:
-							{
-								WebSocketMessage_NetworkRoomMemberListUpdate memberList = jsonObject.get<WebSocketMessage_NetworkRoomMemberListUpdate>();
-								NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-								if (pRoomsInterface != nullptr)
-								{
-									pRoomsInterface->OnRosterUpdated(memberList.names, memberList.ids);
-								}
-							}
-							break;
-
-							case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
-							{
-								// re-get the room info as it is stale
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									pLobbyInterface->UpdateRoomDataCache(nullptr);
-								}
-							}
-							break;
-
-							case EWebSocketMessageID::NETWORK_ROOM_LOBBY_LIST_UPDATE:
-							{
-								// re-get the room info as it is stale
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									pLobbyInterface->SetLobbyListDirty();
-								}
-							}
-							break;
-
-							default:
-								NetworkLog(ELogVerbosity::LOG_RELEASE, "Unhandled WebSocketMessage: %d", (int)msgID);
-								break;
 							}
 						}
 						else
@@ -631,7 +752,7 @@ void WebSocket::Tick()
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()
 {
-	
+
 }
 
 void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> cb)
@@ -653,7 +774,7 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 					std::string strName;
 					ERoomFlags flags;
 
-					
+
 					roomEntryIter["id"].get_to(id);
 					roomEntryIter["name"].get_to(strName);
 					roomEntryIter["flags"].get_to(flags);
@@ -706,7 +827,7 @@ void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<v
 			}
 		}
 	}
-	
+
 	onCompleteCallback();
 }
 
@@ -738,7 +859,7 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::vector<std::string
 		newMember.display_name = strDisplayName;
 		newMember.user_id = id;
 		m_mapMembers.emplace(id, newMember);
-		
+
 		++index;
 	}
 

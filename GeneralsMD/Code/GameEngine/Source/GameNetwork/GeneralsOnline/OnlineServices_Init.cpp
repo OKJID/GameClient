@@ -365,6 +365,7 @@ void NGMP_OnlineServicesManager::Init()
 	m_pLobbyInterface = new NGMP_OnlineServices_LobbyInterface();
 	m_pRoomInterface = new NGMP_OnlineServices_RoomsInterface();
 	m_pStatsInterface = new NGMP_OnlineServices_StatsInterface();
+	m_pMatchmakingInterface = new NGMP_OnlineServices_MatchmakingInterface();
 
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();

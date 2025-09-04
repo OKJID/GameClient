@@ -79,6 +79,33 @@ public:
 
 	void SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback);
 
+	std::function<void(std::string)> m_fnCallbackMatchmakingMessage = nullptr;
+	void RegisterForMatchmakingMessageCallback(std::function<void(std::string)> cb)
+	{
+		m_fnCallbackMatchmakingMessage = cb;
+	}
+	void InvokeMatchmakingMessageCallback(std::string str)
+	{
+		if (m_fnCallbackMatchmakingMessage != nullptr)
+		{
+			m_fnCallbackMatchmakingMessage(str);
+		}
+	}
+
+	void InvokeMatchmakingStartGameCallback()
+	{
+		if (m_fnCallbackMatchmakingStartGame != nullptr)
+		{
+			m_fnCallbackMatchmakingStartGame();
+		}
+	}
+
+	std::function<void()> m_fnCallbackMatchmakingStartGame = nullptr;
+	void RegisterForMatchmakingStartGameCallback(std::function<void()> cb)
+	{
+		m_fnCallbackMatchmakingStartGame = cb;
+	}
+
 	// updates
 	void UpdateCurrentLobby_Map(AsciiString strMap, AsciiString strMapPath, bool bIsOfficial, int newMaxPlayers);
 	void UpdateCurrentLobby_LimitSuperweapons(bool bLimitSuperweapons);
@@ -373,6 +400,7 @@ public:
 
 	void LeaveCurrentLobby();
 
+	LobbyEntry GetLobbyFromID(int64_t lobbyID);
 	LobbyEntry GetLobbyFromIndex(int index);
 
 	std::vector<LobbyEntry> m_vecLobbies;

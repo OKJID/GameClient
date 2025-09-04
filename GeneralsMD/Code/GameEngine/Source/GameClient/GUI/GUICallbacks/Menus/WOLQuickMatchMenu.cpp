@@ -84,6 +84,7 @@ static Bool s_inQM = FALSE;
 extern NGMPGame* TheNGMPGame;
 #endif
 #include "../OnlineServices_MatchmakingInterface.h"
+#include "../OnlineServices_LobbyInterface.h"
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 // window ids ------------------------------------------------------------------------------
@@ -636,6 +637,11 @@ static void populateQuickMatchMapSelectListbox( QuickMatchPreferences& pref )
 
 static void saveQuickMatchOptions( void )
 {
+	// TODO_QUICKMATCH
+#if defined(GENERALS_ONLINE)
+	return;
+#endif
+
 	if(isInInit)
 		return;
 	QuickMatchPreferences pref;
@@ -718,6 +724,224 @@ static void saveQuickMatchOptions( void )
 //-------------------------------------------------------------------------------------------------
 void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 {
+#if defined(GENERALS_ONLINE)
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+	// cannot connect to the lobby we joined
+	pLobbyInterface->RegisterForCannotConnectToLobbyCallback([](void)
+		{
+			// TODO_QUICKMATCH: Show error message + stop matchmaking + enable buttons again
+		});
+#endif
+
+	
+	if (pLobbyInterface != nullptr)
+	{
+		// TODO_QUICKMATCH: Deregister when leaving QM
+		pLobbyInterface->RegisterForMatchmakingMessageCallback([](std::string strMsg)
+			{
+				UnicodeString uMsg;
+				uMsg.format(L"%hs", strMsg.c_str());
+
+				Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, uMsg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+				GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+			});
+
+		pLobbyInterface->RegisterForMatchmakingStartGameCallback([]()
+			{
+				buttonWiden->winEnable(FALSE);
+
+				////TheNGMPGame->enterGame();
+				//TheNGMPGame->setSeed(12356);
+
+				// TODO_QUICKMATCH
+				//TheGameSpyGame->markGameAsQM();
+
+				// TODO_QUICKMATCH
+				//const LadderInfo* info = getLadderInfo();
+
+				Int i;
+				Int numPlayers = 0;
+				for (i = 0; i < MAX_SLOTS; ++i)
+				{
+					//TheNGMPGame->getSlot(i);
+					// TODO_QUICKMATCH
+					//if (!resp.stagingRoomPlayerNames[i].empty())
+					//	++numPlayers;
+				}
+
+				// TODO_QUICKMATCH
+				// TODO_QUICKMATCH
+				//std::list<AsciiString> maps = TheGameSpyConfig->getQMMaps();
+				std::list<AsciiString> maps;
+				maps.push_back(AsciiString("Maps\\Homeland Alliance\\Homeland Alliance.map"));
+
+				for (std::list<AsciiString>::const_iterator it = maps.begin(); it != maps.end(); ++it)
+				{
+					AsciiString theMap = *it;
+					theMap.toLower();
+					const MapMetaData* md = TheMapCache->findMap(theMap);
+					if (md && md->m_numPlayers >= numPlayers)
+					{
+						TheNGMPGame->setMap(*it);
+
+						// TODO_QUICKMATCH
+						//if (resp.qmStatus.mapIdx-- == 0)
+						//	break;
+					}
+				}
+
+				// TODO_QUICKMATCH: Create and join a lobby instead
+				// create our mesh
+				//if (pLobbyInterface != nullptr)
+				{
+					//pLobbyInterface->CreateMesh();
+				}
+
+
+				Int numPlayersPerTeam = numPlayers / 2;
+				DEBUG_ASSERTCRASH(numPlayersPerTeam, ("0 players per team???"));
+				if (!numPlayersPerTeam)
+					numPlayersPerTeam = 1;
+
+				for (i = 0; i < MAX_SLOTS; ++i)
+				{
+					NGMPGameSlot* slot = (NGMPGameSlot*)TheNGMPGame->getSlot(i);
+
+					////slot->setMapAvailability(TRUE);
+
+					// TODO_QUICKMATCH
+					//if (resp.stagingRoomPlayerNames[i].empty())
+					if (false)
+					{
+						//slot->setState(SLOT_CLOSED);
+					}
+					else if (slot->getState() == SLOT_PLAYER)
+					{
+						// TODO_QUICKMATCH
+						//AsciiString aName = resp.stagingRoomPlayerNames[i].c_str();
+						//AsciiString aName;
+						//aName.format("QM User %d", i);
+						//UnicodeString uName;
+						//uName.translate(aName);
+						//slot->setState(SLOT_PLAYER, uName, 0);
+
+						// TODO_QUICKMATCH
+						slot->setColor(i);
+						
+						// TODO_QUICKMATCH
+						slot->setStartPos(i);
+						slot->setPlayerTemplate(5+i);
+						//slot->setProfileID(0);
+						slot->setNATBehavior((FirewallHelperClass::FirewallBehaviorType)0);
+						//slot->setLocale("");
+						slot->setTeamNumber(i / numPlayersPerTeam);
+
+						slot->setMapAvailability(true);
+
+						// TODO_QUICKMATCH
+						if (i == 0)
+							TheNGMPGame->setGameName(UnicodeString(L"Quickmatch"));
+					}
+				}
+
+				//DEBUG_LOG(("Starting a QM game: options=[%s]", GameInfoToAsciiString(TheGameSpyGame).str()));
+				//SendStatsToOtherPlayers(TheNGMPGame);
+				TheNGMPGame->startGame(0);
+				GameWindow* buttonBuddies = TheWindowManager->winGetWindowFromId(NULL, buttonBuddiesID);
+				if (buttonBuddies)
+					buttonBuddies->winEnable(FALSE);
+				GameSpyCloseOverlay(GSOVERLAY_BUDDY);
+			});
+
+		pLobbyInterface->RegisterForJoinLobbyCallback([](EJoinLobbyResult result)
+			{
+				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+				if (!pLobbyInterface->IsInLobby())
+				{
+					return;
+				}
+
+				if (TheNGMPGame == nullptr)
+				{
+					TheNGMPGame = new NGMPGame();
+				}
+				pLobbyInterface->UpdateRoomDataCache([]()
+				{
+					
+				});
+
+				// connection events (for debug really)
+				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+				if (pMesh != nullptr)
+				{
+					pMesh->RegisterForConnectionEvents([](int64_t userID, std::wstring strDisplayName, PlayerConnection* connection)
+						{
+							std::string strState = "Unknown";
+
+							EConnectionState connState = connection->GetState();
+							std::string strConnectionType = connection->GetConnectionType();
+
+							switch (connState)
+							{
+							case EConnectionState::NOT_CONNECTED:
+								strState = "Not Connected";
+								break;
+
+							case EConnectionState::CONNECTING_DIRECT:
+								strState = "Connecting";
+								break;
+							case EConnectionState::FINDING_ROUTE:
+								strState = "Connecting (Finding Route)";
+								break;
+
+							case EConnectionState::CONNECTED_DIRECT:
+								strState = "Connected";
+								break;
+
+							case EConnectionState::CONNECTION_FAILED:
+								strState = "Connection Failed";
+								break;
+
+							case EConnectionState::CONNECTION_DISCONNECTED:
+								strState = "Disconnected (Was Connected Previously)";
+								break;
+
+							default:
+								strState = "Unknown";
+								break;
+							}
+
+							UnicodeString strConnectionMessage;
+							if (connState == EConnectionState::CONNECTING_DIRECT || connState == EConnectionState::FINDING_ROUTE)
+							{
+								strConnectionMessage.format(L"Connecting to %s", strDisplayName.c_str());
+
+								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
+								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+							}
+							else if (connState == EConnectionState::CONNECTED_DIRECT)
+							{
+								strConnectionMessage.format(L"Connected to %s", strDisplayName.c_str());
+
+								Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
+								GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+							}
+							else
+							{
+								if (connState == EConnectionState::CONNECTION_FAILED || connState == EConnectionState::CONNECTION_DISCONNECTED)
+								{
+									strConnectionMessage.format(L"Connection failed to %s", strDisplayName.c_str());
+									Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, strConnectionMessage, GameMakeColor(255, 194, 15, 255), -1, -1);
+									GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+								}
+							}
+						});
+				}
+
+		});
+	}
 	isInInit = TRUE;
 	if (TheGameSpyGame && TheGameSpyGame->isGameInProgress())
 	{
@@ -972,7 +1196,9 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLQuickMatchMenuShutdown( WindowLayout *layout, void *userData )
 {
+#if !defined(GENERALS_ONLINE)
 	TheGameSpyInfo->unregisterTextWindow(quickmatchTextWindow);
+#endif
 
 	if (!TheGameEngine->getQuitting())
 		saveQuickMatchOptions();
@@ -1734,8 +1960,6 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 								// TODO_QUICKMATCH: Chat has a sound effect in TheGameSpyInfo, re-eanble it
 								if (bSuccess)
 								{
-									Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Started matchmaking... searching for players"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-									GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
 
 									// buttons
 									buttonWiden->winEnable(FALSE);
@@ -1938,8 +2162,10 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 				}
 				else if ( controlID == buttonBackID )
 				{
-					buttonPushed = true;
+#if !defined(GENERALS_ONLINE)
 					TheGameSpyInfo->leaveGroupRoom();
+#endif
+					buttonPushed = true;			
 					nextScreen = "Menus/WOLWelcomeMenu.wnd";
 					TheShell->pop();
 				} //if ( controlID == buttonBack )

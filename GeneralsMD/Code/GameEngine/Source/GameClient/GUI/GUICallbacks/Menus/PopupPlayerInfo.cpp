@@ -246,22 +246,6 @@ void GetAdditionalDisconnectsFromUserFile(PSPlayerStats *stats)
 // default values
 RankPoints::RankPoints(void)
 {
-	NGMP_OnlineServices_StatsInterface* statsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
-
-	if (statsInterface != nullptr)
-	{
-		m_ranks[RANK_PRIVATE] = 0;
-		m_ranks[RANK_CORPORAL] = statsInterface->getPointsForRank(RANK_CORPORAL); // 5
-		m_ranks[RANK_SERGEANT] = statsInterface->getPointsForRank(RANK_SERGEANT); // 10
-		m_ranks[RANK_LIEUTENANT] = statsInterface->getPointsForRank(RANK_LIEUTENANT); // 20
-		m_ranks[RANK_CAPTAIN] = statsInterface->getPointsForRank(RANK_CAPTAIN); // 50
-		m_ranks[RANK_MAJOR] = statsInterface->getPointsForRank(RANK_MAJOR); // 100
-		m_ranks[RANK_COLONEL] = statsInterface->getPointsForRank(RANK_COLONEL); // 200
-		m_ranks[RANK_BRIGADIER_GENERAL] = statsInterface->getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
-		m_ranks[RANK_GENERAL] = statsInterface->getPointsForRank(RANK_GENERAL); // 1000
-		m_ranks[RANK_COMMANDER_IN_CHIEF] = statsInterface->getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
-	}
-
 	m_winMultiplier = 3.0f;
 	m_lostMultiplier = 0.0f;
 	m_hourSpentOnlineMultiplier = 1.0f;

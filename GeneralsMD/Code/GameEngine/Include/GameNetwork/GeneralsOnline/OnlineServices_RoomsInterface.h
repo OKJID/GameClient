@@ -83,7 +83,8 @@ struct NGMP_RoomInfo
 
 class NetworkRoomMember : public NetworkMemberBase
 {
-
+public:
+	bool IsValid() const { return user_id != -1; }
 };
 
 class NGMP_OnlineServices_RoomsInterface
@@ -147,6 +148,20 @@ public:
 		}
 
 		return nullptr;
+	}
+
+	NetworkRoomMember GetRoomMemberFromName(const char* szTargetName)
+	{
+		// TODO_NGMP: Migrate away from this, it's slow. This game relies on names too much.
+		for (auto kvPair : m_mapMembers)
+		{
+			if (strcmp(kvPair.second.display_name.c_str(), szTargetName) == 0)
+			{
+				return kvPair.second;
+			}
+		}
+
+		return NetworkRoomMember();
 	}
 
 	std::map<uint64_t, NetworkRoomMember>& GetMembersListForCurrentRoom();

@@ -438,6 +438,7 @@ class NGMP_OnlineServices_StatsInterface
 {
 public:
 	NGMP_OnlineServices_StatsInterface();
+	~NGMP_OnlineServices_StatsInterface();
 
 	void GetGlobalStats(std::function<void(GlobalStats)> cb);
 

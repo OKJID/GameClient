@@ -2097,7 +2097,7 @@ void GameLogic::startNewGame( Bool loadingSaveGame )
 	// update the loadscreen
 	updateLoadProgress(LOAD_PROGRESS_POST_PRELOAD_ASSETS);
 
-	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f);
+	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, false);
 	TheTacticalView->setAngleAndPitchToDefault();
 	TheTacticalView->setZoomToDefault();
 
@@ -2682,7 +2682,7 @@ void GameLogic::processCommandList( CommandList *list )
 #if defined(GENERALS_ONLINE)
 			// provide more details
 			UnicodeString strMismatchDetails;
-			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nNum RNG Calls %llu\nAll Player CRCs:\n",
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nNum RNG Calls %llu\nMismatched Players:\n",
 				TheGameLogic->getFrame(),
 				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
 				GetGameLogicRandomSeedCRC(),
@@ -2721,12 +2721,15 @@ void GameLogic::processCommandList( CommandList *list )
 			// show all players
 			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
 			{
-				Player* player = ThePlayerList->getNthPlayer(crcIt->first);
-				UnicodeString strPlayerInfo;
-				strPlayerInfo.format(L"player %d (%s) = %X [%s]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second,
-					crcIt->second == biggestCRC ? L"OK" : L"MISMATCH");
+				// only show users who arent OK, UI isn't huge
+				if (crcIt->second != biggestCRC)
+				{
+					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+					UnicodeString strPlayerInfo;
+					strPlayerInfo.format(L"player %d (%s) = %X [MISMATCH]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
 
-				strMismatchDetails.concat(strPlayerInfo);
+					strMismatchDetails.concat(strPlayerInfo);
+				}
 			}
 
 			// TODO_NGMP: Handle missing CRCs, although that doesnt seem common

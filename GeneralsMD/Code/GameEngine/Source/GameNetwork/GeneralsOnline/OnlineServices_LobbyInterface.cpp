@@ -1024,6 +1024,21 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 	ResetCachedRoomData();
 }
 
+
+LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromID(int64_t lobbyID)
+{
+	// TODO_NGMP: Optimize for lookup
+	for (LobbyEntry& lobbyEntry : m_vecLobbies)
+	{
+		if (lobbyEntry.lobbyID == lobbyID)
+		{
+			return lobbyEntry;
+		}
+	}
+
+	return LobbyEntry();
+}
+
 LobbyEntry NGMP_OnlineServices_LobbyInterface::GetLobbyFromIndex(int index)
 {
 	// TODO_NGMP: safety

@@ -36,7 +36,7 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_MARK_READY = 5,
 	LOBBY_CURRENT_LOBBY_UPDATE = 6,
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
-	PLAYER_CONNECTION_RELAY_UPGRADE = 8,
+	UNUSED_PLACEHOLDER = 8, // this was relay upgrade, was removed. We can re-use it later, but service needs this placeholder
 	PLAYER_NAME_CHANGE = 9,
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
 	LOBBY_CHAT_FROM_SERVER = 11,
@@ -48,6 +48,9 @@ enum EWebSocketMessageID
 	NETWORK_CONNECTION_START_SIGNALLING = 17,
 	NETWORK_CONNECTION_DISCONNECT_PLAYER = 18,
 	NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING = 19,
+	MATCHMAKING_ACTION_JOIN_PREARRANGED_LOBBY = 20,
+	MATCHMAKING_ACTION_START_GAME = 21,
+	MATCHMAKING_MESSAGE = 22
 };
 
 enum class EQoSRegions
@@ -159,7 +162,6 @@ public:
 	void SendData_JoinNetworkRoom(int roomID);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
-	void SendData_ConnectionRelayUpgrade(int64_t userID);
 
 	void SendData_RequestSignalling(int64_t targetUserID);
 	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);

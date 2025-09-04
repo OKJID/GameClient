@@ -296,22 +296,140 @@ static void playerTooltip(GameWindow *window,
 	}
 
 	UnicodeString uName = GadgetListBoxGetText(window, row, COLUMN_PLAYERNAME);
-	AsciiString aName;
-	aName.translate(uName);
 
+	// TODO_NGMP: This causes issues with duplicate names. We should have better ways of looking this up + perhaps only allow unique names
 	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-	if (pRoomsInterface != nullptr)
+	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+	NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
+	if (pRoomsInterface != nullptr && pAuthInterface != nullptr && pStatsInterface != nullptr)
 	{
-		NetworkRoomMember* pRoomMember = pRoomsInterface->GetRoomMemberFromIndex(row);
+		int profileID = (int)GadgetListBoxGetItemData(listboxLobbyPlayers, row, 0);
+		NetworkRoomMember* roomMember = pRoomsInterface->GetRoomMemberFromID(profileID);
 
+		// TODO_NGMP: This is an async call, we should block future popups until it returns to avoid weirdness
 		if (col > 0)
 		{
-			if (pRoomMember != nullptr)
+			if (roomMember != nullptr)
 			{
-				UnicodeString ucTooltip;
-				ucTooltip.format(L"Display Name: %s\nUser ID: %lld", from_utf8(pRoomMember->display_name).c_str(), pRoomMember->user_id);
+				// new
+				pStatsInterface->findPlayerStatsByID(roomMember->user_id, [=](bool bSuccess, PSPlayerStats stats)
+					{
+						if (!bSuccess)
+						{
+							TheMouse->setCursorTooltip(UnicodeString(L"Error: 1"), -1, NULL, 1.5f);
+						}
+						else
+						{
+							UnicodeString tooltip = UnicodeString::TheEmptyString;
+							if (roomMember->user_id == pAuthInterface->GetUserID())
+							{
+								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());							}
+							else
+							{
+								// not us
+								// TODO_SOCIAL
+								bool bIsFriend = false;
+								if (bIsFriend)
+								{
+									// buddy
+									tooltip.format(TheGameText->fetch("TOOLTIP:BuddyPlayer"), uName.str());
+								}
+								else
+								{
+									// non-buddy profiled player
+									tooltip.format(TheGameText->fetch("TOOLTIP:ProfiledPlayer"), uName.str());
 
-				TheMouse->setCursorTooltip(ucTooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+									// NOTE: Removed non-profiled generic player, this doesn't exist on Generals Online, everyone has a profile
+								}
+							}
+
+							// add user ID
+							UnicodeString tmp;
+							tmp.format(L"\nUser ID: %lld", roomMember->user_id);
+							tooltip.concat(tmp);
+
+							// TODO_SOCIAL
+							bool bIgnored = false;
+							if (bIgnored)
+							{
+								tooltip.concat(TheGameText->fetch("TOOLTIP:IgnoredModifier"));
+							}
+
+							Int rankPoints = CalculateRank(stats);
+							Int rank = 0;
+							Int i = 0;
+							while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+								++i;
+							rank = i;
+
+							// determine favorite side
+							Int mostGames = 0;
+							Int favorite = 0;
+							for (auto it = stats.games.begin(); it != stats.games.end(); ++it)
+							{
+								if (it->second >= mostGames)
+								{
+									mostGames = it->second;
+									favorite = it->first;
+								}
+							}
+
+							AsciiString sideName = "GUI:RandomSide";
+							if (mostGames > 0)
+							{
+								const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+								if (fac)
+								{
+									sideName.format("SIDE:%s", fac->getSide().str());
+								}
+							}
+							AsciiString rankName;
+							rankName.format("GUI:GSRank%d", rank);
+							
+							tmp.clear();
+							tmp.format(L"\n\nFavorite Side: %ls\nRank: %ls", TheGameText->fetch(sideName).str(), TheGameText->fetch(rankName).str());
+							tooltip.concat(tmp);
+
+							int totalWins = 0;
+							int totalLosses = 0;
+							int totalDC = 0;
+							int totalWinsInRow = 0;
+							int totalLossesInRow = 0;
+							int totalDCInRow = 0;
+							int maxWinsInRow = 0;
+							int maxLossesInRow = 0;
+							int maxDCInRow = 0;
+
+							for (int i = 0; i < stats.wins.size(); ++i)
+							{
+								totalWins += stats.wins[i];
+								totalLosses += stats.losses[i];
+								totalDC += stats.discons[i];
+								totalWinsInRow = stats.winsInARow;
+								totalLossesInRow = stats.lossesInARow;
+								totalDCInRow = stats.disconsInARow;
+
+								maxWinsInRow = stats.maxWinsInARow;
+								maxLossesInRow = stats.maxLossesInARow;
+								maxDCInRow = stats.maxDisconsInARow;
+							}
+
+							tmp.clear();
+							tmp.format(L"\n\nTotal Wins: %d\nTotal Losses: %d\nTotal Disconnects: %d\n\nCurrent Win Streak: %d\nCurrent Loss Streak: %d\nCurrent Disconnect Streak: %d\n\nLongest Win Streak: %d\nLongest Loss Streak: %d\nLongest Disconnect Streak: %d",
+								totalWins,
+								totalLosses,
+								totalDC,
+								totalWinsInRow,
+								totalLossesInRow,
+								totalDCInRow,
+								maxWinsInRow,
+								maxLossesInRow,
+								maxDCInRow);
+							tooltip.concat(tmp);
+
+							TheMouse->setCursorTooltip(tooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
+						}
+					}, EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST);
 			}
 			else
 			{
@@ -594,6 +712,9 @@ static Int insertPlayerInListbox(const PlayerInfo& info, Color color)
 	Int index = GadgetListBoxAddEntryImage(listboxLobbyPlayers, rankImg, -1, 0, w, h);
 	GadgetListBoxAddEntryText(listboxLobbyPlayers, uStr, color, index, 1);
 #endif
+
+	// attach data
+	GadgetListBoxSetItemData(listboxLobbyPlayers, (void*)info.m_profileID, index);
 	return index;
 }
 

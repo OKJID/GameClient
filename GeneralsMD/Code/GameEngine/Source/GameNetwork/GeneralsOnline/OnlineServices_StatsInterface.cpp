@@ -12,8 +12,36 @@ NGMP_OnlineServices_StatsInterface::NGMP_OnlineServices_StatsInterface()
 {
 	TheRankPointValues = NEW RankPoints;
 
+	// populate ranks
+	// TODO_NGMP: Perhaps get this from the service?
+	TheRankPointValues->m_ranks[RANK_PRIVATE] = 0;
+	TheRankPointValues->m_ranks[RANK_CORPORAL] = getPointsForRank(RANK_CORPORAL); // 5
+	TheRankPointValues->m_ranks[RANK_SERGEANT] = getPointsForRank(RANK_SERGEANT); // 10
+	TheRankPointValues->m_ranks[RANK_LIEUTENANT] = getPointsForRank(RANK_LIEUTENANT); // 20
+	TheRankPointValues->m_ranks[RANK_CAPTAIN] = getPointsForRank(RANK_CAPTAIN); // 50
+	TheRankPointValues->m_ranks[RANK_MAJOR] = getPointsForRank(RANK_MAJOR); // 100
+	TheRankPointValues->m_ranks[RANK_COLONEL] = getPointsForRank(RANK_COLONEL); // 200
+	TheRankPointValues->m_ranks[RANK_BRIGADIER_GENERAL] = getPointsForRank(RANK_BRIGADIER_GENERAL); // 500
+	TheRankPointValues->m_ranks[RANK_GENERAL] = getPointsForRank(RANK_GENERAL); // 1000
+	TheRankPointValues->m_ranks[RANK_COMMANDER_IN_CHIEF] = getPointsForRank(RANK_COMMANDER_IN_CHIEF); // 2000
+
 	// TODO_NGMP: Better location
 	TheLadderList = NEW LadderList;
+}
+
+NGMP_OnlineServices_StatsInterface::~NGMP_OnlineServices_StatsInterface()
+{
+	if (TheRankPointValues != nullptr)
+	{
+		delete TheRankPointValues;
+		TheRankPointValues = nullptr;
+	}
+
+	if (TheLadderList != nullptr)
+	{
+		delete TheLadderList;
+		TheLadderList = nullptr;
+	}
 }
 
 void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(GlobalStats)> cb)
@@ -169,9 +197,14 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 						// cb
 						cb(true, stats);
 					}
+					catch (nlohmann::json::exception& jsonException)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Stats: Unparsable JSON 1: %s (%s)", strBody.c_str(), jsonException.what());
+						cb(false, stats);
+					}
 					catch (...)
 					{
-						// cb
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Stats: Unparsable JSON 2: %s", strBody.c_str());
 						cb(false, stats);
 					}
 				});

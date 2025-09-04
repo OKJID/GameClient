@@ -212,11 +212,6 @@ static void gameTooltip(GameWindow* window,
 	WinInstanceData* instData,
 	UnsignedInt mouse)
 {
-	// TODO_NGMP
-#if defined(GENERALS_ONLINE)
-	return;
-#endif
-
 	Int x, y, row, col;
 	x = LOLONGTOSHORT(mouse);
 	y = HILONGTOSHORT(mouse);
@@ -230,12 +225,26 @@ static void gameTooltip(GameWindow* window,
 	}
 
 	Int gameID = (Int)GadgetListBoxGetItemData(window, row, 0);
+#if defined(GENERALS_ONLINE)
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	if (pLobbyInterface == nullptr)
+	{
+		return;
+	}
+
+	LobbyEntry lobbyEntry = pLobbyInterface->GetLobbyFromID(gameID);
+	if (lobbyEntry.lobbyID == -1)
+	{
+		return;
+	}
+#else
 	GameSpyStagingRoom *room = TheGameSpyInfo->findStagingRoomByID(gameID);
 	if (!room)
 	{
 		TheMouse->setCursorTooltip( TheGameText->fetch("TOOLTIP:UnknownGame") );
 		return;
 	}
+#endif
 
 	if (col == COLUMN_PING)
 	{
@@ -258,7 +267,11 @@ static void gameTooltip(GameWindow* window,
 	}
 	if (col == COLUMN_PASSWORD)
 	{
+#if defined(GENERALS_ONLINE)
+		if (lobbyEntry.passworded)
+#else
 		if (room->getHasPassword())
+#endif
 		{
 			UnicodeString checkTooltip =TheGameText->fetch("TOOTIP:Password");
 			if(!checkTooltip.compare(L"Password required to joing game"))
@@ -271,7 +284,11 @@ static void gameTooltip(GameWindow* window,
 	}
   if (col == COLUMN_USE_STATS)
   {
-    if ( room->getUseStats() )
+#if defined(GENERALS_ONLINE)
+	  if (lobbyEntry.track_stats)
+#else
+	  if (room->getUseStats())
+#endif
     {
       TheMouse->setCursorTooltip( TheGameText->fetch("TOOLTIP:UseStatsOn") );
     }
@@ -285,6 +302,11 @@ static void gameTooltip(GameWindow* window,
 	UnicodeString tooltip;
 
 	UnicodeString mapName;
+
+#if defined(GENERALS_ONLINE)
+	// GO already has the full map info, don't need the cache
+	mapName.translate(lobbyEntry.map_name.c_str());
+#else
 	const MapMetaData *md = TheMapCache->findMap(room->getMap());
 	if (md)
 	{
@@ -303,9 +325,23 @@ static void gameTooltip(GameWindow* window,
 		}
 		mapName.translate( start );
 	}
+#endif
 	UnicodeString tmp;
+
+#if defined(GENERALS_ONLINE)
+	UnicodeString gameName;
+	gameName.format(L"%s", from_utf8(lobbyEntry.name).c_str());
+	tooltip.format(TheGameText->fetch("TOOLTIP:GameInfoGameName"), gameName.str());
+#else
 	tooltip.format(TheGameText->fetch("TOOLTIP:GameInfoGameName"), room->getGameName().str());
+#endif
+	
+#if defined(GENERALS_ONLINE)
+	// TODO_QUICKMATCH
+	if (false)
+#else
 	if (room->getLadderPort() != 0)
+
 	{
 		const LadderInfo *linfo = TheLadderList->findLadder(room->getLadderIP(), room->getLadderPort());
 		if (linfo)
@@ -314,7 +350,12 @@ static void gameTooltip(GameWindow* window,
 			tooltip.concat(tmp);
 		}
 	}
+#endif
+#if defined(GENERALS_ONLINE)
+	if (lobbyEntry.exe_crc != TheGlobalData->m_exeCRC || lobbyEntry.ini_crc != TheGlobalData->m_iniCRC)
+#else
 	if (room->getExeCRC() != TheGlobalData->m_exeCRC || room->getIniCRC() != TheGlobalData->m_iniCRC)
+#endif
 	{
 		tmp.format(TheGameText->fetch("TOOLTIP:InvalidGameVersion"), mapName.str());
 		tooltip.concat(tmp);
@@ -322,6 +363,39 @@ static void gameTooltip(GameWindow* window,
 	tmp.format(TheGameText->fetch("TOOLTIP:GameInfoMap"), mapName.str());
 	tooltip.concat(tmp);
 
+#if defined(GENERALS_ONLINE)
+	for (LobbyMemberEntry& member : lobbyEntry.members)
+	{
+		if (member.IsHuman())
+		{
+			UnicodeString plrName;
+			plrName.format(L"%s", from_utf8(member.display_name).c_str());
+
+			// TODO_NGMP: We don't have stats info
+			//tmp.format(TheGameText->fetch("TOOLTIP:GameInfoPlayer"), plrName.str(), slot->getWins(), slot->getLosses());
+			tooltip.concat(L'\n');
+			tooltip.concat(plrName);
+		}
+		else
+		{
+			switch (member.m_SlotState)
+			{
+			case SLOT_EASY_AI:
+				tooltip.concat(L'\n');
+				tooltip.concat(TheGameText->fetch("GUI:EasyAI"));
+				break;
+			case SLOT_MED_AI:
+				tooltip.concat(L'\n');
+				tooltip.concat(TheGameText->fetch("GUI:MediumAI"));
+				break;
+			case SLOT_BRUTAL_AI:
+				tooltip.concat(L'\n');
+				tooltip.concat(TheGameText->fetch("GUI:HardAI"));
+				break;
+			}
+		}
+	}
+#else
 	AsciiString aPlayer;
 	UnicodeString player;
 	Int numPlayers = 0;
@@ -359,6 +433,7 @@ static void gameTooltip(GameWindow* window,
 		}
 	}
 	DEBUG_ASSERTCRASH(numPlayers, ("Tooltipping a 0-player game!"));
+#endif
 
 	TheMouse->setCursorTooltip( tooltip, 10, NULL, 2.0f ); // the text and width are the only params used.  the others are the default values.
 }
@@ -570,7 +645,7 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	}
 
 	UnicodeString gameName;
-	gameName.format(L"%s (%s)", UnicodeString(from_utf8(lobbyInfo.name).c_str()), strOwnerName.c_str());
+	gameName.format(L"%s (%s)", from_utf8(lobbyInfo.name).c_str(), strOwnerName.c_str());
 
 	int numPlayers = lobbyInfo.current_players;
 	int maxPlayers = lobbyInfo.max_players;
@@ -578,7 +653,7 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	AsciiString lobbyMapName = AsciiString(lobbyInfo.map_name.c_str());
 	AsciiString ladder = AsciiString("TODO_NGMP");
 	USHORT ladderPort = 1;
-	int gameID = 0;
+	int gameID = lobbyInfo.lobbyID; // TODO_NGMP: Downcast. We should use int64 everywhere, although its unlikely we actually need int64 for lobby since its reset regularly.
 
 	bool bHasPassword = lobbyInfo.passworded;
 
@@ -932,6 +1007,7 @@ void RefreshGameListBox( GameWindow *win, Bool showMap )
 			{
 				win->winEnable(false);
 				GadgetListBoxAddEntryText(win, UnicodeString(L"No lobbies were found"), GameMakeColor(255, 194, 15, 255), -1, -1);
+
 			}
 			else
 			{
