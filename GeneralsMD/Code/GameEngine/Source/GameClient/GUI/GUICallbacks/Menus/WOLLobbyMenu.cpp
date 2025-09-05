@@ -377,10 +377,13 @@ static void playerTooltip(GameWindow *window,
 							AsciiString sideName = "GUI:RandomSide";
 							if (mostGames > 0)
 							{
-								const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
-								if (fac)
+								if (favorite > 1) // cant be civilian or observer
 								{
-									sideName.format("SIDE:%s", fac->getSide().str());
+									const PlayerTemplate* fac = ThePlayerTemplateStore->getNthPlayerTemplate(favorite);
+									if (fac)
+									{
+										sideName.format("SIDE:%s", fac->getSide().str());
+									}
 								}
 							}
 							AsciiString rankName;

@@ -6,7 +6,7 @@
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
 #define SETTINGS_KEY_CAMERA_MOVE_SPEED_RATIO "move_speed_ratio"
-#define SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST "max_height_when_lobby_host"
+#define SETTINGS_KEY_CAMERA_MAX_HEIGHT_WHEN_LOBBY_HOST "max_height_only_when_lobby_host"
 
 #define SETTINGS_KEY_INPUT "input"
 #define SETTINGS_KEY_INPUT_LOCK_CURSOR_TO_GAME_WINDOW "lock_cursor_to_game_window"
