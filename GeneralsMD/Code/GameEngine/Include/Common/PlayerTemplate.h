@@ -226,7 +226,7 @@ public:
 
 private:
 
-	typedef std::vector<PlayerTemplate> PlayerTemplateVector;
+	typedef std::deque<PlayerTemplate> PlayerTemplateVector;
 
 	PlayerTemplateVector m_playerTemplates;
 };
