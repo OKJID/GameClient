@@ -1532,6 +1532,10 @@ bool TextureLoadTaskClass::Begin_Compressed_Load(void)
 #endif
 	);
 
+	if (!D3DTexture) {
+		return false;
+	}
+
 	MipLevelCount = mip_level_count;
 
 	return true;
@@ -1626,6 +1630,10 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
 		D3DPOOL_SYSTEMMEM
 #endif
 	);
+
+	if (!D3DTexture) {
+		return false;
+	}
 
 	return true;
 }
