@@ -655,6 +655,11 @@ void GameClient::update( void )
 				Object *object=draw->getObject();
 				if (object)
 				{
+					// TheSuperHackers @bugfix Validate object and template before calling getShroudedStatus
+					// to prevent access violation when object or its data is corrupted/freed
+					if (object->getTemplate() == NULL)
+						continue;
+
 					if (TheGhostObjectManager->trackAllPlayers())
 					{
 						// TheSuperHackers @info Update the shrouded status for all objects
@@ -665,8 +670,16 @@ void GameClient::update( void )
 							Int *const playerIndexEnd = nonLocalPlayerIndices + numNonLocalPlayers;
 							for (; playerIndex < playerIndexEnd; ++playerIndex)
 							{
+								// Re-validate object before each getShroudedStatus call
+								// as the call can trigger object removal/deletion
+								if (object->getTemplate() == NULL)
+									break;
 								object->getShroudedStatus(*playerIndex);
 							}
+							
+							// Re-validate object after the loop before continuing
+							if (object->getTemplate() == NULL)
+								continue;
 						}
 					}
 
