@@ -698,7 +698,7 @@ void GameClient::update( void )
 				//to getShroudStatus() because they are only made for visible on-screen
 				//objects.
 				Object *object=draw->getObject();
-				if (object)
+				if (object && !object->isDestroyed())
 				{
 					if (TheGhostObjectManager->trackAllPlayers())
 					{
