@@ -5623,7 +5623,10 @@ static void hLineAddLooker(Int x1, Int x2, Int y, void *playerIndexVoid)
 
 	Int playerIndex = (Int)(playerIndexVoid);
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5640,7 +5643,10 @@ static void hLineRemoveLooker(Int x1, Int x2, Int y, void *playerIndexVoid)
 
 	Int playerIndex = (Int)(playerIndexVoid);
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5657,7 +5663,10 @@ static void hLineAddShrouder(Int x1, Int x2, Int y, void *playerIndexVoid)
 
 	Int playerIndex = (Int)(playerIndexVoid);
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5674,7 +5683,10 @@ static void hLineRemoveShrouder(Int x1, Int x2, Int y, void *playerIndexVoid)
 
 	Int playerIndex = (Int)(playerIndexVoid);
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5694,7 +5706,10 @@ static void hLineAddThreat(Int x1, Int x2, Int y, void *threatValueParms)
 	Real distance;
 	Real mulVal = 1.0f;
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5722,7 +5737,10 @@ static void hLineRemoveThreat(Int x1, Int x2, Int y, void *threatValueParms)
 	Real distance;
 	Real mulVal = 1.0f;
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5750,7 +5768,10 @@ static void hLineAddValue(Int x1, Int x2, Int y, void *threatValueParms)
 	Real distance;
 	Real mulVal = 1.0f;
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
@@ -5778,7 +5799,10 @@ static void hLineRemoveValue(Int x1, Int x2, Int y, void *threatValueParms)
 	Real distance;
 	Real mulVal = 1.0f;
 
-	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1];	// yes, this could be invalid. we'll skip the bad ones.
+	// Clamp x1 to valid range to prevent out-of-bounds pointer calculation
+	Int x1Clamped = (x1 < 0) ? 0 : x1;
+	
+	PartitionCell* cell = &ThePartitionManager->m_cells[y * ThePartitionManager->m_cellCountX + x1Clamped];
 	for (Int x = x1; x <= x2; ++x, ++cell)
 	{
 		if (x < 0 || x >= ThePartitionManager->m_cellCountX)
