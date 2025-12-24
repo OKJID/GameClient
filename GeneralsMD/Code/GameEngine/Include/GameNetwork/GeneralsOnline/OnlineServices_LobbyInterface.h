@@ -325,8 +325,8 @@ public:
 
 	void UpdateRoomDataCache(std::function<void(void)> fnCallback = nullptr);
 
-	std::function<void(LobbyMemberEntry)> m_cbPlayerDoesntHaveMap = nullptr;
-	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(LobbyMemberEntry)> cb)
+	std::function<void(const LobbyMemberEntry&)> m_cbPlayerDoesntHaveMap = nullptr;
+	void RegisterForPlayerDoesntHaveMapCallback(std::function<void(const LobbyMemberEntry&)> cb)
 	{
 		m_cbPlayerDoesntHaveMap = cb;
 	}
