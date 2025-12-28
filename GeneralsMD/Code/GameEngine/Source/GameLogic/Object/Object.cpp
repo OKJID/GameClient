@@ -3139,6 +3139,8 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 	if (body)
 		body->onVeterancyLevelChanged( oldLevel, newLevel, provideFeedback );
 
+	Bool doAnimation = FALSE;
+
 	switch (newLevel)
 	{
 		case LEVEL_REGULAR:
@@ -3175,7 +3177,7 @@ void Object::onVeterancyLevelChanged( VeterancyLevel oldLevel, VeterancyLevel ne
 			break;
 	}
 
-	Bool doAnimation = provideFeedback
+	doAnimation = provideFeedback
 		&& newLevel > oldLevel
 		&& !isKindOf(KINDOF_IGNORED_IN_GUI)
 		&& isLogicallyVisible();
