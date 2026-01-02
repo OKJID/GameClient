@@ -6209,6 +6209,12 @@ void InGameUI::drawRenderFps(Int &x, Int &y)
 }
 
 void InGameUI::drawSystemTime(Int &x, Int &y)
+	if (!m_systemTimeString)
+	{
+		return;
+	}
+
+
 {
 	// current system time
 	SYSTEMTIME systemTime;
@@ -6344,5 +6350,7 @@ void InGameUI::drawGameTime()
 	m_gameTimeString->draw(horizontalTimerOffset, m_gameTimePosition.y, m_gameTimeColor, m_gameTimeDropColor);
 	m_gameTimeFrameString->draw(horizontalFrameOffset, m_gameTimePosition.y, GameMakeColor(180,180,180,255), m_gameTimeDropColor);
 }
+
+
 
 
