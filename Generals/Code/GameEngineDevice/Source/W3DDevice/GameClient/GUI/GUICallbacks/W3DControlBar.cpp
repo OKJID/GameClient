@@ -145,7 +145,7 @@ void W3DPowerDraw( GameWindow *window, WinInstanceData *instData )
 	window->winGetScreenPosition( &pos.x, &pos.y );
 	window->winGetSize( &size.x, &size.y );
 
-	static Real pixelsPerInterval = size.x / TheGlobalData->m_powerBarIntervals;
+	Real pixelsPerInterval = size.x / TheGlobalData->m_powerBarIntervals;
 	Int delta = TheGlobalData->m_powerBarYellowRange;
 
 	if((consumption > energy->getProduction() - delta) && (consumption <= energy->getProduction()))
@@ -312,7 +312,7 @@ void W3DPowerDrawA( GameWindow *window, WinInstanceData *instData )
 	window->winGetScreenPosition( &pos.x, &pos.y );
 	window->winGetSize( &size.x, &size.y );
 
-	static Real pixelsPerInterval = size.x / TheGlobalData->m_powerBarIntervals;
+	Real pixelsPerInterval = size.x / TheGlobalData->m_powerBarIntervals;
 	Int delta = TheGlobalData->m_powerBarYellowRange;
 
 	if((consumption > energy->getProduction() - delta) && (consumption <= energy->getProduction()))
