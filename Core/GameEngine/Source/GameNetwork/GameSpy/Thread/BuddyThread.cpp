@@ -212,7 +212,7 @@ void GameSpyBuddyMessageQueue::addRequest( const BuddyRequest& req )
 
 Bool GameSpyBuddyMessageQueue::getRequest( BuddyRequest& req )
 {
-	MutexClass::LockClass m(m_requestMutex, 0);
+	MutexClass::LockClass m(m_requestMutex, 100);
 	if (m.Failed())
 		return false;
 
@@ -234,7 +234,7 @@ void GameSpyBuddyMessageQueue::addResponse( const BuddyResponse& resp )
 
 Bool GameSpyBuddyMessageQueue::getResponse( BuddyResponse& resp )
 {
-	MutexClass::LockClass m(m_responseMutex, 0);
+	MutexClass::LockClass m(m_responseMutex, 100);
 	if (m.Failed())
 		return false;
 
