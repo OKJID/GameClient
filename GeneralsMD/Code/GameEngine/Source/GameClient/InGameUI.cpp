@@ -6266,12 +6266,18 @@ void InGameUI::drawGameTime()
 			if (pMesh != nullptr && pLobbyInterface != nullptr)
 			{
 				//std::vector<LobbyMemberEntry>& vecMembers = pLobbyInterface->GetMembersListForCurrentRoom();
-				
+
+				// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 				int i = 0;
+#endif
+
 				for (auto& connection : pMesh->GetAllConnections())
 				{
 					LobbyMemberEntry lobbyMember = pLobbyInterface->GetRoomMemberFromID(connection.first);
 
+					// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 					const int k_nLanes = 1;
 					SteamNetConnectionRealTimeStatus_t status;
 					SteamNetConnectionRealTimeLaneStatus_t laneStatus[k_nLanes];
@@ -6316,6 +6322,7 @@ void InGameUI::drawGameTime()
 					m_gameTimeString->setText(netString);
 					m_gameTimeString->draw(0, 500 + (i * h / 2), bIsHighQuality ? m_colorGood : m_colorBad, m_gameTimeDropColor);
 					++i;
+#endif
 				}
 			}
 

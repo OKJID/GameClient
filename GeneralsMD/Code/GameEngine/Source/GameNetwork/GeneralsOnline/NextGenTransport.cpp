@@ -57,6 +57,8 @@ Bool NextGenTransport::update(void)
 
 Bool NextGenTransport::doRecv(void)
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	bool bRet = false;
 
 	TransportMessage incomingMessage;
@@ -151,6 +153,9 @@ Bool NextGenTransport::doRecv(void)
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Recv: Read %d packets this frame", numRead);
 
 	return bRet;
+#else
+	return false;
+#endif
 }
 
 Bool NextGenTransport::doSend(void)

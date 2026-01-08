@@ -56,9 +56,13 @@ enum EWebSocketMessageID
 	PING = 14,
 	PONG = 15,
 	PROBE = 16,
+
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	NETWORK_CONNECTION_START_SIGNALLING = 17,
 	NETWORK_CONNECTION_DISCONNECT_PLAYER = 18,
 	NETWORK_CONNECTION_CLIENT_REQUEST_SIGNALLING = 19,
+#endif
 	MATCHMAKING_ACTION_JOIN_PREARRANGED_LOBBY = 20,
 	MATCHMAKING_ACTION_START_GAME = 21,
 	MATCHMAKING_MESSAGE = 22,
@@ -196,8 +200,12 @@ public:
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	void SendData_RequestSignalling(int64_t targetUserID);
 	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);
+#endif
+
 	void SendData_StartGame();
 
 	void SendData_ChangeLobbyPassword(UnicodeString& strNewPassword);

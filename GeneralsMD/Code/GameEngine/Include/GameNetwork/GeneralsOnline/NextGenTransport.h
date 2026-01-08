@@ -1,13 +1,17 @@
 #pragma once
 
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 #define STEAMNETWORKINGSOCKETS_STATIC_LINK 1
+#include "GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h"
+#endif
 
 #include "GameNetwork/udp.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/Transport.h"
 #include "../NGMP_include.h"
 
-#include "GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h"
+
 
 #pragma comment(lib, "ValveNetworkingSockets/GameNetworkingSockets.lib")
 #pragma comment(lib, "ValveNetworkingSockets/abseil_dll.lib")

@@ -2,7 +2,11 @@
 
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
+
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 #include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
+#endif
 
 class NetRoom_ChatMessagePacket;
 
@@ -16,6 +20,8 @@ enum class EConnectionState
 	CONNECTION_DISCONNECTED
 };
 
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 // trivial signalling client interface
 class ISignalingClient
 {
@@ -27,6 +33,7 @@ public:
 	/// Disconnect from the server and close down our polling thread.
 	virtual void Release() = 0;
 };
+#endif
 
 class NetworkMesh;
 class PlayerConnection
@@ -37,7 +44,12 @@ public:
 		
 	}
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	PlayerConnection(int64_t userID, HSteamNetConnection hSteamConnection);
+#else
+	PlayerConnection(int64_t userID);
+#endif
 
 	EConnectionState GetState() const { return m_State; }
 
@@ -52,7 +64,12 @@ public:
 		return strConnectionType.find("Relayed") == std::string::npos;
 	}
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	int Recv(SteamNetworkingMessage_t** pMsg);
+#else
+	int Recv();
+#endif
 
 	int GetHighestHistoricalLatency()
 	{
@@ -87,7 +104,10 @@ public:
 	int GetLatency();
 	float GetConnectionQuality();
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	HSteamNetConnection m_hSteamConnection = k_HSteamNetConnection_Invalid;
+#endif
 };
 
 struct LobbyMemberEntry;
@@ -105,11 +125,14 @@ public:
 
 	~NetworkMesh()
 	{
+		// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 		if (m_pSignaling != nullptr)
 		{
 			delete m_pSignaling;
 			m_pSignaling = nullptr;
 		}
+#endif
 	}
 
 	void Flush();
@@ -167,13 +190,19 @@ public:
 	QueuedGamePacket RecvGamePacket();
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
+#endif
 	void DisconnectUser(int64_t remoteUserID);
 	void Disconnect();
 
 	void Tick();
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	HSteamListenSocket GetListenSocketHandle() const { return m_hListenSock; }
+#endif
 
 	std::map<int64_t, PlayerConnection>& GetAllConnections()
 	{
@@ -194,12 +223,14 @@ public:
 private:
 	std::map<int64_t, PlayerConnection> m_mapConnections;
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	ISignalingClient* m_pSignaling = nullptr;
-
 	HSteamListenSocket m_hListenSock = k_HSteamListenSocket_Invalid;
 
 	std::string m_strTurnUsername;
 	std::string m_strTurnToken;
 	std::string m_strTurnUsernameString;
 	std::string m_strTurnTokenString;
+#endif
 };

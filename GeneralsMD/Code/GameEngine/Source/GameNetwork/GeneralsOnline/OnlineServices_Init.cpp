@@ -993,7 +993,8 @@ void WebSocket::SendData_LeaveNetworkRoom()
 	SendData_JoinNetworkRoom(-1);
 }
 
-
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 void WebSocket::SendData_RequestSignalling(int64_t targetUserID)
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] SEND REQUEST SIGNALING!");
@@ -1014,6 +1015,7 @@ void WebSocket::SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> v
 	std::string strBody = j.dump();
 	Send(strBody.c_str());
 }
+#endif
 
 void WebSocket::SendData_StartGame()
 {

@@ -36,6 +36,8 @@
 #define RTS_MULTI_INSTANCE 1
 #endif
 
+#define USE_IPC_TRANSPORT_LAYER
+
 class UnicodeString;
 void showNotificationBox(AsciiString nick, UnicodeString message, bool bPlaySound = true);
 

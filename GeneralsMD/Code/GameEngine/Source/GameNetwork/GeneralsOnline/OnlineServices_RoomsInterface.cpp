@@ -869,6 +869,8 @@ void WebSocket::Tick()
 										break;
 									}
 
+									// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 									case EWebSocketMessageID::NETWORK_CONNECTION_START_SIGNALLING:
 									{
 										WebSocketMessage_NetworkStartSignalling startSignallingData;
@@ -965,6 +967,7 @@ void WebSocket::Tick()
 										}
 									}
 									break;
+#endif
 
 									case EWebSocketMessageID::LOBBY_CHAT_FROM_SERVER:
 									{

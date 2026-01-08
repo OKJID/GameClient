@@ -10,12 +10,18 @@
 #include "../json.hpp"
 #include "../HTTP/HTTPManager.h"
 #include "../OnlineServices_Init.h"
+
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 #include "ValveNetworkingSockets/steam/isteamnetworkingutils.h"
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
+#endif
 
 bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
 
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 // Called when a connection undergoes a state transition
 void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t* pInfo)
 {
@@ -551,14 +557,18 @@ public:
 		CloseSocket();
 	}
 };
+#endif
 
 
 NetworkMesh::NetworkMesh()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, k_ESteamNetworkingSocketsDebugOutputType_Error);
 
 	// try a shutdown
 	GameNetworkingSockets_Kill();
+#endif
 
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
 	if (pOnlineServicesMgr == nullptr)
@@ -581,8 +591,10 @@ NetworkMesh::NetworkMesh()
 		return;
 	}
 
-
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	int64_t localUserID = pAuthInterface->GetUserID();
+
 
 	SteamNetworkingIdentity identityLocal;
 	identityLocal.Clear();
@@ -601,6 +613,7 @@ NetworkMesh::NetworkMesh()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init failed.  %s", errMsg);
 		return;
 	}
+
 
 	// TODO_STEAM: Dont hardcode, get everything from service
 	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53,stun:stun.playgenerals.online:3478,stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302");
@@ -673,11 +686,14 @@ NetworkMesh::NetworkMesh()
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "CreateListenSocketP2P failed. Sock was invalid");
 	}
+#endif
 }
 
 
 void NetworkMesh::Flush()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
 	bool bDoImmediateFlushPerFrame = serviceConf.network_do_immediate_flush_per_frame;
 
@@ -688,6 +704,7 @@ void NetworkMesh::Flush()
 			SteamNetworkingSockets()->FlushMessagesOnConnection(connectionData.second.m_hSteamConnection);
 		}
 	}
+#endif
 }
 
 
@@ -751,7 +768,8 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 	return -2;
 }
 
-
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
 {
 	// if we already have a connection to this use, drop it, having a single-direction connection will break signalling
@@ -849,10 +867,13 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 	// add attempt
 	++m_mapConnections[remoteUserID].m_SignallingAttempts;
 }
+#endif
 
 
 void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Dumping all Steam connections");
 	for (auto& kvPair : m_mapConnections)
 	{
@@ -887,10 +908,13 @@ void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 			}
 		}
 	}
+#endif
 }
 
 void NetworkMesh::Disconnect()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	// close every connection
 	for (auto& connectionData : m_mapConnections)
 	{
@@ -906,16 +930,22 @@ void NetworkMesh::Disconnect()
 
 	// invalidate socket
 	m_hListenSock = k_HSteamNetConnection_Invalid;
+#endif
 
 	// clear map
 	m_mapConnections.clear();
- 
+
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	// tear down steam sockets
 	GameNetworkingSockets_Kill();
+#endif
 }
 
 void NetworkMesh::Tick()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	// Check for incoming signals, and dispatch them
 	if (m_pSignaling != nullptr)
 	{
@@ -927,6 +957,7 @@ void NetworkMesh::Tick()
 	{
 		SteamNetworkingSockets()->RunCallbacks();
 	}
+#endif
 
 	// update connection histograms
 	for (auto& kvPair : m_mapConnections)
@@ -936,26 +967,44 @@ void NetworkMesh::Tick()
 	}
 }
 
-
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 PlayerConnection::PlayerConnection(int64_t userID, HSteamNetConnection hSteamConnection)
 {
-	m_userID = userID;
-	
-	// no connection yet
-	m_hSteamConnection = hSteamConnection;
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Attaching connection %u to user %lld", hSteamConnection, userID);
+    m_userID = userID;
 
-	SteamNetworkingSockets()->SetConnectionName(hSteamConnection, std::format("Steam Connection User{}", userID).c_str());
+    // no connection yet
+    m_hSteamConnection = hSteamConnection;
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Attaching connection %u to user %lld", hSteamConnection, userID);
 
-	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-	if (pMesh != nullptr)
-	{
-		pMesh->RegisterConnectivity(userID);
-	}
+    SteamNetworkingSockets()->SetConnectionName(hSteamConnection, std::format("Steam Connection User{}", userID).c_str());
+
+    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+    if (pMesh != nullptr)
+    {
+        pMesh->RegisterConnectivity(userID);
+    }
 }
+#else
+PlayerConnection::PlayerConnection(int64_t userID)
+{
+    m_userID = userID;
+
+    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+    if (pMesh != nullptr)
+    {
+        pMesh->RegisterConnectivity(userID);
+    }
+}
+#endif
+
+
+
 
 int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
 
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
@@ -995,6 +1044,9 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	}
 
 	return (int)r;
+#endif
+
+	return 0;
 }
 
 
@@ -1026,12 +1078,19 @@ void PlayerConnection::UpdateLatencyHistogram()
 
 bool PlayerConnection::IsIPV4()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	SteamNetConnectionInfo_t info;
 	SteamNetworkingSockets()->GetConnectionInfo(m_hSteamConnection, &info);
 
 	return info.m_addrRemote.IsIPv4();
+#else
+	return false;
+#endif
 }
 
+// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 {
 	int r = -1;
@@ -1047,24 +1106,40 @@ int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 
 	return r;
 }
+#else
+int PlayerConnection::Recv()
+{
+	return 0;
+}
+#endif
 
 
 std::string PlayerConnection::GetStats()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetDetailedConnectionStatus(m_hSteamConnection, szBuf, 2048);
 
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM] PlayerConnection::GetStats returned %d", ret);
 	return std::string(szBuf);
+#else
+	return std::string();
+#endif
 }
 
 
 std::string PlayerConnection::GetConnectionType()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetConnectionType(m_hSteamConnection, szBuf, 2048);
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM] PlayerConnection::GetConnectionType returned %d", ret);
 	return std::string(szBuf);
+#else
+	return std::string();
+#endif
 }
 
 void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwningMesh)
@@ -1119,14 +1194,19 @@ void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh,
 		UpdateState(m_State, pOwningMesh);
 	}
 
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", m_hSteamConnection, m_userID);
 	SteamNetworkingSockets()->SetConnectionName(m_hSteamConnection, std::format("Steam Connection User{}", m_userID).c_str());
 
 	m_hSteamConnection = k_HSteamNetConnection_Invalid; // invalidate connection handle
+#endif
 }
 
 int PlayerConnection::GetLatency()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	// TODO_STEAM: consider using lanes
 	if (m_hSteamConnection != k_HSteamNetConnection_Invalid)
 	{
@@ -1142,12 +1222,15 @@ int PlayerConnection::GetLatency()
 			return status.m_nPing;
 		}
 	}
+#endif
 
 	return -1;
 }
 
 float PlayerConnection::GetConnectionQuality()
 {
+	// TODO_IPC
+#if !defined(USE_IPC_TRANSPORT_LAYER)
 	if (m_hSteamConnection != k_HSteamNetConnection_Invalid)
 	{
 		const int k_nLanes = 1;
@@ -1160,6 +1243,7 @@ float PlayerConnection::GetConnectionQuality()
 			return std::min<float>(status.m_flConnectionQualityLocal, status.m_flConnectionQualityRemote);
 		}
 	}
+#endif
 
 	return -1;
 }
