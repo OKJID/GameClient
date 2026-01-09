@@ -2152,7 +2152,17 @@ void InGameUI::message( AsciiString stringManagerLabel, ... )
 	va_list args;
 	va_start( args, stringManagerLabel );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), stringManagerString.str(), args );
+	
+	// Safety check: ensure format string is valid before calling vswprintf
+	const WideChar* formatStr = stringManagerString.str();
+	if (!formatStr || stringManagerString.isEmpty())
+	{
+		va_end(args);
+		DEBUG_CRASH(("InGameUI::message called with invalid format string"));
+		return;
+	}
+	
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), formatStr, args );
 	va_end(args);
 
 	if( result >= 0 )
@@ -2193,7 +2203,17 @@ void InGameUI::message( UnicodeString format, ... )
 	va_list args;
 	va_start( args, format );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), format.str(), args );
+	
+	// Safety check: ensure format string is valid before calling vswprintf
+	const WideChar* formatStr = format.str();
+	if (!formatStr || format.isEmpty())
+	{
+		va_end(args);
+		DEBUG_CRASH(("InGameUI::message called with invalid format string"));
+		return;
+	}
+	
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), formatStr, args );
 	va_end(args);
 
 	if( result >= 0 )
@@ -2220,7 +2240,17 @@ void InGameUI::messageColor( const RGBColor *rgbColor, UnicodeString format, ...
 	va_list args;
 	va_start( args, format );
 	WideChar buf[ UnicodeString::MAX_FORMAT_BUF_LEN ];
-	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), format.str(), args );
+	
+	// Safety check: ensure format string is valid before calling vswprintf
+	const WideChar* formatStr = format.str();
+	if (!formatStr || format.isEmpty())
+	{
+		va_end(args);
+		DEBUG_CRASH(("InGameUI::messageColor called with invalid format string"));
+		return;
+	}
+	
+	int result = vswprintf(buf, sizeof( buf )/sizeof( WideChar ), formatStr, args );
 	va_end(args);
 
 	if( result >= 0 )
