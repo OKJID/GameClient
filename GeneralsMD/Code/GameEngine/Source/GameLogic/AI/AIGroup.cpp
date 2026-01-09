@@ -835,6 +835,11 @@ Bool AIGroup::friend_moveInfantryToPos( const Coord3D *pos, CommandSourceType cm
 		return false;
 	}
 
+	// Additional safety check to prevent division by zero
+	if (unitsToPath == 0) {
+		return false;
+	}
+
 	Object *theUnit;
 	if (useEndVector) {
 		// resort unsing the end vector.
@@ -1306,6 +1311,11 @@ Bool AIGroup::friend_moveVehicleToPos( const Coord3D *pos, CommandSourceType cmd
 	}
 
 	if (unitsToPath<TheAI->getAiData()->m_minVehiclesForGroup) {
+		return false;
+	}
+
+	// Additional safety check to prevent division by zero
+	if (unitsToPath == 0) {
 		return false;
 	}
 
