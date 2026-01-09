@@ -13,6 +13,10 @@
 #include "ValveNetworkingSockets/steam/isteamnetworkingutils.h"
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
 
+// OpenSSL 3.0 provider includes for legacy algorithm support
+#include <openssl/provider.h>
+#include <openssl/err.h>
+
 bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
 
@@ -592,6 +596,31 @@ NetworkMesh::NetworkMesh()
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamNetworkingIdentity is invalid");
 		return;
+	}
+
+	// Initialize OpenSSL 3.0 legacy provider before GameNetworkingSockets_Init
+	// This is required to support deprecated DES encryption algorithms used by the networking library
+	OSSL_PROVIDER* legacyProvider = OSSL_PROVIDER_load(NULL, "legacy");
+	if (legacyProvider == NULL)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[OPENSSL] Warning: Failed to load legacy provider. Error: %lu", ERR_get_error());
+		// Continue anyway - this is not fatal, but log it for diagnostics
+	}
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[OPENSSL] Successfully loaded legacy provider");
+	}
+
+	// Also ensure the default provider is loaded for standard algorithms
+	OSSL_PROVIDER* defaultProvider = OSSL_PROVIDER_load(NULL, "default");
+	if (defaultProvider == NULL)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[OPENSSL] Warning: Failed to load default provider. Error: %lu", ERR_get_error());
+		// Continue anyway - this is not fatal, but log it for diagnostics
+	}
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[OPENSSL] Successfully loaded default provider");
 	}
 
 	// initialize Steam Sockets
