@@ -371,9 +371,12 @@ Bool AIGroup::getCenter( Coord3D *center )
 		}
 	}
 
-	center->x /= count;
-	center->y /= count;
-	center->z /= count;
+	if (count > 0)
+	{
+		center->x /= count;
+		center->y /= count;
+		center->z /= count;
+	}
 
 	return count > 0;
 }
