@@ -3302,6 +3302,9 @@ Object *PartitionManager::getClosestObjects(
 	*/
   for (Int curRadius = 0; curRadius <= maxRadiusLimit; ++curRadius)
   {
+		// Safety check: ensure m_radiusVec is initialized and curRadius is within bounds
+		if (m_radiusVec.empty() || curRadius >= static_cast<Int>(m_radiusVec.size()))
+			continue;
     const OffsetVec& offsets = m_radiusVec[curRadius];
 		if (offsets.empty())
 			continue;
