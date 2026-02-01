@@ -571,6 +571,7 @@ private:
 	// Screenshot thread management
 	std::vector<std::thread*> m_vecScreenshotThreads;
 	std::mutex m_mutexScreenshotThreads;
+	std::atomic<bool> m_bShuttingDown = false;
 
 	ServiceConfig m_ServiceConfig;
 
