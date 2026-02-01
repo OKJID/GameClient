@@ -117,6 +117,7 @@ ArchiveFileSystem::~ArchiveFileSystem()
 
 void ArchiveFileSystem::loadIntoDirectoryTree(ArchiveFile *archiveFile, Bool overwrite)
 {
+	FastCriticalSectionClass::LockClass lock(m_archiveDirectoryMutex);
 
 	FilenameList filenameList;
 
@@ -240,6 +241,8 @@ void ArchiveFileSystem::loadMods()
 
 Bool ArchiveFileSystem::doesFileExist(const Char *filename, FileInstance instance) const
 {
+	FastCriticalSectionClass::LockClass lock(m_archiveDirectoryMutex);
+	
 	ArchivedDirectoryInfoResult result = const_cast<ArchiveFileSystem*>(this)->getArchivedDirectoryInfo(filename);
 
 	if (!result.valid())
@@ -252,6 +255,8 @@ Bool ArchiveFileSystem::doesFileExist(const Char *filename, FileInstance instanc
 
 ArchivedDirectoryInfo* ArchiveFileSystem::friend_getArchivedDirectoryInfo(const Char* directory)
 {
+	FastCriticalSectionClass::LockClass lock(m_archiveDirectoryMutex);
+	
 	ArchivedDirectoryInfoResult result = getArchivedDirectoryInfo(directory);
 
 	return result.dirInfo;
@@ -319,6 +324,8 @@ Bool ArchiveFileSystem::getFileInfo(const AsciiString& filename, FileInfo *fileI
 
 ArchiveFile* ArchiveFileSystem::getArchiveFile(const AsciiString& filename, FileInstance instance) const
 {
+	FastCriticalSectionClass::LockClass lock(m_archiveDirectoryMutex);
+	
 	ArchivedDirectoryInfoResult result = const_cast<ArchiveFileSystem*>(this)->getArchivedDirectoryInfo(filename.str());
 
 	if (!result.valid())
