@@ -142,6 +142,7 @@ OpenContain::OpenContain( Thing *thing, const ModuleData* moduleData ) : UpdateM
 	m_noFirePointsInArt = false;
 	m_whichExitPath = 1;
 	m_loadSoundsEnabled = TRUE;
+	m_isRedeployingOccupants = FALSE;
 
   m_passengerAllowedToFire = getOpenContainModuleData()->m_passengersAllowedToFire;
   // overridable by setPass...()  in the parent interface (for use by upgrade module)
@@ -185,6 +186,10 @@ OpenContain::~OpenContain()
 // our object changed position... react as appropriate.
 void OpenContain::containReactToTransformChange()
 {
+	// Guard against reentrancy - if we're already redeploying, don't call it again
+	if (m_isRedeployingOccupants)
+		return;
+
 	// Our transform changed, which means our bones moved, and we keep people positioned on bones.
 	redeployOccupants();
 }
@@ -1213,6 +1218,11 @@ void OpenContain::monitorConditionChanges( void )
 // ------------------------------------------------------------------------------------------------
 void OpenContain::redeployOccupants( void )
 {
+	// Guard against reentrancy - if we're already in redeployOccupants, don't recurse
+	if (m_isRedeployingOccupants)
+		return;
+
+	m_isRedeployingOccupants = TRUE;
 
 	//
 	// because the state has changed, we will must give the deploy logic the opportunity
@@ -1235,6 +1245,7 @@ void OpenContain::redeployOccupants( void )
 		putObjAtNextFirePoint( *it );
 	}
 
+	m_isRedeployingOccupants = FALSE;
 }
 
 //-------------------------------------------------------------------------------------------------
