@@ -1262,6 +1262,10 @@ HLodClass & HLodClass::operator = (const HLodClass & that)
 
 			for (model = 0; model < that.Lod[lod].Count(); model++) {
 
+				if (that.Lod[lod][model].Model == nullptr) {
+					continue;
+				}
+
 				ModelNodeClass newnode;
 				newnode.Model = that.Lod[lod][model].Model->Clone();
 				newnode.BoneIndex = that.Lod[lod][model].BoneIndex;
@@ -1276,6 +1280,10 @@ HLodClass & HLodClass::operator = (const HLodClass & that)
 
 		AdditionalModels.Resize(that.AdditionalModels.Count());
 		for (model = 0; model < that.AdditionalModels.Count(); model++) {
+
+			if (that.AdditionalModels[model].Model == nullptr) {
+				continue;
+			}
 
 			ModelNodeClass newnode;
 			newnode.Model = that.AdditionalModels[model].Model->Clone();
