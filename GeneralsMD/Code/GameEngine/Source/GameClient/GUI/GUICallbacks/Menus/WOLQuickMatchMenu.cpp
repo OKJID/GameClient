@@ -1224,7 +1224,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 					TheNGMPGame = new NGMPGame();
 					TheNGMPGame->markGameAsQM();
 				}
-				pLobbyInterface->UpdateRoomDataCache([]()
+				pLobbyInterface->UpdateRoomDataCache([](bool bSuccess)
 					{
 
 					});
