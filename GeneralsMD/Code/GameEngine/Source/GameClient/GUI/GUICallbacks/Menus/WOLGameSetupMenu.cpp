@@ -2110,7 +2110,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 				UnicodeString strInform;
 				UnicodeString strInform2;
 				strInform.format(L"NOTE: This lobby has a customized maximum camera height / zoom level of %lu set as per your preference.", theLobby.max_cam_height);
-				strInform2.format(L"\tDo /maxcameraheight <val> to change this (e.g. /maxcameraheight 450).", theLobby.max_cam_height);
+				strInform2.format(L"\tDo /maxcameraheight <val> to change this (e.g. /maxcameraheight 450). Default is 310.", theLobby.max_cam_height);
 
 				GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
 				GadgetListBoxAddEntryText(listboxGameSetupChat, strInform2, GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);

@@ -2021,6 +2021,13 @@ void W3DView::setZoomToDefault( void )
 
 	m_zoom = desiredZoom;
 	m_heightAboveGround = m_maxHeightAboveGround;
+#if defined(GENERALS_ONLINE)
+	if (TheGameInfo && !TheGameInfo->amIHost())
+	{
+		m_heightAboveGround = (float)GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
+		m_zoom = (terrainHeightMax + m_heightAboveGround) / m_cameraOffset.z;
+	}
+#endif
 
 	m_doingMoveCameraOnWaypointPath = false;
 	m_CameraArrivedAtWaypointOnPathFlag = false;
@@ -2836,7 +2843,12 @@ void W3DView::resetCamera(const Coord3D *location, Int milliseconds, Real easeIn
 	// find best approximation of max terrain height we can see
 	//Real terrainHeightMax = getHeightAroundPos(m_pos.x, m_pos.y);
 	Real terrainHeightMax = getHeightAroundPos(location->x, location->y);
+#if defined(GENERALS_ONLINE)
+	Real targetHeight = (TheGameInfo && !TheGameInfo->amIHost()) ? (float)GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM : m_maxHeightAboveGround;
+	Real desiredHeight = (terrainHeightMax + targetHeight);
+#else
 	Real desiredHeight = (terrainHeightMax + m_maxHeightAboveGround);
+#endif
 	Real desiredZoom = desiredHeight / m_cameraOffset.z;
 
 	zoomCamera( desiredZoom, milliseconds, easeIn, easeOut );	// this isn't right... or is it?
