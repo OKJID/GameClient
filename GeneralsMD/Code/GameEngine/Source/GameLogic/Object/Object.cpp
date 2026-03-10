@@ -49,6 +49,7 @@
 #include "Common/Xfer.h"
 #include "Common/XferCRC.h"
 #include "Common/PerfTimer.h"
+#include "Common/StatsExporter.h"
 
 #include "GameClient/Anim2D.h"
 #include "GameClient/ControlBar.h"
@@ -2989,6 +2990,12 @@ void Object::scoreTheKill( const Object *victim )
 		controller->getScoreKeeper()->addObjectDestroyed(victim);
 		controller->addSkillPointsForKill(this, victim);
 		controller->doBountyForKill(this, victim);
+
+		if (TheGlobalData->m_exportStats)
+		{
+			const DamageInfo *damageInfo = victim->getBodyModule() ? victim->getBodyModule()->getLastDamageInfo() : nullptr;
+			StatsExporterRecordKill(this, victim, damageInfo);
+		}
 	}
 
 	// Now handle experience, if we can gain any
@@ -4602,6 +4609,9 @@ void Object::onCapture( Player *oldOwner, Player *newOwner )
 
 	// this gets the new owner some points
 	newOwner->getScoreKeeper()->addObjectCaptured(this);
+
+	if (TheGlobalData->m_exportStats)
+		StatsExporterRecordCapture(this, oldOwner, newOwner);
 
 	// rip through the behavior modules and call the onCapture for any modules that care
 	for( BehaviorModule **module = m_behaviors; *module; ++module )
