@@ -73,6 +73,7 @@
 NGMPGame* TheNGMPGame = NULL;
 
 void WOLDisplaySlotList( void );
+static void WOLRefreshConnectionIndicators( void );
 
 
 extern std::list<PeerResponse> TheLobbyQueuedUTMs;
@@ -499,7 +500,10 @@ static void playerTooltip(GameWindow *window,
 	}
 
 	bool bIsConnected = false;
-	int latency = -1;
+	int connectionScore = -1;
+	int connectionLatency = -1;
+	int connectionJitter = -1;
+	int connectionQualityPct = -1;
 	std::string strConnectionType = "";
 
 	LobbyMemberEntry member = pLobbyInterface->GetRoomMemberFromID(slot->m_userID);
@@ -521,7 +525,11 @@ static void playerTooltip(GameWindow *window,
 				{
 					bIsConnected = false;
 				}
-				latency = pConnection->GetLatency();
+				connectionScore = pConnection->ComputeConnectionScore();
+				connectionLatency = pConnection->GetLatency();
+				connectionJitter = pConnection->GetJitter();
+				float rawQuality = pConnection->GetConnectionQuality();
+				connectionQualityPct = (rawQuality >= 0.0f) ? static_cast<int>(rawQuality * 100.0f) : -1;
 			}
 		}
 	}
@@ -534,13 +542,19 @@ static void playerTooltip(GameWindow *window,
 	}
 	else if (bIsConnected)
 	{
-		playerInfo.format(L"\nConnection State: Connected (%hs)\nLatency: %d ms\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			strConnectionType.c_str(), latency, member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		UnicodeString scoreStr, latencyStr, jitterStr, qualityStr;
+		if (connectionScore >= 0) scoreStr.format(L"%d%%", connectionScore); else scoreStr = L"Unknown";
+		if (connectionLatency >= 0) latencyStr.format(L"%d ms", connectionLatency); else latencyStr = L"Unknown";
+		if (connectionJitter >= 0) jitterStr.format(L"%d ms", connectionJitter); else jitterStr = L"Unknown";
+		if (connectionQualityPct >= 0) qualityStr.format(L"%d%%", connectionQualityPct); else qualityStr = L"Unknown";
+		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
+			member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 	else
 	{
-		playerInfo.format(L"\nConnection State: Connecting...\nLatency: %d ms\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			latency, member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 #else
 			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
@@ -1314,6 +1328,69 @@ void WOLDisplayGameOptions( void )
 //  -----------------------------------------------------------------------------------------
 // The Bad munkee slot list displaying function
 //-------------------------------------------------------------------------------------------------
+static void WOLRefreshConnectionIndicators( void )
+{
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	NGMPGame* game = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
+	if (pLobbyInterface == nullptr || game == nullptr || !game->isInGame())
+		return;
+
+	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	static const Image* heroImage = TheMappedImageCollection->findImageByName("HeroReticle");
+
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		NGMPGameSlot* slot = game->getGameSpySlot(i);
+		if (slot == nullptr || !slot->isHuman())
+		{
+			if (genericPingWindow[i])
+				genericPingWindow[i]->winHide(TRUE);
+			continue;
+		}
+
+		if (genericPingWindow[i] == nullptr)
+			continue;
+
+		if (i == game->getLocalSlotNum())
+		{
+			genericPingWindow[i]->winHide(TRUE);
+			continue;
+		}
+
+		genericPingWindow[i]->winHide(FALSE);
+
+		bool bIsConnected = false;
+		int connectionScore = -1;
+
+		if (pMesh != nullptr)
+		{
+			PlayerConnection* pConnection = pMesh->GetConnectionForUser(slot->m_userID);
+			if (pConnection != nullptr)
+			{
+				bIsConnected = pConnection->GetState() == EConnectionState::CONNECTED_DIRECT;
+				connectionScore = pConnection->ComputeConnectionScore();
+			}
+		}
+
+		if (!bIsConnected || connectionScore < 0)
+		{
+			genericPingWindow[i]->winSetEnabledImage(0, heroImage);
+		}
+		else if (connectionScore >= 75)
+		{
+			genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
+		}
+		else if (connectionScore >= 50)
+		{
+			genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
+		}
+		else
+		{
+			genericPingWindow[i]->winSetEnabledImage(0, pingImages[2]);
+		}
+	}
+}
+
 void WOLDisplaySlotList( void )
 {
 	// TODO_NGMP
@@ -1350,70 +1427,10 @@ void WOLDisplaySlotList( void )
 			{
 				GadgetTextEntrySetTextColor(GadgetComboBoxGetEditBox(comboBoxPlayer[i]), nameColor);
 			}
-            
-			bool bIsConnected = false;
-			int latency = -1;
-			std::string strConnectionType = "";
-
-			LobbyMemberEntry member = pLobbyInterface->GetRoomMemberFromID(slot->m_userID);
-
-			if (NGMP_OnlineServicesManager::GetNetworkMesh() != nullptr)
-			{
-				PlayerConnection* pConnection = NGMP_OnlineServicesManager::GetNetworkMesh()->GetConnectionForUser(slot->m_userID);
-
-				if (pConnection != nullptr)
-				{
-					strConnectionType = pConnection->GetConnectionType();
-					if (pConnection->GetState() == EConnectionState::CONNECTED_DIRECT)
-					{
-						bIsConnected = true;
-					}
-					else
-					{
-						bIsConnected = false;
-					}
-					latency = pConnection->GetLatency();
-				}
-			}
-
-			if (genericPingWindow[i])
-			{
-				genericPingWindow[i]->winHide(FALSE);
-
-				genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
-
-				// not connected? show another icon
-				if (!bIsConnected && i != game->getLocalSlotNum())
-				{
-					static const Image* image = TheMappedImageCollection->findImageByName("HeroReticle");
-					genericPingWindow[i]->winSetEnabledImage(0, image);
-				}
-				else
-				{
-					if (latency > 0)
-					{
-						if (latency < 250)
-						{
-							genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
-						}
-						else if (latency < 500)
-						{
-							genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
-						}
-						else
-						{
-							genericPingWindow[i]->winSetEnabledImage(0, pingImages[2]);
-						}
-					}
-				}
-			}
-		}
-		else
-		{
-			if (genericPingWindow[i])
-				genericPingWindow[i]->winHide(TRUE);
 		}
 	}
+
+	WOLRefreshConnectionIndicators();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2280,6 +2297,9 @@ static void fillPlayerInfo(const PeerResponse *resp, PlayerInfo *info)
 //-------------------------------------------------------------------------------------------------
 void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 {
+	// Refresh only the fast-changing connection indicators each frame.
+	WOLRefreshConnectionIndicators();
+
 	// need to exit?
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
 	{
