@@ -1557,6 +1557,7 @@ void Player::onUnitCreated( Object *factory, Object *unit )
 
 	// increment our scorekeeper
 	m_scoreKeeper.addObjectBuilt(unit);
+	m_scoreKeeper.addMoneySpent(unit->getTemplate()->calcCostToBuild(this));
 
 	if (TheGlobalData->m_exportStats)
 		StatsExporterRecordBuild(factory, unit);
