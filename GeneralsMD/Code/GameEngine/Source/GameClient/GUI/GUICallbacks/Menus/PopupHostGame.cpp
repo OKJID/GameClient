@@ -596,16 +596,10 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				name.trim();
 				if(name.isEmpty())
 				{
-					NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-					if (pAuthInterface != nullptr)
-					{
-						name.format(L"%s", pAuthInterface->GetDisplayName());
-						GadgetTextEntrySetText(textEntryGameName, name);
-					}
-					else
-					{
-						name = L"Generals Online Lobby";
-					}
+					SetLobbyAttemptHostJoin(FALSE);
+					GameSpyCloseOverlay(GSOVERLAY_GAMEOPTIONS);
+					GSMessageBoxOk(TheGameText->fetch("GUI:Error"), UnicodeString(L"Please enter a lobby name."), nullptr);
+					break;
 				}
 #if defined(GENERALS_ONLINE)
 				// save last used lobby name to CustomPref.ini
