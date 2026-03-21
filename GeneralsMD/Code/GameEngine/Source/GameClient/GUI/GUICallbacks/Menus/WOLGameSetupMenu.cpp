@@ -2392,7 +2392,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 					if (pLobbyInterface != nullptr)
 					{
-						pLobbyInterface->UpdateRoomDataCache([]()
+						pLobbyInterface->UpdateRoomDataCache([](bool bSuccess)
 							{
 
 							});
