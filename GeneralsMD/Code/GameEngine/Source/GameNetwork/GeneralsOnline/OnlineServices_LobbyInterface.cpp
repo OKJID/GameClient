@@ -835,11 +835,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						}
 						else
 						{
-							// TODO_NGMP: This needs to match identically, but why did it change from the base game?
-							AsciiString strUserMapDIr = TheMapCache->getUserMapDir(true);
-							strUserMapDIr.toLower();
+							// Client sends the map filename sanitized, and the server reconstructs it as "mapname\mapname.map" assuming it sits directly under Maps\.
+							// However maps may be in a subdirectory locally, so search the local cache by filename to resolve the full path.
+							const char* mapFileName = strrchr(lobbyEntry.map_path.c_str(), '\\');
+							mapFileName = mapFileName != nullptr ? mapFileName + 1 : lobbyEntry.map_path.c_str();
 
-							lobbyEntry.map_path = std::format("{}\\{}", strUserMapDIr.str(), lobbyEntry.map_path.c_str());
+							for (std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->begin(); it != TheMapCache->end(); ++it)
+							{
+								const char* cacheFileName = strrchr(it->first.str(), '\\');
+								if (cacheFileName && _stricmp(cacheFileName + 1, mapFileName) == 0)
+								{
+									lobbyEntry.map_path = it->first.str();
+									break;
+								}
+							}
 						}
 
 						// did the map change? cache that we need to reset and transmit our ready state
