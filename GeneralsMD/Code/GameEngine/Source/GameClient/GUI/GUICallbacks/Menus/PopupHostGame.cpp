@@ -1,4 +1,4 @@
-/*
+﻿/*
 **	Command & Conquer Generals Zero Hour(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **

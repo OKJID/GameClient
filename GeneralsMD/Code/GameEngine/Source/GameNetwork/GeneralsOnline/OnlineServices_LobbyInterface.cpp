@@ -1262,8 +1262,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			std::map<std::string, std::string> mapHeaders;
 
 			// convert
-			AsciiString strMapName = AsciiString();
-			strMapName.translate(strInitialMapName);
+			std::string strMapName = to_utf8(strInitialMapName.str());
 
 			// sanitize map path
 			// we need to parse out the map name for custom maps... its an absolute path
@@ -1276,7 +1275,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 			nlohmann::json j;
 			j["name"] = to_utf8(strLobbyName.str());
-			j["map_name"] = strMapName.str();
+			j["map_name"] = strMapName;
 			j["map_path"] = sanitizedMapPath.str();
 			j["map_official"] = bIsOfficial;
 			j["max_players"] = initialMaxSize;
@@ -1342,7 +1341,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 							AsciiString strName = AsciiString();
 
 							m_CurrentLobby.name = to_utf8(strLobbyName.str());
-							m_CurrentLobby.map_name = std::string(strMapName.str());
+							m_CurrentLobby.map_name = std::string(strMapName);
 							m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
 							m_CurrentLobby.current_players = 1;
 							m_CurrentLobby.max_players = initialMaxSize;
