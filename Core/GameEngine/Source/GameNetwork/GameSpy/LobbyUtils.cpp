@@ -893,16 +893,12 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		}
 		else
 		{
-			const char* start = lobbyMapName.reverseFind('\\');
-			if (start)
-			{
-				++start;
-			}
-			else
-			{
-				start = lobbyMapName.str();
-			}
-			mapName.translate(start);
+			const char* start = lobbyInfo.map_name.c_str();
+			const char* slashPos = strrchr(start, '\\');
+			if (slashPos)
+				start = slashPos + 1;
+
+			mapName.format(L"%s", from_utf8(start).c_str());
 		}
 		GadgetListBoxAddEntryText(win, mapName, gameColor, index, COLUMN_MAP);
 
