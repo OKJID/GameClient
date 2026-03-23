@@ -1008,7 +1008,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 						if (fnCallback != nullptr)
 						{
-							//fnCallback();
+							fnCallback(false);
 						}
 					}
 				}
@@ -1017,7 +1017,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 					// TODO_NGMP: We still want to do this, but we need to send back that it failed and back out, proceeding to lobby crashes because mesh wasn't created
 					if (fnCallback != nullptr)
 					{
-						//fnCallback();
+						fnCallback(false);
 					}
 				}
 		});
