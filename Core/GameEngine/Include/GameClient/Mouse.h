@@ -62,9 +62,10 @@ enum GameMode CPP_11(: Int);
 
 enum MouseButtonState CPP_11(: Int)
 {
+	MBS_None = -1,
 	MBS_Up = 0,
-		MBS_Down,
-		MBS_DoubleClick,
+	MBS_Down,
+	MBS_DoubleClick,
 };
 
 #define MOUSE_MOVE_RELATIVE 0
@@ -105,17 +106,14 @@ struct MouseIO
 								 user while - is down/toward user */
 	ICoord2D deltaPos;  ///< overall change in mouse pointer this frame
 
-	MouseButtonState leftState;					// button state: Up, Down, DoubleClick (Which is also down)
+	MouseButtonState leftState;					// button state: None (no event), Up, Down, DoubleClick
 	Int leftEvent;											// Most important event this frame
-	Int leftFrame;											// last frame button state changed
 
 	MouseButtonState rightState;
 	Int rightEvent;
-	Int rightFrame;
 
 	MouseButtonState middleState;
 	Int middleEvent;
-	Int middleFrame;
 };
 
 class CursorInfo
@@ -141,12 +139,12 @@ public:
 typedef UnsignedInt CursorCaptureMode;
 enum CursorCaptureMode_ CPP_11(: CursorCaptureMode)
 {
-	CursorCaptureMode_EnabledInWindowedGame = 1 << 0, // Captures the cursor when in game while the app is windowed
-		CursorCaptureMode_EnabledInWindowedMenu = 1 << 1, // Captures the cursor when in menu while the app is windowed
-		CursorCaptureMode_EnabledInFullscreenGame = 1 << 2, // Captures the cursor when in game while the app is fullscreen
-		CursorCaptureMode_EnabledInFullscreenMenu = 1 << 3, // Captures the cursor when in menu while the app is fullscreen
+	CursorCaptureMode_EnabledInWindowedGame = 1<<0, // Captures the cursor when in game while the app is windowed
+	CursorCaptureMode_EnabledInWindowedMenu = 1<<1, // Captures the cursor when in menu while the app is windowed
+	CursorCaptureMode_EnabledInFullscreenGame = 1<<2, // Captures the cursor when in game while the app is fullscreen
+	CursorCaptureMode_EnabledInFullscreenMenu = 1<<3, // Captures the cursor when in menu while the app is fullscreen
 
-		CursorCaptureMode_Default =
+	CursorCaptureMode_Default =
 		CursorCaptureMode_EnabledInWindowedGame |
 		CursorCaptureMode_EnabledInFullscreenGame |
 		CursorCaptureMode_EnabledInFullscreenMenu,
@@ -254,7 +252,7 @@ public:
 	enum RedrawMode
 	{
 
-		RM_WINDOWS = 0,	//default Windows cursor - very fast.
+		RM_WINDOWS=0,	//default Windows cursor - very fast.
 		RM_W3D,				//W3D model tied to frame rate.
 		RM_POLYGON,		//alpha blended polygon tied to frame rate.
 		RM_DX8,			//hardware cursor independent of frame rate.
@@ -262,8 +260,8 @@ public:
 		RM_MAX
 	};
 
-	static const char* const CursorCaptureBlockReasonNames[];
-	static const char* const RedrawModeName[];
+	static const char *const CursorCaptureBlockReasonNames[];
+	static const char *const RedrawModeName[];
 
 	CursorInfo m_cursorInfo[NUM_MOUSE_CURSORS];
 
@@ -323,7 +321,7 @@ public:
 	void onGameModeChanged(GameMode prev, GameMode next);
 	void onGamePaused(Bool paused);
 
-	Bool isClick(const ICoord2D* anchor, const ICoord2D* dest, UnsignedInt previousMouseClick, UnsignedInt currentMouseClick);
+	Bool isClick(const ICoord2D *anchor, const ICoord2D *dest, UnsignedInt previousMouseClick, UnsignedInt currentMouseClick);
 
 	AsciiString m_tooltipFontName;		///< tooltip font
 	Int m_tooltipFontSize;						///< tooltip font
@@ -378,13 +376,13 @@ protected:
 	Bool m_forceFeedback;				///< set to TRUE if mouse supports force feedback
 
 	UnicodeString m_tooltipString;	///< tooltip text
-	DisplayString* m_tooltipDisplayString; ///< tooltipDisplayString
+	DisplayString *m_tooltipDisplayString; ///< tooltipDisplayString
 	Bool m_displayTooltip;  /**< when the mouse has been still long enough this will be
 													set to TRUE indicating it's Ok to fire off a tooltip */
 	Bool m_isTooltipEmpty;
 
 	enum { NUM_MOUSE_EVENTS = 256 };
-	MouseIO m_mouseEvents[NUM_MOUSE_EVENTS];  ///< for event list
+	MouseIO m_mouseEvents[ NUM_MOUSE_EVENTS ];  ///< for event list
 	MouseIO m_currMouse;												///< for current mouse data
 	MouseIO m_prevMouse;												///< for previous mouse data
 
@@ -392,9 +390,6 @@ protected:
 	Int m_maxX;							///< mouse is locked to this region
 	Int m_minY;							///< mouse is locked to this region
 	Int m_maxY;							///< mouse is locked to this region
-
-	UnsignedInt m_inputFrame;				///< frame input was gathered on
-	UnsignedInt m_deadInputFrame;		///< Frame which last input occured
 
 	Bool m_inputMovesAbsolute;			/**< if TRUE, when processing mouse position
 																	chanages the movement will be done treating
@@ -406,11 +401,11 @@ protected:
 
 	MouseCursor m_currentCursor;		///< current mouse cursor
 
-	DisplayString* m_cursorTextDisplayString;		///< text to display on the cursor (if specified)
+	DisplayString *m_cursorTextDisplayString;		///< text to display on the cursor (if specified)
 	RGBAColorInt m_cursorTextColor;							///< color of the cursor text
 	RGBAColorInt m_cursorTextDropColor;					///< color of the cursor text drop shadow
 
-	Int m_tooltipDelay;                                ///< millisecond delay for tooltips
+  Int m_tooltipDelay;                                ///< millisecond delay for tooltips
 
 	Int m_highlightPos;
 	UnsignedInt m_highlightUpdateStart;
@@ -441,4 +436,4 @@ class MouseDummy : public Mouse
 
 
 // EXTERNALS //////////////////////////////////////////////////////////////////
-extern Mouse* TheMouse;  ///< extern mouse singleton definition
+extern Mouse *TheMouse;  ///< extern mouse singleton definition

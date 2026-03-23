@@ -39,7 +39,7 @@
 
 
 // EXTERN /////////////////////////////////////////////////////////////////////////////////////////
-extern Win32Mouse* TheWin32Mouse;
+extern Win32Mouse *TheWin32Mouse;
 
 HCURSOR cursorResources[Mouse::NUM_MOUSE_CURSORS][MAX_2D_CURSOR_DIRECTIONS];
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,26 +50,26 @@ HCURSOR cursorResources[Mouse::NUM_MOUSE_CURSORS][MAX_2D_CURSOR_DIRECTIONS];
 /** Get a mouse event from the buffer if available, we need to translate
 	* from the windows message meanings to our own internal mouse
 	* structure */
-	//-------------------------------------------------------------------------------------------------
-UnsignedByte Win32Mouse::getMouseEvent(MouseIO* result, Bool flush)
+//-------------------------------------------------------------------------------------------------
+UnsignedByte Win32Mouse::getMouseEvent( MouseIO *result, Bool flush )
 {
 
 	// if there is nothing here there is no event data to do
-	if (m_eventBuffer[m_nextGetIndex].msg == 0)
+	if( m_eventBuffer[ m_nextGetIndex ].msg == 0 )
 		return MOUSE_NONE;
 
 	// translate the win32 mouse message to our own system
-	translateEvent(m_nextGetIndex, result);
+	translateEvent( m_nextGetIndex, result );
 
 	// remove this event from the buffer by setting msg to zero
-	m_eventBuffer[m_nextGetIndex].msg = 0;
+	m_eventBuffer[ m_nextGetIndex ].msg = 0;
 
 	//
 	// our next get index will now be advanced to the next index, wrapping at
 	// the mad
 	//
 	m_nextGetIndex++;
-	if (m_nextGetIndex >= Mouse::NUM_MOUSE_EVENTS)
+	if( m_nextGetIndex >= Mouse::NUM_MOUSE_EVENTS )
 		m_nextGetIndex = 0;
 
 	// got event OK and all done with this one
@@ -80,179 +80,158 @@ UnsignedByte Win32Mouse::getMouseEvent(MouseIO* result, Bool flush)
 //-------------------------------------------------------------------------------------------------
 /** Translate a win32 mouse event to our own event info */
 //-------------------------------------------------------------------------------------------------
-void Win32Mouse::translateEvent(UnsignedInt eventIndex, MouseIO* result)
+void Win32Mouse::translateEvent( UnsignedInt eventIndex, MouseIO *result )
 {
-	UINT msg = m_eventBuffer[eventIndex].msg;
-	WPARAM wParam = m_eventBuffer[eventIndex].wParam;
-	LPARAM lParam = m_eventBuffer[eventIndex].lParam;
-	UnsignedInt frame;
-
-	//
-	// get the current input frame from the client, if we don't have
-	// a client (like in the GUI editor) we just use frame 1 so it
-	// registers with the system
-	//
-	if (TheGameClient)
-		frame = TheGameClient->getFrame();
-	else
-		frame = 1;
+	UINT msg = m_eventBuffer[ eventIndex ].msg;
+	WPARAM wParam = m_eventBuffer[ eventIndex ].wParam;
+	LPARAM lParam = m_eventBuffer[ eventIndex ].lParam;
 
 	// set these to defaults
-	result->leftState = result->middleState = result->rightState = MBS_Up;
-	result->leftFrame = result->middleFrame = result->rightFrame = 0;
+	result->leftState = result->middleState = result->rightState = MBS_None;
 	result->pos.x = result->pos.y = result->wheelPos = 0;
 
 	// Time is the same for all events
-	result->time = m_eventBuffer[eventIndex].time;
+	result->time = m_eventBuffer[ eventIndex ].time;
 
-	switch (msg)
+	switch( msg )
 	{
 
 		// ------------------------------------------------------------------------
-	case WM_LBUTTONDOWN:
-	{
+		case WM_LBUTTONDOWN:
+		{
 
-		result->leftState = MBS_Down;
-		result->leftFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->leftState = MBS_Down;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_LBUTTONUP:
-	{
+		// ------------------------------------------------------------------------
+		case WM_LBUTTONUP:
+		{
 
-		result->leftState = MBS_Up;
-		result->leftFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->leftState = MBS_Up;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_LBUTTONDBLCLK:
-	{
+		// ------------------------------------------------------------------------
+		case WM_LBUTTONDBLCLK:
+		{
 
-		result->leftState = MBS_DoubleClick;
-		result->leftFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->leftState = MBS_DoubleClick;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_MBUTTONDOWN:
-	{
+		// ------------------------------------------------------------------------
+		case WM_MBUTTONDOWN:
+		{
 
-		result->middleState = MBS_Down;
-		result->middleFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->middleState = MBS_Down;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_MBUTTONUP:
-	{
+		// ------------------------------------------------------------------------
+		case WM_MBUTTONUP:
+		{
 
-		result->middleState = MBS_Up;
-		result->middleFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->middleState = MBS_Up;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_MBUTTONDBLCLK:
-	{
+		// ------------------------------------------------------------------------
+		case WM_MBUTTONDBLCLK:
+		{
 
-		result->middleState = MBS_DoubleClick;
-		result->middleFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->middleState = MBS_DoubleClick;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_RBUTTONDOWN:
-	{
+		// ------------------------------------------------------------------------
+		case WM_RBUTTONDOWN:
+		{
 
-		result->rightState = MBS_Down;
-		result->rightFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->rightState = MBS_Down;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_RBUTTONUP:
-	{
+		// ------------------------------------------------------------------------
+		case WM_RBUTTONUP:
+		{
 
-		result->rightState = MBS_Up;
-		result->rightFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->rightState = MBS_Up;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_RBUTTONDBLCLK:
-	{
+		// ------------------------------------------------------------------------
+		case WM_RBUTTONDBLCLK:
+		{
 
-		result->rightState = MBS_DoubleClick;
-		result->rightFrame = frame;
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->rightState = MBS_DoubleClick;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case WM_MOUSEMOVE:
-	{
+		// ------------------------------------------------------------------------
+		case WM_MOUSEMOVE:
+		{
 
-		result->pos.x = LOWORD(lParam);
-		result->pos.y = HIWORD(lParam);
-		break;
+			result->pos.x = LOWORD( lParam );
+			result->pos.y = HIWORD( lParam );
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	case 0x020A:	// WM_MOUSEWHEEL
-	{
-		POINT p;
+		// ------------------------------------------------------------------------
+		case 0x020A:	// WM_MOUSEWHEEL
+		{
+			POINT p;
 
-		// translate the screen mouse position to be relative to the application window
-		p.x = LOWORD(lParam);
-		p.y = HIWORD(lParam);
-		ScreenToClient(ApplicationHWnd, &p);
+			// translate the screen mouse position to be relative to the application window
+			p.x = LOWORD( lParam );
+			p.y = HIWORD( lParam );
+			ScreenToClient( ApplicationHWnd, &p );
 
-		// note the short cast here to keep signed information in tact
-		result->wheelPos = (Short)HIWORD(wParam);
-		result->pos.x = p.x;
-		result->pos.y = p.y;
-		break;
+			// note the short cast here to keep signed information in tact
+			result->wheelPos = (Short)HIWORD( wParam );
+			result->pos.x = p.x;
+			result->pos.y = p.y;
+			break;
 
-	}
+		}
 
-	// ------------------------------------------------------------------------
-	default:
-	{
+		// ------------------------------------------------------------------------
+		default:
+		{
 
-		DEBUG_CRASH(("translateEvent: Unknown Win32 mouse event [%d,%d,%d]",
-			msg, wParam, lParam));
-		return;
+			DEBUG_CRASH(( "translateEvent: Unknown Win32 mouse event [%d,%d,%d]",
+							 msg, wParam, lParam ));
+			return;
 
-	}
+		}
 
 	}
 
@@ -268,15 +247,15 @@ Win32Mouse::Win32Mouse()
 {
 
 	// zero our event list
-	memset(&m_eventBuffer, 0, sizeof(m_eventBuffer));
+	memset( &m_eventBuffer, 0, sizeof( m_eventBuffer ) );
 
 	m_nextFreeIndex = 0;
 	m_nextGetIndex = 0;
 	m_currentWin32Cursor = NONE;
-	for (Int i = 0; i < NUM_MOUSE_CURSORS; i++)
-		for (Int j = 0; j < MAX_2D_CURSOR_DIRECTIONS; j++)
-			cursorResources[i][j] = NULL;
-	m_directionFrame = 0; //points up.
+	for (Int i=0; i<NUM_MOUSE_CURSORS; i++)
+		for (Int j=0; j<MAX_2D_CURSOR_DIRECTIONS; j++)
+			cursorResources[i][j]=nullptr;
+	m_directionFrame=0; //points up.
 	m_lostFocus = FALSE;
 }
 
@@ -286,7 +265,7 @@ Win32Mouse::~Win32Mouse()
 {
 
 	// remove our global reference that was for the WndProc() only
-	TheWin32Mouse = NULL;
+	TheWin32Mouse = nullptr;
 
 }
 
@@ -333,8 +312,8 @@ void Win32Mouse::update()
 //-------------------------------------------------------------------------------------------------
 /** Add a window message event along with its WPARAM and LPARAM parameters
 	* to our input storage buffer */
-	//-------------------------------------------------------------------------------------------------
-void Win32Mouse::addWin32Event(UINT msg, WPARAM wParam, LPARAM lParam, DWORD time)
+//-------------------------------------------------------------------------------------------------
+void Win32Mouse::addWin32Event( UINT msg, WPARAM wParam, LPARAM lParam, DWORD time )
 {
 
 	//
@@ -342,18 +321,18 @@ void Win32Mouse::addWin32Event(UINT msg, WPARAM wParam, LPARAM lParam, DWORD tim
 	// have an event in it, if it does ... our buffer is full and this input
 	// event will be lost
 	//
-	if (m_eventBuffer[m_nextFreeIndex].msg != 0)
+	if( m_eventBuffer[ m_nextFreeIndex ].msg != 0 )
 		return;
 
 	// add to this index
-	m_eventBuffer[m_nextFreeIndex].msg = msg;
-	m_eventBuffer[m_nextFreeIndex].wParam = wParam;
-	m_eventBuffer[m_nextFreeIndex].lParam = lParam;
-	m_eventBuffer[m_nextFreeIndex].time = time;
+	m_eventBuffer[ m_nextFreeIndex ].msg = msg;
+	m_eventBuffer[ m_nextFreeIndex ].wParam = wParam;
+	m_eventBuffer[ m_nextFreeIndex ].lParam = lParam;
+	m_eventBuffer[ m_nextFreeIndex ].time = time;
 
 	// wrap index at max
 	m_nextFreeIndex++;
-	if (m_nextFreeIndex >= Mouse::NUM_MOUSE_EVENTS)
+	if( m_nextFreeIndex >= Mouse::NUM_MOUSE_EVENTS )
 		m_nextFreeIndex = 0;
 
 }
@@ -386,11 +365,10 @@ void Win32Mouse::regainFocus()
 is created to avoid cursor corruption on buggy ATI Radeon cards. */
 void Win32Mouse::initCursorResources()
 {
-	for (Int cursor = FIRST_CURSOR; cursor < NUM_MOUSE_CURSORS; cursor++)
+	for (Int cursor=FIRST_CURSOR; cursor<NUM_MOUSE_CURSORS; cursor++)
 	{
-		for (Int direction = 0; direction < m_cursorInfo[cursor].numDirections; direction++)
-		{
-			if (!cursorResources[cursor][direction] && !m_cursorInfo[cursor].textureName.isEmpty())
+		for (Int direction=0; direction<m_cursorInfo[cursor].numDirections; direction++)
+		{	if (!cursorResources[cursor][direction] && !m_cursorInfo[cursor].textureName.isEmpty())
 			{	//this cursor has never been loaded before.
 				char resourcePath[256];
 				//Check if this is a directional cursor
@@ -413,40 +391,40 @@ void Win32Mouse::initCursorResources()
 
 					if (TheLocalFileSystem->doesFileExist(fname.str()))
 					{
-						cursorResources[cursor][direction] = LoadCursorFromFile(fname.str());
+						cursorResources[cursor][direction]=LoadCursorFromFile(fname.str());
 						loaded = TRUE;
 					}
 				}
 
 				if (!loaded)
-					cursorResources[cursor][direction] = LoadCursorFromFile(resourcePath);
-				DEBUG_ASSERTCRASH(cursorResources[cursor][direction], ("MissingCursor %s", resourcePath));
+					cursorResources[cursor][direction]=LoadCursorFromFile(resourcePath);
+				DEBUG_ASSERTCRASH(cursorResources[cursor][direction], ("MissingCursor %s",resourcePath));
 			}
 		}
-		//		SetCursor(cursorResources[cursor][m_directionFrame]);
+//		SetCursor(cursorResources[cursor][m_directionFrame]);
 	}
 }
 
 //-------------------------------------------------------------------------------------------------
 /** Super basic simplistic cursor */
 //-------------------------------------------------------------------------------------------------
-void Win32Mouse::setCursor(MouseCursor cursor)
+void Win32Mouse::setCursor( MouseCursor cursor )
 {
 	// extend
-	Mouse::setCursor(cursor);
+	Mouse::setCursor( cursor );
 
 	if (m_lostFocus)
 		return;	//stop messing with mouse cursor if we don't have focus.
 
 	if (cursor == NONE || !m_visible)
-		SetCursor(NULL);
+		SetCursor( nullptr );
 	else
 	{
 		SetCursor(cursorResources[cursor][m_directionFrame]);
 	}
 
 	// save current cursor
-	m_currentWin32Cursor = m_currentCursor = cursor;
+	m_currentWin32Cursor=m_currentCursor = cursor;
 
 }
 
@@ -455,10 +433,6 @@ void Win32Mouse::setCursor(MouseCursor cursor)
 //-------------------------------------------------------------------------------------------------
 void Win32Mouse::capture()
 {
-	if (m_bIsDragging)
-	{
-		return;
-	}
 
 	RECT rect;
 	::GetClientRect(ApplicationHWnd, &rect);
@@ -492,7 +466,7 @@ void Win32Mouse::capture()
 void Win32Mouse::releaseCapture()
 {
 
-	if (::ClipCursor(NULL))
+	if (::ClipCursor(nullptr))
 	{
 		onCursorCaptured(false);
 	}

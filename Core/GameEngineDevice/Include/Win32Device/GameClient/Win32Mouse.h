@@ -70,7 +70,7 @@ public:
 	virtual void update();	///< update
 	virtual void initCursorResources();	///< load windows resources needed for 2d cursors.
 
-	virtual void setCursor(MouseCursor cursor);		///< set mouse cursor
+	virtual void setCursor( MouseCursor cursor );		///< set mouse cursor
 
 	virtual void setVisibility(Bool visible);
 
@@ -78,19 +78,7 @@ public:
 	virtual void regainFocus();
 
 	/// add an event from a win32 window procedure
-	void addWin32Event(UINT msg, WPARAM wParam, LPARAM lParam, DWORD time);
-
-	void SetDragging(bool bDragging) {
-		m_bIsDragging = bDragging;
-
-		if (!m_bIsDragging)
-		{
-			if (canCapture())
-			{
-				capture();
-			}
-		}
-	}
+	void addWin32Event( UINT msg, WPARAM wParam, LPARAM lParam, DWORD time );
 
 protected:
 
@@ -111,7 +99,7 @@ protected:
 		DWORD time;			///< TIME from the WM_* message
 	};
 	/// this is our buffer of events that we receive via a WndProc message
-	Win32MouseEvent m_eventBuffer[Mouse::NUM_MOUSE_EVENTS];
+	Win32MouseEvent m_eventBuffer[ Mouse::NUM_MOUSE_EVENTS ];
 	UnsignedInt m_nextFreeIndex;  ///< insert new events at this index
 	UnsignedInt m_nextGetIndex;  /** events retrieved through getMouseEvent
 															 will come from this index, then it will be
@@ -119,9 +107,7 @@ protected:
 	MouseCursor m_currentWin32Cursor;	///< keep track of last cursor image sent to D3D.
 	Int m_directionFrame;	///< current frame of directional cursor (from 0 points up).
 	Bool m_lostFocus;		///< flag if window has lost focus and mouse should stop being updated.
-
-	bool m_bIsDragging = false;
-};  // end Win32Mouse
+};
 
 // INLINING ///////////////////////////////////////////////////////////////////
 
