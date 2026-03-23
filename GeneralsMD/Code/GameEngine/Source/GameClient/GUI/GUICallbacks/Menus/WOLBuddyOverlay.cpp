@@ -631,7 +631,8 @@ void updateBuddyInfo( void )
                 // NOTE: Gamespy let you be friends with someone AND have them ignored. We don't.
                 bool isSavedIgnored = false;
                 Color nameColor = (isSavedIgnored) ?
-                    GameSpyColor[GSCOLOR_PLAYER_IGNORED] : GameSpyColor[GSCOLOR_PLAYER_BUDDY];
+                    GameSpyColor[GSCOLOR_PLAYER_IGNORED] :
+					friendsEntry.online ? GameSpyColor[GSCOLOR_PLAYER_BUDDY] : GameMakeColor(100, 130, 150, 255);
                 int index = GadgetListBoxAddEntryText(buddyControls.listboxBuddies, formatStr, nameColor, -1, -1);
 
                 if (friendsEntry.online)
