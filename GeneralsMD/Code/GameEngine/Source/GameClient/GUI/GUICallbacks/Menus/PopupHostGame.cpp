@@ -110,7 +110,7 @@ static GameWindow *checkBoxLimitArmies = nullptr;
 static GameWindow *checkBoxUseStats = nullptr;
 
 
-void createGame( void );
+void createGame();
 
 //-----------------------------------------------------------------------------
 // PUBLIC FUNCTIONS ///////////////////////////////////////////////////////////
@@ -253,7 +253,7 @@ void PopulateCustomLadderListBox( GameWindow *win )
 	isPopulatingLadderBox = false;
 }
 
-void PopulateCustomLadderComboBox( void )
+void PopulateCustomLadderComboBox()
 {
 	if (!parentPopup || !comboBoxLadderName)
 		return;
@@ -641,7 +641,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 //-----------------------------------------------------------------------------
 
 extern GlobalData* TheWritableGlobalData;
-void createGame( void )
+void createGame()
 {
 	// TODO_NGMP: exe and ini crc, verison etc
 	// TODO_NGMP: passworded lobbies

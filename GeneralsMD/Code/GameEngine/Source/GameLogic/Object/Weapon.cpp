@@ -345,7 +345,7 @@ WeaponTemplate::~WeaponTemplate()
 }
 
 // ------------------------------------------------------------------------------------------------
-void WeaponTemplate::reset( void )
+void WeaponTemplate::reset()
 {
 	m_historicDamage.clear();
 }
@@ -1198,7 +1198,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
 void WeaponTemplate::trimOldHistoricDamage() const
 {
 	UnsignedInt expirationDate = TheGameLogic->getFrame() - TheGlobalData->m_historicDamageLimit;
@@ -1261,7 +1261,7 @@ static Bool is2DDistSquaredLessThan(const Coord3D& a, const Coord3D& b, Real dis
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC || !defined(GENERALS_ONLINE_ENABLE_CONTROVERSIAL_NON_RETAIL_CHANGES)
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
 void WeaponTemplate::processHistoricDamage(const Object* source, const Coord3D* pos) const
 {
 	//
@@ -1736,7 +1736,7 @@ void WeaponStore::deleteAllDelayedDamage()
 }
 
 // ------------------------------------------------------------------------------------------------
-void WeaponStore::resetWeaponTemplates( void )
+void WeaponStore::resetWeaponTemplates()
 {
 
 	for (size_t i = 0; i < m_weaponTemplateVector.size(); i++)
@@ -1756,9 +1756,9 @@ void WeaponStore::reset()
 		WeaponTemplate *wt = m_weaponTemplateVector[i];
 		if (wt->isOverride())
 		{
-			WeaponTemplate *override = wt;
+			WeaponTemplate *overrideData = wt;
 			wt = wt->friend_clearNextTemplate();
-			deleteInstance(override);
+			deleteInstance(overrideData);
 		}
 	}
 
@@ -3585,7 +3585,7 @@ void Weapon::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void Weapon::loadPostProcess( void )
+void Weapon::loadPostProcess()
 {
 	if( m_projectileStreamID != INVALID_ID )
 	{

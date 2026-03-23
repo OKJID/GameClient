@@ -111,7 +111,7 @@ class ClosestKindOfData
 {
 public:
 
-	ClosestKindOfData( void );
+	ClosestKindOfData();
 
 	//In
 	KindOfMaskType m_setKindOf;
@@ -125,7 +125,7 @@ public:
 };
 
 // ------------------------------------------------------------------------------------------------
-ClosestKindOfData::ClosestKindOfData( void )
+ClosestKindOfData::ClosestKindOfData()
 {
 	m_setKindOf.clear();
 	m_clearKindOf.clear();
@@ -175,7 +175,7 @@ AsciiString kindofMaskAsAsciiString(KindOfMaskType m)
 		s = "KINDOF_INVALID";
 	return s;
 }
-void dumpBattlePlanBonuses(const BattlePlanBonuses *b, AsciiString name, const Player *p, const Object *o, AsciiString fname, Int line, Bool doDebugLog)
+void dumpBattlePlanBonuses(const BattlePlanBonusesData *b, AsciiString name, const Player *p, const Object *o, AsciiString fname, Int line, Bool doDebugLog)
 {
 	CRCDEBUG_LOG(("dumpBattlePlanBonuses() %s:%d %s\n  Player %d(%ls) object %d(%s) armor:%g/%8.8X bombardment:%d, holdTheLine:%d, searchAndDestroy:%d sight:%g/%8.8X, valid:%s invalid:%s",
 		fname.str(), line, name.str(),
@@ -203,14 +203,14 @@ void dumpBattlePlanBonuses(const BattlePlanBonuses *b, AsciiString name, const P
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PlayerRelationMap::PlayerRelationMap( void )
+PlayerRelationMap::PlayerRelationMap()
 {
 
 }
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-PlayerRelationMap::~PlayerRelationMap( void )
+PlayerRelationMap::~PlayerRelationMap()
 {
 
 	// make sure the data is cleared
@@ -290,7 +290,7 @@ void PlayerRelationMap::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void PlayerRelationMap::loadPostProcess( void )
+void PlayerRelationMap::loadPostProcess()
 {
 
 }
@@ -708,7 +708,9 @@ void Player::update()
 				GameMessage *msg = TheMessageStream->appendMessage( GameMessage::MSG_ENABLE_RETALIATION_MODE );
 				if( msg )
 				{
+#if RETAIL_COMPATIBLE_CRC
 					msg->appendIntegerArgument( getPlayerIndex() );
+#endif
 					msg->appendBooleanArgument( TheGlobalData->m_clientRetaliationModeEnabled );
 				}
 			}
@@ -756,7 +758,7 @@ void Player::setPlayerType(PlayerType t, Bool skirmish)
 //=============================================================================
 // This is called from PlayerList->newGame()
 //
-void Player::setDefaultTeam(void) {
+void Player::setDefaultTeam() {
 	AsciiString tname;
 	tname.set("team");
 	tname.concat(m_playerName);
@@ -1147,7 +1149,7 @@ void Player::becomingLocalPlayer(Bool yes)
 //-------------------------------------------------------------------------------------------------
 /** Is this player a skirmish ai player? */
 //-------------------------------------------------------------------------------------------------
-Bool Player::isSkirmishAIPlayer( void )
+Bool Player::isSkirmishAIPlayer()
 {
 	return m_ai ? m_ai->isSkirmishAI() : false;
 }
@@ -1169,7 +1171,7 @@ Bool Player::computeSuperweaponTarget(const SpecialPowerTemplate *power, Coord3D
 //-------------------------------------------------------------------------------------------------
 /** Get this player's current enemy. NOTE - Can be nullptr. */
 //-------------------------------------------------------------------------------------------------
-Player  *Player::getCurrentEnemy( void )
+Player  *Player::getCurrentEnemy()
 {
 	return m_ai?m_ai->getAiEnemy():nullptr;
 }
@@ -1510,7 +1512,7 @@ Int Player::countReadyShortcutSpecialPowersOfType( SpecialPowerType spType )
 //-------------------------------------------------------------------------------------------------
 /** Difficulty level for this player */
 //-------------------------------------------------------------------------------------------------
-GameDifficulty Player::getPlayerDifficulty(void) const
+GameDifficulty Player::getPlayerDifficulty() const
 {
 	if (m_ai)
 	{
@@ -1582,11 +1584,11 @@ Bool Player::isSupplySourceSafe( Int minSupplies )
 //-------------------------------------------------------------------------------------------------
 /** Is a supply source attacked? */
 //-------------------------------------------------------------------------------------------------
-Bool Player::isSupplySourceAttacked( void )
+Bool Player::isSupplySourceAttacked()
 {
 	// ai query
 	if( m_ai )
-		return m_ai->isSupplySourceAttacked( );
+		return m_ai->isSupplySourceAttacked();
 	return false;
 }
 
@@ -1793,7 +1795,7 @@ void Player::countObjectsByThingTemplate(Int numTmplates, const ThingTemplate* c
 }
 
 //=============================================================================
-Int Player::countBuildings(void)
+Int Player::countBuildings()
 {
 	int retVal = 0;
 
@@ -1836,7 +1838,7 @@ Object *Player::findClosestByKindOf( Object *queryObject, KindOfMaskType setMask
 }
 
 //=============================================================================
-Bool Player::hasAnyBuildings(void) const
+Bool Player::hasAnyBuildings() const
 {
 	for (PlayerTeamList::const_iterator it = m_playerTeamPrototypes.begin();
 			 it != m_playerTeamPrototypes.end(); ++it)
@@ -1862,7 +1864,7 @@ Bool Player::hasAnyBuildings(KindOfMaskType kindOf) const
 }
 
 //=============================================================================
-Bool Player::hasAnyUnits(void) const
+Bool Player::hasAnyUnits() const
 {
 	for (PlayerTeamList::const_iterator it = m_playerTeamPrototypes.begin();
 			 it != m_playerTeamPrototypes.end(); ++it)
@@ -1875,7 +1877,7 @@ Bool Player::hasAnyUnits(void) const
 }
 
 //=============================================================================
-Bool Player::hasAnyObjects(void) const
+Bool Player::hasAnyObjects() const
 {
 	for (PlayerTeamList::const_iterator it = m_playerTeamPrototypes.begin();
 			 it != m_playerTeamPrototypes.end(); ++it)
@@ -1888,7 +1890,7 @@ Bool Player::hasAnyObjects(void) const
 }
 
 //=============================================================================
-Bool Player::hasAnyBuildFacility(void) const
+Bool Player::hasAnyBuildFacility() const
 {
 	for (PlayerTeamList::const_iterator it = m_playerTeamPrototypes.begin();
 			 it != m_playerTeamPrototypes.end(); ++it)
@@ -1900,7 +1902,7 @@ Bool Player::hasAnyBuildFacility(void) const
 }
 
 //=============================================================================
-void Player::updateTeamStates(void)
+void Player::updateTeamStates()
 {
 	for (PlayerTeamList::const_iterator it = m_playerTeamPrototypes.begin();
 			 it != m_playerTeamPrototypes.end(); ++it)
@@ -2024,7 +2026,7 @@ void Player::setUnitsShouldHunt(Bool unitsShouldHunt, CommandSourceType source)
 }
 
 //=============================================================================
-void Player::killPlayer(void)
+void Player::killPlayer()
 {
 	PlayerTeamList::iterator it = m_playerTeamPrototypes.begin();
 	for (; it != m_playerTeamPrototypes.end(); ++it) {
@@ -2434,7 +2436,12 @@ void Player::doBountyForKill(const Object* killer, const Object* victim)
 		return;
 
 	Int costToBuild = victim->getTemplate()->calcCostToBuild(victim->getControllingPlayer());
+#if RETAIL_COMPATIBLE_CRC
 	Int bounty = REAL_TO_INT_CEIL(costToBuild * m_cashBountyPercent);
+#else
+	// TheSuperHackers @bugfix Stubbjax 20/02/2026 Subtract epsilon to ensure bounty is rounded up correctly.
+	Int bounty = ceil((costToBuild * m_cashBountyPercent) - WWMATH_EPSILON);
+#endif
 
 	if( bounty )
 	{
@@ -2967,7 +2974,7 @@ Bool Player::canAffordBuild( const ThingTemplate *whatToBuild ) const
 }
 
 //=================================================================================================
-void Player::deleteUpgradeList( void )
+void Player::deleteUpgradeList()
 {
 	Upgrade *next;
 
@@ -3146,7 +3153,7 @@ void Player::removeUpgrade( const UpgradeTemplate *upgradeTemplate )
 
 
 //-------------------------------------------------------------------------------------------------
-Bool Player::okToPlayRadarEdgeSound( void )
+Bool Player::okToPlayRadarEdgeSound()
 {
 	return (
 		! TheVictoryConditions->hasSinglePlayerBeenDefeated( this )
@@ -3419,7 +3426,7 @@ Bool Player::doesObjectQualifyForBattlePlan( Object *obj ) const
 
 //-------------------------------------------------------------------------------------------------
 // note, bonus is an in-out parm.
-void Player::changeBattlePlan( BattlePlanStatus plan, Int delta, BattlePlanBonuses *bonus )
+void Player::changeBattlePlan( BattlePlanStatus plan, Int delta, BattlePlanBonusesData *bonus )
 {
 	DUMPBATTLEPLANBONUSES(bonus, this, nullptr);
 	Bool addBonus = false;
@@ -3516,7 +3523,7 @@ Int Player::getBattlePlansActiveSpecific( BattlePlanStatus plan ) const
 //------------------------------------------------------------------------------------------------
 static void localApplyBattlePlanBonusesToObject( Object *obj, void *userData )
 {
-	const BattlePlanBonuses* bonus = (const BattlePlanBonuses*)userData;
+	const BattlePlanBonusesData* bonus = static_cast<const BattlePlanBonusesData*>(userData);
 	Object *objectToValidate = obj;
 	Object *objectToModify = obj;
 
@@ -3595,7 +3602,7 @@ static void localApplyBattlePlanBonusesToObject( Object *obj, void *userData )
 //-------------------------------------------------------------------------------------------------
 void Player::applyBattlePlanBonusesForObject( Object *obj ) const
 {
-	localApplyBattlePlanBonusesToObject( obj, m_battlePlanBonuses );
+	localApplyBattlePlanBonusesToObject( obj, static_cast<BattlePlanBonusesData*>(m_battlePlanBonuses) );
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -3603,25 +3610,24 @@ void Player::applyBattlePlanBonusesForObject( Object *obj ) const
 //-------------------------------------------------------------------------------------------------
 void Player::removeBattlePlanBonusesForObject( Object *obj ) const
 {
-	//Copy bonuses, and invert them.
-	BattlePlanBonuses* bonus = newInstance(BattlePlanBonuses);
-	*bonus = *m_battlePlanBonuses;
-	bonus->m_armorScalar					= 1.0f / __max( bonus->m_armorScalar, 0.01f );
-	bonus->m_sightRangeScalar			= 1.0f / __max( bonus->m_sightRangeScalar, 0.01f );
-	bonus->m_bombardment					= -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
-	bonus->m_searchAndDestroy			= -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
-	bonus->m_holdTheLine					= -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
+	//Create inverted bonuses.
+	BattlePlanBonusesData bonus;
+	bonus.m_armorScalar = 1.0f / __max( m_battlePlanBonuses->m_armorScalar, 0.01f );
+	bonus.m_sightRangeScalar = 1.0f / __max( m_battlePlanBonuses->m_sightRangeScalar, 0.01f );
+	bonus.m_bombardment = -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
+	bonus.m_searchAndDestroy = -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
+	bonus.m_holdTheLine = -ALL_PLANS; //Safe to remove as it clears the weapon bonus flag
+	bonus.m_validKindOf = m_battlePlanBonuses->m_validKindOf;
+	bonus.m_invalidKindOf = m_battlePlanBonuses->m_invalidKindOf;
 
-	DUMPBATTLEPLANBONUSES(bonus, this, obj);
-	localApplyBattlePlanBonusesToObject( obj, bonus );
-
-	deleteInstance(bonus);
+	DUMPBATTLEPLANBONUSES(&bonus, this, obj);
+	localApplyBattlePlanBonusesToObject( obj, &bonus );
 }
 
 //-------------------------------------------------------------------------------------------------
 //Battle plan bonuses changing, so apply to all of our objects!
 //-------------------------------------------------------------------------------------------------
-void Player::applyBattlePlanBonusesForPlayerObjects( const BattlePlanBonuses *bonus )
+void Player::applyBattlePlanBonusesForPlayerObjects( const BattlePlanBonusesData *bonus )
 {
 	DUMPBATTLEPLANBONUSES(bonus, this, nullptr);
 
@@ -3630,7 +3636,7 @@ void Player::applyBattlePlanBonusesForPlayerObjects( const BattlePlanBonuses *bo
 	{
 		DEBUG_LOG(("Allocating new m_battlePlanBonuses"));
 		m_battlePlanBonuses = newInstance( BattlePlanBonuses );
-		*m_battlePlanBonuses = *bonus;
+		*static_cast<BattlePlanBonusesData*>(m_battlePlanBonuses) = *bonus;
 	}
 	else
 	{
@@ -3650,7 +3656,7 @@ void Player::applyBattlePlanBonusesForPlayerObjects( const BattlePlanBonuses *bo
 	}
 
 	DUMPBATTLEPLANBONUSES(m_battlePlanBonuses, this, nullptr);
-	iterateObjects( localApplyBattlePlanBonusesToObject, (void*)bonus );
+	iterateObjects( localApplyBattlePlanBonusesToObject, const_cast<BattlePlanBonusesData *>(bonus) );
 }
 
 
@@ -3865,7 +3871,7 @@ void Player::removeKindOfProductionCostChange(	KindOfMaskType kindOf, Real perce
 		}
 		++it;
 	}
-	DEBUG_ASSERTCRASH(FALSE, ("removeKindOfProductionCostChange was called with kindOf=%d and percent=%f. We could not find the entry in the list with these variables. CLH.",kindOf, percent));
+	DEBUG_CRASH(("removeKindOfProductionCostChange was called with kindOf=%d and percent=%f. We could not find the entry in the list with these variables. CLH.",kindOf, percent));
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -3938,25 +3944,25 @@ void Player::setUnitsVisionSpied( Bool setting, KindOfMaskType whichUnits, Playe
 }
 
 // ------------------------------------------------------------------------------------------------
-Bool Player::isPlayerObserver(void) const
+Bool Player::isPlayerObserver() const
 {
 	return m_observer;
 }
 
 // ------------------------------------------------------------------------------------------------
-Bool Player::isPlayerDead(void) const
+Bool Player::isPlayerDead() const
 {
 	return m_isPlayerDead;
 }
 
 // ------------------------------------------------------------------------------------------------
-Bool Player::isPlayerActive(void) const
+Bool Player::isPlayerActive() const
 {
 	return !m_observer && !m_isPlayerDead;
 }
 
 // ------------------------------------------------------------------------------------------------
-Bool Player::isPlayableSide( void ) const
+Bool Player::isPlayableSide() const
 {
 
 	return m_playerTemplate ? m_playerTemplate->isPlayableSide() : FALSE;
@@ -4545,7 +4551,7 @@ void Player::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void Player::loadPostProcess( void )
+void Player::loadPostProcess()
 {
 
 }

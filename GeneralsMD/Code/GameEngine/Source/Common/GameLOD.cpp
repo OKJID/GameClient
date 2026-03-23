@@ -36,11 +36,11 @@
 #include "Common/GameLOD.h"
 #include "GameClient/TerrainVisual.h"
 #include "GameClient/GameClient.h"
-#include "GameClient/Shell.h"
-#include "Common/UserPreferences.h"
+#include "Common/OptionPreferences.h"
 
 #define DEFINE_PARTICLE_SYSTEM_NAMES
 #include "GameClient/ParticleSys.h"
+#include "GameClient/Shell.h"
 
 
 #define PROFILE_ERROR_LIMIT	0.94f	//fraction of profiled result needed to get a match.  Allows some room for error/fluctuation.
@@ -83,7 +83,7 @@ static const char *const StaticGameLODNames[]=
 };
 static_assert(ARRAY_SIZE(StaticGameLODNames) == STATIC_GAME_LOD_COUNT, "Incorrect array size");
 
-StaticGameLODInfo::StaticGameLODInfo(void)
+StaticGameLODInfo::StaticGameLODInfo()
 {
 	m_minFPS=0;
 	m_minProcessorFPS=0;
@@ -129,7 +129,7 @@ static const char *const DynamicGameLODNames[]=
 };
 static_assert(ARRAY_SIZE(DynamicGameLODNames) == DYNAMIC_GAME_LOD_COUNT, "Incorrect array size");
 
-DynamicGameLODInfo::DynamicGameLODInfo(void)
+DynamicGameLODInfo::DynamicGameLODInfo()
 {
 	m_minFPS=0;
 	m_dynamicParticleSkipMask=0;
@@ -208,7 +208,7 @@ void INI::parseLODPreset( INI* ini )
 	}
 }
 
-GameLODManager::GameLODManager(void)
+GameLODManager::GameLODManager()
 {
 	m_currentStaticLOD = STATIC_GAME_LOD_UNKNOWN;
 	m_currentDynamicLOD = DYNAMIC_GAME_LOD_HIGH;
@@ -282,7 +282,7 @@ void GameLODManager::initStaticLODLevels()
 	veryhigh.m_useTrees = TRUE;
 }
 
-BenchProfile *GameLODManager::newBenchProfile(void)
+BenchProfile *GameLODManager::newBenchProfile()
 {
 	if (m_numBenchProfiles < MAX_BENCH_PROFILES)
 	{
@@ -310,7 +310,7 @@ LODPresetInfo *GameLODManager::newLODPreset(StaticGameLODLevel index)
 	return nullptr;
 }
 
-void GameLODManager::init(void)
+void GameLODManager::init()
 {
 	INI ini;
 	//Get Presets for each LOD level.
@@ -407,7 +407,7 @@ void GameLODManager::init(void)
 	setStaticLODLevel(userSetDetail);
 }
 
-void GameLODManager::refreshCustomStaticLODLevel(void)
+void GameLODManager::refreshCustomStaticLODLevel()
 {
 	StaticGameLODInfo *lodInfo=&m_staticGameLODInfo[STATIC_GAME_LOD_CUSTOM];
 
@@ -487,7 +487,7 @@ const char *GameLODManager::getStaticGameLODLevelName(StaticGameLODLevel level)
 
 /**Function which calculates the recommended LOD level for current hardware
 configuration.*/
-StaticGameLODLevel GameLODManager::getRecommendedStaticLODLevel(void)
+StaticGameLODLevel GameLODManager::getRecommendedStaticLODLevel()
 {
 	//Check if we have never done the test on current system
 	if (m_idealDetailLevel == STATIC_GAME_LOD_UNKNOWN)
@@ -735,7 +735,7 @@ void GameLODManager::applyDynamicLODLevel(DynamicGameLODLevel level)
 	m_minDynamicParticleSkipPriority=m_dynamicGameLODInfo[level].m_minDynamicParticleSkipPriority;
 }
 
-Int GameLODManager::getRecommendedTextureReduction(void)
+Int GameLODManager::getRecommendedTextureReduction()
 {
 	StaticGameLODLevel level = getRecommendedTextureLODLevel();
 
@@ -774,7 +774,7 @@ Int GameLODManager::getLevelTextureReduction(StaticGameLODLevel level)
 	return m_staticGameLODInfo[level].m_textureReduction;
 }
 
-Bool GameLODManager::didMemPass( void )
+Bool GameLODManager::didMemPass()
 {
 	return m_memPassed;
 }

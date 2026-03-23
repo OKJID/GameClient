@@ -162,7 +162,7 @@ StealthUpdate::StealthUpdate( Thing *thing, const ModuleData* moduleData ) : Upd
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
-StealthUpdate::~StealthUpdate( void )
+StealthUpdate::~StealthUpdate()
 {
 
 }
@@ -585,7 +585,7 @@ UpdateSleepTime StealthUpdate::calcSleepTime() const
 //-------------------------------------------------------------------------------------------------
 /** The update callback. */
 //-------------------------------------------------------------------------------------------------
-UpdateSleepTime StealthUpdate::update( void )
+UpdateSleepTime StealthUpdate::update()
 {
 	// restore disguise if we need to from a game load
 	if( m_xferRestoreDisguise == TRUE )
@@ -1215,7 +1215,7 @@ void StealthUpdate::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 /** Load post process */
 // ------------------------------------------------------------------------------------------------
-void StealthUpdate::loadPostProcess( void )
+void StealthUpdate::loadPostProcess()
 {
 
 	// extend base class
