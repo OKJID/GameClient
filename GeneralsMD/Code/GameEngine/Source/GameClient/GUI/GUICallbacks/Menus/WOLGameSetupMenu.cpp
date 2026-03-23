@@ -1851,6 +1851,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			if (buttonBuddy)
 				buttonBuddy->winEnable(FALSE);
 			GameSpyCloseOverlay(GSOVERLAY_BUDDY);
+			GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
 
 			*TheNGMPGame = *myGame;
 			TheNGMPGame->startGame(0);
