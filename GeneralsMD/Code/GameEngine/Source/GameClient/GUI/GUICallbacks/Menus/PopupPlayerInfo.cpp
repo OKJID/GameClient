@@ -1366,7 +1366,6 @@ void GameSpyPlayerInfoOverlayInit( WindowLayout *layout, void *userData )
 
 	//GadgetListBoxAddEntryText(listboxInfo, L"Working", GameSpyColor[GSCOLOR_DEFAULT], -1);
 
-	GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 	raiseMessageBox = true;
 	PopulatePlayerInfoWindows("PopupPlayerInfo.wnd");
 
@@ -1436,7 +1435,10 @@ void GameSpyPlayerInfoOverlayShutdown( WindowLayout *layout, void *userData )
 void GameSpyPlayerInfoOverlayUpdate( WindowLayout * layout, void *userData)
 {
 	if (raiseMessageBox)
+	{
 		RaiseGSMessageBox();
+		layout->bringForward();
+	}
 	raiseMessageBox = false;
 }
 
