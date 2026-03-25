@@ -568,65 +568,27 @@ static void playerTooltip(GameWindow *window,
 	*/
 }
 
-static void populateGroupRoomListbox(GameWindow *lb)
+static void PopulateLobbyFilterComboBox(GameWindow* comboBox)
 {
-	if (!lb)
+	if (comboBox == nullptr)
 		return;
 
-	GadgetComboBoxReset(lb);
-	Int indexToSelect = -1;
-	GroupRoomMap::iterator iter;
+	extern LobbyGameModeFilter theLobbyFilter;
+	GadgetComboBoxReset(comboBox);
 
-	// now populate the combo box
-	// TODO_NGMP
-	/*
-	for (iter = TheGameSpyInfo->getGroupRoomList()->begin(); iter != TheGameSpyInfo->getGroupRoomList()->end(); ++iter)
-	{
-		GameSpyGroupRoom room = iter->second;
-		if (room.m_groupID != TheGameSpyConfig->getQMChannel())
-		{
-			DEBUG_LOG(("populateGroupRoomListbox(): groupID %d", room.m_groupID));
-			if (room.m_groupID == TheGameSpyInfo->getCurrentGroupRoom())
-			{
-				Int selected = GadgetComboBoxAddEntry(lb, room.m_translatedName, GameSpyColor[GSCOLOR_CURRENTROOM]);
-				GadgetComboBoxSetItemData(lb, selected, (void *)(room.m_groupID));
-				indexToSelect = selected;
-			}
-			else
-			{
-				Int selected = GadgetComboBoxAddEntry(lb, room.m_translatedName, GameSpyColor[GSCOLOR_ROOM]);
-				GadgetComboBoxSetItemData(lb, selected, (void *)(room.m_groupID));
-			}
-		}
-		else
-		{
-			DEBUG_LOG(("populateGroupRoomListbox(): skipping QM groupID %d", room.m_groupID));
-		}
-	}
-	*/
+	Int idx;
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: All"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_ALL);
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: 1v1"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_1V1);
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: Team Games"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_TEAM);
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: FFA"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_FFA);
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: AOD"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_AOD);
 
-	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-	if (pRoomsInterface != nullptr)
-	{
-		for (NetworkRoom netRoom : pRoomsInterface->GetGroupRooms())
-		{
-			// TODO_NGMP: Support current group color highlighting again
-			int roomID = netRoom.GetRoomID();
-			if (roomID == pRoomsInterface->GetCurrentRoomID())
-			{
-				Int selected = GadgetComboBoxAddEntry(lb, netRoom.GetRoomDisplayName(), GameSpyColor[GSCOLOR_CURRENTROOM]);
-				GadgetComboBoxSetItemData(lb, selected, (void*)(roomID));
-				indexToSelect = selected;
-			}
-			else
-			{
-				Int selected = GadgetComboBoxAddEntry(lb, netRoom.GetRoomDisplayName(), GameSpyColor[GSCOLOR_ROOM]);
-				GadgetComboBoxSetItemData(lb, selected, (void*)(roomID));
-			}
-		}
-	}
-
-	GadgetComboBoxSetSelectedPos(lb, indexToSelect);
+	GadgetComboBoxSetSelectedPos(comboBox, (Int)theLobbyFilter);
 }
 
 static const char *const rankNames[] = {
@@ -1292,7 +1254,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 
 	GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 
-	populateGroupRoomListbox(comboLobbyGroupRooms);
+	PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
 
 	// Show Menu
 	layout->hide( FALSE );
@@ -1453,7 +1415,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 						refreshGameList(TRUE);
 						RefreshGameListBoxes();
 
-						populateGroupRoomListbox(comboLobbyGroupRooms);
+						PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
 					});
 			});
 	}
@@ -1832,7 +1794,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 					DEBUG_LOG(("WOLLobbyMenuUpdate() - joining best group room"));
 					TheGameSpyInfo->joinBestGroupRoom();
 				}
-				populateGroupRoomListbox(comboLobbyGroupRooms);
+				PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
 				shouldRepopulatePlayers = TRUE;
 				break;
 			case PeerResponse::PEERRESPONSE_PLAYERCHANGEDFLAGS:
@@ -2583,16 +2545,18 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				if (s_tryingToHostOrJoin)
 					break;
 
-				NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-				if (pRoomsInterface == nullptr)
-				{
-					break;
-				}
+				//NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+				//if (pRoomsInterface == nullptr)
+				//{
+				//	break;
+				//}
 
+				extern LobbyGameModeFilter theLobbyFilter;
 				GameWindow *control = (GameWindow *)mData1;
 				Int controlID = control->winGetWindowId();
 				if( controlID == comboLobbyGroupRoomsID )
 				{
+					/*
 					int rowSelected = -1;
 					GadgetComboBoxGetSelectedPos(control, &rowSelected);
 
@@ -2642,7 +2606,6 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 						{
 							TheGameSpyInfo->leaveGroupRoom();
 							TheGameSpyInfo->joinGroupRoom(groupID);
-
 							if (TheGameSpyConfig->restrictGamesToLobby())
 							{
 								TheGameSpyInfo->clearStagingRoomList();
@@ -2653,8 +2616,14 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 								TheGameSpyPeerMessageQueue->addRequest(req);
 							}
 						}
-						*/
+
 					}
+				*/
+					Int pos = -1;
+					GadgetComboBoxGetSelectedPos(comboLobbyGroupRooms, &pos);
+					if (pos >= 0)
+						theLobbyFilter = (LobbyGameModeFilter)(Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
+					RefreshGameListBoxes();
 				}
 			}
 			break;

@@ -206,6 +206,41 @@ static void showSortIcons()
 		}
 	}
 }
+
+LobbyGameModeFilter theLobbyFilter = LOBBY_FILTER_ALL;
+static LobbyGameModeFilter detectGameMode(const std::string& name)
+{
+	std::string modeName = name;
+	std::transform(modeName.begin(), modeName.end(), modeName.begin(), tolower);
+
+	// remove spaces
+	modeName.erase(std::remove(modeName.begin(), modeName.end(), ' '), modeName.end());
+
+	// handle common variations
+	for (size_t i = 0; i < modeName.size(); ++i)
+	{
+		if (modeName.compare(i, 2, "vs") == 0)
+		{
+			modeName.erase(i + 1, 1);
+			continue;
+		}
+
+		if (modeName[i] == 'x')
+			modeName[i] = 'v';
+	}
+
+	if (modeName.find("aod") != -1)
+		return LOBBY_FILTER_AOD;
+	if (modeName.find("ffa") != -1 || modeName.find("1v1v1") != -1)
+		return LOBBY_FILTER_FFA;
+	if (modeName.find("1v1") != -1)
+		return LOBBY_FILTER_1V1;
+	if (modeName.find("2v2") != -1 || modeName.find("3v3") != -1 || modeName.find("4v4") != -1)
+		return LOBBY_FILTER_TEAM;
+
+	return LOBBY_FILTER_ALL;
+}
+
 void setSortMode(GameSortType sortType) { theGameSortType = sortType; showSortIcons(); RefreshGameListBoxes(); }
 void sortByBuddies(Bool doSort) { sortBuddies = doSort; showSortIcons(); RefreshGameListBoxes(); }
 
@@ -1199,6 +1234,24 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 			else
 			{
 				win->winEnable(true);
+
+				// filter lobbies by game mode
+				if (theLobbyFilter != LOBBY_FILTER_ALL)
+				{
+					std::vector<LobbyEntry> filtered;
+					for (Int i = 0; i < (Int)vecLobbies.size(); ++i)
+					{
+						if (detectGameMode(vecLobbies[i].name) == theLobbyFilter)
+							filtered.push_back(vecLobbies[i]);
+					}
+					vecLobbies = filtered;
+					if (vecLobbies.empty())
+					{
+						win->winEnable(false);
+						GadgetListBoxAddEntryText(win, UnicodeString(L"No lobbies currently match this filter"), GameMakeColor(255, 194, 15, 255), -1, -1);
+						return;
+					}
+				}
 
 				// sort our games
 				typedef std::multiset<LobbyEntry, GameSortStruct> SortedGameList;
