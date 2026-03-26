@@ -475,13 +475,13 @@ void GameLogic::reset()
 	m_objVector.resize(OBJ_HASH_SIZE, NULL);
 
 	m_pauseFrame = 0;
-	m_gamePaused = FALSE;
 	m_pauseSound = FALSE;
 	m_pauseMusic = FALSE;
-	m_pauseInput = FALSE;
 	m_inputEnabledMemory = TRUE;
 	m_mouseVisibleMemory = TRUE;
 	m_logicTimeScaleEnabledMemory = FALSE;
+	pauseGameLogic(FALSE);
+	pauseGameInput(FALSE);
 
 	setFPMode();
 

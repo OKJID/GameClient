@@ -7268,6 +7268,9 @@ void InGameUI::drawGameTime()
 
 void InGameUI::drawPlayerInfoList()
 {
+#if defined(GENERALS_ONLINE)
+	return;
+#endif
 	const Int baseX = (Int)(m_playerInfoListPosition.x * TheDisplay->getWidth());
 	const Int baseY = (Int)(m_playerInfoListPosition.y * TheDisplay->getHeight());
 	const Int lineH = m_playerInfoList.labels[PlayerInfoList::LabelType_Team]->getFont()->height;
