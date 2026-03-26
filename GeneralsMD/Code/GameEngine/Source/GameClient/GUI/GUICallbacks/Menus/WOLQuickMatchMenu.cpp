@@ -979,6 +979,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	// QM is not going yet, so disable the Widen Search button
 	buttonWiden->winEnable( FALSE );
 	buttonStop->winHide( TRUE );
+	buttonStop->winEnable(TRUE);
 	buttonStart->winHide( FALSE );
 	GadgetListBoxReset(quickmatchTextWindow);
 	enableOptionsGadgets(TRUE);
