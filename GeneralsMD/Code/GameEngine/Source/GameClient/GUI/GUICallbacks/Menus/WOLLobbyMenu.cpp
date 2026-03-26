@@ -462,6 +462,17 @@ static void playerTooltip(GameWindow *window,
 								maxDCInRow);
 							tooltip.concat(tmp);
 
+							if (pRoomsInterface != nullptr && pAuthInterface != nullptr)
+							{
+								NetworkRoomMember* localMember = pRoomsInterface->GetRoomMemberFromID(pAuthInterface->GetUserID());
+								if (localMember != nullptr && localMember->m_bIsAdmin)
+								{
+									UnicodeString idLine;
+									idLine.format(L"\n\nUser ID: %lld", roomMember->user_id);
+									tooltip.concat(idLine);
+								}
+							}
+
 							TheMouse->setCursorTooltip(tooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
 						}
 					}, EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST);

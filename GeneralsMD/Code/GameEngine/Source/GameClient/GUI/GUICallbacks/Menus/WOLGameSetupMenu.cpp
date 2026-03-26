@@ -538,8 +538,8 @@ static void playerTooltip(GameWindow *window,
 	if (localPlayerID == slot->m_userID)
 	{
 		// local user wont have a connection
-		playerInfo.format(L"\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		playerInfo.format(L"\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 	else if (bIsConnected)
 	{
@@ -548,14 +548,14 @@ static void playerTooltip(GameWindow *window,
 		if (connectionLatency >= 0) latencyStr.format(L"%d ms", connectionLatency); else latencyStr = L"Unknown";
 		if (connectionJitter >= 0) jitterStr.format(L"%d ms", connectionJitter); else jitterStr = L"Unknown";
 		if (connectionQualityPct >= 0) qualityStr.format(L"%d%%", connectionQualityPct); else qualityStr = L"Unknown";
-		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
 			strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
-			member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 	else
 	{
-		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			member.region.c_str(), totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 #else
 			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
@@ -594,6 +594,18 @@ static void playerTooltip(GameWindow *window,
 			}
 
 			tooltip.concat(playerInfo);
+
+			NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+			if (pAuthInterface != nullptr && pRoomsInterface != nullptr)
+			{
+				NetworkRoomMember* localMember = pRoomsInterface->GetRoomMemberFromID(pAuthInterface->GetUserID());
+				if (localMember != nullptr && localMember->m_bIsAdmin)
+				{
+					UnicodeString idLine;
+					idLine.format(L"\n\nUser ID: %lld", slot->m_userID);
+					tooltip.concat(idLine);
+				}
+			}
 
 			TheMouse->setCursorTooltip(tooltip, -1, NULL, 1.5f); // the text and width are the only params used.  the others are the default values.
 
