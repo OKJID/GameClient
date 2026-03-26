@@ -470,6 +470,8 @@ static void playerTooltip(GameWindow *window,
 	Int favorite = 0;
 	for(it = stats.games.begin(); it != stats.games.end(); ++it)
 	{
+		if (it->first == PLAYERTEMPLATE_OBSERVER) // not a real faction
+			continue;
 		if(it->second >= numGames)
 		{
 			numGames = it->second;
