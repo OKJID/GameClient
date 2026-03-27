@@ -336,6 +336,8 @@ public:
 		}
 	}
 
+	static void AttemptLoadSteam();
+
 	void CommitReplay(AsciiString absoluteReplayPath);
 
 	static NGMP_OnlineServicesManager* GetInstance()

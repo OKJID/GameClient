@@ -70,6 +70,7 @@
 #ifdef RTS_ENABLE_CRASHDUMP
 #include "Common/MiniDumper.h"
 #endif
+#include "../OnlineServices_Init.h"
 
 
 // GLOBALS ////////////////////////////////////////////////////////////////////
@@ -881,6 +882,8 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		{
 			return exitcode;
 		}
+
+		NGMP_OnlineServicesManager::AttemptLoadSteam();
 
 		// save our application instance for future use
 		ApplicationHInstance = hInstance;

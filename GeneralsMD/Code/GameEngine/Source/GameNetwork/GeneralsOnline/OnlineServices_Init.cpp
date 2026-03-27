@@ -222,6 +222,41 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 	}
 }
 
+void NGMP_OnlineServicesManager::AttemptLoadSteam()
+{
+    // app id for ZH
+    SetEnvironmentVariableA("SteamAppId", "2732960");
+
+    // load steam 32bit dll from local dir if present
+    HMODULE steamDll = LoadLibraryA("steam_api.dll");	
+    if (!steamDll)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "steam_api.dll not found. Running without Steam.");
+        return;
+    }
+
+	// Init func
+    typedef bool (*SteamAPI_Init_t)();
+    SteamAPI_Init_t SteamAPI_Init = (SteamAPI_Init_t)GetProcAddress(steamDll, "SteamAPI_InitSafe");
+
+    if (!SteamAPI_Init)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamAPI_Init not found in DLL.");
+        FreeLibrary(steamDll);
+        return;
+    }
+
+    // steam init
+    if (SteamAPI_Init())
+	{
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamAPI_Init succeeded.");
+    }
+    else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamAPI_Init failed.");
+    }
+}
+
 void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 {
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
