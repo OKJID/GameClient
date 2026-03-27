@@ -109,7 +109,7 @@ static float UpdateAndGetGameRowIndex(int lobbyID, float logicalIndex)
     if (!anim.alive)
     {
         // start slightly below, then glide into place
-        anim.currentIndex = logicalIndex + 0.3f;
+        anim.currentIndex = logicalIndex + 2.f;
         anim.targetIndex  = logicalIndex;
         anim.alive        = true;
     }
@@ -119,31 +119,12 @@ static float UpdateAndGetGameRowIndex(int lobbyID, float logicalIndex)
     }
 
     // how fast to snap into place
-    const float t = 0.1f; 
+    const float t = 0.2f; 
 
     float delta = anim.targetIndex - anim.currentIndex;
     anim.currentIndex += delta * t;
 
     return anim.currentIndex;
-}
-
-// Clears animation state for IDs that no longer exist
-static void CleanupMissingGameRows(const std::vector<LobbyEntry>& lobbies)
-{
-	std::map<int, bool> stillPresent;
-
-	for (const LobbyEntry& lobby : lobbies)
-	{
-		stillPresent[lobby.lobbyID] = true;
-	}
-
-	for (auto it = g_gameListAnim.begin(); it != g_gameListAnim.end(); )
-	{
-		if (stillPresent.find(it->first) == stillPresent.end())
-			it = g_gameListAnim.erase(it);
-		else
-			++it;
-	}
 }
 
 static NameKeyType buttonSortAlphaID = NAMEKEY_INVALID;

@@ -90,7 +90,8 @@ static Bool raiseMessageBoxes = false;
 static time_t gameListRefreshTime = 0;
 static const time_t gameListRefreshInterval = 4000;
 static time_t playerListRefreshTime = 0;
-static const time_t playerListRefreshInterval = 4000;
+static const time_t playerListRefreshInterval = 6000;
+static bool isFirstRosterUpdate = false;
 
 void setUnignoreText( WindowLayout *layout, AsciiString nick, GPProfile id);
 static void doSliderTrack(GameWindow *control, Int val);
@@ -1247,6 +1248,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	nextScreen = nullptr;
 	buttonPushed = false;
 	isShuttingDown = false;
+	isFirstRosterUpdate = true;
 
 	SetLobbyAttemptHostJoin(FALSE); // not trying to host or join
 
@@ -1344,7 +1346,15 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 		// register for roster events
 		pRoomsInterface->RegisterForRosterNeedsRefreshCallback([]()
 			{
-				refreshPlayerList(true);
+				if (isFirstRosterUpdate)
+				{
+					refreshPlayerList(true);
+					isFirstRosterUpdate = false;
+				}
+				else
+				{
+					refreshPlayerList(false);
+				}
 			});
 	}
 

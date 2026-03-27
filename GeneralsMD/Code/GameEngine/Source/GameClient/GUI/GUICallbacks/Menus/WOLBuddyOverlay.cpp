@@ -598,7 +598,6 @@ void updateBuddyInfo( void )
                 //AsciiString strName;
 
                 int numUnreadMessages = 0;
-                NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
                 if (pSocialInterface != nullptr)
                 {
                     numUnreadMessages = pSocialInterface->GetNumberUnreadChatMessagesForUser(profileID);
