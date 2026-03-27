@@ -1940,7 +1940,16 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	
 #endif
 
+#if defined(GENERALS_ONLINE)
+	Real baseAspectRatio = 800.0f / 600.0f;
+	Real currentAspectRatio = (float)TheDisplay->getWidth() / (float)TheDisplay->getHeight();
+	Real aspectWidthScale = fabs((1 + (currentAspectRatio - baseAspectRatio)));
+
+	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight * aspectWidthScale;
+#else
 	m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight * maxHeight;
+#endif
+
 	if (m_minHeightAboveGround > m_maxHeightAboveGround)
 		m_maxHeightAboveGround = m_minHeightAboveGround;
 
