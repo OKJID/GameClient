@@ -407,8 +407,6 @@ void NGMP_OnlineServices_SocialInterface::CommitLobbyPlayerListToRecentlyPlayedW
 
     m_mapRecentlyPlayedWith.clear();
 
-    if (TheNGMPGame != nullptr)
-    {
         if (TheNGMPGame != nullptr)
         {
             for (Int i = 0; i < MAX_SLOTS; ++i)
@@ -433,7 +431,6 @@ void NGMP_OnlineServices_SocialInterface::CommitLobbyPlayerListToRecentlyPlayedW
                 }
             }
         }
-    }
 
 	m_RecentlyPlayedWithTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 }
