@@ -371,6 +371,13 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 	GetModuleFileName(NULL, filePath, sizeof(filePath));
 	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
 	std::streamsize size = file.tellg();
+
+	if (!file.is_open() || size <= 0)
+	{
+		fnCallback(false, false);
+		return;
+	}
+
 	file.seekg(0, std::ios::beg);
 	std::vector<uint8_t> buffer(size);
 	file.read((char*)buffer.data(), size);
@@ -566,8 +573,13 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 								int width = surfaceDesc.Width;
 								int height = surfaceDesc.Height;
 
+								// Copy pixel data into an owned buffer before spawning the thread so
+								// the surface can be safely unlocked on the main thread immediately after.
+								std::vector<uint8_t> pixelData(height * pitch);
+								memcpy(pixelData.data(), pBits, height * pitch);
+
 								// process on thread - track the thread so we can join it during shutdown
-								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pBits, pDXsurf, pitch, bResizeForTransmit]()
+								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pixelData = std::move(pixelData), pDXsurf, pitch, bResizeForTransmit]()
 									{
 										CHECK_WORKER_THREAD;
 
@@ -579,7 +591,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 										int finalHeight = height;
 
 										for (int y = 0; y < height; ++y) {
-											uint8_t* row = static_cast<uint8_t*>(pBits) + y * pitch;
+											const uint8_t* row = pixelData.data() + y * pitch;
 											int rowOffset = y * width * 3;
 											int srcOffset = 0;
 											for (int x = 0; x < width; ++x, srcOffset += 4)
@@ -888,7 +900,7 @@ void NGMP_OnlineServicesManager::Tick()
 		m_pHTTPManager->Tick();
 	}
 
-	if (m_pRoomInterface != nullptr)
+	if (m_pAuthInterface != nullptr)
 	{
 		m_pAuthInterface->Tick();
 	}
@@ -932,7 +944,7 @@ void NGMP_OnlineServicesManager::InitSentry()
 
 
 	sentry_value_t userinfoVal = sentry_value_new_object();
-	sentry_value_set_by_key(userinfoVal, "user_id", sentry_value_new_int32(userID));
+	sentry_value_set_by_key(userinfoVal, "user_id", sentry_value_new_string(strUserID.c_str()));
 	sentry_value_set_by_key(userinfoVal, "user_displayname", sentry_value_new_string(strDisplayname.c_str()));
 	sentry_set_context("user_info", userinfoVal);
 

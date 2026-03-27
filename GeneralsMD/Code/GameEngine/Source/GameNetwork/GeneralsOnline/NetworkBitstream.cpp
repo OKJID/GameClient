@@ -14,6 +14,7 @@ CBitStream::CBitStream(int64_t len, void* pBuffer, size_t sz)
 {
 	m_memBuffer = MemoryBuffer(len);
 
+	sz = std::min(sz, static_cast<size_t>(len));
 	memcpy(m_memBuffer.GetData() + m_Offset, pBuffer, sz);
 	m_Offset += sz;
 }

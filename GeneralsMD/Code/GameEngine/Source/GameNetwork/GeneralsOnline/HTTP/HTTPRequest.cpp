@@ -35,7 +35,11 @@ HTTPRequest::HTTPRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const 
 
 HTTPRequest::~HTTPRequest()
 {
-	HTTPManager* pHTTPManager = NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager();
+	NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
+	if (pMgr == nullptr)
+		return;
+
+	HTTPManager* pHTTPManager = pMgr->GetHTTPManager();
 	pHTTPManager->RemoveHandleFromMulti(m_pCURL);
 
 	curl_easy_cleanup(m_pCURL);
@@ -186,7 +190,6 @@ void HTTPRequest::PlatformStartRequest()
 	if (m_pCURL)
 	{
 		HTTPManager* pHTTPManager = static_cast<HTTPManager*>(NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager());
-		pHTTPManager->AddHandleToMulti(m_pCURL);
 
 		curl_easy_setopt(m_pCURL, CURLOPT_URL, m_strURI.c_str());
 		curl_easy_setopt(m_pCURL, CURLOPT_FOLLOWLOCATION, 1L);
@@ -223,9 +226,8 @@ void HTTPRequest::PlatformStartRequest()
 
 		for (auto& kvPair : m_mapHeaders)
 		{
-			char szHeaderBuffer[8192] = { 0 };
-			sprintf_s(szHeaderBuffer, "%s: %s", kvPair.first.c_str(), kvPair.second.c_str());
-			headers = curl_slist_append(headers, szHeaderBuffer);
+			std::string strHeader = kvPair.first + ": " + kvPair.second;
+			headers = curl_slist_append(headers, strHeader.c_str());
 		}
 		curl_easy_setopt(m_pCURL, CURLOPT_HTTPHEADER, headers);
 
@@ -259,10 +261,10 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
+		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
 #endif
 
-		
+		pHTTPManager->AddHandleToMulti(m_pCURL);
 	}
 }

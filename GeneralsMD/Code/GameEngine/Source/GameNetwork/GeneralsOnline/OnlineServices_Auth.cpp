@@ -441,6 +441,7 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshTok
 		if (CryptProtectData(&inputBlob, L"GO Credentials", nullptr, nullptr, nullptr, 0, &outputBlob))
 		{
 			fwrite(outputBlob.pbData, 1, outputBlob.cbData, file);
+			LocalFree(outputBlob.pbData);
 		}
 		else
 		{

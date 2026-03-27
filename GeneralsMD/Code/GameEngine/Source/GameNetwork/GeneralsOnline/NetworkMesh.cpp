@@ -908,6 +908,10 @@ void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 
 void NetworkMesh::Disconnect()
 {
+	if (m_bDisconnected)
+		return;
+	m_bDisconnected = true;
+
 	// Set flag to prevent callbacks from executing during teardown
 	g_bNetworkMeshDestroying.store(true);
 
@@ -1093,6 +1097,9 @@ void PlayerConnection::UpdateLatencyHistogram()
 
 bool PlayerConnection::IsIPV4()
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		return false;
+
 	SteamNetConnectionInfo_t info;
 	SteamNetworkingSockets()->GetConnectionInfo(m_hSteamConnection, &info);
 

@@ -168,16 +168,24 @@ public:
 		m_Offset += valSize;
 	}
 
-	const char* ReadString()
+	std::string ReadString()
 	{
 		// read length
 		uint8_t length = Read<uint8_t>();
 
 		// now read the string
 		uint8_t valSize = sizeof(char) * length;
-		const char* szStr = (const char*)(m_memBuffer.GetData() + m_Offset);
+
+		if (m_Offset + valSize > m_memBuffer.GetAllocatedSize())
+		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[NGMP] ReadString overrun: need %d bytes, only %d remain", valSize, m_memBuffer.GetAllocatedSize() - m_Offset);
+			__debugbreak();
+			return {};
+		}
+
+		std::string result(reinterpret_cast<const char*>(m_memBuffer.GetData() + m_Offset), valSize);
 		m_Offset += valSize;
-		return szStr;
+		return result;
 	}
 
 	// vector container (NOTE: Only supports up to 255 elements

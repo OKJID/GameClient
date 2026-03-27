@@ -110,6 +110,8 @@ void HTTPManager::Shutdown()
 		
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] All in-flight requests completed");
 
+		m_vecRequestsInFlight.clear();
+
 		// Now safe to cleanup
 		curl_multi_cleanup(m_pCurl);
 		m_pCurl = nullptr;
@@ -137,19 +139,26 @@ bool HTTPManager::DeterminePlatformProxySettings()
 		for (; *ws; ws++)
 			strFullProxy += (char)*ws;
 
-		int ipStart = strFullProxy.find("=") + 1;
-		int ipEnd = strFullProxy.find(":", ipStart);
+		size_t ipStart = strFullProxy.find("=");
+		ipStart = (ipStart != std::string::npos) ? ipStart + 1 : 0;
+		size_t ipEnd = strFullProxy.find(":", ipStart);
+		if (ipEnd == std::string::npos) ipEnd = strFullProxy.size();
 
 		m_strProxyAddr = strFullProxy.substr(ipStart, ipEnd - ipStart);
 
-		int portStart = ipEnd + 1;
-		int portEnd = strFullProxy.find(";", portStart);
-		std::string strPort = strFullProxy.substr(portStart, portEnd - portStart);
+		size_t portStart = ipEnd + 1;
+		size_t portEnd = strFullProxy.find(";", portStart);
+		std::string strPort = strFullProxy.substr(portStart, portEnd != std::string::npos ? portEnd - portStart : std::string::npos);
 
 		m_proxyPort = (uint16_t)atoi(strPort.c_str());
 	}
 
 	m_bProxyEnabled = pProxyConfig.lpszProxy != nullptr;
+
+	if (pProxyConfig.lpszProxy) GlobalFree(pProxyConfig.lpszProxy);
+	if (pProxyConfig.lpszAutoConfigUrl) GlobalFree(pProxyConfig.lpszAutoConfigUrl);
+	if (pProxyConfig.lpszProxyBypass) GlobalFree(pProxyConfig.lpszProxyBypass);
+
 	return m_bProxyEnabled;
 }
 
@@ -194,6 +203,9 @@ void HTTPManager::Tick()
 	m_vecRequestsPendingStart.clear();
 
 	// perform and poll
+	if (m_pCurl == nullptr)
+		return;
+
 	int numReqs = 0;
 	curl_multi_perform(m_pCurl, &numReqs);
 	curl_multi_poll(m_pCurl, NULL, 0, 0, NULL);
@@ -216,25 +228,27 @@ void HTTPManager::Tick()
 
 	// are we done?
 	int msgq = 0;
-	CURLMsg* m = curl_multi_info_read(m_pCurl, &msgq);
-	
-	if (m != nullptr && m->msg == CURLMSG_DONE)
+	CURLMsg* m = nullptr;
+	while ((m = curl_multi_info_read(m_pCurl, &msgq)) != nullptr)
 	{
-		CURL* pCurlHandle = m->easy_handle;
-
-		if (pCurlHandle != nullptr)
+		if (m->msg == CURLMSG_DONE)
 		{
-			// find the associated request
-			for (HTTPRequest* pRequest : m_vecRequestsInFlight)
+			CURL* pCurlHandle = m->easy_handle;
+
+			if (pCurlHandle != nullptr)
 			{
-				if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
+				// find the associated request
+				for (HTTPRequest* pRequest : m_vecRequestsInFlight)
 				{
+					if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
+					{
 #if defined(ARTIFICIAL_DELAY_HTTP_REQUESTS)
-					pRequest->SetWaitingDelay(m->data.result);
+						pRequest->SetWaitingDelay(m->data.result);
 #else
-					pRequest->Threaded_SetComplete(m->data.result);
-					vecItemsToRemove.push_back(pRequest);
+						pRequest->Threaded_SetComplete(m->data.result);
+						vecItemsToRemove.push_back(pRequest);
 #endif
+					}
 				}
 			}
 		}
