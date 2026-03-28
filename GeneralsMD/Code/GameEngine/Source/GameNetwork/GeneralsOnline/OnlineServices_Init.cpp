@@ -32,7 +32,7 @@ NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager
 
 std::thread::id NGMP_OnlineServicesManager::g_MainThreadID;
 std::mutex NGMP_OnlineServicesManager::m_ScreenshotMutex;
-std::vector<std::string> NGMP_OnlineServicesManager::m_vecGuardedSSData;
+std::vector<S3ScreenshotEntry> NGMP_OnlineServicesManager::m_vecGuardedSSData;
 
 
 bool NGMP_OnlineServicesManager::g_bAdvancedNetworkStats;
@@ -129,7 +129,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshotToDisk()
 }
 
 
-void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType screenshotType)
+void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI)
 {
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
 	if (pOnlineServicesMgr != nullptr)
@@ -143,30 +143,23 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 			if (pLobbyInterface != nullptr)
 			{
-				uint64_t currentMatchID = pLobbyInterface->GetCurrentMatchID();
-
-				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [currentMatchID, screenshotType](std::vector<unsigned char> vecData)
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI](std::vector<uint8_t> vecData)
 					{
 						CHECK_WORKER_THREAD;
 
 						if (vecData.empty())
 						{
-							NetworkLog(ELogVerbosity::LOG_DEBUG, "Screenshot capture failed, no data");
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "Screenshot capture failed, no data");
 							return;
 						}
 
-						nlohmann::json j;
-						j["img"] = nullptr;
-						j["imgtype"] = (int)screenshotType;
-						j["match_id"] = currentMatchID;
+                        // send back to main thread for processing
+                        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 
-						// encode body
-						j["img"] = Base64Encode(vecData);
-
-						std::string strPostData = j.dump();
-
-						std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-						m_vecGuardedSSData.push_back(strPostData);
+						S3ScreenshotEntry newEntry;
+                        newEntry.vecBytes = std::move(vecData);
+						newEntry.strSignedURI = strURI;
+                        m_vecGuardedSSData.push_back(newEntry);
 					});
 			}
 		}
@@ -874,18 +867,23 @@ void NGMP_OnlineServicesManager::Tick()
 	// screenshots
 	{
 		// send screenshot
-		std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MatchUpdate");
-		std::map<std::string, std::string> mapHeaders;
-
 		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 
-		for (std::string& b64SSData : m_vecGuardedSSData)
+		for (S3ScreenshotEntry screenshotEntry : m_vecGuardedSSData)
 		{
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, b64SSData.c_str(),
-				[=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-				{
-
-				}, nullptr, HTTP_UPLOAD_TIMEOUT);
+            std::map<std::string, std::string> mapHeaders;
+            //mapHeaders["Content-Type"] = "application/octet-stream";
+            mapHeaders["Content-Type"] = "image/jpeg";
+            NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(screenshotEntry.strSignedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, screenshotEntry.vecBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                {
+#if _DEBUG
+					if (statusCode != 200)
+					{
+						__debugbreak();
+					}
+#endif
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "Screenshot upload, result: %d", statusCode);
+                }, nullptr, HTTP_UPLOAD_TIMEOUT);
 		}
 		m_vecGuardedSSData.clear();
 	}

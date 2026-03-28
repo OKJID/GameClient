@@ -62,6 +62,11 @@ void HTTPRequest::SetPostData(const char* szPostData)
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[%p|%s|Verb %d] Transfer is created: Body is %s", this, m_strURI.c_str(), m_httpVerb, szPostData);
 }
 
+void HTTPRequest::SetPostDataBuffer(std::vector<uint8_t> vecBuffer)
+{
+	m_vecPostDataBuffer = std::move(vecBuffer);
+}
+
 void HTTPRequest::StartRequest()
 {
 	m_bIsStarted = true;
@@ -221,7 +226,10 @@ void HTTPRequest::PlatformStartRequest()
 		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 		if (pAuthInterface != nullptr && pAuthInterface->IsLoggedIn())
 		{
-			m_mapHeaders["Authorization"] = "Bearer " + pAuthInterface->GetAuthToken();
+			if (m_bAppendAuthIfPresent)
+			{
+				m_mapHeaders["Authorization"] = "Bearer " + pAuthInterface->GetAuthToken();
+			}
 		}
 
 		for (auto& kvPair : m_mapHeaders)
@@ -236,7 +244,16 @@ void HTTPRequest::PlatformStartRequest()
 			//if (m_strPostData.length() > 0)
 			{
 				//char* pEscaped = curl_easy_escape(m_pCURL, m_strPostData.c_str(), m_strPostData.length());
-				curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDS, m_strPostData.c_str());
+
+				if (!m_vecPostDataBuffer.empty())
+				{
+                    curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDS, m_vecPostDataBuffer.data());
+					curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDSIZE, m_vecPostDataBuffer.size());
+				}
+				else
+				{
+                    curl_easy_setopt(m_pCURL, CURLOPT_POSTFIELDS, m_strPostData.c_str());
+				}
 			}
 		}
 

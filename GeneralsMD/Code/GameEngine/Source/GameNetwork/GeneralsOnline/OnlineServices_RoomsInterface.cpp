@@ -295,6 +295,14 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkSignal, target_user_id, payload)
 };
 
+class WebSocketMessage_ServerProbe : public WebSocketMessageBase
+{
+public:
+	std::string url;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_ServerProbe, msg_id, url)
+};
+
 class WebSocketMessage_LobbyChatIncoming : public WebSocketMessageBase
 {
 public:
@@ -1029,16 +1037,22 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::PROBE:
 									{
-										NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] GOT PROBE REQUEST!");
+										WebSocketMessage_ServerProbe probe;
+                                        bool bParsed = JSONGetAsObject(jsonObject, &probe);
 
-										NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY);
+										if (bParsed)
+										{
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[PROBE] GOT PROBE REQUEST: %s!", probe.url.c_str());
 
-										// service needs the response
-                                        nlohmann::json j;
-                                        j["msg_id"] = EWebSocketMessageID::PROBE_RESP;
-										j["timestamp"] = "0";
-                                        std::string strBody = j.dump();
-                                        Send(strBody.c_str());
+											NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_GAMEPLAY, probe.url);
+
+											// service needs the response
+											nlohmann::json j;
+											j["msg_id"] = EWebSocketMessageID::PROBE_RESP;
+											j["timestamp"] = "0";
+											std::string strBody = j.dump();
+											Send(strBody.c_str());
+										}
 									}
 									break;
 

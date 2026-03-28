@@ -466,7 +466,8 @@ void ScoreScreenUpdate( WindowLayout * layout, void *userData)
 		{
 			g_bNeedToTakeDoneEOGScreenshot = false;
 
-			NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN);
+			// TODO_S3
+			NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN, "TODO_S3");
 		}
 	}
 

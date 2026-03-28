@@ -16,6 +16,12 @@ class NGMP_OnlineServices_SocialInterface;
 
 class NetworkMesh;
 
+struct S3ScreenshotEntry
+{
+    std::vector<uint8_t> vecBytes;
+    std::string strSignedURI;
+};
+
 enum class EScreenshotType : int
 {
 	SCREENSHOT_TYPE_LOADSCREEN = 0,
@@ -454,7 +460,7 @@ public:
 
 	static void CaptureScreenshot(bool bResizeForTransmit, std::function<void(std::vector<unsigned char>)> cbOnDataAvailable);
 	static void CaptureScreenshotToDisk();
-	static void CaptureScreenshotForProbe(EScreenshotType screenshotType);
+	static void CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI);
 
 	static bool g_bAdvancedNetworkStats;
 	static void ToggleAdvancedNetworkStats() { g_bAdvancedNetworkStats = !g_bAdvancedNetworkStats; }
@@ -501,7 +507,8 @@ public:
 private:
 	// main thread SS Upload
 	static std::mutex m_ScreenshotMutex;
-	static std::vector<std::string> m_vecGuardedSSData;
+	static std::vector<S3ScreenshotEntry> m_vecGuardedSSData;
+
 
 	// Screenshot thread management
 	std::vector<std::thread*> m_vecScreenshotThreads;

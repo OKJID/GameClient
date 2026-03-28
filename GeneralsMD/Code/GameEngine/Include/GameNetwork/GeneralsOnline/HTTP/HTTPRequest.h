@@ -28,7 +28,13 @@ public:
 	void PlatformThreaded_SetComplete();
 
 	void SetPostData(const char* szPostData);
+	void SetPostDataBuffer(std::vector<uint8_t> vecBuffer);
 	void StartRequest();
+
+	void DisableServiceAuth()
+	{
+		m_bAppendAuthIfPresent = false;
+	}
 
 	void OnResponsePartialWrite(std::uint8_t* pBuffer, size_t numBytes);
 
@@ -69,12 +75,15 @@ private:
 
 	EHTTPVerb m_httpVerb;
 
+	bool m_bAppendAuthIfPresent = true;
+
 	EIPProtocolVersion m_protover;
 
 	int m_timeoutMS = 5000;
 
 	std::string m_strURI;
 	std::string m_strPostData;
+	std::vector<uint8_t> m_vecPostDataBuffer;
 
 	std::map<std::string, std::string> m_mapHeaders;
 
