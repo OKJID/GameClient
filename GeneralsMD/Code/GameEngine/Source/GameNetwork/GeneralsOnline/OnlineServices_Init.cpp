@@ -996,6 +996,12 @@ void NGMP_OnlineServicesManager::InitSentry()
 	sentry_options_set_database_path(options, strDumpPath.c_str());
 	sentry_options_set_release(options, "generalsonline-client@021326_QFE2");
 
+#if defined(USE_TEST_ENV)
+	sentry_options_set_environment(options, "test");
+#else
+	sentry_options_set_environment(options, "production");
+#endif
+
 	// local player info
 	int64_t userID = -1;
 	std::string strDisplayname = "Unknown";
