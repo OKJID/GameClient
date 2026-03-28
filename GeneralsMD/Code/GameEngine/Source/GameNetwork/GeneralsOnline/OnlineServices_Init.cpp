@@ -20,6 +20,7 @@
 #include "GameNetwork/GeneralsOnline/Vendor/stb_image/stb_image_write.h"
 #include "GameNetwork/GeneralsOnline/Vendor/stb_image/stb_image_resize.h"
 #include "GameClient/GameText.h"
+#include <unordered_set>
 
 extern "C"
 {
@@ -143,7 +144,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 			if (pLobbyInterface != nullptr)
 			{
-				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI](std::vector<uint8_t> vecData)
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI, screenshotType](std::vector<uint8_t> vecData)
 					{
 						CHECK_WORKER_THREAD;
 
@@ -156,10 +157,23 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
                         // send back to main thread for processing
                         std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 
-						S3ScreenshotEntry newEntry;
-                        newEntry.vecBytes = std::move(vecData);
-						newEntry.strSignedURI = strURI;
-                        m_vecGuardedSSData.push_back(newEntry);
+                        // certain screenshots require caching for later upload when we have a valid match id, so we store them
+						if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN)
+						{
+							NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_StartMatch(vecData);
+						}
+                        else if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN)
+                        {
+                            NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_EndMatch(vecData);
+                        }
+						else
+						{
+                            S3ScreenshotEntry newEntry;
+                            newEntry.vecBytes = std::move(vecData);
+                            newEntry.strSignedURI = strURI;
+                            newEntry.screenshotType = screenshotType;
+                            m_vecGuardedSSData.push_back(newEntry);
+						}
 					});
 			}
 		}
@@ -259,14 +273,6 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 
 		if (serviceConf.do_replay_upload)
 		{
-			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-			if (pLobbyInterface == nullptr)
-			{
-				return;
-			}
-
-			uint64_t currentMatchID = pLobbyInterface->GetCurrentMatchID();
-
 			FILE* pFile = fopen(absoluteReplayPath.str(), "rb");
 
 			std::vector<unsigned char> replayData;
@@ -283,19 +289,8 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 				fclose(pFile);
 			}
 
-			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("MatchReplay");
-			std::map<std::string, std::string> mapHeaders;
-
-			nlohmann::json j;
-			j["replaydata"] = Base64Encode(replayData);
-			j["match_id"] = currentMatchID;
-
-			std::string strPostData = j.dump();
-
-			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-				{
-
-				}, nullptr, HTTP_UPLOAD_TIMEOUT);
+			// cache the data until we get an S3 URL from server
+			NGMP_OnlineServicesManager::GetInstance()->CacheReplayBytes(replayData);
 		}
 	}
 }
@@ -869,23 +864,95 @@ void NGMP_OnlineServicesManager::Tick()
 		// send screenshot
 		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 
+
+		// screenshot types that already have a presigned URL
 		for (S3ScreenshotEntry screenshotEntry : m_vecGuardedSSData)
 		{
-            std::map<std::string, std::string> mapHeaders;
-            //mapHeaders["Content-Type"] = "application/octet-stream";
-            mapHeaders["Content-Type"] = "image/jpeg";
-            NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(screenshotEntry.strSignedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, screenshotEntry.vecBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
-                {
+			// NOTE: Screenshot types start and end of match are captures and cached in memory until the server tells us where to upload them, so we need to wait for the upload URI
+
+			if ((screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN || screenshotEntry.screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN) && screenshotEntry.strSignedURI.empty())
+			{
+				continue;
+			}
+			else // we have the data we need, send away
+			{
+                std::map<std::string, std::string> mapHeaders;
+                mapHeaders["Content-Type"] = "image/jpeg";
+                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(screenshotEntry.strSignedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, screenshotEntry.vecBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                    {
 #if _DEBUG
-					if (statusCode != 200)
-					{
-						__debugbreak();
-					}
+                        if (statusCode != 200)
+                        {
+                            __debugbreak();
+                        }
 #endif
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "Screenshot upload, result: %d", statusCode);
-                }, nullptr, HTTP_UPLOAD_TIMEOUT);
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "Screenshot upload, result: %d", statusCode);
+                    }, nullptr, HTTP_UPLOAD_TIMEOUT);
+			}
+            
 		}
+
 		m_vecGuardedSSData.clear();
+
+		// screenshots and replays that are cached and awaiting S3 url, and now have said URL
+		if (!m_vecCachedScreenshotBytes_MatchStart.empty()) // we have data waiting
+		{
+			if (!m_strCachedScreenshot_MatchStart_S3URI.empty()) // and we have a URL
+			{
+				// queue it
+				S3ScreenshotEntry newEntry;
+				newEntry.screenshotType = EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN;
+				newEntry.vecBytes = m_vecCachedScreenshotBytes_MatchStart;
+				newEntry.strSignedURI = m_strCachedScreenshot_MatchStart_S3URI;
+				m_vecGuardedSSData.push_back(newEntry);
+
+				// clear data
+                m_vecCachedScreenshotBytes_MatchStart = std::vector<uint8_t>();
+				m_strCachedScreenshot_MatchStart_S3URI = std::string();
+			}
+		}
+
+        if (!m_vecCachedScreenshotBytes_MatchEnd.empty()) // we have data waiting
+        {
+            if (!m_strCachedScreenshot_MatchEnd_S3URI.empty()) // and we have a URL
+            {
+                // queue it
+                S3ScreenshotEntry newEntry;
+                newEntry.screenshotType = EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN;
+                newEntry.vecBytes = m_vecCachedScreenshotBytes_MatchEnd;
+                newEntry.strSignedURI = m_strCachedScreenshot_MatchEnd_S3URI;
+				m_vecGuardedSSData.push_back(newEntry);
+
+                // clear data
+                m_vecCachedScreenshotBytes_MatchEnd = std::vector<uint8_t>();
+                m_strCachedScreenshot_MatchEnd_S3URI = std::string();
+            }
+        }
+
+        if (!m_vecCachedReplayBytes.empty()) // we have data waiting
+        {
+            if (!m_strCacheReplay_S3URI.empty()) // and we have a URL
+            {
+				// do the upload
+                std::map<std::string, std::string> mapHeaders;
+                mapHeaders["Content-Type"] = "application/octet-stream";
+                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(m_strCacheReplay_S3URI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, m_vecCachedReplayBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                    {
+#if _DEBUG
+                        if (statusCode != 200)
+                        {
+                            __debugbreak();
+                        }
+#endif
+
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "Replay upload, result: %d", statusCode);
+                    }, nullptr, HTTP_UPLOAD_TIMEOUT);
+
+                // clear data
+                NGMP_OnlineServicesManager::GetInstance()->m_vecCachedReplayBytes.clear();
+                NGMP_OnlineServicesManager::GetInstance()->m_strCacheReplay_S3URI = std::string();
+            }
+        }
 	}
 
 	if (m_pWebSocket != nullptr)

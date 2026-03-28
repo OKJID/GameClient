@@ -400,6 +400,14 @@ void NGMP_OnlineServices_StatsInterface::UpdateMyStats(PSPlayerStats stats)
 		});
 }
 
+struct MatchOutcomeResponse
+{
+    std::string screenshot_url;
+	std::string replay_url;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(MatchOutcomeResponse, screenshot_url, replay_url)
+};
+
 void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeeper, bool bWon)
 {
 	int buildingsBuilt = 0;
@@ -444,7 +452,25 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
+				if (bSuccess && !strBody.empty())
+				{
+					try
+					{
+                        nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+                        MatchOutcomeResponse matchOutcomeResp = jsonObject.get<MatchOutcomeResponse>();
 
+                        NGMP_OnlineServicesManager::GetInstance()->SetScreenshotS3URI_EndMatch(matchOutcomeResp.screenshot_url.c_str());
+                        NGMP_OnlineServicesManager::GetInstance()->SetScreenshotS3URI_Replay(matchOutcomeResp.replay_url.c_str());
+					}
+                    catch (nlohmann::json::exception&)
+                    {
+                       
+                    }
+                    catch (...)
+                    {
+
+                    }
+				}
 			});
 	}
 }

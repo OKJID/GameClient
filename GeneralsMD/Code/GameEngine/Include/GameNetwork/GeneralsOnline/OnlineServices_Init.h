@@ -16,17 +16,23 @@ class NGMP_OnlineServices_SocialInterface;
 
 class NetworkMesh;
 
+enum class EScreenshotType : int
+{
+    SCREENSHOT_TYPE_LOADSCREEN = 0,
+    SCREENSHOT_TYPE_GAMEPLAY = 1,
+    SCREENSHOT_TYPE_SCORESCREEN = 2
+};
+
 struct S3ScreenshotEntry
 {
     std::vector<uint8_t> vecBytes;
     std::string strSignedURI;
-};
+	EScreenshotType screenshotType;
 
-enum class EScreenshotType : int
-{
-	SCREENSHOT_TYPE_LOADSCREEN = 0,
-	SCREENSHOT_TYPE_GAMEPLAY = 1,
-	SCREENSHOT_TYPE_SCORESCREEN = 2
+    bool operator==(const S3ScreenshotEntry& other) const
+	{
+		return (vecBytes == other.vecBytes && strSignedURI == other.strSignedURI && screenshotType == other.screenshotType);
+    }
 };
 
 #include <mutex>
@@ -504,11 +510,59 @@ public:
 
 	ServiceConfig& GetServiceConfig() { return m_ServiceConfig; }
 
+public:
+	void CacheScreenshotBytes_StartMatch(std::vector<uint8_t>& vecData)
+	{
+		std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+        m_vecCachedScreenshotBytes_MatchStart = vecData;
+	}
+
+    void CacheScreenshotBytes_EndMatch(std::vector<uint8_t>& vecData)
+    {
+        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+        m_vecCachedScreenshotBytes_MatchEnd = vecData;
+    }
+
+    void CacheReplayBytes(std::vector<uint8_t>& vecData)
+    {
+        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+		m_vecCachedReplayBytes = vecData;
+    }
+
+    void SetScreenshotS3URI_StartMatch(const char* szURI)
+    {
+        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+		m_strCachedScreenshot_MatchStart_S3URI = std::string(szURI);
+    }
+
+    void SetScreenshotS3URI_EndMatch(const char* szURI)
+    {
+        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+        m_strCachedScreenshot_MatchEnd_S3URI = std::string(szURI);
+    }
+
+    void SetScreenshotS3URI_Replay(const char* szURI)
+    {
+        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+		m_strCacheReplay_S3URI = std::string(szURI);
+    }
+
 private:
+	// NOTE: Accessed from multiple threads, dont access directly, use helpers above to lock
+    std::string m_strCachedScreenshot_MatchStart_S3URI;
+    std::string m_strCachedScreenshot_MatchEnd_S3URI;
+    std::string m_strCacheReplay_S3URI;
+
+    // screenshots / replays that require caching
+    std::vector<uint8_t> m_vecCachedScreenshotBytes_MatchStart;
+    std::vector<uint8_t> m_vecCachedScreenshotBytes_MatchEnd;
+    std::vector<uint8_t> m_vecCachedReplayBytes;
+
 	// main thread SS Upload
 	static std::mutex m_ScreenshotMutex;
-	static std::vector<S3ScreenshotEntry> m_vecGuardedSSData;
 
+	// normal screenshots
+	static std::vector<S3ScreenshotEntry> m_vecGuardedSSData;
 
 	// Screenshot thread management
 	std::vector<std::thread*> m_vecScreenshotThreads;

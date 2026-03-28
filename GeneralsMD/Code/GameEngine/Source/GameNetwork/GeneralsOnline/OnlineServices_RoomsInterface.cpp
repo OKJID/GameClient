@@ -303,6 +303,14 @@ public:
     NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_ServerProbe, msg_id, url)
 };
 
+class WebSocketMessage_StartGameResponse : public WebSocketMessageBase
+{
+public:
+    std::string screenshot_url;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_StartGameResponse, msg_id, screenshot_url)
+};
+
 class WebSocketMessage_LobbyChatIncoming : public WebSocketMessageBase
 {
 public:
@@ -777,11 +785,21 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::START_GAME:
 									{
-										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-										if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
+                                        WebSocketMessage_StartGameResponse startGameData;
+                                        bool bParsed = JSONGetAsObject(jsonObject, &startGameData);
+
+										if (bParsed)
 										{
-											pLobbyInterface->m_callbackStartGamePacket();
+											// store URL
+                                            NGMP_OnlineServicesManager::GetInstance()->SetScreenshotS3URI_StartMatch(startGameData.screenshot_url.c_str());
 										}
+
+										// always start, even if we couldnt parse the url
+                                        NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+                                        if (pLobbyInterface != nullptr && pLobbyInterface->m_callbackStartGamePacket != nullptr)
+                                        {
+                                            pLobbyInterface->m_callbackStartGamePacket();
+                                        }
 									}
 									break;
 
