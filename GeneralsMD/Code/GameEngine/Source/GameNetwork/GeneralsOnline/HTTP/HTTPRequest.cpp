@@ -278,6 +278,8 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
+        curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
+
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
 #endif

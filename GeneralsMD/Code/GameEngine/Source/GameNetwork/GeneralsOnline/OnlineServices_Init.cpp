@@ -154,9 +154,6 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 							return;
 						}
 
-                        // send back to main thread for processing
-                        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-
                         // certain screenshots require caching for later upload when we have a valid match id, so we store them
 						if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN)
 						{
@@ -168,6 +165,10 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
                         }
 						else
 						{
+                            // send back to main thread for processing
+							// NOTE: we don't lock in the above cases because the called functions lock
+                            std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+
                             S3ScreenshotEntry newEntry;
                             newEntry.vecBytes = std::move(vecData);
                             newEntry.strSignedURI = strURI;
@@ -214,7 +215,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 	}
 	else if (g_Environment == EEnvironment::TEST)
 	{
-		return std::format("https://api.playgenerals.online/env/test/contract/1/{}", szEndpoint);
+		return std::format("https://api.playgenerals.online:2087/env/test/contract/1/{}", szEndpoint);
 	}
 	else // PROD
 	{
@@ -595,8 +596,9 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 										unsigned char* pBufferToWrite = rgbData;
 										if (bResizeForTransmit)
 										{
-											int new_width = 557;
-											int new_height = 333;
+											ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
+											int new_width = serviceConf.screenshot_width;
+											int new_height = serviceConf.screenshot_height;
 											int channels = 3;
 											unsigned char* resized = new unsigned char[new_width * new_height * channels];
 
