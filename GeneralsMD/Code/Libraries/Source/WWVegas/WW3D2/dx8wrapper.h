@@ -43,7 +43,11 @@
 
 #include "always.h"
 #include "dllist.h"
+#ifdef __APPLE__
+#include "d3d8_compat.h"
+#else
 #include "d3d8.h"
+#endif
 #include "matrix4.h"
 #include "statistics.h"
 #include "wwstring.h"
@@ -122,6 +126,12 @@ WWINLINE void DX8_ErrorCode(unsigned res)
 	Log_DX8_ErrorCode(res);
 }
 
+#ifdef __APPLE__
+#define DX8CALL_HRES(x,res) res = DX8Wrapper::_Get_D3D_Device8()->x; number_of_DX8_calls++;
+#define DX8CALL(x) DX8Wrapper::_Get_D3D_Device8()->x; number_of_DX8_calls++;
+#define DX8CALL_D3D(x) number_of_DX8_calls++;
+#define DX8_THREAD_ASSERT() ;
+#else // !__APPLE__
 #ifdef WWDEBUG
 #define DX8CALL_HRES(x,res) DX8_Assert(); res = DX8Wrapper::_Get_D3D_Device8()->x; DX8_ErrorCode(res); number_of_DX8_calls++;
 #define DX8CALL(x) DX8_Assert(); DX8_ErrorCode(DX8Wrapper::_Get_D3D_Device8()->x); number_of_DX8_calls++;
@@ -133,6 +143,7 @@ WWINLINE void DX8_ErrorCode(unsigned res)
 #define DX8CALL_D3D(x) DX8Wrapper::_Get_D3D8()->x; number_of_DX8_calls++;
 #define DX8_THREAD_ASSERT() ;
 #endif
+#endif // !__APPLE__
 
 
 #define no_EXTENDED_STATS
