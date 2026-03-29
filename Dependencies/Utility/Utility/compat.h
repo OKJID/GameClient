@@ -64,6 +64,7 @@
 #define _MAX_PATH 260
 #endif
 
+#include "win32types_compat.h"
 #include "mem_compat.h"
 #include "string_compat.h"
 #include "tchar_compat.h"
