@@ -278,6 +278,8 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
+
+		// TODO_NGMP: We should move to libcurl backed by SChannel so we don't need to do this
         curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
 
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
