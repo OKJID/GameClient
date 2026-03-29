@@ -41,6 +41,7 @@
  *   DX8Wrapper::_Update_Texture -- Copies a texture from system memory to video memory        *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#ifndef __APPLE__
 //#define CREATE_DX8_MULTI_THREADED
 //#define CREATE_DX8_FPU_PRESERVE
 #define WW3D_DEVTYPE D3DDEVTYPE_HAL
@@ -4616,3 +4617,4 @@ WW3DFormat	DX8Wrapper::getBackBufferFormat()
 {
 	return D3DFormat_To_WW3DFormat( _PresentParameters.BackBufferFormat );
 }
+#endif // !__APPLE__
