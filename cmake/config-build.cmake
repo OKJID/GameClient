@@ -9,6 +9,14 @@ option(RTS_BUILD_OPTION_ASAN "Build code with Address Sanitizer." OFF)
 option(RTS_BUILD_OPTION_VC6_FULL_DEBUG "Build VC6 with full debug info." OFF)
 option(RTS_BUILD_OPTION_FFMPEG "Enable FFmpeg support" OFF)
 
+if(APPLE)
+    set(RTS_BUILD_GENERALS OFF CACHE BOOL "" FORCE)
+    set(RTS_BUILD_ZEROHOUR_TOOLS OFF CACHE BOOL "" FORCE)
+    set(RTS_BUILD_ZEROHOUR_EXTRAS OFF CACHE BOOL "" FORCE)
+    set(RTS_BUILD_CORE_TOOLS OFF CACHE BOOL "" FORCE)
+    set(RTS_BUILD_CORE_EXTRAS OFF CACHE BOOL "" FORCE)
+endif()
+
 if(NOT RTS_BUILD_ZEROHOUR AND NOT RTS_BUILD_GENERALS)
     set(RTS_BUILD_ZEROHOUR TRUE)
     message("You must select one project to build, building Zero Hour by default.")
@@ -74,4 +82,10 @@ endif()
 
 if(RTS_BUILD_OPTION_PROFILE)
     target_compile_definitions(core_config INTERFACE RTS_PROFILE)
+endif()
+
+if(APPLE)
+    target_include_directories(core_config BEFORE INTERFACE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Include
+    )
 endif()

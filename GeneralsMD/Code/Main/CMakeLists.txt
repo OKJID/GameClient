@@ -80,3 +80,36 @@ endif()
 if(MINGW AND COMMAND add_debug_strip_target)
     add_debug_strip_target(z_generals)
 endif()
+
+if(APPLE)
+    set_target_properties(z_generals PROPERTIES
+        WIN32_EXECUTABLE FALSE
+        MACOSX_BUNDLE TRUE
+    )
+
+    # Remove Windows-only link libraries, add macOS frameworks
+    set_property(TARGET z_generals PROPERTY LINK_LIBRARIES)
+    target_link_libraries(z_generals PRIVATE
+        core_debug
+        core_profile
+        z_gameengine
+        z_gameenginedevice
+        zi_always
+        "-framework Metal"
+        "-framework MetalKit"
+        "-framework AppKit"
+        "-framework QuartzCore"
+        "-framework CoreGraphics"
+        "-framework IOKit"
+    )
+
+    # Remove WinMain, will add macOS entry point in Phase 2
+    get_target_property(_sources z_generals SOURCES)
+    list(REMOVE_ITEM _sources WinMain.cpp WinMain.h)
+    set_property(TARGET z_generals PROPERTY SOURCES ${_sources})
+
+    # d3d8.h proxies and Win32 stubs
+    target_include_directories(z_generals BEFORE PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Include
+    )
+endif()
