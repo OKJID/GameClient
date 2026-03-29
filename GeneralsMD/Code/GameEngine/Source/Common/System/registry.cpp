@@ -34,6 +34,7 @@
 #include <format>
 #include <filesystem>
 
+#ifndef __APPLE__
 
 Bool  getStringFromRegistry(HKEY root, AsciiString path, AsciiString key, AsciiString& val)
 {
@@ -119,6 +120,29 @@ Bool setUnsignedIntInRegistry( HKEY root, AsciiString path, AsciiString key, Uns
 	return (returnValue == ERROR_SUCCESS);
 }
 
+#else // __APPLE__
+
+Bool getStringFromRegistry(HKEY, AsciiString, AsciiString, AsciiString&)
+{
+	return FALSE;
+}
+
+Bool getUnsignedIntFromRegistry(HKEY, AsciiString, AsciiString, UnsignedInt&)
+{
+	return FALSE;
+}
+
+Bool setStringInRegistry(HKEY, AsciiString, AsciiString, AsciiString)
+{
+	return TRUE;
+}
+
+Bool setUnsignedIntInRegistry(HKEY, AsciiString, AsciiString, UnsignedInt)
+{
+	return TRUE;
+}
+
+#endif // !__APPLE__
 Bool GetStringFromGeneralsRegistry(AsciiString path, AsciiString key, AsciiString& val)
 {
 	AsciiString fullPath = "SOFTWARE\\Electronic Arts\\EA Games\\Generals";
