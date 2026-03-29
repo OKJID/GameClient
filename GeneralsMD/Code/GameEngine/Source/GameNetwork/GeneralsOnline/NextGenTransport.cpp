@@ -311,8 +311,18 @@ Bool NextGenTransport::doSend(void)
                 continue;
             }
 
+            NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+            if (pMesh == nullptr)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                    "Game Packet Send: No network mesh");
+                m_outBuffer[i].length = 0;
+                retval = FALSE;
+                continue;
+            }
+
             int sendResult =
-                NGMP_OnlineServicesManager::GetNetworkMesh()->SendGamePacket(
+                pMesh->SendGamePacket(
                     static_cast<void*>(&m_outBuffer[i]),
                     totalLen,
                     pSlot->m_userID);

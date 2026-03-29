@@ -190,7 +190,7 @@ void NGMP_OnlineServices_SocialInterface::AcceptPendingRequest(int64_t target_us
 		});
 
 	// update notifications
-	--m_numTotalNotifications;
+	if (m_numTotalNotifications > 0) --m_numTotalNotifications;
 	TriggerCallback_OnNumberGlobalNotificationsChanged();
 }
 
@@ -205,7 +205,7 @@ void NGMP_OnlineServices_SocialInterface::RejectPendingRequest(int64_t target_us
 		});
 
     // update notifications
-    --m_numTotalNotifications;
+    if (m_numTotalNotifications > 0) --m_numTotalNotifications;
     TriggerCallback_OnNumberGlobalNotificationsChanged();
 }
 

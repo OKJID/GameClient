@@ -1125,6 +1125,9 @@ int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 
 std::string PlayerConnection::GetStats()
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		return "(disconnected)";
+
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetDetailedConnectionStatus(m_hSteamConnection, szBuf, 2048);
 
@@ -1135,6 +1138,9 @@ std::string PlayerConnection::GetStats()
 
 std::string PlayerConnection::GetConnectionType()
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		return "(disconnected)";
+
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetConnectionType(m_hSteamConnection, szBuf, 2048);
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[STEAM] PlayerConnection::GetConnectionType returned %d", ret);
@@ -1187,16 +1193,28 @@ void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh,
 		m_State = EConnectionState::CONNECTION_DISCONNECTED;
 	}
 
+	// Save values we need after the callback: the callback can erase this
+	// PlayerConnection from the mesh's map (UAF), so we must not access
+	// member variables after UpdateState fires the external callback.
+	const HSteamNetConnection savedHandle = m_hSteamConnection;
+	const int64_t savedUserID = m_userID;
+
+	// Invalidate the handle before firing the callback so any re-entrant
+	// query sees the connection as already gone.
+	m_hSteamConnection = k_HSteamNetConnection_Invalid;
+
 	// Dont update backend until we're actually done
 	if (!bIsRetrying)
 	{
-		UpdateState(m_State, pOwningMesh);
+		UpdateState(m_State, pOwningMesh);  // may erase *this from the map
 	}
 
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", m_hSteamConnection, m_userID);
-	SteamNetworkingSockets()->SetConnectionName(m_hSteamConnection, std::format("Steam Connection User{}", m_userID).c_str());
-
-	m_hSteamConnection = k_HSteamNetConnection_Invalid; // invalidate connection handle
+	// Use saved stack values — do NOT touch any member after this point.
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", savedHandle, savedUserID);
+	if (SteamNetworkingSockets())
+	{
+		SteamNetworkingSockets()->SetConnectionName(savedHandle, std::format("Steam Connection User{}", savedUserID).c_str());
+	}
 }
 
 int PlayerConnection::GetLatency()

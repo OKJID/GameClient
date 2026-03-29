@@ -749,6 +749,9 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 		}
 		else
 		{
+			if (TheNGMPGame == nullptr)
+				return;
+
 			GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
 
 			if (pLocalSlot != nullptr)
@@ -1069,6 +1072,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			// convert
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
+					if (NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>() == nullptr)
+						return;
+
 					// reset trying to join
 					ResetLobbyTryingToJoin();
 
@@ -1310,6 +1316,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					{
 						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+						if (pAuthInterface == nullptr || pLobbyInterface == nullptr)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] CreateLobby callback: required interface is null, aborting");
+							return;
+						}
 
 						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();

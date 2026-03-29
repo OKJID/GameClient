@@ -1873,7 +1873,8 @@ void GameSpyLoadScreen::update( Int percent )
 			if (!g_bHasDoneSOGScreenshot)
 			{
 				g_bHasDoneSOGScreenshot = true;
-				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN);
+
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN, std::string()); // pass no URI here, wait until we have one received from server
 			}
 		}
 	}

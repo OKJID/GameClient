@@ -53,6 +53,11 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 	// TODO_CACHE: Cleanup multi too
 	if (m_pCurlWS != nullptr)
 	{
+        // remove from multi before cleanup (required by libcurl)
+        if (m_pMulti != nullptr)
+        {
+            curl_multi_remove_handle(m_pMulti, m_pCurlWS);
+        }
         // cleanup
         curl_easy_cleanup(m_pCurlWS);
         m_pCurlWS = nullptr;
@@ -97,6 +102,8 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 		if (pAuthInterface == nullptr)
 		{
+			curl_easy_cleanup(m_pCurlWS);
+			m_pCurlWS = nullptr;
 			return;
 		}
 
@@ -175,6 +182,7 @@ void WebSocket::Disconnect()
 	}
 
 	m_vecWSPartialBuffer.clear();
+	m_bConnected = false;
 }
 
 void WebSocket::Send(const char* send_payload)
@@ -543,11 +551,11 @@ void WebSocket::Tick()
 
                         // connecting is as good as a pong
                         m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-                    }
 
-                    if (m_fnWebsocketConnectedCallback != nullptr)
-                    {
-                        m_fnWebsocketConnectedCallback();
+                        if (m_fnWebsocketConnectedCallback != nullptr)
+                        {
+                            m_fnWebsocketConnectedCallback();
+                        }
                     }
                 }
             }
@@ -585,11 +593,11 @@ void WebSocket::Tick()
 	{
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 
 		// what type of message?
 		if (meta != nullptr)
 		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 			if (meta->flags & CURLWS_PONG) // PONG
 			{
 
@@ -598,6 +606,13 @@ void WebSocket::Tick()
 			{
 				bool bMessageComplete = false;
 
+				static constexpr size_t MAX_WS_PARTIAL_SIZE = 2 * 1024 * 1024; // 2 MB
+				if (m_vecWSPartialBuffer.size() + rlen > MAX_WS_PARTIAL_SIZE)
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Partial buffer overflow, discarding message");
+					m_vecWSPartialBuffer.clear();
+					return;
+				}
 				m_vecWSPartialBuffer.resize(m_vecWSPartialBuffer.size() + rlen);
 				memcpy_s(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, rlen, bufferThisRecv, rlen);
 

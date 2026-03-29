@@ -126,8 +126,8 @@ std::string Base64Encode(const std::vector<uint8_t>& data)
 
 		encoded += base64_chars[(triple >> 18) & 0x3F];
 		encoded += base64_chars[(triple >> 12) & 0x3F];
-		encoded += (i > data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
-		encoded += (i > data.size()) ? '=' : base64_chars[triple & 0x3F];
+		encoded += (i >= data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
+		encoded += (i >= data.size())     ? '=' : base64_chars[triple & 0x3F];
 	}
 
 	return encoded;

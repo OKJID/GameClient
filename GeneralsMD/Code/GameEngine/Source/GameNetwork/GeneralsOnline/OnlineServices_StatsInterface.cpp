@@ -67,10 +67,6 @@ void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(Globa
 					PROCESS_JSON_PER_GENERAL_RESULT(wins);
 					PROCESS_JSON_PER_GENERAL_RESULT(matches);
 				}
-				else
-				{
-					cb(stats);
-				}
 			}
 			catch (...)
 			{
@@ -234,7 +230,14 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 		}
 		else // cached data instead
 		{
-			cb(true, m_mapCachedStats[userID]);
+			if (m_mapCachedStats.contains(userID))
+			{
+				cb(true, m_mapCachedStats[userID]);
+			}
+			else
+			{
+				cb(false, PSPlayerStats());
+			}
 		}
 		
 	}
