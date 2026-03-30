@@ -22,6 +22,7 @@
 
 #include "GameNetwork/LANAPICallbacks.h"
 #include "../OnlineServices_Init.h"
+#include "../Audio/MacOSAudioManager.h"
 
 extern DWORD TheMessageTime;
 
@@ -95,4 +96,4 @@ ParticleSystemManager* MacOSGameEngine::createParticleSystemManager(Bool dummy)
 LocalFileSystem* MacOSGameEngine::createLocalFileSystem() { return NEW StdLocalFileSystem; }
 ArchiveFileSystem* MacOSGameEngine::createArchiveFileSystem() { return NEW StdBIGFileSystem; }
 WebBrowser* MacOSGameEngine::createWebBrowser() { return nullptr; }
-AudioManager* MacOSGameEngine::createAudioManager() { return nullptr; }
+AudioManager* MacOSGameEngine::createAudioManager() { return NEW MacOSAudioManager; }
