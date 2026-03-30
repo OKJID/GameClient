@@ -81,6 +81,10 @@ endif()
 
 add_subdirectory(resources)
 
+if(APPLE)
+    add_subdirectory(Platform/MacOS)
+endif()
+
 add_subdirectory(Core)
 
 # Add main build targets

@@ -103,13 +103,19 @@ if(APPLE)
         "-framework IOKit"
     )
 
-    # Remove WinMain, will add macOS entry point in Phase 2
+    # Replace WinMain with macOS entry point
     get_target_property(_sources z_generals SOURCES)
     list(REMOVE_ITEM _sources WinMain.cpp WinMain.h)
     set_property(TARGET z_generals PROPERTY SOURCES ${_sources})
+
+    target_sources(z_generals PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/Main/MacOSMain.mm
+    )
 
     # d3d8.h proxies and Win32 stubs
     target_include_directories(z_generals BEFORE PRIVATE
         ${CMAKE_SOURCE_DIR}/Platform/MacOS/Include
     )
+
+    target_link_libraries(z_generals PRIVATE macos_platform)
 endif()

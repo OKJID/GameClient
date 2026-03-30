@@ -1,8 +1,22 @@
 #pragma once
 #ifdef __APPLE__
-#include "d3d8_compat.h"
+#include <Utility/d3d8_compat.h>
 
-typedef D3DMATRIX D3DXMATRIX;
+struct D3DXMATRIX : public D3DMATRIX {
+  D3DXMATRIX() { memset(m, 0, sizeof(m)); }
+  D3DXMATRIX(const D3DMATRIX& rhs) { memcpy(m, rhs.m, sizeof(m)); }
+  D3DXMATRIX& operator=(const D3DMATRIX& rhs) { memcpy(m, rhs.m, sizeof(m)); return *this; }
+  D3DXMATRIX operator*(const D3DXMATRIX& rhs) const {
+    D3DXMATRIX out;
+    for (int i = 0; i < 4; ++i)
+      for (int j = 0; j < 4; ++j) {
+        out.m[i][j] = 0;
+        for (int k = 0; k < 4; ++k)
+          out.m[i][j] += m[i][k] * rhs.m[k][j];
+      }
+    return out;
+  }
+};
 
 struct D3DXVECTOR3 {
   float x, y, z;
@@ -13,6 +27,8 @@ struct D3DXVECTOR3 {
 struct D3DXVECTOR4 {
   float x, y, z, w;
   D3DXVECTOR4() : x(0), y(0), z(0), w(0) {}
+  float& operator[](int i) { return (&x)[i]; }
+  float operator[](int i) const { return (&x)[i]; }
 };
 
 inline D3DXVECTOR4* D3DXVec3Transform(D3DXVECTOR4 *pOut, const D3DXVECTOR3 *pV, const D3DXMATRIX *pM) {
@@ -26,13 +42,13 @@ inline D3DXVECTOR4* D3DXVec3Transform(D3DXVECTOR4 *pOut, const D3DXVECTOR3 *pV, 
 
 inline DWORD D3DXGetFVFVertexSize(DWORD FVF) {
   DWORD size = 0;
-  if (FVF & 0x002) size += 12;        // D3DFVF_XYZ
-  if (FVF & 0x004) size += 16;        // D3DFVF_XYZRHW
-  if (FVF & 0x010) size += 12;        // D3DFVF_NORMAL
-  if (FVF & 0x040) size += 4;         // D3DFVF_DIFFUSE
-  if (FVF & 0x080) size += 4;         // D3DFVF_SPECULAR
+  if (FVF & 0x002) size += 12;
+  if (FVF & 0x004) size += 16;
+  if (FVF & 0x010) size += 12;
+  if (FVF & 0x040) size += 4;
+  if (FVF & 0x080) size += 4;
   DWORD numTex = (FVF >> 8) & 0xF;
-  size += numTex * 8;                  // D3DFVF_TEXn (2 floats each)
+  size += numTex * 8;
   return size;
 }
 

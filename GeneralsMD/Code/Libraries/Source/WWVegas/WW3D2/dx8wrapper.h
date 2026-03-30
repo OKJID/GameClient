@@ -44,7 +44,7 @@
 #include "always.h"
 #include "dllist.h"
 #ifdef __APPLE__
-#include "d3d8_compat.h"
+#include <Utility/d3d8_compat.h>
 #else
 #include "d3d8.h"
 #endif

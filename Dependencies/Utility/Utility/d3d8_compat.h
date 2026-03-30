@@ -27,28 +27,36 @@
 #ifndef _D3D8_COMPAT_BASIC_TYPES_
 #define _D3D8_COMPAT_BASIC_TYPES_
 
-#ifndef BOOL
+#ifndef BOOL_DEFINED
+#define BOOL_DEFINED
 typedef int BOOL;
 #endif
-#ifndef BYTE
+#ifndef BYTE_DEFINED
+#define BYTE_DEFINED
 typedef unsigned char BYTE;
 #endif
-#ifndef WORD
+#ifndef WORD_DEFINED
+#define WORD_DEFINED
 typedef unsigned short WORD;
 #endif
-#ifndef DWORD
-typedef unsigned int DWORD;
+#ifndef DWORD_DEFINED
+#define DWORD_DEFINED
+typedef uint32_t DWORD;
 #endif
-#ifndef UINT
+#ifndef UINT_DEFINED
+#define UINT_DEFINED
 typedef unsigned int UINT;
 #endif
-#ifndef INT
+#ifndef INT_DEFINED
+#define INT_DEFINED
 typedef int32_t INT;
 #endif
-#ifndef LONG
+#ifndef LONG_DEFINED
+#define LONG_DEFINED
 typedef int32_t LONG;
 #endif
-#ifndef ULONG
+#ifndef ULONG_DEFINED
+#define ULONG_DEFINED
 typedef uint32_t ULONG;
 #endif
 #ifndef FLOAT
@@ -1078,6 +1086,8 @@ struct IDirect3DSwapChain8;
 
 struct IDirect3DResource8 {
   virtual ~IDirect3DResource8() = default;
+  virtual ULONG AddRef() { return 1; }
+  virtual ULONG Release() { return 1; }
   virtual D3DRESOURCETYPE GetType() = 0;
 };
 
@@ -1095,6 +1105,8 @@ struct IDirect3DIndexBuffer8 : public IDirect3DResource8 {
 
 struct IDirect3DSurface8 {
   virtual ~IDirect3DSurface8() = default;
+  virtual ULONG AddRef() { return 1; }
+  virtual ULONG Release() { return 1; }
   virtual HRESULT GetDesc(D3DSURFACE_DESC *pDesc) = 0;
   virtual HRESULT LockRect(D3DLOCKED_RECT *pLockedRect, const RECT *pRect, DWORD Flags) = 0;
   virtual HRESULT UnlockRect() = 0;

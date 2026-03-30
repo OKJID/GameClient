@@ -22,6 +22,29 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
+#include <cstdlib>
+#include <cctype>
+#include <cmath>
+#include <unistd.h>
+
+#ifndef __forceinline
+#define __forceinline inline __attribute__((always_inline))
+#endif
+
+#ifndef __int64
+#define __int64 long long
+#endif
+
+#ifndef _int64
+#define _int64 long long
+#endif
+
+#define ERROR_SUCCESS 0L
+#define REG_SZ 1
+#define REG_OPTION_NON_VOLATILE 0
+#define KEY_READ 0x20019
+#define KEY_WRITE 0x20006
 
 // ============================================================================
 // Basic integer types
@@ -30,7 +53,7 @@
 
 #ifndef DWORD_DEFINED
 #define DWORD_DEFINED
-typedef unsigned long DWORD;
+typedef uint32_t DWORD;
 #endif
 
 #ifndef UINT_DEFINED
@@ -60,12 +83,12 @@ typedef int BOOL;
 
 #ifndef LONG_DEFINED
 #define LONG_DEFINED
-typedef long LONG;
+typedef int32_t LONG;
 #endif
 
 #ifndef ULONG_DEFINED
 #define ULONG_DEFINED
-typedef unsigned long ULONG;
+typedef uint32_t ULONG;
 #endif
 
 typedef long long LONGLONG;
@@ -112,6 +135,10 @@ typedef void* HDC;
 typedef void* HGLOBAL;
 typedef void* HMONITOR;
 typedef void* HKEY;
+typedef void* HBITMAP;
+typedef void* HFONT;
+typedef void* HRGN;
+typedef void* HGDIOBJ;
 
 // ============================================================================
 // HRESULT and COM basics
@@ -119,7 +146,7 @@ typedef void* HKEY;
 
 #ifndef HRESULT_DEFINED
 #define HRESULT_DEFINED
-typedef long HRESULT;
+typedef int32_t HRESULT;
 #endif
 
 #ifndef S_OK
@@ -201,4 +228,146 @@ typedef const RECT* LPCRECT;
 
 typedef LRESULT (*WNDPROC)(HWND, UINT, WPARAM, LPARAM);
 
+#include <strings.h>
+#define _stricmp strcasecmp
+#define _strnicmp strncasecmp
+#define _wcsicmp wcscasecmp
+#define _wcsnicmp wcsncasecmp
+#define stricmp strcasecmp
+#define strnicmp strncasecmp
+#define _strdup strdup
+#define _snprintf snprintf
+#define _vsnprintf vsnprintf
+
+inline LONG RegOpenKeyExA(HKEY, LPCSTR, DWORD, DWORD, HKEY*) { return 1; }
+inline LONG RegCreateKeyExA(HKEY, LPCSTR, DWORD, LPSTR, DWORD, DWORD, void*, HKEY*, DWORD*) { return 1; }
+inline LONG RegQueryValueExA(HKEY, LPCSTR, DWORD*, DWORD*, BYTE*, DWORD*) { return 1; }
+inline LONG RegSetValueExA(HKEY, LPCSTR, DWORD, DWORD, const BYTE*, DWORD) { return 1; }
+inline LONG RegCloseKey(HKEY) { return 0; }
+
+#define RegOpenKeyEx RegOpenKeyExA
+#define RegCreateKeyEx RegCreateKeyExA
+#define RegQueryValueEx RegQueryValueExA
+#define RegSetValueEx RegSetValueExA
+
+#define HKEY_LOCAL_MACHINE ((HKEY)(uintptr_t)0x80000002)
+#define HKEY_CURRENT_USER  ((HKEY)(uintptr_t)0x80000001)
+
+#define lstrcat strcat
+#define lstrcpy strcpy
+inline char* lstrcpyn(char* dst, const char* src, int n) {
+    strncpy(dst, src, n - 1);
+    dst[n - 1] = '\0';
+    return dst;
+}
+#define lstrlen strlen
+#define lstrcmp strcmp
+#define lstrcmpi strcasecmp
+#define wsprintf sprintf
+
+#define _isnan isnan
+inline char* strupr(char* s) {
+    for (char* p = s; *p; ++p) *p = toupper((unsigned char)*p);
+    return s;
+}
+#ifndef _STRLWR_DEFINED
+#define _STRLWR_DEFINED
+inline char* _strlwr(char* s) {
+    for (char* p = s; *p; ++p) *p = tolower((unsigned char)*p);
+    return s;
+}
+#endif
+
+#define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
+#define FILE_ATTRIBUTE_DIRECTORY 0x10
+inline DWORD GetFileAttributes(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
+inline DWORD GetFileAttributesA(LPCSTR p) { return GetFileAttributes(p); }
+inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
+    if (getcwd(buf, n)) return (DWORD)strlen(buf);
+    return 0;
+}
+#define GetCurrentDirectory GetCurrentDirectoryA
+#define GetFileAttributesA GetFileAttributes
+
+typedef void* LPDISPATCH;
+
+#define GMEM_FIXED 0x0000
+inline void* GlobalAlloc(UINT, size_t size) { return malloc(size); }
+inline void GlobalFree(void* p) { free(p); }
+
+#define ZeroMemory(p, n) memset((p), 0, (n))
+#define CopyMemory(d, s, n) memcpy((d), (s), (n))
+inline int MulDiv(int a, int b, int c) { return (int)((long long)a * b / c); }
+
+#pragma pack(push, 2)
+typedef struct tagBITMAPFILEHEADER {
+    WORD  bfType;
+    DWORD bfSize;
+    WORD  bfReserved1;
+    WORD  bfReserved2;
+    DWORD bfOffBits;
+} BITMAPFILEHEADER;
+#pragma pack(pop)
+
+typedef struct tagBITMAPINFOHEADER {
+    DWORD biSize;
+    LONG  biWidth;
+    LONG  biHeight;
+    WORD  biPlanes;
+    WORD  biBitCount;
+    DWORD biCompression;
+    DWORD biSizeImage;
+    LONG  biXPelsPerMeter;
+    LONG  biYPelsPerMeter;
+    DWORD biClrUsed;
+    DWORD biClrImportant;
+} BITMAPINFOHEADER;
+
+typedef struct tagRGBQUAD {
+    BYTE rgbBlue;
+    BYTE rgbGreen;
+    BYTE rgbRed;
+    BYTE rgbReserved;
+} RGBQUAD;
+
+typedef struct tagBITMAPINFO {
+    BITMAPINFOHEADER bmiHeader;
+    RGBQUAD          bmiColors[1];
+} BITMAPINFO;
+
+#define BI_RGB 0L
+#define DIB_RGB_COLORS 0
+
+#define FW_NORMAL 400
+#define FW_BOLD   700
+#define DEFAULT_CHARSET 1
+#define OUT_DEFAULT_PRECIS 0
+#define CLIP_DEFAULT_PRECIS 0
+#define ANTIALIASED_QUALITY 4
+#define VARIABLE_PITCH 2
+#define ETO_OPAQUE 0x0002
+
+typedef void* PAVIFILE;
+typedef void* PAVISTREAM;
+typedef struct { DWORD fccType; DWORD fccHandler; DWORD dwFlags; DWORD dwCaps; WORD wPriority; WORD wLanguage; DWORD dwScale; DWORD dwRate; DWORD dwStart; DWORD dwLength; DWORD dwInitialFrames; DWORD dwSuggestedBufferSize; DWORD dwQuality; DWORD dwSampleSize; RECT rcFrame; DWORD dwEditCount; DWORD dwFormatChangeCount; char szName[64]; } AVISTREAMINFO;
+
+inline HFONT CreateFont(int,int,int,int,int,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,LPCSTR) { return nullptr; }
+inline HDC GetDC(HWND) { return nullptr; }
+inline int ReleaseDC(HWND, HDC) { return 0; }
+inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return nullptr; }
+inline BOOL DeleteObject(HGDIOBJ) { return 0; }
+inline BOOL ExtTextOutW(HDC,int,int,UINT,const RECT*,const wchar_t*,UINT,const int*) { return 0; }
+inline BOOL GetTextExtentPoint32W(HDC,const wchar_t*,int,void*) { return 0; }
+inline void* CreateDIBSection(HDC,const BITMAPINFO*,UINT,void**,HANDLE,DWORD) { return nullptr; }
+inline HBITMAP CreateCompatibleBitmap(HDC,int,int) { return nullptr; }
+inline HDC CreateCompatibleDC(HDC) { return nullptr; }
+inline BOOL DeleteDC(HDC) { return 0; }
+inline int SetBkColor(HDC, DWORD) { return 0; }
+inline int SetTextColor(HDC, DWORD) { return 0; }
+inline int SetBkMode(HDC, int) { return 0; }
+#define OPAQUE 2
+#define TRANSPARENT 1
+#define RGB(r,g,b) ((DWORD)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
+
 #endif // __APPLE__
+

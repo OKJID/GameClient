@@ -149,6 +149,16 @@ set(WWLIB_SRC
     XSTRAW.h
 )
 
+if(APPLE)
+    list(REMOVE_ITEM WWLIB_SRC
+        DbgHelpGuard.cpp
+        DbgHelpGuard.h
+        DbgHelpLoader.cpp
+        DbgHelpLoader.h
+        DbgHelpLoader_minidump.h
+    )
+endif()
+
 if(WIN32)
     list(APPEND WWLIB_SRC
         mpu.cpp

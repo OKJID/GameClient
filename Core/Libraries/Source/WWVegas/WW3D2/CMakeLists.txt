@@ -233,6 +233,15 @@ set(WW3D2_SRC
     ww3dtrig.h
 )
 
+if(APPLE)
+    list(REMOVE_ITEM WW3D2_SRC
+        dx8webbrowser.cpp
+        dx8webbrowser.h
+        FramGrab.cpp
+        framgrab.h
+    )
+endif()
+
 add_library(corei_ww3d2 INTERFACE)
 
 target_sources(corei_ww3d2 INTERFACE ${WW3D2_SRC})
@@ -244,7 +253,12 @@ if (MSVC AND NOT IS_VS6_BUILD)
 endif()
 
 target_link_libraries(corei_ww3d2 INTERFACE
-    core_browserengine
     core_wwlib
     core_wwmath
 )
+
+if(NOT APPLE)
+    target_link_libraries(corei_ww3d2 INTERFACE
+        core_browserengine
+    )
+endif()

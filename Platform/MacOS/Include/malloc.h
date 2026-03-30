@@ -1,4 +1,4 @@
 #pragma once
 #ifdef __APPLE__
-#include <d3dx8math.h>
+#include <stdlib.h>
 #endif
