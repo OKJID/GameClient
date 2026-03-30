@@ -772,7 +772,7 @@ void WOLWelcomeMenuUpdate( WindowLayout * layout, void *userData)
 	HandleBuddyResponses();
 #endif
 
-	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
+	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue && TheGameSpyInfo)
 	{
 		HandleBuddyResponses();
 		HandlePersistentStorageResponses();

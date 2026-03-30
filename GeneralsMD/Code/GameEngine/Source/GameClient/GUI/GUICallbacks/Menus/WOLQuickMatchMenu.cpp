@@ -971,17 +971,19 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), TheGameSpyInfo->getLocalName().str());
 #else
 		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-		tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), pAuthInterface->GetDisplayName().c_str());
+		if (pAuthInterface != nullptr)
+		{
+			tmp.format(TheGameText->fetch("GUI:QuickMatchTitle"), pAuthInterface->GetDisplayName().c_str());
+		}
 #endif
 		GadgetStaticTextSetText(staticTextTitle, tmp);
 	}
 
 	// QM is not going yet, so disable the Widen Search button
-	buttonWiden->winEnable( FALSE );
-	buttonStop->winHide( TRUE );
-	buttonStop->winEnable(TRUE);
-	buttonStart->winHide( FALSE );
-	GadgetListBoxReset(quickmatchTextWindow);
+	if (buttonWiden) buttonWiden->winEnable( FALSE );
+	if (buttonStop)  { buttonStop->winHide( TRUE ); buttonStop->winEnable(TRUE); }
+	if (buttonStart) buttonStart->winHide( FALSE );
+	if (quickmatchTextWindow) GadgetListBoxReset(quickmatchTextWindow);
 	enableOptionsGadgets(TRUE);
 
 	// Show Menu
@@ -1514,7 +1516,7 @@ void WOLQuickMatchMenuUpdate( WindowLayout * layout, void *userData)
 
 	/// @todo: MDC handle disconnects in-game the same way as Custom Match!
 
-	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue)
+	if (TheShell->isAnimFinished() && !buttonPushed && TheGameSpyPeerMessageQueue && TheGameSpyInfo)
 	{
 		HandleBuddyResponses();
 		HandlePersistentStorageResponses();
