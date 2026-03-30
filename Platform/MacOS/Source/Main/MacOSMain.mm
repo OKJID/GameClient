@@ -178,12 +178,11 @@ static void macosSignalHandler(int sig) {
 @end
 
 // ── CreateGameEngine (mirrors WinMain.cpp lines 978-989) ──
-// Temporary: uses Win32GameEngine until MacOSGameEngine is ready (step 11)
 
-#include "Win32Device/Common/Win32GameEngine.h"
+#include "MacOSGameEngine.h"
 
 GameEngine* CreateGameEngine() {
-    Win32GameEngine* engine = NEW Win32GameEngine;
+    MacOSGameEngine* engine = NEW MacOSGameEngine;
     engine->setIsActive(isAppActive);
     return engine;
 }
