@@ -1681,6 +1681,10 @@ void W3DDisplay::draw()
 		return;
 
 	updateAverageFPS();
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheGameLODManager->updateGraphicsQualityState(m_averageFPS);
+#else
 	if (TheGlobalData->m_enableDynamicLOD && TheGameLogic->getShowDynamicLOD())
 	{
 		DynamicGameLODLevel lod = TheGameLODManager->findDynamicLODLevel(m_averageFPS);
@@ -1690,7 +1694,7 @@ void W3DDisplay::draw()
 	{	//if dynamic LOD is turned off, force highest LOD
 		TheGameLODManager->setDynamicLODLevel(DYNAMIC_GAME_LOD_VERY_HIGH);
 	}
-
+#endif
 	if (TheGlobalData->m_terrainLOD == TERRAIN_LOD_AUTOMATIC && TheTerrainRenderObject)
 	{
 		calculateTerrainLOD();
@@ -2060,6 +2064,11 @@ void W3DDisplay::createLightPulse(const Coord3D* pos, const RGBColor* color,
 	if (innerRadius + attenuationWidth < 2.0 * PATHFIND_CELL_SIZE_F + 1.0f) {
 		return; // it basically won't make any visual difference.  jba.
 	}
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLODManager && TheGameLODManager->isQualityReduced())
+		return;
+#endif
+
 	W3DDynamicLight* theDynamicLight = m_3DScene->getADynamicLight();
 	// turn it on.
 	theDynamicLight->setEnabled(true);
