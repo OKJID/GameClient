@@ -241,7 +241,7 @@ static void updateNumPlayersOnline()
 		UnicodeString line;
 
 #if defined(GENERALS_ONLINE)
-		AsciiString aMotd = AsciiString(NGMP_OnlineServicesManager::GetInstance()->GetMOTD().c_str());
+		AsciiString aMotd = NGMP_OnlineServicesManager::GetInstance() == nullptr ? AsciiString() : AsciiString(NGMP_OnlineServicesManager::GetInstance()->GetMOTD().c_str());
 #else
 		AsciiString aMotd = TheGameSpyInfo->getMOTD();
 #endif
@@ -593,6 +593,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 	buttonLadderID = TheNameKeyGenerator->nameToKey( "WOLWelcomeMenu.wnd:ButtonLadder" );
 	buttonLadder = TheWindowManager->winGetWindowFromId( parentWOLWelcome, buttonLadderID );
 
+#if !defined(GENERALS_ONLINE)
 	if (TheFirewallHelper == nullptr) {
 		TheFirewallHelper = createFirewallHelper();
 	}
@@ -601,6 +602,7 @@ void WOLWelcomeMenuInit( WindowLayout *layout, void *userData )
 		delete TheFirewallHelper;
 		TheFirewallHelper = nullptr;
 	}
+#endif
 	/*
 
 	if (TheGameSpyChat && TheGameSpyChat->isConnected())
