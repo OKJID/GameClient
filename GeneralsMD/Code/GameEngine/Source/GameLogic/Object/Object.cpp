@@ -2183,7 +2183,7 @@ void Object::setDisabledUntil( DisabledType type, UnsignedInt frame )
 		if ( contain )
 		{
 			Object *rider = (Object*)contain->friend_getRider();
-			if ( rider )
+			if ( rider && !rider->isEffectivelyDead() && rider->m_behaviors )
 			{
 				rider->setDisabledUntil(type, frame);
 			}
@@ -2323,7 +2323,7 @@ Bool Object::clearDisabled( DisabledType type )
 	{
 		// We explicitly pass stuff in up in the set, so we need to turn it off if it is a forever type
 		Object *rider = (Object*)contain->friend_getRider();
-		if( rider  &&  (m_disabledTillFrame[ type ] == FOREVER) )
+		if( rider  &&  !rider->isEffectivelyDead()  &&  rider->m_behaviors  &&  (m_disabledTillFrame[ type ] == FOREVER) )
 		{
 			rider->clearDisabled(type);
 		}
@@ -2397,6 +2397,9 @@ void Object::checkDisabledStatus()
 //-------------------------------------------------------------------------------------------------
 void Object::pauseAllSpecialPowers( const Bool disabling ) const
 {
+	if (!m_behaviors)
+		return;
+
 	for (BehaviorModule** m = m_behaviors; *m; ++m)
 	{
 		SpecialPowerModuleInterface* sp = (*m)->getSpecialPower();

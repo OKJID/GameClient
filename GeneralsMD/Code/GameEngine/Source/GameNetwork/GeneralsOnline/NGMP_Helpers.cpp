@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
+#include <ctime>
 #include <mutex>
 #include <string>
 #include <locale>
@@ -80,7 +81,11 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
 	}
 
-	auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+	auto const rawNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	struct tm localNow = {};
+	localtime_s(&localNow, &rawNow);
+	char timebuf[32];
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &localNow);
 
 	char buffer[8192];
 	va_list args;
@@ -89,7 +94,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	buffer[8192 - 1] = 0;
 	va_end(args);
 
-	std::string strLogBuffer = std::format("[{:%Y-%m-%d %T}] {}", time, buffer);
+	std::string strLogBuffer = std::format("[{}] {}", timebuf, buffer);
 
 	// TODO_NGMP: Keep open and flush regularly
 	std::ofstream logFile;

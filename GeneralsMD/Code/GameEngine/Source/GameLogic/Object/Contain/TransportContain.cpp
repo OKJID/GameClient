@@ -567,11 +567,12 @@ Bool TransportContain::isSpecificRiderFreeToExit(Object* specificObject)
 	if (ai && ai->getAiFreeToExit(specificObject) != FREE_TO_EXIT)
 		return FALSE;
 
-#if !RETAIL_COMPATIBLE_CRC
+#if !RETAIL_COMPATIBLE_CRC && defined(USE_STUBBJAX_TRANSPORT_CONTAIN_FIX)
 	// TheSuperHackers @bugfix Stubbjax 02/03/2026 If our parent container is held, then we
 	// are not free to exit.
-	DEBUG_ASSERTCRASH(specificObject->getContainedBy(), ("rider must be contained"));
-	if (specificObject->getContainedBy()->isDisabledByType(DISABLED_HELD))
+	const Object* containedBy = specificObject->getContainedBy();
+	DEBUG_ASSERTCRASH(containedBy, ("rider must be contained"));
+	if (containedBy->isDisabledByType(DISABLED_HELD))
 		return FALSE;
 #endif
 

@@ -93,8 +93,29 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_VERBOSE, 1L);
 #else
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+        if (HTTPManager::IsCACertStoreBad())
+        {
+            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+        else
+        {
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCurlWS, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+        }
 #endif
 
 
@@ -254,8 +275,9 @@ public:
 	std::string message;
 	bool action;
 	bool admin;
+	bool name_change;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action, admin)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action, admin, name_change)
 };
 
 class WebSocketMessage_Social_FriendChatMessage_Incoming : public WebSocketMessageBase
@@ -678,7 +700,7 @@ void WebSocket::Tick()
 										{
 											UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 
-											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action, chatData.admin);
+											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action, chatData.admin, chatData.name_change);
 
 											NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 											if (pRoomsInterface != nullptr && pRoomsInterface->m_OnChatCallback != nullptr)

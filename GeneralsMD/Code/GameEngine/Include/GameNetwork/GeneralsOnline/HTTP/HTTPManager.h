@@ -36,6 +36,17 @@ public:
 
 	void Tick();
 
+
+	static void SetCACertStoreBad()
+	{
+		m_bCACertBad.store(true);
+	}
+
+	static bool IsCACertStoreBad()
+	{
+		return m_bCACertBad.load();
+	}
+
 	void AddHandleToMulti(CURL* pNewHandle);
 	void RemoveHandleFromMulti(CURL* pHandleToRemove);
 
@@ -59,6 +70,8 @@ private:
 
 private:
 	CURLM* m_pCurl = nullptr;
+
+	static std::atomic<bool> m_bCACertBad;
 
 	bool m_bProxyEnabled = false;
 	std::string m_strProxyAddr;

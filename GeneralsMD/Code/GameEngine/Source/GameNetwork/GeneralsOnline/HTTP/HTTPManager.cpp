@@ -182,6 +182,8 @@ HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolV
 	return pNewRequest;
 }
 
+std::atomic<bool> HTTPManager::m_bCACertBad = false;
+
 HTTPManager::~HTTPManager()
 {
 	CHECK_MAIN_THREAD;

@@ -878,10 +878,13 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 				return;
 			}
 
+			if (!TheRankPointValues)
+				return;
+
 			Int currentRank = 0;
 			Int rankPoints = CalculateRank(stats);
 			Int i = 0;
-			while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+			while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 				++i;
 			currentRank = i;
 

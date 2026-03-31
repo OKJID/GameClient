@@ -343,6 +343,18 @@ void GameLogic::destroyAllObjectsImmediate()
 		destroyObject(obj);
 	}
 
+	// Bulk-clear the sleepy update heap before processing the destroy list.
+	// During mass object destruction, the object destructor chain (e.g. setTeam -> onCapture ->
+	// setWakeFrame) can trigger rebalanceSleepyUpdate for still-live objects while the heap is
+	// in an intermediate state, causing a crash inside rebalanceChildSleepyUpdate.
+	// Clearing up front sets all module indices to -1 so that any setWakeFrame calls from
+	// destructor chains safely no-op, and processDestroyList skips per-element heap removal.
+	for (std::vector<UpdateModulePtr>::iterator it = m_sleepyUpdates.begin(); it != m_sleepyUpdates.end(); ++it)
+	{
+		(*it)->friend_setIndexInLogic(-1);
+	}
+	m_sleepyUpdates.clear();
+
 	// process the destroy list immediately
 	processDestroyList();
 	DEBUG_ASSERTCRASH(m_objList == NULL, ("destroyAllObjectsImmediate: Object list not cleared"));
