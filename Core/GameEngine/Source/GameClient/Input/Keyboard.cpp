@@ -138,13 +138,26 @@ void Keyboard::updateKeys()
 		/** @todo -- if we don't have focus, we could destroy all the keys retrieved
 		here so that we don't process anything */
 
-		m_keyStatus[ m_keys[ index ].key ].state = m_keys[ index ].state;
-		m_keyStatus[ m_keys[ index ].key ].status = m_keys[ index ].status;
-
-		// Update key down time for new key presses
-		if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) )
+		// GO_CHANGE:
+		// Suppress OS-level key repeat events: DirectInput buffers every OS repeat as a
+		// fresh DOWN, which would fire multiple deletions per physical keypress. Discard
+		// any DOWN event for a key already tracked as down and let checkKeyRepeat() handle
+		// the repeat at its controlled rate.
+		if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) &&
+		    BitIsSet( m_keyStatus[ m_keys[ index ].key ].state, KEY_STATE_DOWN ) )
 		{
-			m_keyStatus[ m_keys[ index ].key ].keyDownTimeMsec = m_keys[ index ].keyDownTimeMsec;
+			m_keys[ index ].status = KeyboardIO::STATUS_USED;
+		}
+		else
+		{
+			m_keyStatus[ m_keys[ index ].key ].state = m_keys[ index ].state;
+			m_keyStatus[ m_keys[ index ].key ].status = m_keys[ index ].status;
+
+			// Update key down time for new key presses
+			if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) )
+			{
+				m_keyStatus[ m_keys[ index ].key ].keyDownTimeMsec = m_keys[ index ].keyDownTimeMsec;
+			}
 		}
 
 		// prevent ALT-TAB from causing a TAB event
@@ -244,7 +257,7 @@ Bool Keyboard::checkKeyRepeat()
 					m_keyStatus[ index ].keyDownTimeMsec = now;
 
 				// Set repeated key so it will repeat again after the interval
-				m_keyStatus[ key ].keyDownTimeMsec = now - (Keyboard::KEY_REPEAT_DELAY_MSEC + Keyboard::KEY_REPEAT_INTERVAL_MSEC);
+				m_keyStatus[ key ].keyDownTimeMsec = now - (Keyboard::KEY_REPEAT_DELAY_MSEC - Keyboard::KEY_REPEAT_INTERVAL_MSEC);
 
 				retVal = TRUE;
 				break;  // exit for key
