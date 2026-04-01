@@ -59,6 +59,13 @@ void Keyboard::createStreamMessages()
 	while( key->key != KEY_NONE )
 	{
 
+		// Skip keys suppressed by updateKeys() (e.g. OS-level repeat duplicates)
+		if( key->status == KeyboardIO::STATUS_USED )
+		{
+			key++;
+			continue;
+		}
+
 		// add message to stream
 		if( BitIsSet( key->state, KEY_STATE_DOWN ) )
 		{
