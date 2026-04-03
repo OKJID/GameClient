@@ -2,10 +2,14 @@
 add_subdirectory(Source/WWVegas)
 
 # profiling library
-add_subdirectory(Source/profile)
+if(NOT APPLE)
+    add_subdirectory(Source/profile)
+endif()
 
 # debugging library
-add_subdirectory(Source/debug)
+if(NOT APPLE)
+    add_subdirectory(Source/debug)
+endif()
 
 add_subdirectory(Source/EABrowserDispatch)
 add_subdirectory(Source/EABrowserEngine)

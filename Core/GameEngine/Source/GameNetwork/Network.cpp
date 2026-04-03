@@ -62,6 +62,10 @@ Int NET_CRC_INTERVAL = 100;
 
 // DEFINES ////////////////////////////////////////////////////////////////////
 
+#ifdef __APPLE__
+#include <chrono>
+#endif
+
 #define RESEND_INTERVAL 1
 
 // PRIVATE TYPES //////////////////////////////////////////////////////////////
@@ -353,7 +357,11 @@ void Network::init()
 
 	m_localStatus = NETLOCALSTATUS_PREGAME;
 
+#ifdef __APPLE__
+	m_perfCountFreq = std::chrono::high_resolution_clock::period::den / std::chrono::high_resolution_clock::period::num;
+#else
 	QueryPerformanceFrequency((LARGE_INTEGER*)&m_perfCountFreq);
+#endif
 	m_nextFrameTime = 0;
 	m_sawCRCMismatch = FALSE;
 	m_checkCRCsThisFrame = FALSE;
@@ -786,7 +794,11 @@ void Network::update()
 	}
 	else {
 		__int64 curTime;
+#ifdef __APPLE__
+		curTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+#else
 		QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
+#endif
 		m_isStalling = curTime >= m_nextFrameTime;
 	}
 }
@@ -828,7 +840,11 @@ void Network::endOfGameCheck() {
 
 Bool Network::timeForNewFrame() {
 	__int64 curTime;
+#ifdef __APPLE__
+	curTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+#else
 	QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
+#endif
 	__int64 frameDelay = m_perfCountFreq / m_frameRate;
 
 	/*

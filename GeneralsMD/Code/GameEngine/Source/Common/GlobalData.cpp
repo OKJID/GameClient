@@ -1072,6 +1072,16 @@ GlobalData::GlobalData()
     if (myDocumentsDirectory.getCharAt( myDocumentsDirectory.getLength() - 1) != '\\')
       myDocumentsDirectory.concat( '\\' );
 
+#ifdef __APPLE__
+    {
+        std::string s = myDocumentsDirectory.str();
+        for(size_t j=0; j<s.length(); ++j) {
+            if(s[j] == '\\') s[j] = '/';
+        }
+        myDocumentsDirectory = s.c_str();
+    }
+#endif
+
     CreateDirectory(myDocumentsDirectory.str(), nullptr);
     m_userDataDir = myDocumentsDirectory;
   }

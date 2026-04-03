@@ -76,7 +76,10 @@ typedef unsigned long   DWORD;
 #endif
 typedef unsigned short	WORD;
 typedef unsigned char   BYTE;
+#ifndef BOOL_DEFINED
+#define BOOL_DEFINED
 typedef int             BOOL;
+#endif
 typedef unsigned short	USHORT;
 typedef const char *		LPCSTR;
 typedef unsigned int    UINT;

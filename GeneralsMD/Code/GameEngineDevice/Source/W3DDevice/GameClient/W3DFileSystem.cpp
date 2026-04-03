@@ -188,7 +188,10 @@ char const * GameFileClass::Set_Name( char const *filename )
 	// see if the file exists
 	m_fileExists = TheFileSystem->doesFileExist( m_filePath );
 
-
+#ifdef __APPLE__
+	printf("[DIAG] GameFileClass::Set_Name('%s') try1='%s' exists=%d\n", filename, m_filePath, m_fileExists);
+	fflush(stdout);
+#endif
 
 	// Now try the main lookup of hitting local files and big files
 	if( m_fileExists == FALSE )

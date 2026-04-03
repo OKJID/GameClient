@@ -29,6 +29,13 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"
+#include <filesystem>
+#ifndef __APPLE__
+#include <io.h>
+#else
+#include <unistd.h>
+#define _access access
+#endif
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/GameEngine.h"
@@ -206,6 +213,7 @@ GameState::SnapshotBlock *GameState::findBlockInfoByToken( AsciiString token, Sn
 // This allows regional formats such as Europe (English) to use 24-hour and DD/MM/YYYY formats in-game.
 UnicodeString getUnicodeDateBuffer(SYSTEMTIME timeVal)
 {
+#ifndef __APPLE__
 	// setup date buffer for local region date format
 	#define DATE_BUFFER_SIZE 256
 	OSVERSIONINFO	osvi;
@@ -234,10 +242,18 @@ UnicodeString getUnicodeDateBuffer(SYSTEMTIME timeVal)
 	displayDateBuffer.set(dateBuffer);
 	return displayDateBuffer;
 	//displayDateBuffer.format( L"%ls", dateBuffer );
+#else
+	UnicodeString displayDateBuffer;
+	char dateBuffer[256];
+	snprintf(dateBuffer, sizeof(dateBuffer), "%02d/%02d/%04d", timeVal.wMonth, timeVal.wDay, timeVal.wYear);
+	displayDateBuffer.translate(dateBuffer);
+	return displayDateBuffer;
+#endif
 }
 
 UnicodeString getUnicodeTimeBuffer(SYSTEMTIME timeVal)
 {
+#ifndef __APPLE__
 	// setup time buffer for local region time format
 	UnicodeString displayTimeBuffer;
 	OSVERSIONINFO	osvi;
@@ -267,6 +283,13 @@ UnicodeString getUnicodeTimeBuffer(SYSTEMTIME timeVal)
 								 ARRAY_SIZE(timeBuffer) );
 	displayTimeBuffer.set(timeBuffer);
 	return displayTimeBuffer;
+#else
+	UnicodeString displayTimeBuffer;
+	char timeBuffer[256];
+	snprintf(timeBuffer, sizeof(timeBuffer), "%02d:%02d:%02d", timeVal.wHour, timeVal.wMinute, timeVal.wSecond);
+	displayTimeBuffer.translate(timeBuffer);
+	return displayTimeBuffer;
+#endif
 }
 
 
@@ -1256,6 +1279,7 @@ void GameState::iterateSaveFiles( IterateSaveFileCallback callback, void *userDa
 	if( callback == nullptr )
 		return;
 
+#ifndef __APPLE__
 	// save the current directory
 	char currentDirectory[ _MAX_PATH ];
 	GetCurrentDirectory( _MAX_PATH, currentDirectory );
@@ -1316,6 +1340,32 @@ void GameState::iterateSaveFiles( IterateSaveFileCallback callback, void *userDa
 
 	// restore the current directory
 	SetCurrentDirectory( currentDirectory );
+#else
+	try
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(getSaveDirectory().str()))
+		{
+			if (entry.is_regular_file())
+			{
+				std::string path = entry.path().string();
+				if (path.length() >= 4)
+				{
+					std::string ext = path.substr(path.length() - 4);
+					if (ext == ".sav" || ext == ".SAV")
+					{
+						AsciiString filename;
+						filename.set(entry.path().filename().string().c_str());
+						callback( filename, userData );
+					}
+				}
+			}
+		}
+	}
+	catch (...)
+	{
+		// Safe to ignore errors here
+	}
+#endif
 
 }
 

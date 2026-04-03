@@ -235,7 +235,13 @@ static void* sysAllocateDoNotZero(Int numBytes)
 {
 	void* p = ::GlobalAlloc(GMEM_FIXED, numBytes);
 	if (!p)
+	{
+#ifdef __APPLE__
+		printf("!!! sysAllocateDoNotZero FAILED: numBytes=%d (0x%x)\n", numBytes, (unsigned)numBytes);
+		fflush(stdout);
+#endif
 		throw ERROR_OUT_OF_MEMORY;
+	}
 #ifdef MEMORYPOOL_DEBUG
 	{
 		USE_PERF_TIMER(MemoryPoolDebugging)
@@ -1652,6 +1658,11 @@ void* MemoryPool::allocateBlockDoNotZeroImplementation(DECLARE_LITERALSTRING_ARG
 	{
 		if (m_overflowAllocationCount == 0)
 		{
+#ifdef __APPLE__
+			printf("!!! MemoryPool '%s' OOM: cannot grow (overflow=0, initAlloc=%d, blockSize=%d)\n",
+				m_poolName, m_initialAllocationCount, m_allocationSize);
+			fflush(stdout);
+#endif
 			throw ERROR_OUT_OF_MEMORY;	// this pool is not allowed to grow
 		}
 		else
@@ -2669,6 +2680,11 @@ MemoryPool *MemoryPoolFactory::createMemoryPool(const char *poolName, Int alloca
 
 	if (initialAllocationCount <= 0 || overflowAllocationCount < 0)
 	{
+#ifdef __APPLE__
+		printf("!!! createMemoryPool '%s' FAILED: initAlloc=%d, overflow=%d, allocSize=%d\n",
+			poolName, initialAllocationCount, overflowAllocationCount, allocationSize);
+		fflush(stdout);
+#endif
 		DEBUG_CRASH(("illegal pool size: %d %d",initialAllocationCount,overflowAllocationCount));
 		throw ERROR_OUT_OF_MEMORY;
 	}

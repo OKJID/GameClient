@@ -73,12 +73,14 @@ void GenOnlineSettings::Load(void)
 		std::filesystem::create_directory(strSettingsFileDir);
 	}
 
+#ifndef __APPLE__
 	// NGMP_NOTE: Prior to 6/23, we used the game dir for settings, this code migrates any legacy settings file to the new location (game user data dir)
 	if (std::filesystem::exists(strSettingsFilePathLegacy))
 	{
 		std::filesystem::copy(strSettingsFilePathLegacy, strSettingsFilePath, std::filesystem::copy_options::overwrite_existing);
 		std::filesystem::remove(strSettingsFilePathLegacy);
 	}
+#endif
 
 	bool bApplyDefaults = false;
 
@@ -165,9 +167,9 @@ void GenOnlineSettings::Load(void)
                    int httpVersion = networkSettings[SETTINGS_KEY_NETWORK_HTTP_VERSION];
 
 				   // clamp
-				   if (httpVersion < 0 || httpVersion > HTTP_VERSION_3_0)
+				   if (httpVersion < 0 || httpVersion > GEN_HTTP_VERSION_3_0)
 				   {
-					   m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
+					   m_Network_HTTPVersion = EHTTPVersion::GEN_HTTP_VERSION_AUTO;
 				   }
 				   else
 				   {

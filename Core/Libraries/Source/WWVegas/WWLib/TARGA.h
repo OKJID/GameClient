@@ -133,8 +133,13 @@ typedef struct _TGAHeader
  */
 typedef struct _TGA2Footer
 	{
+#ifdef __APPLE__
+	int Extension;
+	int Developer;
+#else
 	long Extension;
 	long Developer;
+#endif
 	char Signature[16];
 	char RsvdChar;
 	char BZST;
@@ -224,12 +229,21 @@ typedef struct _TGA2Extension
 	TGA2TimeStamp JobTime;
 	char          SoftID[41];
 	TGA2SoftVer   SoftVer;
+#ifdef __APPLE__
+	int           KeyColor;
+	TGA2Ratio     Aspect;
+	TGA2Ratio     Gamma;
+	int           ColorCor;
+	int           PostStamp;
+	int           ScanLine;
+#else
 	long          KeyColor;
 	TGA2Ratio     Aspect;
 	TGA2Ratio     Gamma;
 	long          ColorCor;
 	long          PostStamp;
 	long          ScanLine;
+#endif
 	char          Attributes;
 	} TGA2Extension;
 

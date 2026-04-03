@@ -33,6 +33,10 @@ endif()
 # Top level project, doesn't really affect anything.
 project(genzh LANGUAGES C CXX)
 
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 # This file handles extra settings wanted/needed for different compilers.
 include(cmake/compilers.cmake)
 

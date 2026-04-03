@@ -1873,7 +1873,11 @@ void GameSpyLoadScreen::update( Int percent )
 			if (!g_bHasDoneSOGScreenshot)
 			{
 				g_bHasDoneSOGScreenshot = true;
+#ifdef __APPLE__
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN, "");
+#else
 				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshotForProbe(EScreenshotType::SCREENSHOT_TYPE_LOADSCREEN);
+#endif
 			}
 		}
 	}

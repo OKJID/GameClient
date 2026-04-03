@@ -30,6 +30,11 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include "windows.h"
+#endif
 
 #include "Common/STLTypedefs.h"
 #include "../NGMP_types.h"

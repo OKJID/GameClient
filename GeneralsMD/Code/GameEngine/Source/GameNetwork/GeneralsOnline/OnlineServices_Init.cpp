@@ -22,11 +22,13 @@
 #include "GameClient/GameText.h"
 #include <unordered_set>
 
+#ifdef _WIN32
 extern "C"
 {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 0x00000001;
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#endif
 
 NGMP_OnlineServicesManager* NGMP_OnlineServicesManager::m_pOnlineServicesManager = nullptr;
 
@@ -232,6 +234,7 @@ std::string NGMP_OnlineServicesManager::GetAPIEndpoint(const char* szEndpoint)
 
 void NGMP_OnlineServicesManager::AttemptLoadSteam()
 {
+#ifdef _WIN32
     // app id for ZH
     SetEnvironmentVariableA("SteamAppId", "2732960");
 
@@ -263,6 +266,7 @@ void NGMP_OnlineServicesManager::AttemptLoadSteam()
 	{
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamAPI_Init failed.");
     }
+#endif
 }
 
 void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
@@ -706,6 +710,7 @@ void NGMP_OnlineServicesManager::CancelUpdate()
 
 void NGMP_OnlineServicesManager::LaunchPatcher()
 {
+#ifdef _WIN32
 	char GameDir[MAX_PATH + 1] = {};
 	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
 
@@ -751,6 +756,7 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 			});
 		ShellExecuteA(NULL, "open", "https://www.playgenerals.online/updatefailed", NULL, NULL, SW_SHOWNORMAL);
 	}
+#endif
 }
 
 void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> cb)

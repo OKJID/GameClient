@@ -53,8 +53,6 @@ STDMETHODIMP MetalInterface8::QueryInterface(REFIID riid, void **ppvObj) {
   return E_NOINTERFACE;
 }
 
-STDMETHODIMP_(ULONG) MetalInterface8::AddRef() { return ++m_RefCount; }
-
 STDMETHODIMP_(ULONG) MetalInterface8::Release() {
   ULONG r = --m_RefCount;
   if (r == 0) {

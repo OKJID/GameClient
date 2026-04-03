@@ -28,6 +28,18 @@
 #include "GameNetwork/networkutil.h"
 #include "GameClient/ClientInstance.h"
 
+#ifdef __APPLE__
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <errno.h>
+#define WSAGetLastError() (errno)
+#define closesocket close
+#define HOSTENT struct hostent
+#endif
+
 IPEnumeration::IPEnumeration()
 {
 	m_IPlist = nullptr;
@@ -38,7 +50,9 @@ IPEnumeration::~IPEnumeration()
 {
 	if (m_isWinsockInitialized)
 	{
+#ifndef __APPLE__
 		WSACleanup();
+#endif
 		m_isWinsockInitialized = false;
 	}
 
@@ -58,6 +72,7 @@ EnumeratedIP * IPEnumeration::getAddresses()
 
 	if (!m_isWinsockInitialized)
 	{
+#ifndef __APPLE__
 		WORD verReq = MAKEWORD(2, 2);
 		WSADATA wsadata;
 
@@ -70,6 +85,7 @@ EnumeratedIP * IPEnumeration::getAddresses()
 			WSACleanup();
 			return nullptr;
 		}
+#endif
 		m_isWinsockInitialized = true;
 	}
 
@@ -167,6 +183,7 @@ AsciiString IPEnumeration::getMachineName()
 {
 	if (!m_isWinsockInitialized)
 	{
+#ifndef __APPLE__
 		WORD verReq = MAKEWORD(2, 2);
 		WSADATA wsadata;
 
@@ -179,6 +196,7 @@ AsciiString IPEnumeration::getMachineName()
 			WSACleanup();
 			return "";
 		}
+#endif
 		m_isWinsockInitialized = true;
 	}
 

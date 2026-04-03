@@ -122,8 +122,24 @@ Bool setUnsignedIntInRegistry( HKEY root, AsciiString path, AsciiString key, Uns
 
 #else // __APPLE__
 
-Bool getStringFromRegistry(HKEY, AsciiString, AsciiString, AsciiString&)
+#include <stdlib.h>
+
+Bool getStringFromRegistry(HKEY, AsciiString path, AsciiString key, AsciiString& val)
 {
+	if (key.compareNoCase("InstallPath") == 0)
+	{
+		const char* envPath = getenv("GENERALS_INSTALL_PATH");
+		if (envPath)
+		{
+			val = envPath;
+			return TRUE;
+		}
+	}
+	else if (key.compareNoCase("Language") == 0)
+	{
+		val = "english";
+		return TRUE;
+	}
 	return FALSE;
 }
 
@@ -212,6 +228,7 @@ AsciiString GetRegistryLanguage()
 		// This is a crash fix, Steam client lets people change language post-install/on-demand, but doesnt update registry until run.
 		// But its more reliable to just fall back and determine language from disk files instead of continuing and crashing because english (default) .big files don't exist
 
+#ifndef __APPLE__
 		// get current process dir
 		char szProcessDir[MAX_PATH] = { 0 };
 		DWORD length = GetModuleFileNameA(NULL, szProcessDir, MAX_PATH);
@@ -250,6 +267,7 @@ AsciiString GetRegistryLanguage()
 
 			}
 		}
+#endif
 	}
 #else
 	GetStringFromRegistry("", "Language", val);

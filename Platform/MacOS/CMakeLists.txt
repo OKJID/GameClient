@@ -39,6 +39,12 @@ set(INPUT_SRC
     Source/Input/MacOSKeyboard.h
     Source/Input/MacOSMouse.mm
     Source/Input/MacOSMouse.h
+    Source/Input/MacOSGameClientFactory.cpp
+)
+
+# ── Stubs ──
+set(STUBS_SRC
+    Source/GeneralsOnlineStubs.cpp
 )
 
 # ── Combine all sources ──
@@ -47,6 +53,7 @@ add_library(macos_platform STATIC
     ${MAIN_SRC}
     ${AUDIO_SRC}
     ${INPUT_SRC}
+    ${STUBS_SRC}
 )
 
 # ── Include directories ──
@@ -54,6 +61,7 @@ target_include_directories(macos_platform PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/Include
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Input
 )
 
 target_include_directories(macos_platform PRIVATE
@@ -71,6 +79,7 @@ target_include_directories(macos_platform PRIVATE
     ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngineDevice/Include
     ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/Libraries/Source/WWVegas
     ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline
 )
 
 # ── macOS frameworks ──
@@ -82,6 +91,9 @@ find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
 find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
 find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox REQUIRED)
 find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
+find_library(CORETEXT_FRAMEWORK CoreText REQUIRED)
+find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+find_library(OPENAL_FRAMEWORK OpenAL REQUIRED)
 
 target_link_libraries(macos_platform PUBLIC
     ${METAL_FRAMEWORK}
@@ -92,6 +104,9 @@ target_link_libraries(macos_platform PUBLIC
     ${IOKIT_FRAMEWORK}
     ${AUDIOTOOLBOX_FRAMEWORK}
     ${AVFOUNDATION_FRAMEWORK}
+    ${CORETEXT_FRAMEWORK}
+    ${COREGRAPHICS_FRAMEWORK}
+    ${OPENAL_FRAMEWORK}
 )
 
 # ── Project dependencies ──
@@ -149,8 +164,27 @@ add_dependencies(macos_platform metal_shaders)
 # ── ObjC++ settings ──
 target_compile_options(macos_platform PRIVATE
     $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
+    "$<$<COMPILE_LANGUAGE:OBJCXX>:-include;${CMAKE_CURRENT_SOURCE_DIR}/Include/metal_prefix.h>"
 )
 
 target_precompile_headers(macos_platform PRIVATE
     [["Utility/CppMacros.h"]]
+)
+
+# Disable PCH for ObjC++ files — PCH is compiled as C++ which conflicts with .mm
+set_source_files_properties(
+    Source/Metal/MetalDevice8.mm
+    Source/Metal/MetalInterface8.mm
+    Source/Metal/MetalSurface8.mm
+    Source/Metal/MetalTexture8.mm
+    Source/Metal/MetalVertexBuffer8.mm
+    Source/Metal/MetalIndexBuffer8.mm
+    Source/Metal/dx8wrapper_metal.mm
+    Source/Main/MacOSGameEngine.mm
+    Source/Main/MacOSMain.mm
+    Source/Input/MacOSKeyboard.mm
+    Source/Input/MacOSMouse.mm
+    PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON
+        LANGUAGE OBJCXX
 )

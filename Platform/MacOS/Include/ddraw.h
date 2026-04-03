@@ -1,6 +1,6 @@
 #pragma once
 #ifdef __APPLE__
-#include <Utility/d3d8_compat.h>
+#include <d3d8.h>
 
 typedef struct _DDPIXELFORMAT {
     DWORD dwSize;

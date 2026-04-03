@@ -1,0 +1,480 @@
+# macOS Stubs Audit — Systematic Tracking Table
+
+**Created:** 2026-02-20
+**Last Updated:** 2026-02-25 19:40
+**Purpose:** Audit every stub in `Platform/MacOS/` to find the wild branch (`EXC_BAD_INSTRUCTION` at `0x100000000`) culprit.
+**Crash context:** PC jumps to `0x100000000` (Mach-O header), likely from nullptr vtable deref. Happens during `GameClient::update()` after `MetalDevice8::Clear` and 2D text drawing.
+
+---
+
+## ✅ RESOLVED: ODR Violations Fixed (2026-02-20 22:28)
+
+### 1. AudioManager ODR — FIXED ✅
+**`MacOSMain.mm` had stub implementations for `AudioManager` base class methods that duplicated `Core/GameEngine/Source/Common/Audio/GameAudio.cpp`.**
+
+**Fix applied:** Removed ALL AudioManager stubs from `MacOSMain.mm`. The real implementations in `GameAudio.cpp` are now used exclusively.
+
+### 2. GlobalData ODR — FIXED ✅
+**`MacOSMain.mm` had a simplified `GlobalData::GlobalData()` constructor that duplicated the full 450-line constructor in `GeneralsMD/Code/GameEngine/Source/Common/GlobalData.cpp`.**
+
+**Fix applied:** Removed GlobalData stubs from `MacOSMain.mm`. Added `#ifdef __APPLE__` block in `GlobalData.cpp` for macOS-specific `m_userDataDir` (~/Library/Application Support/Generals Zero Hour).
+
+### 3. Win32GameEngine ODR — FIXED ✅
+**`MacOSMain.mm` defines `Win32GameEngine::init/reset/update/serviceWindowsOS` which were also in `GeneralsMD/Code/GameEngineDevice/Source/Win32Device/Common/Win32GameEngine.cpp` (which was being compiled).**
+
+**Fix applied:** Added `if(APPLE) set_source_files_properties(Win32GameEngine.cpp PROPERTIES HEADER_FILE_ONLY TRUE)` in `GeneralsMD/Code/GameEngineDevice/CMakeLists.txt`.
+
+### Previous crash analysis (for reference):
+
+| Method | Real impl (GameAudio.cpp) | macOS stub (was) |
+|:---|:---|:---|
+| `allocateAudioRequest()` | Returns `newInstance(AudioRequest)` ✅ | Was **`nullptr`** 🔴 |
+| `getListenerPosition()` | Returns `&m_listenerPosition` ✅ | Was **`nullptr`** 🔴 |
+| `newAudioEventInfo()` | Creates + returns `AudioEventInfo*` ✅ | Was **`nullptr`** 🔴 |
+
+---
+
+## Legend
+
+| Symbol | Meaning |
+|:---|:---|
+| ✅ | **Fully implemented** — real functionality, not a stub |
+| ⚠️ | **Partial / Safe stub** — returns reasonable default, unlikely to cause crash |
+| ❌ | **Dangerous stub** — returns `nullptr` or has empty implementation where the caller may crash |
+| 🔴 | **CRITICAL** — most likely crash candidate (factory/create returning nullptr, or empty vtable) |
+
+---
+
+## 1. Graphics / Metal (DX8 Backend)
+
+**File:** `Metal/MetalDevice8.mm` (2693 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalDevice8::InitMetal()` | Real Metal device/layer/shaders init |
+| ✅ | `MetalDevice8::BeginScene()` / `EndScene()` | Real Metal frame lifecycle with command buffer management |
+| ✅ | `MetalDevice8::Clear()` | Real Metal clear (color + depth) |
+| ✅ | `MetalDevice8::Present()` | Real Metal drawable present with frame pacing |
+| ✅ | `MetalDevice8::DrawIndexedPrimitive()` | Real Metal encoded draw with full FVF parsing, PSO caching, TSS uniforms |
+| ✅ | `MetalDevice8::DrawPrimitiveUP()` | Real Metal immediate draw (used for UI quads) |
+| ✅ | `MetalDevice8::SetTexture()` | Real — stores texture + syncs to Metal encoder |
+| ✅ | `MetalDevice8::SetRenderState()` | State cache → pipeline state objects (blend, depth, cull, fog) |
+| ✅ | `MetalDevice8::SetTransform()` | Matrix cache → shader uniforms |
+| ✅ | `MetalDevice8::SetTextureStageState()` | Real TSS cache → fragment uniforms (colorOp/alphaOp/args) |
+| ✅ | `MetalDevice8::CreateTexture()` | Creates `MetalTexture8` with correct MTL format |
+| ✅ | `MetalDevice8::CreateVertexBuffer()` | Creates `MetalVertexBuffer8` |
+| ✅ | `MetalDevice8::CreateIndexBuffer()` | Creates `MetalIndexBuffer8` |
+| ✅ | `MetalDevice8::SetMaterial()` | Real material storage → shader uniforms |
+| ✅ | `MetalDevice8::SetLight()` | Real light data storage → shader uniforms |
+| ✅ | `MetalDevice8::LightEnable()` | Real enable tracking |
+| ✅ | `MetalDevice8::SetStreamSource()` | Real — binds vertex buffer |
+| ✅ | `MetalDevice8::SetIndices()` | Real — binds index buffer |
+| ✅ | `MetalDevice8::GetBackBuffer()` | Creates `MetalSurface8` wrapper |
+| ✅ | `MetalDevice8::GetDepthStencilSurface()` | Creates `MetalSurface8` wrapper |
+| ⚠️ | `MetalDevice8::CreatePixelShader()` | Returns tracked dummy handle — game uses FFP |
+| ⚠️ | `MetalDevice8::CreateVertexShader()` | Returns tracked dummy handle with bit 31 set |
+| ⚠️ | `MetalDevice8::SetPixelShader()` | No-op — Metal shader handles all FFP ops |
+| ⚠️ | `MetalDevice8::SetVertexShader()` | Stores FVF only — no real VS needed |
+| ⚠️ | `MetalDevice8::SetCursorProperties()` | No-op — using NSCursor |
+| ⚠️ | `MetalDevice8::SetCursorPosition()` | No-op — macOS handles cursor |
+| ⚠️ | `MetalDevice8::SetGammaRamp()` | No-op — gamma via system prefs |
+
+**File:** `Metal/MetalInterface8.mm` (229 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalInterface8::CreateDevice()` | Creates `MetalDevice8`, calls `InitMetal()` |
+| ✅ | `MetalInterface8::GetDeviceCaps()` | Returns comprehensive caps matching Metal hw |
+| ⚠️ | `MetalInterface8::EnumAdapterModes()` | Returns 800×600 only — could query NSScreen |
+| ⚠️ | `MetalInterface8::GetAdapterMonitor()` | Returns `nullptr` — Windows `HMONITOR` not needed |
+| ⚠️ | `MetalInterface8::RegisterSoftwareDevice()` | Returns `E_NOTIMPL` — not needed |
+
+**File:** `Metal/MetalTexture8.mm` (542 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalTexture8` constructor | Creates real MTLTexture, zero-fills mip levels |
+| ✅ | `MetalTexture8::LockRect()` / `UnlockRect()` | Real staging + 16-bit→32-bit conversion + upload |
+| ✅ | `MetalTexture8::GetLevelDesc()` / `GetSurfaceLevel()` | Returns real data, creates `MetalSurface8` wrapper |
+| ⚠️ | `MetalTexture8::SetLOD()` / `GetLOD()` | Returns 0 — LOD bias not yet implemented |
+
+**File:** `Metal/MetalVertexBuffer8.mm` (132 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalVertexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer creation |
+
+**File:** `Metal/MetalIndexBuffer8.mm` (124 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalIndexBuffer8::Lock()` / `Unlock()` / `GetMTLBuffer()` | Real sys-mem + lazy MTL buffer creation |
+
+**File:** `Metal/MetalSurface8.mm` (325 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MetalSurface8::LockRect()` | Real staging buffer allocation with format-aware sizing |
+| ✅ | `MetalSurface8::UnlockRect()` | Real upload to parent Metal texture with 16-bit→32-bit conversion |
+| ✅ | `MetalSurface8::GetDesc()` | Returns real format/size data |
+| ⚠️ | `MetalSurface8::GetContainer()` | Returns `nullptr`, `E_NOTIMPL` — rarely called |
+
+---
+
+## 2. W3D Shader Manager
+
+**File:** ~~`Stubs/MacOSW3DShaderManager.mm`~~ **REMOVED** — all symbols now linked from `Core/GameEngineDevice/Source/W3DDevice/GameClient/W3DShaderManager.cpp`
+
+> **2026-02-25:** The stub file contained no-op overrides for ALL 60+ Core symbols.
+> Removing it enabled shroud/fog-of-war, render-to-texture, terrain shader pipeline,
+> and all screen filter effects.
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `W3DShaderManager::init()` | **CORE** — creates render target, initializes shader/filter chains |
+| ✅ | `W3DShaderManager::shutdown()` | **CORE** — releases render targets + shader resources |
+| ✅ | `W3DShaderManager::getChipset()` | **CORE** — detects GPU via adapter identifier |
+| ✅ | `W3DShaderManager::setShader()` | **CORE** — dispatches to W3DShaders[shader]→set(pass) |
+| ✅ | `W3DShaderManager::setShroudTex()` | **CORE** — fog of war texture with camera-space transform |
+| ✅ | `W3DShaderManager::startRenderToTexture()` | **CORE** — sets offscreen render target |
+| ✅ | `W3DShaderManager::endRenderToTexture()` | **CORE** — restores original render target |
+| ✅ | `W3DShaderManager::filterPreRender()` / `filterPostRender()` | **CORE** — dispatches to W3DFilters[] |
+| ✅ | `ScreenBWFilter::*` | **CORE** — black & white filter (nuke effect) |
+| ✅ | `ScreenMotionBlurFilter::*` | **CORE** — motion blur effect |
+| ✅ | `ScreenCrossFadeFilter::*` | **CORE** — cross-fade transitions |
+
+---
+
+## 3. D3DX Helper Functions
+
+**File:** `Main/D3DXStubs.mm` (639 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `D3DXCreateTextureFromFileExA()` | Real — loads TGA/DDS from .big archives |
+| ✅ | `D3DXCreateTexture()` | Delegates to `MetalDevice8::CreateTexture()` |
+| ✅ | `DecompressDXT1()` / `DecompressDXT5()` | Real CPU decompression |
+| ✅ | `LoadFileData()` | Real — reads from filesystem + .big archives |
+| ✅ | `D3DXFilterTexture()` | **FIXED 2026-02-25** — generates mipmaps via Metal blit encoder. Was inline no-op stub in `d3dx8core.h`, caused **black terrain** (mip levels 1+ were all-zero) |
+| ⚠️ | Texture cache (`s_TextureCache`) | HashMap-based, functional |
+
+**File:** `Include/d3dx8core.h` — Inline Helpers
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `D3DXFilterTexture()` | **MOVED** to D3DXStubs.mm — was inline no-op stub, now real Metal mipmap generation |
+| ⚠️ | `D3DXGetErrorStringA()` | Returns generic stub string — cosmetic only |
+| ⚠️ | `D3DXGetFVFVertexSize()` | Real calculation from FVF flags |
+
+---
+
+## 4. Display / Rendering
+
+**File:** `Client/MacOSDisplay.mm` (109 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSDisplay::init()` | Calls `W3DDisplay::init()` |
+| ✅ | `MacOSDisplay::draw()` | Delegates directly to `W3DDisplay::draw()` — null-safety guards added to parent for TheGameLogic, TheScriptEngine, TheFramePacer, TheTacticalView, TheParticleSystemManager, TheWaterTransparency |
+| ✅ | `MacOSDisplay::update()` | Delegates to `W3DDisplay::update()` → `Display::update()` (video playback) |
+| ⚠️ | `MacOSDisplay::takeScreenShot()` | Empty |
+| ⚠️ | `MacOSDisplay::toggleMovieCapture()` | Empty |
+
+**File:** `Client/MacOSDisplayString.mm` (329 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSDisplayString::draw()` | Real — CoreText render → texture → DX8 quad |
+| ✅ | `MacOSDisplayString::updateTexture()` | Real — rasterizes text via NSBitmapImageRep |
+| ✅ | `MacOSDisplayString::getSize()` | Real — returns text dimensions |
+| ✅ | `MacOSDisplayStringManager::newDisplayString()` | Returns real `MacOSDisplayString` |
+| ⚠️ | `MacOSDisplayString::appendChar()` / `clipToWidth()` | Returns `nullptr` (line range clamping) — safe as callers check |
+
+---
+
+## 5. Game Client (Factory Methods)
+
+**File:** `Main/MacOSGameClient.mm` (197 lines)
+
+> **2026-02-25 19:35:** Implemented gameplay stubs via delegation to Core subsystems.
+> Removed MacOSTerrainVisual and MacOSSnowManager stubs — replaced by W3D equivalents.
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSGameClient::createGameDisplay()` | Returns `MacOSDisplay` (W3DDisplay subclass) |
+| ✅ | `MacOSGameClient::createDisplayStringManager()` | Returns `MacOSDisplayStringManager` |
+| ✅ | `MacOSGameClient::createFontLibrary()` | Returns `MacOSFontLibrary` (CoreText) |
+| ✅ | `MacOSGameClient::createInGameUI()` | Returns `W3DInGameUI` |
+| ✅ | `MacOSGameClient::createTerrainVisual()` | Returns `W3DTerrainVisual` |
+| ✅ | `MacOSGameClient::createWindowManager()` | Returns `MacOSGameWindowManager` |
+| ✅ | `MacOSGameClient::createKeyboard()` | Returns `StdKeyboard` |
+| ✅ | `MacOSGameClient::createMouse()` | Returns `StdMouse` |
+| ✅ | `MacOSGameClient::createVideoPlayer()` | Returns `MacOSVideoPlayer` |
+| ✅ | `MacOSGameClient::addScorch()` | **IMPLEMENTED** — delegates to `TheTerrainRenderObject->addScorch()` |
+| ✅ | `MacOSGameClient::releaseShadows()` / `allocateShadows()` | Delegates to `GameClient::` base |
+| ✅ | `MacOSGameClient::createSnowManager()` | **IMPLEMENTED** — returns `W3DSnowManager` from Core |
+| ⚠️ | `MacOSGameClient::setFrameRate()` | No-op — frame rate governed by vsync |
+| ⚠️ | `MacOSGameClient::createRayEffectByTemplate()` | Logged stub — needs W3D scene |
+| ⚠️ | `MacOSGameClient::setTeamColor()` / `setTextureLOD()` | Logged stubs |
+| ⚠️ | `MacOSGameClient::notifyTerrainObjectMoved()` | Safe no-op |
+
+**File:** `Main/MacOSGameClient.mm` — Helper Classes
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSFontLibrary::loadFontData()` | Real — maps fonts via CoreText |
+| ✅ | `MacOSVideoPlayer` | Delegates to `VideoPlayer` base class |
+| ~~⚠️~~ | ~~`MacOSSnowManager`~~ | **REMOVED** — replaced by `W3DSnowManager` |
+| ~~⚠️~~ | ~~`MacOSTerrainVisual`~~ | **REMOVED** — `W3DTerrainVisual` used instead |
+
+---
+
+## 6. Win32 Game Engine (Factory Methods)
+
+**File:** `Main/MacOSMain.mm` (916 lines) — Factory Methods
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `Win32GameEngine::createGameClient()` | Returns `MacOSGameClient` |
+| ✅ | `Win32GameEngine::createLocalFileSystem()` | Returns `StdLocalFileSystem` |
+| ✅ | `Win32GameEngine::createArchiveFileSystem()` | Returns `StdBIGFileSystem` |
+| ✅ | `Win32GameEngine::createModuleFactory()` | Returns `W3DModuleFactory` |
+| ✅ | `Win32GameEngine::createThingFactory()` | Returns `ThingFactory` |
+| ✅ | `Win32GameEngine::createFunctionLexicon()` | Returns `W3DFunctionLexicon` |
+| ✅ | `Win32GameEngine::createAudioManager()` | Returns `MacOSAudioManager` |
+| ✅ | `Win32GameEngine::createRadar()` | Returns `RadarDummy` |
+| ✅ | `Win32GameEngine::createWebBrowser()` | Returns `StubWebBrowser` |
+| ✅ | `Win32GameEngine::createParticleSystemManager()` | **FIXED** — now returns `W3DParticleSystemManager` (was `StubParticleSystemManager`) |
+| ⚠️ | `Win32GameEngine::createNetwork()` | Returns `StubNetwork` |
+
+---
+
+## 7. Win32 Game Engine (Stub Subsystems)
+
+**File:** `Main/MacOSMain.mm` — Stub Classes
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | `StubNetwork` | Full `NetworkInterface` no-op impl (45+ methods) |
+| ⚠️ | ~~`StubParticleSystemManager`~~ | **REMOVED** — replaced by `W3DParticleSystemManager` |
+| ⚠️ | `StubWebBrowser` | No-op `createBrowserWindow()` returns `false` |
+| ⚠️ | `CDManagerStub` | Returns `nullptr` from `getDrive()`, `newDrive()`, `createDrive()` |
+
+---
+
+## 8. AudioManager — ✅ RESOLVED
+
+**File:** `Main/MacOSMain.mm` — Base class stubs **REMOVED** (was lines 213-268)
+
+All AudioManager base class stubs have been **removed**. The real implementations from `Core/GameEngine/Source/Common/Audio/GameAudio.cpp` are now used.
+
+| Status | Note |
+|:---|:---|
+| ✅ | All 40+ AudioManager base methods now use real implementations from GameAudio.cpp |
+
+**File:** `Audio/MacOSAudioManager.mm` (379 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSAudioManager::friend_forcePlayAudioEventRTS()` | Real — extracts from .big, plays via AVAudioPlayer |
+| ✅ | `MacOSAudioManager::update()` | Real — cleans up finished audio |
+| ✅ | `MacOSAudioManager::processRequestList()` | Real — dispatches play/stop/pause |
+| ⚠️ | `MacOSAudioManager::getDevice()` | Returns **`nullptr`** — Miles `HDIGDRIVER` equivalent |
+| ⚠️ | `MacOSAudioManager::getHandleForBink()` | Returns **`nullptr`** — Bink audio handle |
+| ⚠️ | `MacOSAudioManager::getFileLengthMS()` | Returns `0.0f` |
+
+---
+
+## 9. GameSpy / Network / WOL
+
+**File:** `Stubs/GameSpyStubs.cpp` (449 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | 14 null singletons (`TheGameSpyConfig`, `TheLAN`, `TheNAT`, etc.) | All `nullptr` — safe if not dereffed during offline play |
+| ⚠️ | 10 overlay functions (`GameSpyOpenOverlay`, etc.) | All no-ops |
+| ⚠️ | 8 lobby/game list functions | Return `nullptr` / `NAMEKEY_INVALID` |
+| ⚠️ | 8 network/patch functions | All no-ops |
+| ⚠️ | 18 Transport/UDP methods | Return `FALSE` / `-1` / `0` |
+| ⚠️ | 47 LANAPI methods | All no-ops, lookups return `nullptr` |
+| ⚠️ | 12 GameSpyStagingRoom methods | All no-ops |
+| ⚠️ | 13 NAT/User/Download methods | All no-ops |
+| ⚠️ | RegistryClass (4 methods) | Returns default values |
+| ⚠️ | DX8WebBrowser (4 methods) | All no-ops |
+| ⚠️ | WorkerProcess (6 methods) | All no-ops, `isDone()` returns `true` |
+| ✅ | `GameResultsInterface::createNewGameResultsInterface()` | Returns `StubGameResultsInterface` (**was** `nullptr`, fixed) |
+| ⚠️ | `CreateIMEManagerInterface()` | Returns **`nullptr`** — **SAFE**: all callers check `if (TheIMEManager)` before use (verified in GameClient.cpp:352, Shell.cpp) |
+
+---
+
+## 10. Compression (LZHL) — ✅ RESOLVED
+
+**File:** `Stubs/LZHLStubs.cpp` — **REMOVED**
+
+LZHL stubs were an ODR violation — the real `liblzhl` library is fetched via FetchContent and linked through `core_compression`. The stubs returned `0` from `LZHLDecompress`/`LZHLCompress`, which would break all save/replay/network compression.
+
+| Status | Note |
+|:---|:---|
+| ✅ | Real liblzhl now used exclusively — stubs removed from macOS build |
+
+---
+
+## 11. WWDownload / FTP
+
+**File:** `Stubs/WWDownloadStubs.cpp` (65 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | `CDownload::PumpMessages()` / `Abort()` | Returns `S_OK` |
+| ⚠️ | `CDownload::DownloadFile()` | Returns `E_FAIL` |
+| ⚠️ | `Cftp::*` (15 methods) | All return `E_FAIL` / `-1` |
+
+---
+
+## 12. File System
+
+**File:** `Common/StdLocalFile.cpp`, `Common/StdLocalFileSystem.cpp`, `Common/StdBIGFile.cpp`, `Common/StdBIGFileSystem.cpp`
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `StdLocalFile` | Full implementation using POSIX `fopen`/`fread`/`fwrite` |
+| ✅ | `StdLocalFileSystem` | Full implementation using `opendir`/`readdir` |
+| ✅ | `StdBIGFile` | Full implementation reading from .big archives |
+| ✅ | `StdBIGFileSystem` | Full implementation mounting .big archives |
+
+---
+
+## 13. Input (Keyboard / Mouse)
+
+**File:** `Main/StdKeyboard.mm` (252 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `StdKeyboard::update()` | Calls `Keyboard::update()` — ring buffer → `m_keys` |
+| ✅ | `StdKeyboard::getKey()` | Real — reads from ring buffer |
+| ✅ | `StdKeyboard::addEvent()` | Real — macOS keyCode → DIK mapping |
+| ✅ | Full key mapping | A-Z, 0-9, F1-F12, arrows, modifiers, etc. |
+
+**File:** `Main/StdMouse.mm` (229 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `StdMouse::update()` | Calls `Mouse::update()` |
+| ✅ | `StdMouse::getMouseEvent()` | Real — reads from ring buffer |
+| ✅ | `StdMouse::draw()` | Real — draws cursor image or green square fallback |
+| ⚠️ | `StdMouse::setCursor()` | Maps to NSCursor (limited: arrow, crosshair, hand only) |
+| ⚠️ | `StdMouse::capture()` / `releaseCapture()` | Empty — no SetCapture equivalent |
+| ⚠️ | `StdMouse::regainFocus()` / `loseFocus()` | Empty |
+
+---
+
+## 14. Window Manager
+
+**File:** `Main/MacOSWindowManager.mm` (355 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOS_Main()` | Real — creates NSWindow, inits renderer, calls GameMain |
+| ✅ | `MacOS_CreateWindow()` | Real — creates NSWindow with GameContentView |
+| ✅ | `MacOS_PumpEvents()` | Real — full NSEvent loop (keys, mouse, scroll) |
+| ✅ | `MacOS_GetScreenSize()` | Real — reads NSScreen |
+
+**File:** `Main/MacOSGameWindowManager.mm` (93 lines)
+
+| Status | Stub / Class / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOSGameWindowManager` | Inherits `W3DGameWindowManager` — all gadget draw funcs from W3D |
+| ✅ | `allocateNewWindow()` | Returns `MacOSGameWindow` |
+| ✅ | `winFormatText()` / `winGetTextSize()` | Uses `MacOSDisplayString` |
+
+---
+
+## 15. windows.h Shim (Key Returns)
+
+**File:** `Include/windows.h` (~1590 lines)
+
+| Status | Stub / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | `LoadLibrary()` | Returns `(HMODULE)1` marker — **safe** |
+| ✅ | `GetProcAddress("Direct3DCreate8")` | Returns `_CreateMetalInterface8_Wrapper` — **real** |
+| ⚠️ | `CreateEvent()` / `CreateEventA()` | Returns **`nullptr`** — callers may check |
+| ⚠️ | `SetCursor()` | Returns **`nullptr`** |
+| ⚠️ | `LoadCursorFromFile()` | Returns **`nullptr`** |
+| ⚠️ | `MonitorFromWindow()` | Returns **`nullptr`** |
+| ⚠️ | `GetDesktopWindow()` | Returns **`nullptr`** |
+| ⚠️ | `GetDC()` | Returns **`nullptr`** |
+| ⚠️ | `GetProcessHeap()` | Returns **`nullptr`** — but `HeapAlloc` uses `calloc` directly |
+
+---
+
+## 16. Git / Build Info
+
+**File:** `Stubs/GitInfoStubs.cpp` (12 lines)
+
+| Status | Stub / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | `GitSHA1`, `GitShortSHA1`, etc. | Hardcoded "MACOS_BUILD_STUB" |
+| ⚠️ | `GitHaveInfo = true` | Prevents "no git info" errors |
+
+---
+
+## 17. Debug / Screenshot
+
+**File:** `Debug/MacOSScreenshot.mm` (114 lines)
+
+| Status | Stub / Function | Notes |
+|:---|:---|:---|
+| ✅ | `MacOS_SaveScreenshot()` | Real when `ENABLE_SCREENSHOTS` defined |
+| ⚠️ | When `!ENABLE_SCREENSHOTS` | All no-ops |
+
+---
+
+## 18. Gadget Draw (Fallback)
+
+**File:** `Main/MacOSGadgetDraw.mm` (188 lines)
+
+| Status | Stub / Function | Notes |
+|:---|:---|:---|
+| ⚠️ | `MacOSGadget*Draw` (10 functions) | **NOT USED** — `MacOSGameWindowManager` inherits `W3DGameWindowManager` which provides real W3D draw functions. These are legacy fallbacks. |
+
+---
+
+# ✅ CRITICAL STUBS — All Resolved (2026-02-20)
+
+All previously-critical stubs have been resolved:
+
+| # | Issue | Resolution |
+|:--|:--|:--|
+| 1 | `CreateIMEManagerInterface() → nullptr` | ✅ **SAFE** — all callers check `if (TheIMEManager)` |
+| 2 | `AudioManager::allocateAudioRequest() → nullptr` | ✅ **REMOVED** — real impl from GameAudio.cpp |
+| 3 | `AudioManager::newAudioEventInfo() → nullptr` | ✅ **REMOVED** — real impl from GameAudio.cpp |
+| 4 | `AudioManager::getListenerPosition() → nullptr` | ✅ **REMOVED** — real impl from GameAudio.cpp |
+| 5 | `W3DShaderManager::endRenderToTexture() → nullptr` | ✅ **SAFE** — callers check `if (!tex) return false;` |
+| 6 | `CDManagerStub::getDrive() → nullptr` | ✅ **SAFE** — `driveCount()` returns 0, never called |
+| 7 | `StubParticleSystemManager::doParticles()` — empty | ✅ **SAFE** — no side effects expected |
+| 8 | `MacOSDisplay::update()` — was empty | ✅ **FIXED** — now delegates to `W3DDisplay::update()` |
+
+---
+
+# Summary Statistics
+
+| Category | Total Stubs | ✅ Implemented | ⚠️ Safe Stub | ❌ Dangerous | 🔴 Critical |
+|:---|:---|:---|:---|:---|:---|
+| Metal / DX8 | 42 | 35 | 7 | 0 | 0 |
+| W3D Shader Manager | 18 | 18 | 0 | 0 | 0 |
+| D3DX Helpers | 8 | 7 | 1 | 0 | 0 |
+| Display | 5 | 4 | 1 | 0 | 0 |
+| DisplayString | 5 | 4 | 1 | 0 | 0 |
+| GameClient Factory | 18 | 14 | 4 | 0 | 0 |
+| GameEngine Factory | 11 | 9 | 2 | 0 | 0 |
+| AudioManager | 25 | 25 | 0 | 0 | 0 |
+| GameSpy/Network | 170+ | 1 | 169 | 0 | 0 |
+| FileSystem | 4 | 4 | 0 | 0 | 0 |
+| Input | 12 | 10 | 2 | 0 | 0 |
+| Window Manager | 6 | 6 | 0 | 0 | 0 |
+| Compression | 5 | 5 | 0 | 0 | 0 |
+| WWDownload | 17 | 0 | 17 | 0 | 0 |
+| windows.h | 9 | 1 | 8 | 0 | 0 |
+| Debug/Screenshot | 3 | 1 | 2 | 0 | 0 |
+| Git Info | 2 | 0 | 2 | 0 | 0 |
+| **TOTAL** | **~359** | **~144** | **~215** | **0** | **0** |

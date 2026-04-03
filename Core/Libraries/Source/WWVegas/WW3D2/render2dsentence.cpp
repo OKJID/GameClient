@@ -41,6 +41,12 @@
 #include "wwmemlog.h"
 #include "dx8wrapper.h"
 
+#ifdef __APPLE__
+#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 //	Local constants
@@ -1356,6 +1362,67 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	int width	= PointSize * 2;
 	int height	= PointSize * 2;
 
+#ifdef __APPLE__
+	int xOrigin = 0;
+	if (ch == 'W') {
+		xOrigin = 1;
+	}
+
+    CGContextRef context = (CGContextRef)MemDC;
+    CTFontRef ctFont = (CTFontRef)GDIFont;
+
+    CGContextClearRect(context, CGRectMake(0, 0, width, height));
+    CGContextSetGrayFillColor(context, 1.0, 1.0);
+
+    UniChar uniChar = ch;
+    CFStringRef str = CFStringCreateWithCharacters(kCFAllocatorDefault, &uniChar, 1);
+    
+    CFStringRef keys[] = { kCTFontAttributeName, kCTForegroundColorFromContextAttributeName };
+    CFTypeRef values[] = { ctFont, kCFBooleanTrue };
+    CFDictionaryRef attributes = CFDictionaryCreate(kCFAllocatorDefault, (const void**)&keys, (const void**)&values, sizeof(keys) / sizeof(keys[0]), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    CFAttributedStringRef attrStr = CFAttributedStringCreate(kCFAllocatorDefault, str, attributes);
+    CTLineRef line = CTLineCreateWithAttributedString(attrStr);
+    
+    int charDescent = CharHeight - CharAscent;
+    CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+    CGContextSetTextPosition(context, xOrigin, charDescent); 
+    CTLineDraw(line, context);
+    
+    CGFloat typographicBoundsWidth;
+    CTLineGetTypographicBounds(line, &typographicBoundsWidth, NULL, NULL);
+
+    SIZE char_size;
+    char_size.cx = ceil(typographicBoundsWidth);
+    char_size.cy = CharHeight;
+
+    CFRelease(line);
+    CFRelease(attrStr);
+    CFRelease(attributes);
+    CFRelease(str);
+
+    char_size.cx += PixelOverlap + xOrigin;
+
+	Update_Current_Buffer( char_size.cx );
+	uint16* curr_buffer_p = BufferList[BufferList.Count () - 1]->Buffer;
+	curr_buffer_p += CurrPixelOffset;
+
+    int stride = width;
+
+	for (int row = 0; row < char_size.cy; row ++) {
+		int srcRow = CharHeight - 1 - row;
+		int index = (srcRow * stride);
+
+		for (int col = 0; col < char_size.cx; col ++) {
+			uint8 pixel_value = GDIBitmapBits[index];
+			index += 1;
+
+			uint16 pixel_color = (pixel_value != 0) ? 0x0FFF : 0;
+			uint8 alpha_value = ((pixel_value >> 4) & 0xF);
+			*curr_buffer_p++ = pixel_color | (alpha_value << 12);
+		}
+	}
+#else
 	//
 	//	Draw the character into the memory DC
 	//
@@ -1400,35 +1467,6 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 			//
 			uint8 pixel_value = GDIBitmapBits[index];
 			index += 3;
-#ifdef TEST_PLACEMENT
- 			if (row==CharHeight-1&&col==0) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==CharHeight-2&&col==1) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==0&&col==0) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==1&&col==1) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==CharHeight-1&&col==char_size.cx-1-PixelOverlap) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==CharHeight-2&&col==char_size.cx-2-PixelOverlap) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==0&&col==char_size.cx-1-PixelOverlap) {
- 				pixel_value = 0xff;
- 			}
- 			if (row==1&&col==char_size.cx-2-PixelOverlap) {
- 				pixel_value = 0xff;
- 			}
- 			if (pixel_value == 0x00) {
- 				pixel_value = 0x40;
- 			}
-#endif
 
 			uint16 pixel_color = 0;
 			if (pixel_value != 0) {
@@ -1443,6 +1481,7 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 			*curr_buffer_p++	= pixel_color | (alpha_value << 12);
 		}
 	}
+#endif
 
 	//
 	//	Save information about this character in our list
@@ -1517,6 +1556,54 @@ FontCharsClass::Update_Current_Buffer (int char_width)
 bool
 FontCharsClass::Create_GDI_Font (const char *font_name)
 {
+#ifdef __APPLE__
+	const char *fontToUseForGenerals = "Arial";
+	bool doingGenerals = false;
+	if (strcmp(font_name, "Generals")==0) {
+		font_name = fontToUseForGenerals;
+		doingGenerals = true;
+	}
+
+	const int dotsPerInch = 96;
+	int font_height = (PointSize * dotsPerInch) / 72;
+
+	int fontWidth = 0;
+	if (doingGenerals) {
+		fontWidth = -font_height * 0.40f;
+	}
+	PixelOverlap = font_height / 8;
+	if (PixelOverlap<0) PixelOverlap = 0;
+	if (PixelOverlap>4) PixelOverlap = 4;
+
+	CFStringRef fontNameCF = CFStringCreateWithCString(kCFAllocatorDefault, font_name, kCFStringEncodingUTF8);
+	CTFontRef ctFont = CTFontCreateWithName(fontNameCF, font_height, NULL);
+	CFRelease(fontNameCF);
+	
+	if (!ctFont) {
+		return false;
+	}
+
+	GDIFont = (HFONT)ctFont;
+
+	int width = PointSize * 2;
+	int height = PointSize * 2;
+	
+	CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
+	CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, width, colorSpace, kCGImageAlphaNone);
+	CGColorSpaceRelease(colorSpace);
+	
+	MemDC = (HDC)context;
+	GDIBitmapBits = (uint8*)CGBitmapContextGetData(context);
+
+    // Get Font Metrics
+	CharAscent = ceil(CTFontGetAscent(ctFont));
+	int charDescent = ceil(CTFontGetDescent(ctFont));
+	CharHeight = CharAscent + charDescent;
+	CharOverhang = 0;
+	
+	return true;
+
+#else
 	HDC screen_dc = ::GetDC ((HWND)WW3D::Get_Window());
 
 	const char *fontToUseForGenerals = "Arial";
@@ -1610,6 +1697,7 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	}
 
 	return GDIFont != nullptr && GDIBitmap != nullptr;
+#endif
 }
 
 
@@ -1621,6 +1709,18 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 void
 FontCharsClass::Free_GDI_Font ()
 {
+#ifdef __APPLE__
+	if (GDIFont != nullptr) {
+		CFRelease((CTFontRef)GDIFont);
+		GDIFont = nullptr;
+	}
+
+	if (MemDC != nullptr) {
+		CGContextRelease((CGContextRef)MemDC);
+		MemDC = nullptr;
+		GDIBitmapBits = nullptr;
+	}
+#else
 	//
 	//	Select the old font back into the DC and delete
 	// our font object
@@ -1648,7 +1748,7 @@ FontCharsClass::Free_GDI_Font ()
 		::DeleteDC( MemDC );
 		MemDC = nullptr;
 	}
-
+#endif
 	return ;
 }
 

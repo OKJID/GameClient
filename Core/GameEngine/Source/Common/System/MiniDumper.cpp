@@ -19,6 +19,7 @@
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
 #ifdef RTS_ENABLE_CRASHDUMP
+#ifndef __APPLE__
 #include "Common/MiniDumper.h"
 #include <wctype.h>
 #include "gitinfo.h"
@@ -467,4 +468,58 @@ void MiniDumper::KeepNewestFiles(const std::string& directory, const DumpType du
 		}
 	}
 }
-#endif
+#else
+// MAC OS STUBS
+
+#include "Common/MiniDumper.h"
+
+MiniDumper* TheMiniDumper = nullptr;
+
+void MiniDumper::initMiniDumper(const AsciiString& userDirPath)
+{
+	if (!TheMiniDumper) {
+		TheMiniDumper = new MiniDumper();
+		TheMiniDumper->m_miniDumpInitialized = true;
+	}
+}
+
+void MiniDumper::shutdownMiniDumper()
+{
+	if (TheMiniDumper) {
+		delete TheMiniDumper;
+		TheMiniDumper = nullptr;
+	}
+}
+
+MiniDumper::MiniDumper() {
+	m_miniDumpInitialized = false;
+	m_loadedDbgHelp = false;
+	m_requestedDumpType = DumpType_Minimal;
+	m_dumpRequested = nullptr;
+	m_dumpComplete = nullptr;
+	m_quitting = nullptr;
+	m_dumpThread = nullptr;
+	m_dumpThreadId = 0;
+	m_dumpDir[0] = 0;
+	m_dumpFile[0] = 0;
+	m_executablePath[0] = 0;
+}
+
+Bool MiniDumper::IsInitialized() const { return m_miniDumpInitialized; }
+void MiniDumper::TriggerMiniDump(DumpType dumpType) {}
+void MiniDumper::TriggerMiniDumpForException(void* e_info, DumpType dumpType) {}
+long MiniDumper::DumpingExceptionFilter(void* e_info) { return 0; }
+void MiniDumper::Initialize(const AsciiString& userDirPath) {}
+void MiniDumper::ShutDown() {}
+void MiniDumper::CreateMiniDump(DumpType dumpType) {}
+void MiniDumper::CleanupResources() {}
+Bool MiniDumper::IsDumpThreadStillRunning() const { return false; }
+void MiniDumper::ShutdownDumpThread() {}
+DWORD WINAPI MiniDumper::MiniDumpThreadProc(LPVOID lpParam) { return 0; }
+DWORD MiniDumper::ThreadProcInternal() { return 0; }
+Bool MiniDumper::InitializeDumpDirectory(const AsciiString& userDirPath) { return true; }
+void MiniDumper::KeepNewestFiles(const std::string& directory, const DumpType dumpType, const Int keepCount) {}
+bool MiniDumper::CompareByLastWriteTime(const FileInfo& a, const FileInfo& b) { return false; }
+
+#endif // __APPLE__
+#endif // RTS_ENABLE_CRASHDUMP

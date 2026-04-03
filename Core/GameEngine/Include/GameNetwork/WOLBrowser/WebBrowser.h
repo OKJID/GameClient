@@ -43,6 +43,8 @@
 #pragma once
 
 #include "Common/SubsystemInterface.h"
+#ifndef __APPLE__
+
 #include <atlbase.h>
 #include <windows.h>
 #include <Common/GameMemory.h>
@@ -122,3 +124,40 @@ class WebBrowser :
 	};
 
 extern CComObject<WebBrowser> *TheWebBrowser;
+
+#else // __APPLE__
+#include <Common/GameMemory.h>
+#include <Lib/BaseType.h>
+
+class GameWindow;
+
+class WebBrowserURL : public MemoryPoolObject
+{
+	MEMORY_POOL_GLUE_WITH_USERLOOKUP_CREATE( WebBrowserURL, "WebBrowserURL" )
+
+public:
+	WebBrowserURL() : m_next(nullptr) {}
+	const FieldParse *getFieldParse() const { return m_URLFieldParseTable; }
+	AsciiString m_tag;
+	AsciiString m_url;
+	WebBrowserURL *m_next;
+	static const FieldParse m_URLFieldParseTable[];
+};
+
+class WebBrowser : public SubsystemInterface {
+public:
+	virtual void init() override {}
+	virtual void reset() override {}
+	virtual void update() override {}
+	virtual Bool createBrowserWindow(const char *tag, GameWindow *win) { return false; }
+	virtual void closeBrowserWindow(GameWindow *win) {}
+	WebBrowserURL *makeNewURL(AsciiString tag) { return nullptr; }
+	WebBrowserURL *findURL(AsciiString tag) { return nullptr; }
+protected:
+	WebBrowser() {}
+	virtual ~WebBrowser() override {}
+};
+
+extern WebBrowser *TheWebBrowser;
+
+#endif // __APPLE__

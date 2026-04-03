@@ -687,7 +687,7 @@ void NGMP_OnlineServices_LobbyInterface::Tick()
 	// TODO_NGMP: Do we still need this safety measure?
 	if (IsInLobby())
 	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		if ((currTime - m_lastForceRefresh) > 5000)
 		{
 			//UpdateRoomDataCache();

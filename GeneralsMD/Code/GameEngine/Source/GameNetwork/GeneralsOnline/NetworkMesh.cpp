@@ -2,7 +2,9 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
+#ifdef _WIN32
 #include <ws2ipdef.h>
+#endif
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameLogic/GameLogic.h"
@@ -353,7 +355,7 @@ class CSignalingClient : public ISignalingClient
 			(void)hConn;
 
 			std::vector<uint8_t> vecPayload(cbMsg);
-			memcpy_s(vecPayload.data(), vecPayload.size(), pMsg, cbMsg);
+			memcpy(vecPayload.data(), pMsg, cbMsg);
 
 			m_pOwner->Send(m_targetUserID, vecPayload);
 			return true;

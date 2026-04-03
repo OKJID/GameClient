@@ -1,8 +1,9 @@
 #pragma once
 
-#include "always.h"  // For W3DMPO_GLUE macro
-#include <d3d8.h>  // DX8 SDK header
+#include "always.h"
+#include <d3d8.h>
 #include <Metal/Metal.h>
+#include <map>
 
 class MetalDevice8;
 
@@ -11,40 +12,32 @@ class MetalTexture8 : public IDirect3DTexture8 {
 public:
   MetalTexture8(MetalDevice8 *device, UINT width, UINT height, UINT levels,
                 DWORD usage, D3DFORMAT format, D3DPOOL pool);
-  MetalTexture8(MetalDevice8 *device, void *mtlTexture,
-                D3DFORMAT format); // For wrapping existing textures
+  MetalTexture8(MetalDevice8 *device, void *mtlTexture, D3DFORMAT format);
   virtual ~MetalTexture8();
 
-  // IUnknown
-  STDMETHOD(QueryInterface)(REFIID riid, void **ppvObj);
-  STDMETHOD_(ULONG, AddRef)();
-  STDMETHOD_(ULONG, Release)();
+  ULONG AddRef() override;
+  ULONG Release() override;
+  D3DRESOURCETYPE GetType() override;
 
-  // IDirect3DResource8
-  STDMETHOD(GetDevice)(IDirect3DDevice8 **ppDevice);
-  STDMETHOD(SetPrivateData)(REFGUID refguid, CONST void *pData,
-                            DWORD SizeOfData, DWORD Flags);
-  STDMETHOD(GetPrivateData)(REFGUID refguid, void *pData, DWORD *pSizeOfData);
-  STDMETHOD(FreePrivateData)(REFGUID refguid);
-  STDMETHOD_(DWORD, SetPriority)(DWORD PriorityNew);
-  STDMETHOD_(DWORD, GetPriority)();
-  STDMETHOD_(void, PreLoad)();
-  STDMETHOD_(D3DRESOURCETYPE, GetType)();
+  HRESULT QueryInterface(REFIID riid, void **ppvObj);
+  HRESULT GetDevice(IDirect3DDevice8 **ppDevice);
+  HRESULT SetPrivateData(REFGUID g, const void *d, DWORD s, DWORD f);
+  HRESULT GetPrivateData(REFGUID g, void *d, DWORD *s);
+  HRESULT FreePrivateData(REFGUID g);
+  DWORD SetPriority(DWORD p);
+  DWORD GetPriority();
+  void PreLoad();
 
-  // IDirect3DBaseTexture8
-  STDMETHOD_(DWORD, SetLOD)(DWORD LODNew);
-  STDMETHOD_(DWORD, GetLOD)();
-  STDMETHOD_(DWORD, GetLevelCount)();
+  DWORD SetLOD(DWORD LODNew) override;
+  DWORD GetLOD() override;
+  DWORD GetLevelCount() override;
 
-  // IDirect3DTexture8
-  STDMETHOD(GetLevelDesc)(UINT Level, D3DSURFACE_DESC *pDesc);
-  STDMETHOD(GetSurfaceLevel)(UINT Level, IDirect3DSurface8 **ppSurfaceLevel);
-  STDMETHOD(LockRect)(UINT Level, D3DLOCKED_RECT *pLockedRect,
-                      CONST RECT *pRect, DWORD Flags);
-  STDMETHOD(UnlockRect)(UINT Level);
-  STDMETHOD(AddDirtyRect)(CONST RECT *pDirtyRect);
+  HRESULT GetLevelDesc(UINT Level, D3DSURFACE_DESC *pDesc) override;
+  HRESULT GetSurfaceLevel(UINT Level, IDirect3DSurface8 **ppSurfaceLevel) override;
+  HRESULT LockRect(UINT Level, D3DLOCKED_RECT *pLockedRect, const RECT *pRect, DWORD Flags) override;
+  HRESULT UnlockRect(UINT Level) override;
+  HRESULT AddDirtyRect(const RECT *pDirtyRect) override;
 
-  // Metal Specific
   id<MTLTexture> GetMTLTexture() const {
     return (__bridge id<MTLTexture>)m_Texture;
   }
@@ -57,9 +50,8 @@ public:
 
 private:
   ULONG m_RefCount;
-  MetalDevice8 *m_Device; // Weak ref? Or AddRef? Usually AddRef.
-
-  void *m_Texture; // id<MTLTexture>
+  MetalDevice8 *m_Device;
+  void *m_Texture;
 
   UINT m_Width;
   UINT m_Height;
@@ -67,36 +59,24 @@ private:
   DWORD m_Usage;
   D3DFORMAT m_Format;
   D3DPOOL m_Pool;
-  bool m_HasBeenWritten = false;  // Track if texture data has been uploaded
-  DWORD m_LOD = 0;                // Texture LOD (max mip level clamp)
-  uint32_t m_Generation = 0;      // Incremented on each content update (for texture cache)
+  bool m_HasBeenWritten = false;
+  DWORD m_LOD = 0;
+  uint32_t m_Generation = 0;
 
-  // TheSuperHackers @perf Double-buffer for single-level dynamic textures.
-  // Instead of creating a new MTLTexture on every UnlockRect, we pre-allocate
-  // a back buffer and swap on unlock. Avoids newTextureWithDescriptor per frame.
-  void *m_BackTexture = nullptr;  // id<MTLTexture> — pre-allocated back buffer
+  void *m_BackTexture = nullptr;
 
-  // Staging for LockRect (assuming single lock for now)
-  // We might need a map of locked levels if multiple levels are locked
-  // simultaneously. But typically game locks one level.
   struct LockedLevel {
     void *ptr;
     UINT pitch;
     UINT bytesPerPixel;
   };
   std::map<UINT, LockedLevel> m_LockedLevels;
-
-  // TheSuperHackers @fix Cache surfaces per mip level (D3D8 behavior).
-  // GetSurfaceLevel returns the same surface object with AddRef.
   std::map<UINT, class MetalSurface8*> m_CachedSurfaces;
 
-  // TheSuperHackers @perf Reusable format conversion buffer (grow-only).
-  // Avoids malloc/free per UnlockRect for R8G8B8, A4L4, 16-bit formats.
   void *m_ConvertBuf = nullptr;
   uint32_t m_ConvertBufSize = 0;
   void EnsureConvertBuffer(uint32_t needed);
 };
 
-// Internal Helper for Format Mapping
 MTLPixelFormat MetalFormatFromD3D(D3DFORMAT fmt);
 UINT BytesPerPixelFromD3D(D3DFORMAT fmt);

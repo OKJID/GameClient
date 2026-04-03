@@ -1,13 +1,13 @@
 #pragma once
-#include "libcurl/curl.h"
+#include <curl/curl.h>
 
 enum EHTTPVersion
 {
-    HTTP_VERSION_AUTO,
-    HTTP_VERSION_1_0,
-    HTTP_VERSION_1_1,
-    HTTP_VERSION_2_0,
-    HTTP_VERSION_3_0
+    GEN_HTTP_VERSION_AUTO,
+    GEN_HTTP_VERSION_1_0,
+    GEN_HTTP_VERSION_1_1,
+    GEN_HTTP_VERSION_2_0,
+    GEN_HTTP_VERSION_3_0
 };
 
 class GenOnlineSettings
@@ -75,27 +75,27 @@ public:
 	{
 		switch (m_Network_HTTPVersion)
 		{
-			case HTTP_VERSION_AUTO:
+			case GEN_HTTP_VERSION_AUTO:
 			{
 				return CURL_HTTP_VERSION_NONE;
 			}
 
-			case HTTP_VERSION_1_0:
+			case GEN_HTTP_VERSION_1_0:
 			{
 				return CURL_HTTP_VERSION_1_0;
             }
 
-			case HTTP_VERSION_1_1:
+			case GEN_HTTP_VERSION_1_1:
 			{
 				return CURL_HTTP_VERSION_1_1;
 			}
 
-			case HTTP_VERSION_2_0:
+			case GEN_HTTP_VERSION_2_0:
 			{
 				return CURL_HTTP_VERSION_2_0;
 			}
 
-			case HTTP_VERSION_3_0:
+			case GEN_HTTP_VERSION_3_0:
 			{
 				return CURL_HTTP_VERSION_3;
 			}
@@ -136,6 +136,6 @@ private:
 	bool m_Social_Notification_PlayerSendsRequest_Menus = true;
 	bool m_Social_Notification_PlayerSendsRequest_Gameplay = true;
 
-	EHTTPVersion m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
+	EHTTPVersion m_Network_HTTPVersion = EHTTPVersion::GEN_HTTP_VERSION_AUTO;
 	bool m_Network_UseAlternativeEndpoint = false;
 };

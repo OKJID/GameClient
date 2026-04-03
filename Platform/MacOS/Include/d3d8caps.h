@@ -1,2 +1,2 @@
 #pragma once
-#include <Utility/d3d8_compat.h>
+#include <d3d8.h>

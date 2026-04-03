@@ -47,6 +47,8 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#ifndef __APPLE__
+
 #include "mbstring.h"
 
 #include "Common/Debug.h"
@@ -1598,3 +1600,39 @@ void IMEManager::updateStatusWindow()
 
 }
 
+#else // __APPLE__
+
+#include "GameClient/IMEManager.h"
+#include "GameClient/GameWindow.h"
+
+class IMEManagerStub : public IMEManagerInterface
+{
+public:
+	virtual ~IMEManagerStub() override {}
+	void init() override {}
+	void reset() override {}
+	void update() override {}
+	void attach(GameWindow *window) override {}
+	void detach() override {}
+	void enable() override {}
+	void disable() override {}
+	Bool isEnabled() override { return FALSE; }
+	Bool isAttachedTo(GameWindow *window) override { return FALSE; }
+	GameWindow* getWindow() override { return nullptr; }
+	Bool isComposing() override { return FALSE; }
+	void getCompositionString(UnicodeString &string) override {}
+	Int getCompositionCursorPosition() override { return 0; }
+	Int getIndexBase() override { return 1; }
+	Int getCandidateCount() override { return 0; }
+	const UnicodeString* getCandidate(Int index) override { return nullptr; }
+	Int getSelectedCandidateIndex() override { return 0; }
+	Int getCandidatePageSize() override { return 0; }
+	Int getCandidatePageStart() override { return 0; }
+	Bool serviceIMEMessage(void *windowsHandle, UnsignedInt message, Int wParam, Int lParam) override { return FALSE; }
+	Int result() override { return 0; }
+};
+
+IMEManagerInterface *TheIMEManager = nullptr;
+IMEManagerInterface *CreateIMEManagerInterface() { return new IMEManagerStub; }
+
+#endif // __APPLE__

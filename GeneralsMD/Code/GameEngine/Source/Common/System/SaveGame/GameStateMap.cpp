@@ -41,6 +41,7 @@
 #include "GameClient/MapUtil.h"
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameInfo.h"
+#include <filesystem>
 
 // GLOBALS ////////////////////////////////////////////////////////////////////////////////////////
 GameStateMap *TheGameStateMap = nullptr;
@@ -452,6 +453,7 @@ void GameStateMap::xfer( Xfer *xfer )
 void GameStateMap::clearScratchPadMaps()
 {
 
+#ifndef __APPLE__
 	// remember the current directory
 	char currentDirectory[ _MAX_PATH ];
 	GetCurrentDirectory( _MAX_PATH, currentDirectory );
@@ -515,5 +517,30 @@ void GameStateMap::clearScratchPadMaps()
 
 	// restore our directory to the current directory
 	SetCurrentDirectory( currentDirectory );
+#else
+	try
+	{
+		for (const auto& entry : std::filesystem::directory_iterator(TheGameState->getSaveDirectory().str()))
+		{
+			if (entry.is_regular_file())
+			{
+				std::string path = entry.path().string();
+				if (path.length() >= 4)
+				{
+					std::string ext = path.substr(path.length() - 4);
+					// lowercase ext manually or just check for .map
+					if (ext == ".map" || ext == ".MAP")
+					{
+						std::filesystem::remove(entry.path());
+					}
+				}
+			}
+		}
+	}
+	catch (...)
+	{
+		// Safe to ignore errors here
+	}
+#endif
 
 }

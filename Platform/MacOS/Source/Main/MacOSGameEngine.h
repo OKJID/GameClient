@@ -21,7 +21,7 @@ protected:
 	FunctionLexicon* createFunctionLexicon() override;
 	LocalFileSystem* createLocalFileSystem() override;
 	ArchiveFileSystem* createArchiveFileSystem() override;
-	NetworkInterface* createNetwork() override;
+	NetworkInterface* createNetwork();
 	Radar* createRadar() override;
 	WebBrowser* createWebBrowser() override;
 	AudioManager* createAudioManager() override;

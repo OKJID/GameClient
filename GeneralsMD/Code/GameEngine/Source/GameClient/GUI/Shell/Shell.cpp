@@ -521,6 +521,7 @@ void Shell::showShell(Bool runInit)
 #ifdef RTS_PROFILE
 		Profile::StopRange("init");
 #endif
+		printf("DEBUG: Shell::showShell() preparing to push Menus/MainMenu.wnd\n"); fflush(stdout);
 		//else
 		push("Menus/MainMenu.wnd");
 	}
@@ -668,8 +669,13 @@ void Shell::doPush(AsciiString layoutFile)
 		GameSpyCloseAllOverlays();
 	WindowLayout* newScreen;
 
+	printf("DEBUG: Shell::doPush() layoutFile = '%s'\n", layoutFile.str()); fflush(stdout);
+
 	// create new layout and load from window manager
 	newScreen = TheWindowManager->winCreateLayout(layoutFile);
+	if (newScreen == NULL) {
+		printf("DEBUG: Shell::doPush() FAILED TO LOAD LAYOUT '%s' from TheWindowManager!\n", layoutFile.str()); fflush(stdout);
+	}
 	DEBUG_ASSERTCRASH(newScreen != NULL, ("Shell unable to load pending push layout"));
 
 	// link screen to the top
@@ -678,6 +684,7 @@ void Shell::doPush(AsciiString layoutFile)
 	if (TheIMEManager)
 		TheIMEManager->detach();
 
+	printf("DEBUG: Shell::doPush() Layout loaded. Running init...\n"); fflush(stdout);
 	// run the init function automatically
 	newScreen->runInit(NULL);
 	newScreen->bringForward();

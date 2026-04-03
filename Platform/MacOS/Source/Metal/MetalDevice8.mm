@@ -9,7 +9,7 @@
 // Import ObjC/Metal frameworks FIRST, before win_compat.h
 #import <AppKit/AppKit.h>
 #import <Metal/Metal.h>
-#import <QuartzCore/CAMetalLayer.h>
+#import <QuartzCore/QuartzCore.h>
 #include <unistd.h>
 
 // Now include our header (which includes d3d8.h / win_compat.h)
@@ -417,50 +417,9 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   id<MTLCommandQueue> queue = [device newCommandQueue];
   SET_MTL(CommandQueue, queue);
 
-  // Load Shaders (Compile from Source at Runtime)
-  NSError *error = nil;
-  NSString *shaderSource = nil;
-  // Try multiple paths to find the shader source
-  NSArray *shaderPaths = @[
-    @"MacOSShaders.metal",
-    @"Platform/MacOS/Source/Main/MacOSShaders.metal",
-    @"../../Platform/MacOS/Source/Main/MacOSShaders.metal",
-    @"../Platform/MacOS/Source/Main/MacOSShaders.metal",
-    @"../../../Platform/MacOS/Source/Main/MacOSShaders.metal",
-    @"../../../../Platform/MacOS/Source/Main/MacOSShaders.metal",
-  ];
-
-  NSString *shaderPath = nil;
-  for (NSString *path in shaderPaths) {
-    if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
-      shaderPath = path;
-      break;
-    }
-  }
-
-  if (shaderPath) {
-    shaderSource = [NSString stringWithContentsOfFile:shaderPath
-                                             encoding:NSUTF8StringEncoding
-                                                error:&error];
-  } else {
-    fprintf(stderr, "[MetalDevice8] WARNING: Could not find MacOSShaders.metal "
-                    "in any search path\n");
-    fprintf(stderr, "[MetalDevice8] CWD: %s\n",
-            [[[NSFileManager defaultManager] currentDirectoryPath] UTF8String]);
-  }
-
-  id<MTLLibrary> library = nil;
-  if (shaderSource) {
-    MTLCompileOptions *opts = [[MTLCompileOptions alloc] init];
-    library = [device newLibraryWithSource:shaderSource
-                                   options:opts
-                                     error:&error];
-  }
-
+  id<MTLLibrary> library = [device newDefaultLibrary];
   if (!library) {
-    fprintf(stderr, "[MetalDevice8] ERROR: Failed to compile shaders: %s\n",
-            [[error localizedDescription] UTF8String]);
-    fprintf(stderr, "Shader path checked: %s\n", [shaderPath UTF8String]);
+    fprintf(stderr, "[MetalDevice8] ERROR: Failed to load default.metallib from app bundle resources.\n");
   } else {
     SET_MTL(Library, library);
 
@@ -512,6 +471,12 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
     layer.drawableSize = CGSizeMake(viewSize.width, viewSize.height);
     m_ScreenWidth = viewSize.width;
     m_ScreenHeight = viewSize.height;
+
+    // CRITICAL: Flush the layer transaction to the Window Server immediately.
+    // Otherwise, the very first nextDrawable called in BeginScene() will block
+    // infinitely because the engine update loop starts BEFORE the main thread
+    // runloop has a chance to flush the render tree!
+    [CATransaction flush];
 
     fprintf(stderr, "[MetalDevice8] Initialized: %gx%g (drawable: %gx%g, backingScale: %g, contentsScale: 1.0)\n",
             m_ScreenWidth, m_ScreenHeight, layer.drawableSize.width,
@@ -793,7 +758,7 @@ void MetalDevice8::ApplyPerDrawState() {
 
   DWORD cullMode = m_RenderStates[D3DRS_CULLMODE];
   if (cullMode != m_LastAppliedCull) {
-    [MTL_ENCODER setCullMode:MapD3DCullToMTL(cullMode)];
+    [MTL_ENCODER setCullMode:MTLCullModeNone]; // FORCE NO CULLING
     [MTL_ENCODER setFrontFacingWinding:MTLWindingClockwise];
     m_LastAppliedCull = cullMode;
   }
@@ -841,6 +806,22 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   u.screenSize.y = m_ScreenHeight;
   u.useProjection = (fvf & D3DFVF_XYZRHW) ? 2 : 1;
   u.shaderSettings = 0;
+
+  // DIAG: dump matrices every 60th present frame
+  extern int g_metalPresentCount;
+  if (g_metalPresentCount % 120 == 0) {
+    const float* w = (const float*)&m_Transforms[D3DTS_WORLD];
+    const float* v = (const float*)&m_Transforms[D3DTS_VIEW];
+    const float* p = (const float*)&m_Transforms[D3DTS_PROJECTION];
+    printf("[DIAG] BindUniforms fvf=0x%x useProj=%d frame=%d\n", (unsigned)fvf, u.useProjection, g_metalPresentCount);
+    printf("[DIAG]   World: [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
+           w[0],w[1],w[2],w[3], w[4],w[5],w[6],w[7], w[8],w[9],w[10],w[11], w[12],w[13],w[14],w[15]);
+    printf("[DIAG]   View:  [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
+           v[0],v[1],v[2],v[3], v[4],v[5],v[6],v[7], v[8],v[9],v[10],v[11], v[12],v[13],v[14],v[15]);
+    printf("[DIAG]   Proj:  [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
+           p[0],p[1],p[2],p[3], p[4],p[5],p[6],p[7], p[8],p[9],p[10],p[11], p[12],p[13],p[14],p[15]);
+    fflush(stdout);
+  }
   for (int s = 0; s < 4; ++s) {
     memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
     u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
@@ -887,6 +868,17 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   }
   for (int s = 0; s < 4; ++s) {
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+  }
+  // DIAG: dump TSS for first draw each frame
+  if (g_metalPresentCount % 120 == 0) {
+    printf("[DIAG] TSS frame=%d: s0[cOp=%u cA1=0x%x cA2=0x%x aOp=%u hasTex=%u] s1[cOp=%u hasTex=%u]\n",
+           g_metalPresentCount,
+           fu.stages[0].colorOp, fu.stages[0].colorArg1, fu.stages[0].colorArg2,
+           fu.stages[0].alphaOp, fu.hasTexture[0],
+           fu.stages[1].colorOp, fu.hasTexture[1]);
+    printf("[DIAG] TSS textures: [%p, %p, %p, %p]\n",
+           m_Textures[0], m_Textures[1], m_Textures[2], m_Textures[3]);
+    fflush(stdout);
   }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
@@ -1022,7 +1014,7 @@ void MetalDevice8::BindTexturesAndSamplers() {
   }
 }
 
-MTLPrimitiveType MetalDevice8::MapPrimitiveType(DWORD d3dPrimType) {
+unsigned long MetalDevice8::MapPrimitiveType(DWORD d3dPrimType) {
   switch (d3dPrimType) {
     case D3DPT_TRIANGLELIST:  return MTLPrimitiveTypeTriangle;
     case D3DPT_TRIANGLESTRIP: return MTLPrimitiveTypeTriangleStrip;
@@ -1081,8 +1073,6 @@ STDMETHODIMP MetalDevice8::QueryInterface(REFIID riid, void **ppvObj) {
     *ppvObj = nullptr;
   return E_NOINTERFACE;
 }
-
-STDMETHODIMP_(ULONG) MetalDevice8::AddRef() { return ++m_RefCount; }
 
 STDMETHODIMP_(ULONG) MetalDevice8::Release() {
   ULONG r = --m_RefCount;
@@ -1198,9 +1188,14 @@ STDMETHODIMP MetalDevice8::CreateAdditionalSwapChain(D3DPRESENT_PARAMETERS *p,
 STDMETHODIMP MetalDevice8::Reset(D3DPRESENT_PARAMETERS *p) { return D3D_OK; }
 
 int g_metalPresentCount = 0;
+int g_metalDrawCallsThisFrame = 0;
 
 STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
                                    const void *r) {
+  printf("[DIAG] Present frame=%d drawable=%p cmdBuf=%p encoder=%p drawCalls=%d\n",
+         g_metalPresentCount, m_CurrentDrawable, m_CurrentCommandBuffer, m_CurrentEncoder, g_metalDrawCallsThisFrame);
+  fflush(stdout);
+  g_metalDrawCallsThisFrame = 0;
   if (m_CurrentEncoder) {
     [MTL_ENCODER endEncoding];
     CLEAR_MTL(CurrentEncoder);
@@ -1214,6 +1209,28 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
     // until VSync. Without this, CPU races ahead causing resource conflicts.
     // displaySyncEnabled=YES on CAMetalLayer handles the actual frame rate cap.
     [MTL_CMD_BUF waitUntilCompleted];
+
+    // DIAG: Read back center pixel to verify GPU actually rendered something
+    if (m_CurrentDrawable && (g_metalPresentCount % 60 == 0)) {
+      id<MTLTexture> tex = MTL_DRAWABLE.texture;
+      if (tex && tex.width > 0 && tex.height > 0) {
+        uint8_t pixel[4] = {0};
+        NSUInteger cx = tex.width / 2;
+        NSUInteger cy = tex.height / 2;
+        [tex getBytes:pixel bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(cx, cy, 1, 1) mipmapLevel:0];
+        printf("[DIAG] Present frame=%d CENTER_PIXEL BGRA=[%u,%u,%u,%u] tex=%lux%lu\n",
+               g_metalPresentCount, pixel[0], pixel[1], pixel[2], pixel[3],
+               (unsigned long)tex.width, (unsigned long)tex.height);
+        // Also sample corners
+        uint8_t tl[4]={0}, br[4]={0};
+        [tex getBytes:tl bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0];
+        [tex getBytes:br bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(tex.width-1, tex.height-1, 1, 1) mipmapLevel:0];
+        printf("[DIAG] Present frame=%d TL=[%u,%u,%u,%u] BR=[%u,%u,%u,%u]\n",
+               g_metalPresentCount, tl[0], tl[1], tl[2], tl[3], br[0], br[1], br[2], br[3]);
+        fflush(stdout);
+      }
+    }
+
     CLEAR_MTL(CurrentCommandBuffer);
   }
   CLEAR_MTL(CurrentDrawable);
@@ -1772,6 +1789,7 @@ STDMETHODIMP MetalDevice8::SetDepthStencilSurface(IDirect3DSurface8 *s) {
 // ─────────────────────────────────────────────────────
 
 STDMETHODIMP MetalDevice8::BeginScene() {
+  DLOG_RFLOW(1, "BeginScene m_InScene=%d", m_InScene);
   if (m_InScene)
     return D3D_OK;
   m_InScene = true;
@@ -1791,16 +1809,22 @@ STDMETHODIMP MetalDevice8::BeginScene() {
 
   id<CAMetalDrawable> drawable = [MTL_LAYER nextDrawable];
   if (!drawable) {
+    printf("[DIAG] BeginScene: nextDrawable returned nil! layer=%p\n", m_MetalLayer);
+    fflush(stdout);
     m_InScene = false;
     CLEAR_MTL(CurrentCommandBuffer);
     return E_FAIL;
   }
+  printf("[DIAG] BeginScene: got drawable=%p texture=%p %lux%lu\n",
+         drawable, drawable.texture, drawable.texture.width, drawable.texture.height);
+  fflush(stdout);
   SET_MTL(CurrentDrawable, drawable);
 
   return D3D_OK;
 }
 
 STDMETHODIMP MetalDevice8::EndScene() {
+  DLOG_RFLOW(1, "EndScene m_InScene=%d", m_InScene);
   if (!m_InScene)
     return D3D_OK;
   m_InScene = false;
@@ -1809,6 +1833,7 @@ STDMETHODIMP MetalDevice8::EndScene() {
 
 STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
                                  D3DCOLOR Color, float Z, DWORD Stencil) {
+  DLOG_RFLOW(2, "Clear flags=0x%x color=0x%08x Z=%f", (unsigned)Flags, (unsigned)Color, Z);
 
   // WW3D calls Clear() BEFORE BeginScene(), so auto-start if needed.
   if (!m_CurrentDrawable) {
@@ -1938,6 +1963,15 @@ STDMETHODIMP MetalDevice8::SetTransform(D3DTRANSFORMSTATETYPE State,
     m_Transforms[(int)State] = *pMatrix;
   }
 
+  // DIAG: log transform changes for key states
+  if (State == D3DTS_WORLD || State == D3DTS_VIEW || State == D3DTS_PROJECTION) {
+    const float* f = (const float*)pMatrix;
+    const char* name = (State == D3DTS_WORLD) ? "WORLD" : (State == D3DTS_VIEW) ? "VIEW" : "PROJ";
+    printf("[DIAG] SetTransform %s(%d): diag=[%.3f,%.3f,%.3f,%.3f] [%.3f,%.3f,%.3f,%.3f]\n",
+           name, (int)State, f[0],f[5],f[10],f[15], f[12],f[13],f[14],f[15]);
+    fflush(stdout);
+  }
+
   return D3D_OK;
 }
 
@@ -1958,6 +1992,10 @@ STDMETHODIMP MetalDevice8::GetTransform(D3DTRANSFORMSTATETYPE State,
 STDMETHODIMP MetalDevice8::SetViewport(const D3DVIEWPORT8 *pViewport) {
   if (!pViewport)
     return E_POINTER;
+  printf("[DIAG] SetViewport x=%u y=%u w=%u h=%u minZ=%.3f maxZ=%.3f\n",
+         pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height,
+         pViewport->MinZ, pViewport->MaxZ);
+  fflush(stdout);
   m_Viewport = *pViewport;
 
   if (m_CurrentEncoder) {
@@ -2377,7 +2415,54 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
 //  Drawing
 // ─────────────────────────────────────────────────────
 
+void MetalDevice8::EnsureCurrentEncoder() {
+  if (m_CurrentEncoder)
+    return;
+  if (!m_CurrentDrawable)
+    return;
+
+  MTLRenderPassDescriptor *rpd = [MTLRenderPassDescriptor renderPassDescriptor];
+  bool useMSAA = (m_MSAASampleCount > 1 && !m_RTTColorTexture && m_MSAAColorTexture);
+
+  if (m_RTTColorTexture) {
+    rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)m_RTTColorTexture;
+  } else if (useMSAA) {
+    rpd.colorAttachments[0].texture = (__bridge id<MTLTexture>)m_MSAAColorTexture;
+    rpd.colorAttachments[0].resolveTexture = MTL_DRAWABLE.texture;
+  } else {
+    rpd.colorAttachments[0].texture = MTL_DRAWABLE.texture;
+  }
+
+  rpd.colorAttachments[0].loadAction = MTLLoadActionLoad;
+  rpd.colorAttachments[0].storeAction = useMSAA
+      ? MTLStoreActionStoreAndMultisampleResolve
+      : MTLStoreActionStore;
+
+  id<MTLTexture> depthTarget = nil;
+  if (m_RTTColorTexture && m_RTTDepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_RTTDepthTexture;
+  } else if (useMSAA && m_MSAADepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_MSAADepthTexture;
+  } else if (m_DepthTexture) {
+    depthTarget = (__bridge id<MTLTexture>)m_DepthTexture;
+  }
+
+  if (depthTarget) {
+    rpd.depthAttachment.texture = depthTarget;
+    rpd.depthAttachment.storeAction = useMSAA ? MTLStoreActionDontCare : MTLStoreActionStore;
+    rpd.depthAttachment.loadAction = MTLLoadActionLoad;
+
+    rpd.stencilAttachment.texture = depthTarget;
+    rpd.stencilAttachment.storeAction = useMSAA ? MTLStoreActionDontCare : MTLStoreActionStore;
+    rpd.stencilAttachment.loadAction = MTLLoadActionLoad;
+  }
+
+  id<MTLRenderCommandEncoder> encoder = [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
+  SET_MTL(CurrentEncoder, encoder);
+}
+
 STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
+  EnsureCurrentEncoder();
   if (!m_CurrentEncoder || !m_StreamSource)
     return D3D_OK;
 
@@ -2415,25 +2500,55 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   BindCustomVSUniforms();
   BindTexturesAndSamplers();
 
-  MTLPrimitiveType mtlPt = MapPrimitiveType(pt);
-
+  MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
   UINT vertexCount = 0;
+
+  if (pt == D3DPT_TRIANGLEFAN) {
+    UINT indexCount = pc * 3;
+    std::vector<uint16_t> fan(indexCount);
+    for (UINT i = 0; i < pc; i++) {
+      fan[i * 3 + 0] = 0;
+      fan[i * 3 + 1] = i + 1;
+      fan[i * 3 + 2] = i + 2;
+    }
+    id<MTLBuffer> tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data()
+                                                            length:indexCount * sizeof(uint16_t)
+                                                           options:MTLResourceStorageModeShared];
+    [MTL_ENCODER drawIndexedPrimitives:MTLPrimitiveTypeTriangle
+                            indexCount:indexCount
+                             indexType:MTLIndexTypeUInt16
+                           indexBuffer:tempIdxBuffer
+                     indexBufferOffset:0
+                         instanceCount:1
+                            baseVertex:(NSInteger)sv
+                          baseInstance:0];
+    return D3D_OK;
+  }
+
   if (pt == D3DPT_TRIANGLELIST)
     vertexCount = pc * 3;
   else if (pt == D3DPT_TRIANGLESTRIP)
     vertexCount = pc + 2;
   else if (pt == D3DPT_LINELIST)
     vertexCount = pc * 2;
+  else if (pt == D3DPT_POINTLIST)
+    vertexCount = pc;
 
-  [MTL_ENCODER drawPrimitives:mtlPt vertexStart:sv vertexCount:vertexCount];
+  if (vertexCount > 0) {
+    [MTL_ENCODER drawPrimitives:mtlPt vertexStart:sv vertexCount:vertexCount];
+  }
   return D3D_OK;
 }
 
 STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
                                                 UINT si, UINT pc) {
+  EnsureCurrentEncoder();
   DLOG_RFLOW(15, "DrawIndexedPrimitive pt=%u minIdx=%u numVerts=%u startIdx=%u primCount=%u encoder=%p",
     (unsigned)pt, mi, nv, si, pc, m_CurrentEncoder);
   if (!m_CurrentEncoder || !m_StreamSource || !m_IndexBuffer) {
+    printf("[DIAG] DrawIndexedPrimitive SKIPPED: encoder=%p streamSrc=%p indexBuf=%p\n",
+           m_CurrentEncoder, m_StreamSource, m_IndexBuffer);
+    fflush(stdout);
     return D3D_OK;
   }
 
@@ -2473,30 +2588,67 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   BindCustomVSUniforms();
   BindTexturesAndSamplers();
 
-  MTLPrimitiveType mtlPt = MapPrimitiveType(pt);
-
+  MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
   UINT indexCount = 0;
-  if (pt == D3DPT_TRIANGLELIST)
-    indexCount = pc * 3;
-  else if (pt == D3DPT_TRIANGLESTRIP)
-    indexCount = pc + 2;
-
   MetalIndexBuffer8 *ib = (MetalIndexBuffer8 *)m_IndexBuffer;
-  MTLIndexType idxType =
-      ib->Is_32Bit() ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
+  MTLIndexType idxType = ib->Is_32Bit() ? MTLIndexTypeUInt32 : MTLIndexTypeUInt16;
   uint32_t offset = si * (ib->Is_32Bit() ? 4 : 2);
+  id<MTLBuffer> mtlIdxBuf = (__bridge id<MTLBuffer>)ib->GetMTLBuffer();
+  id<MTLBuffer> tempIdxBuffer = nil;
+
+  if (pt == D3DPT_TRIANGLEFAN) {
+    mtlPt = MTLPrimitiveTypeTriangle;
+    indexCount = pc * 3;
+    uint8_t *idxData = (uint8_t *)[mtlIdxBuf contents];
+    if (idxData) {
+      if (ib->Is_32Bit()) {
+        std::vector<uint32_t> fan(indexCount);
+        uint32_t *src = (uint32_t *)(idxData + offset);
+        for (UINT i = 0; i < pc; i++) {
+          fan[i * 3 + 0] = src[0];
+          fan[i * 3 + 1] = src[i + 1];
+          fan[i * 3 + 2] = src[i + 2];
+        }
+        tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data() length:indexCount * 4 options:MTLResourceStorageModeShared];
+        offset = 0;
+      } else {
+        std::vector<uint16_t> fan(indexCount);
+        uint16_t *src = (uint16_t *)(idxData + offset);
+        for (UINT i = 0; i < pc; i++) {
+          fan[i * 3 + 0] = src[0];
+          fan[i * 3 + 1] = src[i + 1];
+          fan[i * 3 + 2] = src[i + 2];
+        }
+        tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data() length:indexCount * 2 options:MTLResourceStorageModeShared];
+        offset = 0;
+      }
+    }
+    if (tempIdxBuffer) {
+      mtlIdxBuf = tempIdxBuffer;
+    }
+  } else if (pt == D3DPT_TRIANGLELIST) {
+    indexCount = pc * 3;
+  } else if (pt == D3DPT_TRIANGLESTRIP) {
+    indexCount = pc + 2;
+  }
 
   // m_BaseVertexIndex comes from DX8 SetIndices(ib, BaseVertexIndex).
   // DX8 adds this to every index value before fetching the vertex.
   // Metal's drawIndexedPrimitives:baseVertex does the same thing.
-  [MTL_ENCODER drawIndexedPrimitives:mtlPt
-                          indexCount:indexCount
-                           indexType:idxType
-                         indexBuffer:(__bridge id<MTLBuffer>)ib->GetMTLBuffer()
-                   indexBufferOffset:offset
-                       instanceCount:1
-                          baseVertex:(NSInteger)m_BaseVertexIndex
-                        baseInstance:0];
+  if (indexCount > 0 && mtlIdxBuf) {
+    extern int g_metalDrawCallsThisFrame;
+    g_metalDrawCallsThisFrame++;
+    DLOG_RFLOW(16, "DrawIndexedPrimitive EXEC idxCount=%u fvf=0x%x pso=%p useProj=%d",
+               indexCount, (unsigned)fvf, pso, (fvf & D3DFVF_XYZRHW) ? 2 : 1);
+    [MTL_ENCODER drawIndexedPrimitives:mtlPt
+                            indexCount:indexCount
+                             indexType:idxType
+                           indexBuffer:mtlIdxBuf
+                     indexBufferOffset:offset
+                         instanceCount:1
+                            baseVertex:(NSInteger)m_BaseVertexIndex
+                          baseInstance:0];
+  }
 
 
   return D3D_OK;
@@ -2504,6 +2656,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
 STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
                                            UINT stride) {
+  EnsureCurrentEncoder();
   if (!m_CurrentEncoder || !data || pc == 0)
     return D3D_OK;
 
@@ -2531,32 +2684,47 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
 
 
-  // Determine vertex count from primitive type and count
+  // Determine vertex count and convert D3DPT_TRIANGLEFAN to TriangleList if needed
   UINT vertexCount = 0;
   MTLPrimitiveType mtlPrimType;
-  switch (pt) {
-  case D3DPT_TRIANGLELIST:
+  std::vector<uint8_t> fanBuffer;
+
+  if (pt == D3DPT_TRIANGLEFAN) {
     vertexCount = pc * 3;
     mtlPrimType = MTLPrimitiveTypeTriangle;
-    break;
-  case D3DPT_TRIANGLESTRIP:
-    vertexCount = pc + 2;
-    mtlPrimType = MTLPrimitiveTypeTriangleStrip;
-    break;
-  case D3DPT_LINELIST:
-    vertexCount = pc * 2;
-    mtlPrimType = MTLPrimitiveTypeLine;
-    break;
-  case D3DPT_LINESTRIP:
-    vertexCount = pc + 1;
-    mtlPrimType = MTLPrimitiveTypeLineStrip;
-    break;
-  case D3DPT_POINTLIST:
-    vertexCount = pc;
-    mtlPrimType = MTLPrimitiveTypePoint;
-    break;
-  default:
-    return D3D_OK;
+    fanBuffer.resize(vertexCount * stride);
+    const uint8_t *srcData = (const uint8_t *)data;
+    for (UINT i = 0; i < pc; i++) {
+      memcpy(fanBuffer.data() + (i * 3 + 0) * stride, srcData, stride);
+      memcpy(fanBuffer.data() + (i * 3 + 1) * stride, srcData + (i + 1) * stride, stride);
+      memcpy(fanBuffer.data() + (i * 3 + 2) * stride, srcData + (i + 2) * stride, stride);
+    }
+    data = fanBuffer.data();
+  } else {
+    switch (pt) {
+    case D3DPT_TRIANGLELIST:
+      vertexCount = pc * 3;
+      mtlPrimType = MTLPrimitiveTypeTriangle;
+      break;
+    case D3DPT_TRIANGLESTRIP:
+      vertexCount = pc + 2;
+      mtlPrimType = MTLPrimitiveTypeTriangleStrip;
+      break;
+    case D3DPT_LINELIST:
+      vertexCount = pc * 2;
+      mtlPrimType = MTLPrimitiveTypeLine;
+      break;
+    case D3DPT_LINESTRIP:
+      vertexCount = pc + 1;
+      mtlPrimType = MTLPrimitiveTypeLineStrip;
+      break;
+    case D3DPT_POINTLIST:
+      vertexCount = pc;
+      mtlPrimType = MTLPrimitiveTypePoint;
+      break;
+    default:
+      return D3D_OK;
+    }
   }
 
   // Use current FVF (from SetVertexShader or stream source)
@@ -2659,6 +2827,7 @@ STDMETHODIMP
 MetalDevice8::DrawIndexedPrimitiveUP(DWORD pt, UINT mvi, UINT nvi, UINT pc,
                                      const void *idata, D3DFORMAT ifmt,
                                      const void *vdata, UINT vstride) {
+  EnsureCurrentEncoder();
   // TODO: Implement if needed — currently no callers in the engine
   return D3D_OK;
 }
@@ -2771,6 +2940,7 @@ STDMETHODIMP MetalDevice8::SetVertexShaderConstant(DWORD r, const void *d,
 STDMETHODIMP MetalDevice8::SetStreamSource(UINT streamNum,
                                            IDirect3DVertexBuffer8 *vb,
                                            UINT stride) {
+  DLOG_RFLOW(10, "SetStreamSource stream=%u vb=%p stride=%u", streamNum, vb, stride);
   if (streamNum == 0) {
     m_StreamSource = vb;
     m_StreamStride = stride;
@@ -2791,6 +2961,7 @@ HRESULT MetalDevice8::GetStreamSource(UINT streamNum,
 }
 
 STDMETHODIMP MetalDevice8::SetIndices(IDirect3DIndexBuffer8 *ib, UINT base) {
+  DLOG_RFLOW(10, "SetIndices ib=%p base=%u", ib, base);
   m_IndexBuffer = ib;
   m_BaseVertexIndex = base;
   return D3D_OK;

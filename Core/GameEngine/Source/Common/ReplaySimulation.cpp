@@ -139,6 +139,7 @@ int ReplaySimulation::simulateReplaysInThisProcess(const std::vector<AsciiString
 
 int ReplaySimulation::simulateReplaysInWorkerProcesses(const std::vector<AsciiString> &filenames, int maxProcesses)
 {
+#ifndef __APPLE__
 	DWORD totalStartTimeMillis = GetTickCount();
 
 	WideChar exePath[1024];
@@ -218,6 +219,9 @@ int ReplaySimulation::simulateReplaysInWorkerProcesses(const std::vector<AsciiSt
 	fflush(stdout);
 
 	return numErrors != 0 ? 1 : 0;
+#else
+	return 1;
+#endif
 }
 
 std::vector<AsciiString> ReplaySimulation::resolveFilenameWildcards(const std::vector<AsciiString> &filenames)

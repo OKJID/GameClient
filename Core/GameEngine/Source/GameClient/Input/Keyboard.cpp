@@ -339,9 +339,13 @@ void Keyboard::initKeyNames()
 
 	_set_keyname_(L' ',		L' ',		L'\0',	KEY_SPACE  );
 
+#ifdef __APPLE__
+	Int low = 0x0409; // Default to US layout on MAC OS
+#else
 	HKL kLayout = GetKeyboardLayout(0);
 
 	Int low = (UnsignedInt)kLayout & 0xFFFF;
+#endif
 	LanguageID currentLanguage = OurLanguage;
 	if(low == 0x040c
 		 || low == 0x080c

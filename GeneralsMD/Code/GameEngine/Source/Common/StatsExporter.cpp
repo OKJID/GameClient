@@ -33,7 +33,9 @@
 #include "GameLogic/Module/BattlePlanUpdate.h"
 
 #include <stdio.h>
+#define Byte ZlibByte
 #include <zlib.h>
+#undef Byte
 
 #include "GameNetwork/GeneralsOnline/json.hpp"
 

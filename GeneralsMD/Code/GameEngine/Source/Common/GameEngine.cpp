@@ -211,7 +211,9 @@ void initSubsystem(
 
 //-------------------------------------------------------------------------------------------------
 extern HINSTANCE ApplicationHInstance;  ///< our application instance
+#ifndef __APPLE__
 extern CComModule _Module;
+#endif
 
 //-------------------------------------------------------------------------------------------------
 static void updateTGAtoDDS();
@@ -271,6 +273,7 @@ static void updateWindowTitle()
 		title.concat(gameVersion.str());
 	}
 
+#ifndef __APPLE__
 	if (!title.isEmpty())
 	{
 		AsciiString titleA;
@@ -283,6 +286,7 @@ static void updateWindowTitle()
 			::SetWindowTextW(ApplicationHWnd, title.str());
 		}
 	}
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -293,7 +297,9 @@ GameEngine::GameEngine()
 	m_quitting = FALSE;
 	m_isActive = FALSE;
 
+#ifndef __APPLE__
 	_Module.Init(nullptr, ApplicationHInstance, nullptr);
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -336,7 +342,9 @@ GameEngine::~GameEngine()
 	NGMP_OnlineServicesManager::DestroyInstance();
 	Drawable::killStaticImages();
 
+#ifndef __APPLE__
 	_Module.Term();
+#endif
 
 #ifdef PERF_TIMERS
 	PerfGather::termPerfDump();
@@ -624,6 +632,7 @@ void GameEngine::init()
 
 
 
+		printf("DEBUG: init TheThingFactory\n"); fflush(stdout);
 		initSubsystem(TheThingFactory, "TheThingFactory", createThingFactory(), &xferCRC, "Data\\INI\\Default\\Object", "Data\\INI\\Object");
 
 #ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
@@ -639,7 +648,9 @@ void GameEngine::init()
 			TheNameKeyGenerator->verifyNameKeyID(2265);
 #endif
 
+		printf("DEBUG: init TheUpgradeCenter\n"); fflush(stdout);
 		initSubsystem(TheUpgradeCenter,"TheUpgradeCenter", MSGNEW("GameEngineSubsystem") UpgradeCenter, &xferCRC, "Data\\INI\\Default\\Upgrade", "Data\\INI\\Upgrade");
+		printf("DEBUG: init TheGameClient\n"); fflush(stdout);
 		initSubsystem(TheGameClient,"TheGameClient", createGameClient(), nullptr);
 
 
@@ -651,13 +662,21 @@ void GameEngine::init()
 #endif/////////////////////////////////////////////////////////////////////////////////////////////
 
 
+		printf("DEBUG: init TheAI\n"); fflush(stdout);
 		initSubsystem(TheAI, "TheAI", MSGNEW("GameEngineSubsystem") AI(), &xferCRC, "Data\\INI\\Default\\AIData", "Data\\INI\\AIData");
+		printf("DEBUG: init TheGameLogic\n"); fflush(stdout);
 		initSubsystem(TheGameLogic, "TheGameLogic", createGameLogic(), nullptr);
+		printf("DEBUG: init TheTeamFactory\n"); fflush(stdout);
 		initSubsystem(TheTeamFactory, "TheTeamFactory", MSGNEW("GameEngineSubsystem") TeamFactory(), nullptr);
+		printf("DEBUG: init TheCrateSystem\n"); fflush(stdout);
 		initSubsystem(TheCrateSystem, "TheCrateSystem", MSGNEW("GameEngineSubsystem") CrateSystem(), &xferCRC, "Data\\INI\\Default\\Crate", "Data\\INI\\Crate");
+		printf("DEBUG: init ThePlayerList\n"); fflush(stdout);
 		initSubsystem(ThePlayerList, "ThePlayerList", MSGNEW("GameEngineSubsystem") PlayerList(), nullptr);
+		printf("DEBUG: init TheRecorder\n"); fflush(stdout);
 		initSubsystem(TheRecorder, "TheRecorder", createRecorder(), nullptr);
+		printf("DEBUG: init TheRadar\n"); fflush(stdout);
 		initSubsystem(TheRadar, "TheRadar", TheGlobalData->m_headless ? NEW RadarDummy : createRadar(), nullptr);
+		printf("DEBUG: init TheVictoryConditions\n"); fflush(stdout);
 		initSubsystem(TheVictoryConditions, "TheVictoryConditions", createVictoryConditions(), nullptr);
 
 
@@ -793,6 +812,7 @@ void GameEngine::init()
 	}
 	catch (ErrorCode ec)
 	{
+		printf("\n!!! CAUGHT ErrorCode: %d\n", (int)ec); fflush(stdout);
 		if (ec == ERROR_INVALID_D3D)
 		{
 			RELEASE_CRASHLOCALIZED("ERROR:D3DFailurePrompt", "ERROR:D3DFailureMessage");
@@ -800,14 +820,22 @@ void GameEngine::init()
 	}
 	catch (INIException e)
 	{
+		printf("\n!!! CAUGHT INIException: %s\n", e.mFailureMessage ? e.mFailureMessage : "null");
+		fflush(stdout);
 		if (e.mFailureMessage)
 			RELEASE_CRASH((e.mFailureMessage));
 		else
 			RELEASE_CRASH(("Uncaught Exception during initialization."));
 
 	}
+	catch (std::exception& e)
+	{
+		printf("\n!!! CAUGHT std::exception: %s\n", e.what()); fflush(stdout);
+		RELEASE_CRASH(("Uncaught std::exception during initialization %s", e.what()));
+	}
 	catch (...)
 	{
+		printf("\n!!! CAUGHT UNKNOWN EXCEPTION during GameEngine::init !!!\n"); fflush(stdout);
 		RELEASE_CRASH(("Uncaught Exception during initialization."));
 	}
 
@@ -1200,4 +1228,8 @@ void updateTGAtoDDS()
 // If we're using the Wide character version of MessageBox, then there's no additional
 // processing necessary. Please note that this is a sleazy way to get this information,
 // but pending a better one, this'll have to do.
+#ifndef __APPLE__
 extern const Bool TheSystemIsUnicode = (((void*)(::MessageBox)) == ((void*)(::MessageBoxW)));
+#else
+extern const Bool TheSystemIsUnicode = true;
+#endif

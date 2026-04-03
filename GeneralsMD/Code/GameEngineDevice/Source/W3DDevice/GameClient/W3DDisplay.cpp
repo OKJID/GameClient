@@ -39,8 +39,13 @@ static void drawFramerateBar();
 #include <windows.h>
 #include <io.h>
 #include <time.h>
+#ifdef __APPLE__
+#include <chrono>
+#define CAPTURE_TO_TARGA 1
+#endif
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
+#include "GameClient/Keyboard.h"
 #include "Common/FramePacer.h"
 #include "Common/ThingFactory.h"
 #include "Common/GlobalData.h"
@@ -365,15 +370,23 @@ W3DAssetManager* W3DDisplay::m_assetManager = nullptr;
 inline Int64 getPerformanceCounter()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceCounter((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#endif
 }
 
 inline Int64 getPerformanceCounterFrequency()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceFrequency((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return 1000000;
+#endif
 }
 
 // W3DDisplay::W3DDisplay =====================================================
@@ -460,7 +473,9 @@ W3DDisplay::~W3DDisplay()
 		WW3D::Shutdown();
 	WWMath::Shutdown();
 	if (!TheGlobalData->m_headless)
+#ifndef __APPLE__
 		DX8WebBrowser::Shutdown();
+#endif
 	delete TheW3DFileSystem;
 	TheW3DFileSystem = nullptr;
 
@@ -632,6 +647,11 @@ void W3DDisplay::init()
 	}
 	// Override the W3D File system
 	TheW3DFileSystem = NEW W3DFileSystem;
+#ifdef __APPLE__
+	printf("[DIAG] W3DDisplay::init: TheW3DFileSystem=%p _TheFileFactory=%p\n",
+	       TheW3DFileSystem, _TheFileFactory);
+	fflush(stdout);
+#endif
 
 	// init the Westwood math library
 	WWMath::Init();
@@ -833,7 +853,9 @@ void W3DDisplay::init()
 			m_nativeDebugDisplay->setFontWidth(9);
 		}
 
+#ifndef __APPLE__
 		DX8WebBrowser::Initialize();
+#endif
 	}
 
 	// we're now online
@@ -1673,9 +1695,11 @@ void W3DDisplay::draw()
 	//USE_PERF_TIMER(W3DDisplay_draw)
 
 	extern HWND ApplicationHWnd;
+#ifndef __APPLE__
 	if (ApplicationHWnd && ::IsIconic(ApplicationHWnd)) {
 		return;
 	}
+#endif
 
 	if (TheGlobalData->m_headless)
 		return;
@@ -2930,6 +2954,7 @@ void W3DDisplay::setShroudLevel(Int x, Int y, CellShroudStatus setting)
 }
 
 //=============================================================================
+#ifndef __APPLE__
 ///Utility function to dump data into a .BMP file
 static void CreateBMPFile(LPTSTR pszFile, char* image, Int width, Int height)
 {
@@ -3005,6 +3030,8 @@ static void CreateBMPFile(LPTSTR pszFile, char* image, Int width, Int height)
 	// Free memory.
 	LocalFree((HLOCAL)pbmi);
 }
+
+#endif // __APPLE__
 
 ///Save Screen Capture to a file
 void W3DDisplay::takeScreenShot()

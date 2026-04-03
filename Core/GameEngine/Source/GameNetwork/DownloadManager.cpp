@@ -42,6 +42,7 @@ DownloadManager::DownloadManager()
 
 	// ----- Initialize Winsock -----
 	m_winsockInit = true;
+#ifndef __APPLE__
 	WORD verReq = MAKEWORD(2, 2);
 	WSADATA wsadata;
 
@@ -58,6 +59,7 @@ DownloadManager::DownloadManager()
 			m_winsockInit = false;
 		}
 	}
+#endif
 
 }
 
@@ -66,7 +68,9 @@ DownloadManager::~DownloadManager()
 	delete m_download;
 	if (m_winsockInit)
 	{
+#ifndef __APPLE__
 		WSACleanup();
+#endif
 		m_winsockInit = false;
 	}
 }

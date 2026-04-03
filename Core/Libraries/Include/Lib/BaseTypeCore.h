@@ -117,7 +117,7 @@ typedef uint32_t	                UnsignedInt;	  	    // 4 bytes
 typedef uint16_t	                UnsignedShort;		    // 2 bytes
 typedef int16_t						Short;					// 2 bytes
 typedef unsigned char	            UnsignedByte;			// 1 byte		USED TO BE "Byte"
-typedef char						Byte;					// 1 byte		USED TO BE "SignedByte"
+typedef char							Byte;						// 1 byte		USED TO BE "SignedByte"
 typedef char						Char;					// 1 byte of text
 typedef bool						Bool;					//
 // note, the types below should use "long long", but MSVC doesn't support it yet

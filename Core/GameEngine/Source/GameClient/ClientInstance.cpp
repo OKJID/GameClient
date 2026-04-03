@@ -38,6 +38,10 @@ bool ClientInstance::initialize()
 		return true;
 	}
 
+#ifdef __APPLE__
+	// TODO(MAC_PORT): Revisit single-instance lock implementation for macOS (see .agent/_tasks/macos-impl-client-instance.md)
+	return true;
+#else
 	// Create a mutex with a unique name to Generals in order to determine if our app is already running.
 	// WARNING: DO NOT use this number for any other application except Generals.
 	while (true)
@@ -82,6 +86,7 @@ bool ClientInstance::initialize()
 	}
 
 	return true;
+#endif
 }
 
 bool ClientInstance::isInitialized()

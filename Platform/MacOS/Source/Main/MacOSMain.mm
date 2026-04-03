@@ -7,10 +7,16 @@
 #define __FINDER__
 #define __AIFF__
 
+#define Byte MacByte
+#define RGBColor MacRGBColor
+#define BOOL MacBOOL
 #import <Foundation/Foundation.h>
 #import <Cocoa/Cocoa.h>
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
+#undef Byte
+#undef RGBColor
+#undef BOOL
 
 #include <cstdlib>
 #include <cstring>
@@ -97,17 +103,25 @@ static void macosSignalHandler(int sig) {
 
     // 4. Working directory (mirrors lines 827-833)
     // WinMain: GetModuleFileName + SetCurrentDirectory
-    // macOS: use executable directory
-    NSString* execPath = [[NSBundle mainBundle] executablePath];
-    NSString* execDir = [execPath stringByDeletingLastPathComponent];
-    chdir([execDir UTF8String]);
+    // macOS: Do not change directory so that we stay in the project root 
+    // where Data/ exists, just like in GeneralsGameCode.
+    // NSString* execPath = [[NSBundle mainBundle] executablePath];
+    // NSString* execDir = [execPath stringByDeletingLastPathComponent];
+    // chdir([execDir UTF8String]);
 
     // 5. Command line (mirrors line 874)
     CommandLine::parseCommandLineForStartup();
+    printf("[DIAG] MacOSMain: parseCommandLineForStartup done, TheGlobalData=%p\n", (void*)TheGlobalData);
+    fflush(stdout);
 
     // 6. Create window (mirrors initializeAppWindows, line 881)
-    if (!TheGlobalData->m_headless) {
+    if (TheGlobalData && !TheGlobalData->m_headless) {
         [self createWindow];
+        printf("[DIAG] MacOSMain: window created, ApplicationHWnd=%p\n", ApplicationHWnd);
+        fflush(stdout);
+    } else {
+        printf("[DIAG] MacOSMain: SKIPPING window creation! TheGlobalData=%p\n", (void*)TheGlobalData);
+        fflush(stdout);
     }
 
     // 7. Steam (mirrors line 886)
@@ -152,13 +166,18 @@ static void macosSignalHandler(int sig) {
 }
 
 - (void)createWindow {
-    int width = 800;
-    int height = 600;
+    int width = TheGlobalData ? TheGlobalData->m_xResolution : 800;
+    int height = TheGlobalData ? TheGlobalData->m_yResolution : 600;
+    printf("[DIAG] createWindow: %dx%d xRes=%d yRes=%d\n", width, height,
+           TheGlobalData ? TheGlobalData->m_xResolution : -1,
+           TheGlobalData ? TheGlobalData->m_yResolution : -1);
+    fflush(stdout);
 
     NSRect frame = NSMakeRect(0, 0, width, height);
     NSWindowStyleMask style = NSWindowStyleMaskTitled
                             | NSWindowStyleMaskClosable
-                            | NSWindowStyleMaskMiniaturizable;
+                            | NSWindowStyleMaskMiniaturizable
+                            | NSWindowStyleMaskResizable;
 
     self.window = [[NSWindow alloc] initWithContentRect:frame
                                     styleMask:style
@@ -192,6 +211,8 @@ GameEngine* CreateGameEngine() {
 int main(int argc, char* argv[]) {
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
+        [app setActivationPolicy:NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
+        
         GeneralsAppDelegate* delegate = [[GeneralsAppDelegate alloc] init];
         [app setDelegate:delegate];
         [app run];

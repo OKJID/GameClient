@@ -63,7 +63,7 @@ void NGMP_OnlineServices_StatsInterface::GetGlobalStats(std::function<void(Globa
 
 					int i = 0;
 
-#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
+#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.name[i++]); }
 					PROCESS_JSON_PER_GENERAL_RESULT(wins);
 					PROCESS_JSON_PER_GENERAL_RESULT(matches);
 				}
@@ -116,7 +116,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 			}
 			else
 			{
-				int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+				int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				int64_t lastCacheTime = m_mapStatsLastRefresh[userID];
 
 				if ((currTime - lastCacheTime) >= m_cacheTTL)
@@ -155,7 +155,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 							jsonObjectRoot["EloRating"].get_to(stats.elo_rating);
 							jsonObjectRoot["EloMatches"].get_to(stats.elo_num_matches);
 
-							#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.##name[i++]); }
+							#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.name[i++]); }
 							PROCESS_JSON_PER_GENERAL_RESULT(wins);
 							PROCESS_JSON_PER_GENERAL_RESULT(losses);
 							PROCESS_JSON_PER_GENERAL_RESULT(games);
@@ -181,7 +181,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 							PROCESS_JSON_PER_GENERAL_RESULT(customGames);
 							PROCESS_JSON_PER_GENERAL_RESULT(QMGames);
 
-#define PROCESS_JSON_STANDARD_RESULT(name) jsonObjectRoot[#name].get_to(stats.##name)
+#define PROCESS_JSON_STANDARD_RESULT(name) jsonObjectRoot[#name].get_to(stats.name)
 							PROCESS_JSON_STANDARD_RESULT(locale);
 							PROCESS_JSON_STANDARD_RESULT(gamesAsRandom);
 							PROCESS_JSON_STANDARD_RESULT(options);
@@ -209,7 +209,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 
 							NetworkLog(ELogVerbosity::LOG_DEBUG, "Cached stats for user %lld", userID);
 							m_mapCachedStats[userID] = stats;
-							m_mapStatsLastRefresh[userID] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+							m_mapStatsLastRefresh[userID] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 							// cb
 							cb(true, stats);
@@ -287,7 +287,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByBatch(std::vector<int6
 							// now get stats
 							int i = 0;
 
-#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : statsUserIter[#name]) { iter.get_to(stats.##name[i++]); }
+#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : statsUserIter[#name]) { iter.get_to(stats.name[i++]); }
 							PROCESS_JSON_PER_GENERAL_RESULT(wins);
 							PROCESS_JSON_PER_GENERAL_RESULT(losses);
 							PROCESS_JSON_PER_GENERAL_RESULT(games);
@@ -313,7 +313,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByBatch(std::vector<int6
 							PROCESS_JSON_PER_GENERAL_RESULT(customGames);
 							PROCESS_JSON_PER_GENERAL_RESULT(QMGames);
 
-#define PROCESS_JSON_STANDARD_RESULT(name) statsUserIter[#name].get_to(stats.##name)
+#define PROCESS_JSON_STANDARD_RESULT(name) statsUserIter[#name].get_to(stats.name)
 							PROCESS_JSON_STANDARD_RESULT(locale);
 							PROCESS_JSON_STANDARD_RESULT(gamesAsRandom);
 							PROCESS_JSON_STANDARD_RESULT(options);
@@ -341,7 +341,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByBatch(std::vector<int6
 
 							NetworkLog(ELogVerbosity::LOG_DEBUG, "Cached stats for user %d", stats.id);
 							m_mapCachedStats[stats.id] = stats;
-							m_mapStatsLastRefresh[stats.id] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+							m_mapStatsLastRefresh[stats.id] = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 						}
 						catch (nlohmann::json::exception& jsonException)
 						{

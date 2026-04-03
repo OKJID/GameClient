@@ -88,6 +88,7 @@ enum
 #include "WW3D2/mesh.h"
 #include "WW3D2/meshmdl.h"
 #include "d3dx8tex.h"
+#include "d3dx8math.h"
 #include "GameClient/GameClient.h"
 
 

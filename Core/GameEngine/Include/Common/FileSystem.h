@@ -107,6 +107,10 @@ typedef UnsignedByte FileInstance;
 #endif
 
 
+#ifdef __APPLE__
+#define FileInfo RTSFileInfo
+#endif
+
 struct FileInfo {
 
 	Int64 size() const { return (Int64)sizeHigh << 32 | sizeLow; }

@@ -450,7 +450,11 @@ Int LocalFile::writeFormat( const WideChar* format, ... )
 Int LocalFile::writeChar( const Char* character )
 {
 	if ( write( character, sizeof(Char) ) == sizeof(Char) ) {
+#ifdef __APPLE__
+		return (Int)(uintptr_t)character;
+#else
 		return (Int)character;
+#endif
 	}
 
 	return EOF;
@@ -463,7 +467,11 @@ Int LocalFile::writeChar( const Char* character )
 Int LocalFile::writeChar( const WideChar* character )
 {
 	if ( write( character, sizeof(WideChar) ) == sizeof(WideChar) ) {
+#ifdef __APPLE__
+		return (Int)(uintptr_t)character;
+#else
 		return (Int)character;
+#endif
 	}
 
 	return WEOF;

@@ -88,6 +88,15 @@
 #include "../NextGenMP_defines.h"
 #include <chrono>
 
+#include <chrono>
+#ifdef __APPLE__
+struct MEMORYSTATUS {
+	int dwAvailPageFile = 0;
+	int dwAvailPhys = 0;
+	int dwAvailVirtual = 0;
+};
+inline void GlobalMemoryStatus(MEMORYSTATUS*) {}
+#endif
 
 #define DRAWABLE_HASH_SIZE	8192
 
@@ -550,6 +559,7 @@ void GameClient::update()
 		}
 		else
 		{
+			printf("DEBUG: GameClient::update() reached m_afterIntro! Showing shell.\n"); fflush(stdout);
 			TheWritableGlobalData->m_breakTheMovie = TRUE;
 			TheWritableGlobalData->m_allowExitOutOfMovies = TRUE;
 
@@ -785,7 +795,7 @@ void GameClient::update()
 	}
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
-	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	m_legacyFrameMSAccured += currTime - m_LegacyFrameEndLastFrame;
 	m_LegacyFrameEndLastFrame = currTime;
 

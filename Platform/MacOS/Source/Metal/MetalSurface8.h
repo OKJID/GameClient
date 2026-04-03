@@ -1,14 +1,11 @@
 #pragma once
 
-#include "always.h"  // For W3DMPO_GLUE macro
-#include <d3d8.h>  // DX8 SDK header
+#include "always.h"
+#include <d3d8.h>
 
 class MetalDevice8;
 class MetalTexture8;
 
-// Minimal IDirect3DSurface8 implementation for render-target / depth-buffer
-// token passing.  The engine stores default RT and depth surfaces to hand
-// back to SetRenderTarget; it never actually reads pixel data from them.
 class MetalSurface8 : public IDirect3DSurface8 {
   W3DMPO_GLUE(MetalSurface8)
 public:
@@ -19,27 +16,22 @@ public:
                 MetalTexture8 *parentTexture = nullptr, UINT mipLevel = 0);
   virtual ~MetalSurface8();
 
-  // IUnknown
-  STDMETHOD(QueryInterface)(REFIID riid, void **ppvObj);
-  STDMETHOD_(ULONG, AddRef)();
-  STDMETHOD_(ULONG, Release)();
+  ULONG AddRef() override;
+  ULONG Release() override;
+  HRESULT QueryInterface(REFIID riid, void **ppvObj);
+  HRESULT GetDevice(IDirect3DDevice8 **ppDevice);
+  HRESULT SetPrivateData(REFGUID g, const void *d, DWORD s, DWORD f);
+  HRESULT GetPrivateData(REFGUID g, void *d, DWORD *s);
+  HRESULT FreePrivateData(REFGUID g);
+  DWORD SetPriority(DWORD p);
+  DWORD GetPriority();
+  void PreLoad();
+  D3DRESOURCETYPE GetType();
+  HRESULT GetContainer(REFIID riid, void **ppContainer);
 
-  // IDirect3DResource8
-  STDMETHOD(GetDevice)(IDirect3DDevice8 **ppDevice);
-  STDMETHOD(SetPrivateData)(REFGUID g, CONST void *d, DWORD s, DWORD f);
-  STDMETHOD(GetPrivateData)(REFGUID g, void *d, DWORD *s);
-  STDMETHOD(FreePrivateData)(REFGUID g);
-  STDMETHOD_(DWORD, SetPriority)(DWORD p);
-  STDMETHOD_(DWORD, GetPriority)();
-  STDMETHOD_(void, PreLoad)();
-  STDMETHOD_(D3DRESOURCETYPE, GetType)();
-
-  // IDirect3DSurface8
-  STDMETHOD(GetContainer)(REFIID riid, void **ppContainer);
-  STDMETHOD(GetDesc)(D3DSURFACE_DESC *pDesc);
-  STDMETHOD(LockRect)(D3DLOCKED_RECT *pLockedRect, CONST RECT *pRect,
-                      DWORD Flags);
-  STDMETHOD(UnlockRect)();
+  HRESULT GetDesc(D3DSURFACE_DESC *pDesc) override;
+  HRESULT LockRect(D3DLOCKED_RECT *pLockedRect, const RECT *pRect, DWORD Flags) override;
+  HRESULT UnlockRect() override;
 
   SurfaceKind GetKind() const { return m_Kind; }
   MetalTexture8 *GetParentTexture() const { return m_ParentTexture; }
@@ -59,6 +51,6 @@ private:
   void *m_LockedData = nullptr;
   UINT m_LockedPitch = 0;
   bool m_LockedReadOnly = false;
-  MetalTexture8 *m_ParentTexture = nullptr; // if from GetSurfaceLevel
+  MetalTexture8 *m_ParentTexture = nullptr;
   UINT m_MipLevel = 0;
 };

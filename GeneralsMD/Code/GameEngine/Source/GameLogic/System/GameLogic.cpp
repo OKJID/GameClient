@@ -207,6 +207,7 @@ void setFPMode()
 	  // anything as long as it is consistent, really, but this
 	  // is in the (vain?) hope of any slight speed boost.
 	  //
+#ifdef _WIN32
 	_fpreset();
 
 	UnsignedInt curVal = _statusfp();
@@ -216,6 +217,7 @@ void setFPMode()
 	newVal = (newVal & ~_MCW_PC) | (_PC_24 & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
+#endif
 }
 
 // ------------------------------------------------------------------------------------------------

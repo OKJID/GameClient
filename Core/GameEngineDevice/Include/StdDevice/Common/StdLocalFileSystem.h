@@ -30,6 +30,11 @@
 
 #include "Common/LocalFileSystem.h"
 
+#ifdef __APPLE__
+#include <string>
+#include <vector>
+#endif
+
 class StdLocalFileSystem : public LocalFileSystem
 {
 public:
@@ -49,5 +54,12 @@ public:
 	virtual Bool createDirectory(AsciiString directory) override;
 	virtual AsciiString normalizePath(const AsciiString& filePath) const override;
 
+#ifdef __APPLE__
+	void addSearchPath(const AsciiString& path);
+#endif
+
 protected:
+#ifdef __APPLE__
+	std::vector<std::string> m_searchPaths;
+#endif
 };

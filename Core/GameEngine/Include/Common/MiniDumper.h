@@ -43,10 +43,15 @@ public:
 	MiniDumper();
 	Bool IsInitialized() const;
 	void TriggerMiniDump(DumpType dumpType);
+#ifndef __APPLE__
 	void TriggerMiniDumpForException(_EXCEPTION_POINTERS* e_info, DumpType dumpType);
+	static LONG WINAPI DumpingExceptionFilter(_EXCEPTION_POINTERS* e_info);
+#else
+	void TriggerMiniDumpForException(void* e_info, DumpType dumpType);
+	static long DumpingExceptionFilter(void* e_info);
+#endif
 	static void initMiniDumper(const AsciiString& userDirPath);
 	static void shutdownMiniDumper();
-	static LONG WINAPI DumpingExceptionFilter(_EXCEPTION_POINTERS* e_info);
 
 private:
 	void Initialize(const AsciiString& userDirPath);
@@ -68,7 +73,11 @@ private:
 	struct FileInfo
 	{
 		std::string name;
+#ifndef __APPLE__
 		FILETIME lastWriteTime;
+#else
+		long lastWriteTime;
+#endif
 	};
 
 	static bool CompareByLastWriteTime(const FileInfo& a, const FileInfo& b);

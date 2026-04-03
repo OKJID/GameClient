@@ -140,6 +140,7 @@ bool HTTPManager::DeterminePlatformProxySettings()
 {
 	CHECK_MAIN_THREAD;
 
+#ifdef _WIN32
 	WINHTTP_CURRENT_USER_IE_PROXY_CONFIG pProxyConfig;
 	WinHttpGetIEProxyConfigForCurrentUser(&pProxyConfig);
 
@@ -172,6 +173,10 @@ bool HTTPManager::DeterminePlatformProxySettings()
 	if (pProxyConfig.lpszProxyBypass) GlobalFree(pProxyConfig.lpszProxyBypass);
 
 	return m_bProxyEnabled;
+#else
+    m_bProxyEnabled = false;
+    return false;
+#endif
 }
 
 HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolVersion protover, const char* szURI, std::map<std::string, std::string>& inHeaders, std::function<void(bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)> completionCallback, std::function<void(size_t bytesReceived)> progressCallback /*= nullptr*/, int timeoutMS /* = -1 */) noexcept

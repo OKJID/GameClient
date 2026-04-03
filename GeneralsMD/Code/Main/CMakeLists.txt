@@ -90,8 +90,6 @@ if(APPLE)
     # Remove Windows-only link libraries, add macOS frameworks
     set_property(TARGET z_generals PROPERTY LINK_LIBRARIES)
     target_link_libraries(z_generals PRIVATE
-        core_debug
-        core_profile
         z_gameengine
         z_gameenginedevice
         zi_always
@@ -110,7 +108,10 @@ if(APPLE)
 
     target_sources(z_generals PRIVATE
         ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/Main/MacOSMain.mm
+        ${CMAKE_BINARY_DIR}/Platform/MacOS/default.metallib
     )
+
+    set_source_files_properties(${CMAKE_BINARY_DIR}/Platform/MacOS/default.metallib PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
     # d3d8.h proxies and Win32 stubs
     target_include_directories(z_generals BEFORE PRIVATE
@@ -118,4 +119,5 @@ if(APPLE)
     )
 
     target_link_libraries(z_generals PRIVATE macos_platform)
+    add_dependencies(z_generals metal_shaders)
 endif()

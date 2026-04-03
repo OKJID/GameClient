@@ -24,6 +24,11 @@
 
 #pragma once
 
+#ifdef __APPLE__
+struct _EXCEPTION_POINTERS;
+typedef struct _EXCEPTION_POINTERS EXCEPTION_POINTERS;
+#endif
+
 #ifndef IG_DEBUG_STACKTRACE
 #define IG_DEBUG_STACKTRACE	1
 #endif // Unsure about this one -ML 3/25/03

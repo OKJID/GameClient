@@ -67,7 +67,9 @@
 #include "GameNetwork/GameSpy/GSConfig.h"
 
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#ifdef _WIN32
 #include <ws2ipdef.h>
+#endif
 #include <format>
 #include "../OnlineServices_Init.h"
 #include "GameLogic/GameLogic.h"
@@ -660,7 +662,7 @@ static void handleColorSelection(int index)
 	GameWindow *combo = comboBoxColor[index];
 	Int color, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
-	color = (Int)GadgetComboBoxGetItemData(combo, selIndex);
+	color = (Int)(uintptr_t)GadgetComboBoxGetItemData(combo, selIndex);
 
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 
@@ -721,7 +723,7 @@ static void handlePlayerTemplateSelection(int index, bool bInitialSetup = false)
 	GameWindow *combo = comboBoxPlayerTemplate[index];
 	Int playerTemplate, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
-	playerTemplate = (Int)GadgetComboBoxGetItemData(combo, selIndex);
+	playerTemplate = (Int)(uintptr_t)GadgetComboBoxGetItemData(combo, selIndex);
 
 	if (!bInitialSetup)
 	{
@@ -827,7 +829,7 @@ static void handleTeamSelection(int index)
 	GameWindow *combo = comboBoxTeam[index];
 	Int team, selIndex;
 	GadgetComboBoxGetSelectedPos(combo, &selIndex);
-	team = (Int)GadgetComboBoxGetItemData(combo, selIndex);
+	team = (Int)(uintptr_t)GadgetComboBoxGetItemData(combo, selIndex);
 
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	NGMPGame* myGame = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
@@ -860,7 +862,7 @@ static void handleStartingCashSelection()
 	Int selIndex;
 	GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
 
-	UnsignedInt startingCashValue = (UnsignedInt)GadgetComboBoxGetItemData(comboBoxStartingCash, selIndex);
+	UnsignedInt startingCashValue = (UnsignedInt)(uintptr_t)GadgetComboBoxGetItemData(comboBoxStartingCash, selIndex);
 
 	Money startingCash;
 	startingCash.deposit(startingCashValue, FALSE);
@@ -879,7 +881,7 @@ static void handleStartingCashSelection()
     GadgetComboBoxGetSelectedPos(comboBoxStartingCash, &selIndex);
 
     Money startingCash;
-    startingCash.deposit( (UnsignedInt)GadgetComboBoxGetItemData( comboBoxStartingCash, selIndex ), FALSE, FALSE );
+    startingCash.deposit( (UnsignedInt)(uintptr_t)GadgetComboBoxGetItemData( comboBoxStartingCash, selIndex ), FALSE, FALSE );
     myGame->setStartingCash( startingCash );
     myGame->resetAccepted();
 
@@ -1323,7 +1325,7 @@ void WOLDisplayGameOptions()
   Int index = 0;
   for ( ; index < itemCount; index++ )
   {
-    Int value  = (Int)GadgetComboBoxGetItemData(comboBoxStartingCash, index);
+    Int value  = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboBoxStartingCash, index);
     if ( value == theGame->getStartingCash().countMoney() )
     {
       // Note: must check if combobox is already correct to avoid infinite recursion
@@ -2448,7 +2450,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		{
 			s_matchStartCountdownWasRunning = true;
 			const int64_t timeBetweenChecks = 1000;
-			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+			int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 			if (currTime - TheNGMPGame->GetCountdownLastCheckTime() >= timeBetweenChecks)
 			{

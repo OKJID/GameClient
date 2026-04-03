@@ -65,7 +65,9 @@ UnsignedInt SimulationMathCrc::calculate()
 
     appendSimulationMathCrc(xfer);
 
+#ifdef _WIN32
     _fpreset();
+#endif
 
     xfer.close();
 

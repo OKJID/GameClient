@@ -4,6 +4,7 @@
 // Only LocalFileSystem, ArchiveFileSystem, WebBrowser, and AudioManager differ.
 
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 
 #include "MacOSGameEngine.h"
 
@@ -12,6 +13,13 @@
 #include "W3DDevice/Common/W3DModuleFactory.h"
 #include "W3DDevice/Common/W3DThingFactory.h"
 #include "W3DDevice/Common/W3DFunctionLexicon.h"
+
+// Hardware devices
+#include "../Input/MacOSKeyboard.h"
+#include "../Input/MacOSMouse.h"
+
+extern MacOSKeyboard *TheMacOSKeyboard;
+extern MacOSMouse *TheMacOSMouse;
 #include "W3DDevice/Common/W3DRadar.h"
 #include "W3DDevice/GameClient/W3DWebBrowser.h"
 #include "GameClient/ParticleSys.h"
@@ -21,7 +29,7 @@
 #include "StdDevice/Common/StdBIGFileSystem.h"
 
 #include "GameNetwork/LANAPICallbacks.h"
-#include "../OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "../Audio/MacOSAudioManager.h"
 
 extern DWORD TheMessageTime;
@@ -50,10 +58,18 @@ void MacOSGameEngine::reset()
 
 // ── update() mirrors Win32GameEngine::update() lines 87-132 ──
 
+static int g_updateCount = 0;
 void MacOSGameEngine::update()
 {
-	GameEngine::update();
-	serviceWindowsOS();
+	@autoreleasepool {
+		if (g_updateCount % 60 == 0) {
+			printf("[DIAG] MacOSGameEngine::update tick=%d\n", g_updateCount);
+			fflush(stdout);
+		}
+		g_updateCount++;
+		GameEngine::update();
+		serviceWindowsOS();
+	}
 }
 
 // ── serviceWindowsOS() mirrors Win32GameEngine lines 140-175 ──
@@ -64,12 +80,90 @@ void MacOSGameEngine::serviceWindowsOS()
 	@autoreleasepool {
 		NSEvent* event;
 		while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
-		                                  untilDate:nil
+		                                  untilDate:[NSDate dateWithTimeIntervalSinceNow:0.001]
 		                                     inMode:NSDefaultRunLoopMode
 		                                    dequeue:YES])) {
+			
+			unsigned int timeMs = (unsigned int)([event timestamp] * 1000.0);
+			NSEventType type = [event type];
+			
+			if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp) {
+				if (TheMacOSKeyboard) {
+					TheMacOSKeyboard->setModifiers([event modifierFlags], timeMs);
+					// The user specifically requested to NOT filter out 'isARepeat' right now.
+					TheMacOSKeyboard->addEvent([event keyCode], type == NSEventTypeKeyDown, timeMs);
+				}
+			} else if (type == NSEventTypeFlagsChanged) {
+				if (TheMacOSKeyboard) {
+					TheMacOSKeyboard->setModifiers([event modifierFlags], timeMs);
+				}
+			} else if (type == NSEventTypeMouseMoved || type == NSEventTypeLeftMouseDragged || type == NSEventTypeRightMouseDragged || type == NSEventTypeOtherMouseDragged) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					TheMacOSMouse->addEvent(MACOS_MOUSE_MOVE, loc.x, loc.y, 0, 0, timeMs);
+				}
+			} else if (type == NSEventTypeLeftMouseDown) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					if ([event clickCount] == 2) {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_LBUTTON_DBLCLK, loc.x, loc.y, 1, 0, timeMs);
+					} else {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_LBUTTON_DOWN, loc.x, loc.y, 1, 0, timeMs);
+					}
+				}
+			} else if (type == NSEventTypeLeftMouseUp) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					TheMacOSMouse->addEvent(MACOS_MOUSE_LBUTTON_UP, loc.x, loc.y, 1, 0, timeMs);
+				}
+			} else if (type == NSEventTypeRightMouseDown) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					if ([event clickCount] == 2) {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_RBUTTON_DBLCLK, loc.x, loc.y, 2, 0, timeMs);
+					} else {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_RBUTTON_DOWN, loc.x, loc.y, 2, 0, timeMs);
+					}
+				}
+			} else if (type == NSEventTypeRightMouseUp) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					TheMacOSMouse->addEvent(MACOS_MOUSE_RBUTTON_UP, loc.x, loc.y, 2, 0, timeMs);
+				}
+			} else if (type == NSEventTypeScrollWheel) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					int delta = (int)([event scrollingDeltaY] * 120);
+					TheMacOSMouse->addEvent(MACOS_MOUSE_WHEEL, loc.x, loc.y, 0, delta, timeMs);
+				}
+			}
+			
 			[NSApp sendEvent:event];
 			[NSApp updateWindows];
 		}
+        
+		// CRITICAL: Because GameMain() runs an infinite loop on the Main Thread (matching Windows),
+		// the main RunLoop never returns. Core Animation transactions (which show and update
+		// the window) never automatically flush. We must manually flush them!
+		[CATransaction flush];
 	}
 }
 
