@@ -117,8 +117,16 @@ DynamicVectorClass<ThreadInfoType*> ThreadList;
 ** Critical section to protect ThreadList from concurrent access.
 ** This prevents race conditions when threads register/unregister while
 ** another thread is accessing the list (e.g., during exception handling or shutdown).
+**
+** Intentionally heap-allocated and never freed: threads may call Unregister_Thread_ID
+** after C++ global destructors have run, so a static-lifetime object would already be
+** destroyed by that point, causing a use-after-free crash.
 */
-static CriticalSectionClass ThreadListLock;
+static CriticalSectionClass& GetThreadListLock()
+{
+	static CriticalSectionClass* lock = new CriticalSectionClass();
+	return *lock;
+}
 
 /*
 ** Definitions to allow run-time linking to the Imagehlp.dll functions.
@@ -897,7 +905,7 @@ void Register_Thread_ID(unsigned long thread_id, char *thread_name, bool main_th
 {
 	WWMEMLOG(MEM_GAMEDATA);
 	if (thread_name) {
-		CriticalSectionClass::LockClass lock(ThreadListLock);
+		CriticalSectionClass::LockClass lock(GetThreadListLock());
 
 		/*
 		** See if we already know about this thread. Maybe just the thread_id changed.
@@ -1008,7 +1016,7 @@ HANDLE Get_Thread_Handle(int thread_index)
  *=============================================================================================*/
 void Unregister_Thread_ID(unsigned long thread_id, char *thread_name)
 {
-	CriticalSectionClass::LockClass lock(ThreadListLock);
+	CriticalSectionClass::LockClass lock(GetThreadListLock());
 	
 	for (int i=0 ; i<ThreadList.Count() ; i++) {
 		if (strcmp(thread_name, ThreadList[i]->ThreadName) == 0) {
@@ -1038,7 +1046,7 @@ void Unregister_Thread_ID(unsigned long thread_id, char *thread_name)
  *=============================================================================================*/
 unsigned long Get_Main_Thread_ID()
 {
-	CriticalSectionClass::LockClass lock(ThreadListLock);
+	CriticalSectionClass::LockClass lock(GetThreadListLock());
 	
 	for (int i=0 ; i<ThreadList.Count() ; i++) {
 		if (ThreadList[i]->Main) {

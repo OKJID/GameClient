@@ -620,6 +620,35 @@ bool DX8Wrapper::Reset_Device(bool reload_assets)
 		memset(Vertex_Shader_Constants,0,sizeof(Vector4)*MAX_VERTEX_SHADER_CONSTANTS);
 		memset(Pixel_Shader_Constants,0,sizeof(Vector4)*MAX_PIXEL_SHADER_CONSTANTS);
 
+		// GO_CHANGE
+		// If the device was lost during a render-to-texture pass (e.g. shadow rendering), the
+		// DefaultRenderTarget / CurrentRenderTarget surface pointers may still be set.
+		// D3D8 Reset requires all application-held references to swap-chain surfaces (back buffer,
+		// depth stencil) and any custom render-target surfaces to be released before calling Reset().
+		// Leaving them live causes the Intel D3D translation layer to access already-freed GPU
+		// memory inside DestroyResource, producing an EXCEPTION_ACCESS_VIOLATION_READ crash.
+		if (DefaultRenderTarget != nullptr)
+		{
+			DX8CALL(SetRenderTarget(DefaultRenderTarget, DefaultDepthBuffer));
+			DefaultRenderTarget->Release();
+			DefaultRenderTarget = nullptr;
+			if (DefaultDepthBuffer != nullptr)
+			{
+				DefaultDepthBuffer->Release();
+				DefaultDepthBuffer = nullptr;
+			}
+		}
+		if (CurrentRenderTarget != nullptr)
+		{
+			CurrentRenderTarget->Release();
+			CurrentRenderTarget = nullptr;
+		}
+		if (CurrentDepthBuffer != nullptr)
+		{
+			CurrentDepthBuffer->Release();
+			CurrentDepthBuffer = nullptr;
+		}
+
 		// TheSuperHackers @bugfix 01/2025
 		// Add delay after releasing resources to allow GPU to complete pending operations.
 		// This mitigates race conditions in the D3D9-to-D3D12 translation layer on Windows 10+
