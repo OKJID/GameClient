@@ -74,6 +74,17 @@ static void macosSignalHandler(int sig) {
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h);
 extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
 
+#include <sys/types.h>
+#include <sys/sysctl.h>
+
+extern "C" unsigned long long MacOS_GetTotalPhysicalMemory() {
+    int64_t physical_memory = 0;
+    size_t length = sizeof(int64_t);
+    int res = sysctlbyname("hw.memsize", &physical_memory, &length, nullptr, 0);
+    printf("DEBUG: MacOS_GetTotalPhysicalMemory -> res=%d, mem=%llu\n", res, (unsigned long long)physical_memory); fflush(stdout);
+    return 2048ULL * 1024 * 1024; // Force it to 2GB to be safe
+}
+
 // TheSuperHackers @feature macOS: Compute 90% of main screen dimensions for
 // first-time users with no saved resolution. Called from GlobalData.cpp when
 // OptionPreferences has no "Resolution" key (i.e., default 800x600 is returned).

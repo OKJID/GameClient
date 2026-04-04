@@ -793,7 +793,6 @@ void GameEngine::init()
 			}
 		}
 
-		//
 		if (TheMapCache && TheGlobalData->m_shellMapOn)
 		{
 			AsciiString lowerName = TheGlobalData->m_shellMapName;

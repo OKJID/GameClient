@@ -332,6 +332,8 @@ void GameLODManager::init()
 
 	//always get this data in case we need it later.
 	testMinimumRequirements(nullptr,&m_cpuType,&m_cpuFreq,&m_numRAM,nullptr,nullptr,nullptr);
+	
+	printf("DEBUG: GameLOD::init - m_numRAM=%llu, m_cpuFreq=%d\n", (unsigned long long)m_numRAM, m_cpuFreq); fflush(stdout);
 
 	if ((Real)(m_numRAM)/(Real)(256*1024*1024) >= PROFILE_ERROR_LIMIT)
 		m_memPassed=TRUE;	//check if they have at least 256 MB
@@ -629,6 +631,7 @@ void GameLODManager::applyStaticLODLevel(StaticGameLODLevel level)
 		TheWritableGlobalData->m_useFpsLimit = lodInfo->m_useFpsLimit;
 		TheWritableGlobalData->m_useTrees = requestedTrees;
 
+		printf("DEBUG: GameLOD::applyStaticLODLevel - m_memPassed=%d, isReallyLowMHz=%d\n", m_memPassed, isReallyLowMHz()); fflush(stdout);
 		if (!m_memPassed || isReallyLowMHz()) {
 			TheWritableGlobalData->m_shellMapOn = false;
 		}
