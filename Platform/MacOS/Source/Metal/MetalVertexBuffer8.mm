@@ -86,6 +86,18 @@ STDMETHODIMP MetalVertexBuffer8::Lock(UINT OffsetToLock, UINT SizeToLock,
   if (!ppbData)
     return E_POINTER;
 
+  if (Flags & D3DLOCK_DISCARD) {
+    if (m_MTLBuffer && g_MetalMTLDevice) {
+      id<MTLDevice> device = (__bridge id<MTLDevice>)g_MetalMTLDevice;
+      id<MTLBuffer> buf =
+          [device newBufferWithLength:m_VertexCount * m_VertexSize
+                              options:MTLResourceStorageModeShared];
+      id<MTLBuffer> old_buf = (__bridge_transfer id<MTLBuffer>)m_MTLBuffer;
+      old_buf = nil; // Automatically released by ARC once command buffers finish
+      m_MTLBuffer = (__bridge_retained void *)buf;
+    }
+  }
+
   if (m_MTLBuffer) {
     id<MTLBuffer> buf = (__bridge id<MTLBuffer>)m_MTLBuffer;
     *ppbData = (BYTE *)[buf contents] + OffsetToLock;

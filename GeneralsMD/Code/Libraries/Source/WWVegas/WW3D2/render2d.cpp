@@ -199,6 +199,7 @@ void	  Render2DClass::Update_Bias()
 	BiasedCoordinateOffset = CoordinateOffset;
 
 	if ( WW3D::Is_Screen_UV_Biased() ) {	// Global bais setting
+#ifndef __APPLE__
 		Vector2 bais_add( -0.5f ,-0.5f );	// offset by -0.5,-0.5 in pixels
 
 		// Convert from pixels to (-1,1)-(1,-1) units
@@ -206,6 +207,7 @@ void	  Render2DClass::Update_Bias()
 		bais_add.Y = bais_add.Y / (Get_Screen_Resolution().Height() * -0.5f);
 
 		BiasedCoordinateOffset += bais_add;
+#endif
 	}
 }
 

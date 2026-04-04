@@ -559,7 +559,6 @@ Render2DSentenceClass::Draw_Sentence (uint32 color)
 		}
 
 		if (add_quad) {
-			//uv_rect.Bottom += 0.5f;
 			uv_rect *=  1.0F / ((float)desc.Width);
 #ifdef TEST_PLACEMENT
 			screen_rect.Left += offset*3;
@@ -1384,16 +1383,20 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
     CFAttributedStringRef attrStr = CFAttributedStringCreate(kCFAllocatorDefault, str, attributes);
     CTLineRef line = CTLineCreateWithAttributedString(attrStr);
     
-    int charDescent = CharHeight - CharAscent;
+    // ExtTextOut uses Y=0 as the top of the character cell.
+    // CoreText coordinate system is bottom-up (Y=0 is bottom).
+    // To match ExtTextOut's top-aligned behavior within our 'height' sized buffer,
+    // we need the baseline to be 'CharAscent' pixels from the TOP of the buffer.
+    // Since Y is from the bottom, Y = height - CharAscent.
+    int yOrigin = height - CharAscent;
     CGContextSetTextMatrix(context, CGAffineTransformIdentity);
-    CGContextSetTextPosition(context, xOrigin, charDescent); 
+    CGContextSetTextPosition(context, xOrigin, yOrigin); 
     CTLineDraw(line, context);
     
-    CGFloat typographicBoundsWidth;
-    CTLineGetTypographicBounds(line, &typographicBoundsWidth, NULL, NULL);
+    double typographicWidth = CTLineGetTypographicBounds(line, NULL, NULL, NULL);
 
     SIZE char_size;
-    char_size.cx = ceil(typographicBoundsWidth);
+    char_size.cx = ceil(typographicWidth);
     char_size.cy = CharHeight;
 
     CFRelease(line);
@@ -1407,11 +1410,10 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	uint16* curr_buffer_p = BufferList[BufferList.Count () - 1]->Buffer;
 	curr_buffer_p += CurrPixelOffset;
 
-    int stride = width;
+    int stride = GDIBitmapStride;
 
 	for (int row = 0; row < char_size.cy; row ++) {
-		int srcRow = CharHeight - 1 - row;
-		int index = (srcRow * stride);
+		int index = (row * stride);
 
 		for (int col = 0; col < char_size.cx; col ++) {
 			uint8 pixel_value = GDIBitmapBits[index];
@@ -1567,10 +1569,6 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	const int dotsPerInch = 96;
 	int font_height = (PointSize * dotsPerInch) / 72;
 
-	int fontWidth = 0;
-	if (doingGenerals) {
-		fontWidth = -font_height * 0.40f;
-	}
 	PixelOverlap = font_height / 8;
 	if (PixelOverlap<0) PixelOverlap = 0;
 	if (PixelOverlap>4) PixelOverlap = 4;
@@ -1581,6 +1579,16 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	
 	if (!ctFont) {
 		return false;
+	}
+
+	if (IsBold) {
+		CTFontRef boldFont = CTFontCreateCopyWithSymbolicTraits(
+			ctFont, font_height, NULL,
+			kCTFontBoldTrait, kCTFontBoldTrait);
+		if (boldFont) {
+			CFRelease(ctFont);
+			ctFont = boldFont;
+		}
 	}
 
 	GDIFont = (HFONT)ctFont;
@@ -1594,8 +1602,15 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	
 	MemDC = (HDC)context;
 	GDIBitmapBits = (uint8*)CGBitmapContextGetData(context);
+	GDIBitmapStride = CGBitmapContextGetBytesPerRow(context);
 
-    // Get Font Metrics
+    // Generals font uses compressed width on Windows
+    CGAffineTransform matrix = CGAffineTransformIdentity;
+    if (doingGenerals) {
+        matrix = CGAffineTransformMakeScale(0.88f, 1.0f);
+    }
+    CGContextSetTextMatrix(context, matrix);
+
 	CharAscent = ceil(CTFontGetAscent(ctFont));
 	int charDescent = ceil(CTFontGetDescent(ctFont));
 	CharHeight = CharAscent + charDescent;

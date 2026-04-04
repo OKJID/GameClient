@@ -10,6 +10,7 @@ set(METAL_SRC
     Source/Metal/MetalVertexBuffer8.mm
     Source/Metal/MetalIndexBuffer8.mm
     Source/Metal/dx8wrapper_metal.mm
+    Source/Metal/MacOSDisplayManager.mm
     Source/Metal/MetalBridgeMappings.h
     Source/Metal/MetalDevice8.h
     Source/Metal/MetalFormatConvert.h
@@ -180,6 +181,7 @@ set_source_files_properties(
     Source/Metal/MetalVertexBuffer8.mm
     Source/Metal/MetalIndexBuffer8.mm
     Source/Metal/dx8wrapper_metal.mm
+    Source/Metal/MacOSDisplayManager.mm
     Source/Main/MacOSGameEngine.mm
     Source/Main/MacOSMain.mm
     Source/Input/MacOSKeyboard.mm

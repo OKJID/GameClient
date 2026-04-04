@@ -323,7 +323,6 @@ void StdLocalFileSystem::getFileListInDirectory(const AsciiString& currentDirect
 			// if we haven't already, add this filename to the list.
 			// a stl set should only allow one copy of each filename
 			std::string pathStr = iter->path().string();
-			std::replace(pathStr.begin(), pathStr.end(), '/', '\\');
 			AsciiString newFilename = pathStr.c_str();
 			if (filenameList.find(newFilename) == filenameList.end()) {
 				fprintf(stderr, "StdLocalFileSystem::getFileListInDirectory found: '%s'\n", newFilename.str());

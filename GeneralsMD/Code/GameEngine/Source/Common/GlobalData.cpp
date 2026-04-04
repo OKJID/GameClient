@@ -59,6 +59,10 @@
 
 #include "GameNetwork/FirewallHelper.h"
 
+#ifdef __APPLE__
+extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h);
+#endif
+
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 GlobalData* TheWritableGlobalData = nullptr;				///< The global data singleton
 
@@ -1268,6 +1272,24 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 
 	Int xres,yres;
 	optionPref.getResolution(&xres, &yres);
+
+#ifdef __APPLE__
+	// TheSuperHackers @feature macOS: Adaptive startup resolution.
+	// When no "Resolution" key exists in Options.ini, getResolution returns
+	// the default 800x600. On macOS we replace this with 90% of the main
+	// screen dimensions for a sensible first-time user experience.
+	{
+		OptionPreferences::const_iterator it = optionPref.find("Resolution");
+		if (it == optionPref.end()) {
+			int adaptW = xres, adaptH = yres;
+			MacOS_GetAdaptiveResolution(&adaptW, &adaptH);
+			if (adaptW > 0 && adaptH > 0) {
+				xres = adaptW;
+				yres = adaptH;
+			}
+		}
+	}
+#endif
 
 	TheWritableGlobalData->m_xResolution = xres;
 	TheWritableGlobalData->m_yResolution = yres;

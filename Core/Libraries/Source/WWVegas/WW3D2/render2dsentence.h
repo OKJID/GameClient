@@ -125,6 +125,7 @@ private:
 	HBITMAP								GDIBitmap;
 	HFONT									GDIFont;
 	uint8 *								GDIBitmapBits;
+	int									GDIBitmapStride;
 	HDC									MemDC;
 	FontCharsClassCharDataStruct *					ASCIICharArray[256];
 	FontCharsClassCharDataStruct **					UnicodeCharArray;

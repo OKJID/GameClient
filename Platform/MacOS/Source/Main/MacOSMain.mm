@@ -69,9 +69,34 @@ static void macosSignalHandler(int sig) {
     _exit(1);
 }
 
+// ── External engine bridges ──
+
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h);
+extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
+
+// TheSuperHackers @feature macOS: Compute 90% of main screen dimensions for
+// first-time users with no saved resolution. Called from GlobalData.cpp when
+// OptionPreferences has no "Resolution" key (i.e., default 800x600 is returned).
+extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
+    NSScreen *screen = [NSScreen mainScreen];
+    if (!screen) return;
+
+    NSRect frame = [screen visibleFrame];
+    *w = (int)(frame.size.width * 0.9);
+    *h = (int)(frame.size.height * 0.9);
+
+    // Ensure even dimensions (Metal drawable requirement)
+    *w &= ~1;
+    *h &= ~1;
+
+    printf("[MacOS] GetAdaptiveResolution: screen=%.0fx%.0f -> adaptive=%dx%d\n",
+           frame.size.width, frame.size.height, *w, *h);
+    fflush(stdout);
+}
+
 // ── NSApplication delegate ──
 
-@interface GeneralsAppDelegate : NSObject<NSApplicationDelegate>
+@interface GeneralsAppDelegate : NSObject<NSApplicationDelegate, NSWindowDelegate>
 @property (strong) NSWindow* window;
 @end
 
@@ -81,6 +106,34 @@ static void macosSignalHandler(int sig) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self runGame];
     });
+}
+
+// TheSuperHackers @feature macOS: Sync engine resolution when user finishes
+// dragging the window edge. Uses windowDidEndLiveResize (not windowDidResize)
+// to avoid reacting to system-triggered resize events during initialization.
+- (void)windowDidEndLiveResize:(NSNotification *)notification {
+    if (!self.window) return;
+
+    NSView* contentView = self.window.contentView;
+    CGSize newSize = contentView.bounds.size;
+    int newW = (int)newSize.width;
+    int newH = (int)newSize.height;
+
+    printf("[MacOS] windowDidEndLiveResize: %dx%d\n", newW, newH);
+    fflush(stdout);
+
+    // Update CAMetalLayer drawable size
+    if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
+        CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
+        layer.contentsScale = 1.0;
+        layer.drawableSize = CGSizeMake(newW, newH);
+    }
+
+    // Update MetalDevice8 (viewport, depth texture, screen dimensions)
+    MacOS_UpdateMetalDeviceScreenSize(newW, newH);
+
+    // Apply through the full engine path (mirrors OptionsMenu Accept)
+    MacOS_ApplyDisplayResolution(newW, newH);
 }
 
 - (void)runGame {
@@ -186,6 +239,7 @@ static void macosSignalHandler(int sig) {
     [self.window setTitle:@"Command and Conquer Generals"];
     [self.window center];
     [self.window makeKeyAndOrderFront:nil];
+    [self.window setDelegate:self];
 
     ApplicationHWnd = (__bridge void*)self.window;
 }

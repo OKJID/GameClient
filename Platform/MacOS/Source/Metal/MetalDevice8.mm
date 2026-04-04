@@ -1660,7 +1660,7 @@ STDMETHODIMP MetalDevice8::UpdateTexture(IDirect3DBaseTexture8 *s,
       // Direct upload (32-bit or matching format)
       MTLRegion region = MTLRegionMake2D(0, 0, w, h);
       [mtlDst replaceRegion:region mipmapLevel:level
-              withBytes:srcLocked.pBits bytesPerRow:w * 4];
+              withBytes:srcLocked.pBits bytesPerRow:srcLocked.Pitch];
     }
 
     srcTex->UnlockRect(level);
@@ -2640,6 +2640,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     g_metalDrawCallsThisFrame++;
     DLOG_RFLOW(16, "DrawIndexedPrimitive EXEC idxCount=%u fvf=0x%x pso=%p useProj=%d",
                indexCount, (unsigned)fvf, pso, (fvf & D3DFVF_XYZRHW) ? 2 : 1);
+
     [MTL_ENCODER drawIndexedPrimitives:mtlPt
                             indexCount:indexCount
                              indexType:idxType
@@ -2779,6 +2780,12 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     uint32_t aligned = (dataSize + 255) & ~255u;
     if (m_RingBufferOffset + aligned > m_RingBufferSize) {
       m_RingBufferOffset = 0;
+      // Re-allocate ring buffer on wrap to avoid overwriting GPU-in-flight data
+      id<MTLBuffer> rb = [MTL_DEVICE newBufferWithLength:m_RingBufferSize
+                                                options:MTLResourceStorageModeShared];
+      id<MTLBuffer> old_rb = (__bridge_transfer id<MTLBuffer>)m_RingBuffer;
+      old_rb = nil;
+      m_RingBuffer = (__bridge_retained void *)rb;
     }
 
     if (aligned <= m_RingBufferSize) {

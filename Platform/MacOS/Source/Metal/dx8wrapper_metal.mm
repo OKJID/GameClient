@@ -542,6 +542,11 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits, int
 	if (windowed != -1) IsWindowed = (windowed != 0);
 	DX8Wrapper_IsWindowed = IsWindowed;
 
+	// Mirrors Windows dx8wrapper.cpp line 1077: resize window before device creation
+	if (resize_window) {
+		Resize_And_Position_Window();
+	}
+
 	WWASSERT(reset_device || D3DDevice == nullptr);
 
 	::ZeroMemory(&_PresentParameters, sizeof(D3DPRESENT_PARAMETERS));
@@ -594,12 +599,61 @@ bool DX8Wrapper::Set_Device_Resolution(int width, int height, int bits, int wind
 		if (height != -1) {
 			_PresentParameters.BackBufferHeight = ResolutionHeight = height;
 		}
+		// Mirrors Windows dx8wrapper.cpp line 1367-1369
+		if (resize_window) {
+			Resize_And_Position_Window();
+		}
 		return Reset_Device();
 	}
 	return false;
 }
 
-void DX8Wrapper::Resize_And_Position_Window() {}
+// ── Resize_And_Position_Window ──
+// Mirrors Windows dx8wrapper.cpp lines 960-1035.
+// Windows version: GetClientRect → AdjustWindowRect → SetWindowPos.
+// macOS equivalent: resize NSWindow content area → update CAMetalLayer → update MetalDevice8.
+
+extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
+
+void DX8Wrapper::Resize_And_Position_Window()
+{
+	if (!_Hwnd) return;
+
+	NSWindow* win = (__bridge NSWindow*)_Hwnd;
+	NSView* contentView = win.contentView;
+	CGSize currentSize = contentView.bounds.size;
+
+	if ((int)currentSize.width == ResolutionWidth &&
+	    (int)currentSize.height == ResolutionHeight) {
+		return;
+	}
+
+	printf("[DX8Wrapper] Resize_And_Position_Window: %dx%d -> %dx%d\n",
+	       (int)currentSize.width, (int)currentSize.height,
+	       ResolutionWidth, ResolutionHeight);
+	fflush(stdout);
+
+	// 1. Resize NSWindow (mirrors AdjustWindowRect + SetWindowPos)
+	NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth, ResolutionHeight);
+	NSRect newFrame = [win frameRectForContentRect:contentRect];
+
+	NSScreen* screen = [win screen] ?: [NSScreen mainScreen];
+	NSRect visibleFrame = screen.visibleFrame;
+	newFrame.origin.x = (visibleFrame.size.width - newFrame.size.width) / 2 + visibleFrame.origin.x;
+	newFrame.origin.y = NSMaxY(visibleFrame) - newFrame.size.height;
+
+	[win setFrame:newFrame display:YES animate:NO];
+
+	// 2. Update CAMetalLayer drawable size
+	if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
+		CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
+		layer.contentsScale = 1.0;
+		layer.drawableSize = CGSizeMake(ResolutionWidth, ResolutionHeight);
+	}
+
+	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport
+	MacOS_UpdateMetalDeviceScreenSize(ResolutionWidth, ResolutionHeight);
+}
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──
 
@@ -1834,8 +1888,17 @@ unsigned long DX8Wrapper::Get_FrameCount() { return FrameCount; }
 int DX8Wrapper::Get_Render_Device_Count() { return 1; }
 int DX8Wrapper::Get_Render_Device() { return 0; }
 const RenderDeviceDescClass& DX8Wrapper::Get_Render_Device_Desc(int deviceidx) {
-	static RenderDeviceDescClass desc;
-	return desc;
+	if ((deviceidx == -1) && (CurRenderDevice == -1)) {
+		CurRenderDevice = 0;
+	}
+	if (deviceidx == -1) {
+		deviceidx = CurRenderDevice;
+	}
+	if (deviceidx >= 0 && deviceidx < _RenderDeviceDescriptionTable.Count()) {
+		return _RenderDeviceDescriptionTable[deviceidx];
+	}
+	static RenderDeviceDescClass emptyDesc;
+	return emptyDesc;
 }
 const char* DX8Wrapper::Get_Render_Device_Name(int device_index) { return "Metal"; }
 void DX8Wrapper::Get_Device_Resolution(int& set_w, int& set_h, int& set_bits, bool& set_windowed) {

@@ -845,7 +845,6 @@ Bool GameTextManager::getCSFInfo ( const Char *filename )
 	CSFHeader header;
 	Int ok = FALSE;
 	File *file = TheFileSystem->openFile(filename, File::READ | File::BINARY);
-	DEBUG_LOG(("Looking in %s for compiled string file", filename));
 
 	if ( file != nullptr )
 	{
@@ -944,7 +943,15 @@ Bool GameTextManager::parseCSF( const Char *filename )
 
 			if ( len )
 			{
+#ifdef __APPLE__
+				file->read ( m_tbuffer, len*sizeof(uint16_t) );
+				uint16_t* raw16 = (uint16_t*)m_tbuffer;
+				for (int i = len - 1; i >= 0; --i) {
+					m_tbuffer[i] = raw16[i];
+				}
+#else
 				file->read ( m_tbuffer, len*sizeof(WideChar) );
+#endif
 			}
 
 			if ( num == 0 )
@@ -959,7 +966,11 @@ Bool GameTextManager::parseCSF( const Char *filename )
 
 					while ( *ptr )
 					{
+#ifdef __APPLE__
+						*ptr = (WideChar)(uint16_t)(~(*ptr));
+#else
 						*ptr = ~*ptr;
+#endif
 						ptr++;
 					}
 				}

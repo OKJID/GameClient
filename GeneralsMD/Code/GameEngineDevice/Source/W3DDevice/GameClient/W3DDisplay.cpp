@@ -3391,3 +3391,66 @@ static void drawFramerateBar()
 	TheDisplay->drawFillRect(1, 1, width, 15, colorToUse);
 	prevTime = now;
 }
+
+// TheSuperHackers @feature macOS: Bridge function for applying resolution changes.
+// Called from MacOSMain.mm (windowDidEndLiveResize:) when the user finishes
+// dragging the window edge. Mirrors the OptionsMenu Accept flow at lines 828-853
+// of OptionsMenu.cpp: setDisplayMode + GlobalData + subsystem notifications + layout rebuild.
+// CRITICAL: UI layout rebuild is gated by isShellActive() to prevent crashes
+// during gameplay. During in-game, only the lightweight Metal+viewport update
+// happens via setDisplayMode(). This matches the old port's proven approach.
+#ifdef __APPLE__
+#include "GameClient/Shell.h"
+#include "GameClient/InGameUI.h"
+#include "GameClient/HeaderTemplate.h"
+#include "Common/OptionPreferences.h"
+
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
+	if (!TheDisplay) return;
+
+	int bitDepth = TheDisplay->getBitDepth();
+	Bool windowed = TheDisplay->getWindowed();
+
+	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, windowed);
+	fflush(stdout);
+
+	if (!TheDisplay->setDisplayMode(w, h, bitDepth, windowed)) {
+		printf("[MacOS] ApplyDisplayResolution: setDisplayMode FAILED, aborting\n");
+		fflush(stdout);
+		return;
+	}
+
+	TheWritableGlobalData->m_xResolution = w;
+	TheWritableGlobalData->m_yResolution = h;
+
+	if (TheHeaderTemplateManager) {
+		TheHeaderTemplateManager->onResolutionChanged();
+	}
+	if (TheMouse) {
+		TheMouse->onResolutionChanged();
+	}
+
+	// Only recreate UI layouts when in the main menu shell, NOT during gameplay.
+	// During gameplay, setDisplayMode already updates the 3D viewport,
+	// TacticalView, Render2DClass, and Display width/height.
+	// Calling recreateWindowLayouts during gameplay crashes because windows
+	// are mid-update and resources are actively in use.
+	if (TheShell && TheShell->isShellActive()) {
+		TheShell->recreateWindowLayouts();
+		if (TheInGameUI) {
+			TheInGameUI->recreateControlBar();
+			TheInGameUI->refreshCustomUiResources();
+		}
+	}
+
+	OptionPreferences pref;
+	AsciiString resStr;
+	resStr.format("%d %d", w, h);
+	pref["Resolution"] = resStr;
+	pref.write();
+
+	printf("[MacOS] ApplyDisplayResolution: completed %dx%d (shell=%s)\n",
+	       w, h, (TheShell && TheShell->isShellActive()) ? "active" : "inactive");
+	fflush(stdout);
+}
+#endif // __APPLE__

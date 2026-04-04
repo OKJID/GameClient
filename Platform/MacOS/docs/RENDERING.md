@@ -189,6 +189,69 @@ graph TD
 
 ---
 
+## Два пути 2D-рендеринга
+
+В движке есть **два** разных пути для 2D-контента:
+
+| Путь | FVF | Шейдер | Кто использует |
+|:---|:---|:---|:---|
+| **Путь A** (`Render2DClass`) | `D3DFVF_XYZ` (0x252) | `useProjection==1` с identity матрицами | Кнопки, текст меню, фон UI |
+| **Путь B** (`DrawPrimitiveUP`) | `D3DFVF_XYZRHW` | `useProjection==2` с screen→NDC | Отдельные 2D операции (radar, shroud overlay) |
+
+### Путь A: `Render2DClass` (XYZ + identity)
+
+`Render2DClass` подготавливает вершины уже в NDC-координатах (-1..+1) и устанавливает identity матрицы для world/view/projection. В шейдере: `projection * view * world * pos = I * I * I * pos = pos` — вершины проходят напрямую.
+
+Этот путь **неотличим от 3D** на стороне Metal — тот же PSO, тот же vertex shader path.
+
+### Путь B: `DrawPrimitiveUP` (XYZRHW)
+
+Для `D3DFVF_XYZRHW` вершин (экранные координаты) в `DrawPrimitiveUP` применяются три overrides:
+
+1. **Depth test/write отключены** — 2D UI поверх 3D геометрии
+2. **Culling отключен** — Y-flip в шейдере меняет winding CW → CCW
+3. **`useProjection == 2`** — шейдер конвертирует screen coords → NDC: `pos / screenSize * 2 - 1`, Y-flip
+
+---
+
+## DX8 Geometry Bias и 2D рендеринг (Half-Pixel Offset)
+
+В DirectX 8/9 существовала особенность архитектуры, требовавшая смещать 2D-координаты геометрии на `-0.5` пикселя для "pixel-perfect" семплирования текселей (так называемый *Half-Pixel Offset*). Для этого движок (w3d) включал флаг `WW3D::Set_Screen_UV_Biased(TRUE)`, что заставляло `Render2DClass` принудительно вычитать `0.5f` из позиций вершин.
+
+В **Metal**, как и во всех современных 3D API, растеризатор математически корректно обрабатывает центры пикселей (`+0.5`), так что целочисленные 2D-координаты не нуждаются в этом сдвиге-хаке.
+* **Ошибка:** Если Metal-бэкенд получает смещенную на `-0.5` геометрию, полигоны съезжают ровно так, что оригинальные центры пикселей попадают на *границу* интерполяции текстуры (`Nearest Neighbor`). При округлений Metal может начать перескакивать на соседний тексель, вызывая горизонтальные разрывы (shearing) и деформации однопиксельных линий в UI и шрифтах.
+* **Решение:** В macOS сборке мы оборачиваем смещение в `Vector2 bais_add( -0.5f ,-0.5f );` (файл `render2d.cpp`) директивой `#ifndef __APPLE__`. Тем самым интерфейс шлет *точные* целые координаты в Metal, и растеризатор семплирует текстуры математически идеально в центре текселя.
+
+---
+
+## Шрифтовой пайплайн (Font Atlas)
+
+### Архитектура
+
+`FontCharsClass` (`render2dsentence.cpp`) рендерит глифы в bitmap-буфер, затем копирует в текстуру-атлас (формат ARGB4444). Каждый символ хранится как `FontCharsClassCharDataStruct` с шириной и указателем в буфер.
+
+### Windows (GDI)
+
+1. `CreateFont()` — системный шрифт (Arial, bold/normal)
+2. `CreateDIBSection()` — **top-down** DIB (biHeight < 0): row 0 = верхняя строка в памяти
+3. `ExtTextOutW()` — рендерит глиф в 24-bit RGB DIB
+4. Копирование: `row=0` → прямой порядок (top→bottom), шаг `index += 3` (RGB)
+
+### macOS (CoreText)
+
+1. `CTFontCreateWithName()` + `CTFontCreateCopyWithSymbolicTraits(kCTFontBoldTrait)` для bold
+2. `CGBitmapContextCreate(NULL, ...)` — 8-bit grayscale. Данные хранятся **top-down** (row 0 = верхняя строка)
+3. `CTLineDraw()` — рендерит глиф. `textPosition.y = charDescent` (baseline от низа bitmap)
+4. Копирование: `row=0` → прямой порядок (top→bottom), шаг `index += 1` (grayscale)
+
+### ⚠️ CG Bitmap — top-down ориентация
+
+`CGBitmapContextCreate` с `NULL` data создаёт буфер с **top-down** порядком строк: `row 0 = верхняя строка`. Это подтверждено эмпирически (дамп буфера для символа 'R': rows 0-2 = нули над глифом, rows 12-14 = пиксели ножек).
+
+**Не нужна Y-инверсия** при копировании в атлас — строки копируются как есть (`index = row * stride`).
+
+---
+
 ## Матрицы: D3D → Metal
 
 D3D хранит матрицы в row-major порядке. `memcpy` в Metal `float4x4` (column-major) эффективно **транспонирует** матрицу. Шейдер использует: `pos_clip = projection * view * world * pos` что эквивалентно D3D `pos * W * V * P`.
@@ -198,18 +261,3 @@ D3D хранит матрицы в row-major порядке. `memcpy` в Metal `
 - `Apply_Render_State_Changes()` пушит в `MetalDevice8` через `DX8CALL(SetTransform)`
 - `Set_Transform(PROJECTION)` пушит **сразу** через `DX8CALL`
 - `Set_World_Identity()` / `Set_View_Identity()` — устанавливают identity в render_state
-
----
-
-## Решённые проблемы
-
-### Чёрный экран (2026-04-03)
-**Причина:** `Set_World_Identity()`, `Set_View_Identity()`, `Set_Light()`, `Apply_Default_State()` были пустыми заглушками в `dx8wrapper_metal.mm`.
-- `render_state.world` = нули → `projection * view * ZERO * pos` = ноль для любой вершины
-- **Исправление:** реализованы по Windows flow из `dx8wrapper.cpp`
-
-## Активные проблемы
-
-- **Зеркальный рендер** — контент отражён по X. См. `.agent/_tasks/macos-fix-mirrored-rendering.md`
-- **Missing textures (magenta)** — текстуры создаются но контент не виден. См. `.agent/_tasks/macos-fix-missing-textures.md`
-- **Сканирование исходников** — StdLocalFileSystem сканирует рабочую директорию. См. `.agent/_tasks/macos-fix-filesystem-scan.md`
