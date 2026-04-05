@@ -128,7 +128,7 @@ Bool getStringFromRegistry(HKEY, AsciiString path, AsciiString key, AsciiString&
 {
 	if (key.compareNoCase("InstallPath") == 0)
 	{
-		const char* envPath = getenv("GENERALS_INSTALL_PATH");
+		const char* envPath = getenv("GENERALS_BASE_INSTALL_PATH");
 		if (envPath)
 		{
 			val = envPath;

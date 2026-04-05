@@ -25,14 +25,63 @@ extern MacOSMouse *TheMacOSMouse;
 #include "GameClient/ParticleSys.h"
 #include "GameNetwork/NetworkInterface.h"
 
-#include "StdDevice/Common/StdLocalFileSystem.h"
+#include "../System/MacOSLocalFileSystem.h"
 #include "StdDevice/Common/StdBIGFileSystem.h"
+#include <unistd.h>
+#include <strings.h>
 
 #include "GameNetwork/LANAPICallbacks.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "../Audio/MacOSAudioManager.h"
 
 extern DWORD TheMessageTime;
+
+static bool DetectGameModes(const std::string& rootPath, std::string& outZH, std::string& outBase)
+{
+	std::error_code ec;
+	auto rootIter = std::filesystem::directory_iterator(rootPath, ec);
+	if (ec) {
+		printf("DetectGameModes - failed to scan: '%s'\n", rootPath.c_str());
+		fflush(stdout);
+		return false;
+	}
+
+	for (const auto& entry : rootIter) {
+		if (!entry.is_directory()) {
+			continue;
+		}
+
+		bool hasINIZH = false;
+		bool hasINI = false;
+		std::string subdir = entry.path().string();
+
+		auto subIter = std::filesystem::directory_iterator(subdir, ec);
+		if (ec) {
+			continue;
+		}
+
+		for (const auto& file : subIter) {
+			if (file.is_directory()) {
+				continue;
+			}
+			std::string name = file.path().filename().string();
+			if (strcasecmp(name.c_str(), "INIZH.big") == 0) { hasINIZH = true; }
+			if (strcasecmp(name.c_str(), "INI.big") == 0) { hasINI = true; }
+		}
+
+		if (hasINIZH && outZH.empty()) {
+			outZH = subdir;
+		} else if (hasINI && !hasINIZH && outBase.empty()) {
+			outBase = subdir;
+		}
+	}
+
+	printf("DetectGameModes - ZH: '%s', Base: '%s'\n",
+		outZH.empty() ? "(not found)" : outZH.c_str(),
+		outBase.empty() ? "(not found)" : outBase.c_str());
+	fflush(stdout);
+	return !outZH.empty();
+}
 
 // ── Constructor/Destructor (mirrors Win32GameEngine) ──
 
@@ -48,6 +97,27 @@ MacOSGameEngine::~MacOSGameEngine()
 
 void MacOSGameEngine::init()
 {
+	const char* rootPath = getenv("GENERALS_INSTALL_PATH");
+	if (rootPath && rootPath[0]) {
+		std::string zhPath, basePath;
+		if (DetectGameModes(rootPath, zhPath, basePath)) {
+			if (chdir(zhPath.c_str()) == 0) {
+				printf("MacOSGameEngine::init - CWD set to ZH: '%s'\n", zhPath.c_str());
+			} else {
+				printf("MacOSGameEngine::init - chdir FAILED: '%s'\n", zhPath.c_str());
+			}
+			fflush(stdout);
+
+			setenv("GENERALS_ZH_INSTALL_PATH", zhPath.c_str(), 1);
+
+			if (!basePath.empty()) {
+				setenv("GENERALS_BASE_INSTALL_PATH", basePath.c_str(), 1);
+				printf("MacOSGameEngine::init - Base path: '%s'\n", basePath.c_str());
+				fflush(stdout);
+			}
+		}
+	}
+
 	GameEngine::init();
 }
 
@@ -187,7 +257,7 @@ ParticleSystemManager* MacOSGameEngine::createParticleSystemManager(Bool dummy)
 
 // ── macOS-specific factories ──
 
-LocalFileSystem* MacOSGameEngine::createLocalFileSystem() { return NEW StdLocalFileSystem; }
+LocalFileSystem* MacOSGameEngine::createLocalFileSystem() { return NEW MacOSLocalFileSystem; }
 ArchiveFileSystem* MacOSGameEngine::createArchiveFileSystem() { return NEW StdBIGFileSystem; }
 WebBrowser* MacOSGameEngine::createWebBrowser() { return nullptr; }
 AudioManager* MacOSGameEngine::createAudioManager() { return NEW MacOSAudioManager; }

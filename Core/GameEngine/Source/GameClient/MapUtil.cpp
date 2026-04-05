@@ -567,6 +567,7 @@ INI ini;
 		if (!filepathLower.endsWithNoCase(endingStr.str()))
 		{
 			DEBUG_CRASH(("Found map '%s' in wrong spot (%s)", filenameLower.str(), filepathLower.str()));
+			DEBUG_CRASH_MAC(("Found map '%s' in wrong spot (%s)", filenameLower.str(), filepathLower.str()));
 			continue;
 		}
 

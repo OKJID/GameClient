@@ -43,6 +43,12 @@ set(INPUT_SRC
     Source/Input/MacOSGameClientFactory.cpp
 )
 
+# ── System ──
+set(SYSTEM_SRC
+    Source/System/MacOSLocalFileSystem.mm
+    Source/System/MacOSLocalFileSystem.h
+)
+
 # ── Stubs ──
 set(STUBS_SRC
     Source/GeneralsOnlineStubs.cpp
@@ -54,6 +60,7 @@ add_library(macos_platform STATIC
     ${MAIN_SRC}
     ${AUDIO_SRC}
     ${INPUT_SRC}
+    ${SYSTEM_SRC}
     ${STUBS_SRC}
 )
 
@@ -63,6 +70,7 @@ target_include_directories(macos_platform PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Input
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/System
 )
 
 target_include_directories(macos_platform PRIVATE
@@ -186,6 +194,7 @@ set_source_files_properties(
     Source/Main/MacOSMain.mm
     Source/Input/MacOSKeyboard.mm
     Source/Input/MacOSMouse.mm
+    Source/System/MacOSLocalFileSystem.mm
     PROPERTIES
         SKIP_PRECOMPILE_HEADERS ON
         LANGUAGE OBJCXX

@@ -40,9 +40,6 @@
 
 #include "StdDevice/Common/StdBIGFile.h"
 #include "StdDevice/Common/StdBIGFileSystem.h"
-#ifdef __APPLE__
-#include "StdDevice/Common/StdLocalFileSystem.h"
-#endif
 #include "Utility/endian_compat.h"
 
 static const char *BIGFileIdentifier = "BIGF";
@@ -59,36 +56,6 @@ void StdBIGFileSystem::init() {
 		return;
 	}
 
-#ifdef __APPLE__
-	StdLocalFileSystem* localFS = static_cast<StdLocalFileSystem*>(TheLocalFileSystem);
-
-	const char* envPath = getenv("GENERALS_INSTALL_PATH");
-	if (envPath && envPath[0]) {
-		printf("StdBIGFileSystem::init - GENERALS_INSTALL_PATH: '%s'\n", envPath);
-		fflush(stdout);
-
-		localFS->addSearchPath(envPath);
-		loadBigFilesFromDirectory("", "*.big");
-		loadBigFilesFromDirectory(envPath, "*.big");
-
-#if RTS_ZEROHOUR
-		std::string zhStr(envPath);
-		std::string parentDir = zhStr.substr(0, zhStr.rfind('/'));
-		if (!parentDir.empty()) {
-			std::string genPath = parentDir + "/Command and Conquer Generals";
-			printf("StdBIGFileSystem::init - Generals Base Path: '%s'\n", genPath.c_str());
-			fflush(stdout);
-			localFS->addSearchPath(genPath.c_str());
-			loadBigFilesFromDirectory(genPath.c_str(), "*.big");
-		}
-#endif
-	} else {
-		printf("StdBIGFileSystem::init - WARNING: GENERALS_INSTALL_PATH not set\n");
-		fflush(stdout);
-		loadBigFilesFromDirectory("", "*.big");
-	}
-
-#else
 	loadBigFilesFromDirectory("", "*.big");
 
 #if RTS_ZEROHOUR
@@ -97,7 +64,6 @@ void StdBIGFileSystem::init() {
     DEBUG_ASSERTCRASH(!installPath.isEmpty(), ("Be 1337! Go install Generals!"));
     if (!installPath.isEmpty())
       loadBigFilesFromDirectory(installPath, "*.big");
-#endif
 #endif
 }
 

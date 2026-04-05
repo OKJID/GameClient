@@ -44,7 +44,17 @@
 
 // OutputDebugString
 #ifndef OutputDebugString
+#ifdef __APPLE__
+#include <stdio.h>
+inline void OutputDebugString(const char* str) {
+    if (str != nullptr) {
+        printf("%s", str);
+        fflush(stdout);
+    }
+}
+#else
 #define OutputDebugString(str) printf("%s\n", str)
+#endif
 #endif
 
 // _MAX_DRIVE, _MAX_DIR, _MAX_FNAME, _MAX_EXT, _MAX_PATH

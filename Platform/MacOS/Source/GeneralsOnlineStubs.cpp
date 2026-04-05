@@ -72,7 +72,8 @@ void StopAsyncDNSCheck() {}
 void StackDumpFromAddresses(void**, unsigned int, void (*)(char const*)) {}
 void FillStackAddresses(void**, unsigned int, unsigned int) {}
 void OSDisplaySetBusyState(bool, bool) {}
-extern "C" void g_LastErrorDump() {}
+#include "Common/AsciiString.h"
+AsciiString g_LastErrorDump;
 
 #include "Common/INI.h"
 #include "GameNetwork/WOLBrowser/WebBrowser.h"
