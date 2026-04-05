@@ -47,6 +47,16 @@ public:
 		return m_bCACertBad.load();
 	}
 
+    void SetProtocolInUse(EIPProtocolVersion proto)
+    {
+		m_sProtocolInUse.store(proto);
+    }
+
+	EIPProtocolVersion GetProtocolInUse()
+    {
+        return m_sProtocolInUse.load();
+    }
+
 	void AddHandleToMulti(CURL* pNewHandle);
 	void RemoveHandleFromMulti(CURL* pHandleToRemove);
 
@@ -70,6 +80,8 @@ private:
 
 private:
 	CURLM* m_pCurl = nullptr;
+
+	std::atomic<EIPProtocolVersion> m_sProtocolInUse = EIPProtocolVersion::DONT_CARE;
 
 	static std::atomic<bool> m_bCACertBad;
 
