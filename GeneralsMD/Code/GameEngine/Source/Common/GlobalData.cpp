@@ -1053,6 +1053,12 @@ GlobalData::GlobalData()
 
 	m_keyboardCameraRotateSpeed = 0.1f;
 
+#if defined(USE_MAULLER_ONEDRIVE_FIX)
+	// Set user data directory based on registry settings instead of INI parameters.
+	// This allows us to localize the leaf name.
+	m_userDataDir = BuildUserDataPathFromRegistry();
+	CreateDirectory(m_userDataDir.str(), nullptr);
+#else
   // Set user data directory based on registry settings instead of INI parameters. This allows us to
   // localize the leaf name.
   char temp[_MAX_PATH + 1];
@@ -1060,8 +1066,13 @@ GlobalData::GlobalData()
   {
     AsciiString myDocumentsDirectory = temp;
 
-    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() -1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
+#ifdef __APPLE__
+    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '/')
+      myDocumentsDirectory.concat('/');
+#else
+    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
+      myDocumentsDirectory.concat('\\');
+#endif
 
     AsciiString leafName;
 
@@ -1073,22 +1084,18 @@ GlobalData::GlobalData()
     }
 
     myDocumentsDirectory.concat( leafName );
-    if (myDocumentsDirectory.getCharAt( myDocumentsDirectory.getLength() - 1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
-
 #ifdef __APPLE__
-    {
-        std::string s = myDocumentsDirectory.str();
-        for(size_t j=0; j<s.length(); ++j) {
-            if(s[j] == '\\') s[j] = '/';
-        }
-        myDocumentsDirectory = s.c_str();
-    }
+    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '/')
+      myDocumentsDirectory.concat('/');
+#else
+    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
+      myDocumentsDirectory.concat('\\');
 #endif
 
     CreateDirectory(myDocumentsDirectory.str(), nullptr);
     m_userDataDir = myDocumentsDirectory;
   }
+#endif
 
 	//-allAdvice feature
 	//m_allAdvice = FALSE;
@@ -1378,4 +1385,80 @@ UnsignedInt GlobalData::generateExeCRC()
 	DEBUG_LOG(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
 
 	return exeCRC.get();
+}
+
+AsciiString GlobalData::BuildUserDataPathFromRegistry()
+{
+	AsciiString myDocumentsDirectory;
+
+#ifndef __APPLE__
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+	// VC6 lacks FOLDERID_Documents and KF_FLAG_DEFAULT
+	const GUID FOLDERID_Documents = { 0xFDD39AD0, 0x238F, 0x46AF, 0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7 };
+	const DWORD KF_FLAG_DEFAULT = 0;
+#endif
+
+	typedef HRESULT(WINAPI* PFN_SHGetKnownFolderPath)(const GUID& rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
+
+	HMODULE shell32module = GetModuleHandleA("shell32.dll");
+	PFN_SHGetKnownFolderPath pSHGetKnownFolderPath = nullptr;
+
+	// TheSuperHackers @bugfix Mauller 20/03/2026 Fix the handling of folder redirection
+	// OneDrive and Group Policy folder redirection is better supported by SHGetKnownFolderPath()
+	// SHGetKnownFolderPath() is only supported in windows Vista onwards so we check for it being available
+	if (shell32module) {
+		pSHGetKnownFolderPath = (PFN_SHGetKnownFolderPath)GetProcAddress(shell32module, "SHGetKnownFolderPath");
+	}
+
+	if (pSHGetKnownFolderPath) {
+		PWSTR pszPath = nullptr;
+		HRESULT hr = pSHGetKnownFolderPath(FOLDERID_Documents, KF_FLAG_DEFAULT, nullptr, &pszPath);
+
+		if (SUCCEEDED(hr) && pszPath) {
+			myDocumentsDirectory.translate(pszPath);
+			CoTaskMemFree(pszPath);
+		}
+	}
+	else {
+		char temp[_MAX_PATH + 1];
+		if (SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
+			myDocumentsDirectory = temp;
+		}
+	}
+#else
+	char temp[_MAX_PATH + 1];
+	if (SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
+		myDocumentsDirectory = temp;
+	}
+#endif
+
+	if (!myDocumentsDirectory.isEmpty()) {
+		// Now build the full path string
+		if (!myDocumentsDirectory.endsWith("\\"))
+			myDocumentsDirectory.concat('\\');
+
+		AsciiString leafName;
+		if (!GetStringFromRegistry("", "UserDataLeafName", leafName))
+		{
+			// Use something, anything
+			// [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
+			leafName = "Command and Conquer Generals Zero Hour Data";
+		}
+
+		myDocumentsDirectory.concat(leafName);
+		if (!myDocumentsDirectory.endsWith("\\"))
+			myDocumentsDirectory.concat('\\');
+	}
+
+#ifdef __APPLE__
+	{
+		std::string s = myDocumentsDirectory.str();
+		for (size_t j = 0; j < s.length(); ++j) {
+			if (s[j] == '\\') s[j] = '/';
+		}
+		myDocumentsDirectory = s.c_str();
+	}
+#endif
+
+	return myDocumentsDirectory;
 }

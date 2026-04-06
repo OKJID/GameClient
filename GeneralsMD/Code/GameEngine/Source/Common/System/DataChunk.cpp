@@ -970,8 +970,22 @@ UnicodeString DataChunkInput::readUnicodeString()
 	UnicodeString theString;
 	if (len>0) {
 		WideChar *str = theString.getBufferForRead(len);
+		
+#ifdef __APPLE__
+		UnsignedShort *tempBuffer = NEW UnsignedShort[len];
+		m_file->read((char*)tempBuffer, len * sizeof(UnsignedShort));
+		decrementDataLeft(len * sizeof(UnsignedShort));
+		
+		for (int i = 0; i < len; ++i) {
+			str[i] = (WideChar)tempBuffer[i];
+		}
+		
+		delete[] tempBuffer;
+#else
 		m_file->read( (char*)str, len*sizeof(WideChar) );
 		decrementDataLeft( len*sizeof(WideChar) );
+#endif
+		
 		// add null delimiter to string.  Note that getBufferForRead allocates space for terminating null.
 		str[len] = '\000';
 	}

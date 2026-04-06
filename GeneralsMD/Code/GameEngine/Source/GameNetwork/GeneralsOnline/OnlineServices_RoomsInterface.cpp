@@ -48,11 +48,20 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		return;
 	}
 
+#ifdef __APPLE__
 	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
 	// TODO_CACHE: Cleanup multi too
 	if (m_pCurlWS != nullptr)
 	{
+        // remove from multi before cleanup (required by libcurl)
+        if (m_pMulti != nullptr)
+        {
+            curl_multi_remove_handle(m_pMulti, m_pCurlWS);
+        }
         // cleanup
         curl_easy_cleanup(m_pCurlWS);
         m_pCurlWS = nullptr;
@@ -88,8 +97,29 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_VERBOSE, 1L);
 #else
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
-		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+        if (HTTPManager::IsCACertStoreBad())
+        {
+            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+        }
+        else
+        {
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCurlWS, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+        }
 #endif
 
 
@@ -97,14 +127,24 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 		if (pAuthInterface == nullptr)
 		{
+			curl_easy_cleanup(m_pCurlWS);
+			m_pCurlWS = nullptr;
 			return;
 		}
 
 		char szHeaderBuffer[8192] = { 0 };
+#ifdef __APPLE__
 		snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+#else
+		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+#endif
 		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
 
+#ifdef __APPLE__
         snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "is-reconnect: %s", bIsReconnect ? "true": "false");
+#else
+        sprintf_s(szHeaderBuffer, "is-reconnect: %s", bIsReconnect ? "true": "false");
+#endif
 		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_HTTPHEADER, m_pHeaders);
@@ -175,6 +215,7 @@ void WebSocket::Disconnect()
 	}
 
 	m_vecWSPartialBuffer.clear();
+	m_bConnected = false;
 }
 
 void WebSocket::Send(const char* send_payload)
@@ -246,8 +287,9 @@ public:
 	std::string message;
 	bool action;
 	bool admin;
+	bool name_change;
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action, admin)
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_RoomChatIncoming, msg_id, message, action, admin, name_change)
 };
 
 class WebSocketMessage_Social_FriendChatMessage_Incoming : public WebSocketMessageBase
@@ -396,7 +438,11 @@ void WebSocket::Tick()
 	// attempting to reconnect?
 	if (m_bReconnecting)
 	{
+#ifdef __APPLE__
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
 		int maxReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
 		if (m_numReconnectAttempts >= maxReconnectAttempts)
@@ -449,7 +495,11 @@ void WebSocket::Tick()
 	*/
 
 	// ping?
+#ifdef __APPLE__
 	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 	if ((currTime - m_lastPing) > m_timeBetweenUserPings)
 	{
 		m_lastPing = currTime;
@@ -542,12 +592,16 @@ void WebSocket::Tick()
                         m_lastReconnectAttempt = -1;
 
                         // connecting is as good as a pong
+#ifdef __APPLE__
                         m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-                    }
+#else
+                        m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
-                    if (m_fnWebsocketConnectedCallback != nullptr)
-                    {
-                        m_fnWebsocketConnectedCallback();
+                        if (m_fnWebsocketConnectedCallback != nullptr)
+                        {
+                            m_fnWebsocketConnectedCallback();
+                        }
                     }
                 }
             }
@@ -585,11 +639,11 @@ void WebSocket::Tick()
 	{
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
-		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 
 		// what type of message?
 		if (meta != nullptr)
 		{
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket flags: %d", meta->flags);
 			if (meta->flags & CURLWS_PONG) // PONG
 			{
 
@@ -598,8 +652,19 @@ void WebSocket::Tick()
 			{
 				bool bMessageComplete = false;
 
+				static constexpr size_t MAX_WS_PARTIAL_SIZE = 2 * 1024 * 1024; // 2 MB
+				if (m_vecWSPartialBuffer.size() + rlen > MAX_WS_PARTIAL_SIZE)
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Partial buffer overflow, discarding message");
+					m_vecWSPartialBuffer.clear();
+					return;
+				}
 				m_vecWSPartialBuffer.resize(m_vecWSPartialBuffer.size() + rlen);
+#ifdef __APPLE__
 				memcpy(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, bufferThisRecv, rlen);
+#else
+				memcpy_s(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, rlen, bufferThisRecv, rlen);
+#endif
 
 				if (meta->flags & CURLWS_CONT)
 				{
@@ -649,7 +714,11 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::PONG:
 									{
+#ifdef __APPLE__
 										int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+										int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 										m_lastPong = currTime;
 									}
 									break;
@@ -663,7 +732,7 @@ void WebSocket::Tick()
 										{
 											UnicodeString unicodeStr(from_utf8(chatData.message).c_str());
 
-											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action, chatData.admin);
+											Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_NETWORK_ROOM, true, chatData.action, chatData.admin, chatData.name_change);
 
 											NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 											if (pRoomsInterface != nullptr && pRoomsInterface->m_OnChatCallback != nullptr)
@@ -1236,7 +1305,11 @@ void WebSocket::Tick()
 		m_bConnected = false;
 		m_bReconnecting = true;
         m_numReconnectAttempts = 0;
+#ifdef __APPLE__
         m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 		m_vecWSPartialBuffer.clear();
 
 
@@ -1268,7 +1341,11 @@ void WebSocket::Tick()
         m_bConnected = false;
         m_bReconnecting = true;
         m_numReconnectAttempts = 0;
+#ifdef __APPLE__
         m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
         m_vecWSPartialBuffer.clear();
 	};
 

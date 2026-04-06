@@ -290,17 +290,32 @@ const VeterancyLevelFlags VETERANCY_LEVEL_FLAGS_NONE = 0x00000000;
 
 inline Bool getVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
+#ifdef __APPLE__
+	UnsignedInt bit = (dt == 0) ? 31u : (UnsignedInt)(dt - 1);
+	return (flags & (1UL << bit)) != 0;
+#else
 	return (flags & (1UL << (dt - 1))) != 0;
+#endif
 }
 
 inline VeterancyLevelFlags setVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
+#ifdef __APPLE__
+	UnsignedInt bit = (dt == 0) ? 31u : (UnsignedInt)(dt - 1);
+	return (flags | (1UL << bit));
+#else
 	return (flags | (1UL << (dt - 1)));
+#endif
 }
 
 inline VeterancyLevelFlags clearVeterancyLevelFlag(VeterancyLevelFlags flags, VeterancyLevel dt)
 {
+#ifdef __APPLE__
+	UnsignedInt bit = (dt == 0) ? 31u : (UnsignedInt)(dt - 1);
+	return (flags & ~(1UL << bit));
+#else
 	return (flags & ~(1UL << (dt - 1)));
+#endif
 }
 
 // ----------------------------------------------------------------------------------------------

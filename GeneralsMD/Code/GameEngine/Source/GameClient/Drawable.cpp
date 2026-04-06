@@ -3115,7 +3115,16 @@ void Drawable::drawUIText()
 
 	const Object* obj = getObject();
 
+#ifdef __APPLE__
+	if (!obj) return; // Safeguard for objects destroyed this frame
+#endif
+
 	Player* owner = obj->getControllingPlayer();
+
+#ifdef __APPLE__
+	if (!owner) return; // Safeguard if object is orphaned from player during cleanup
+#endif
+
 	Int groupNum = owner->getSquadNumberForObject(obj);
 
 	Color color = TheDrawGroupInfo->m_usePlayerColor ? owner->getPlayerColor() : TheDrawGroupInfo->m_colorForText;

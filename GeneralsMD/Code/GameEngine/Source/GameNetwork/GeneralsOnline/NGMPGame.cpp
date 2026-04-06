@@ -166,7 +166,19 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		{
 			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
 
+			if (pLobbyMember.m_SlotIndex >= MAX_SLOTS)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: bad slot index %u for user %lld, skipping", pLobbyMember.m_SlotIndex, pLobbyMember.user_id);
+				continue;
+			}
+
 			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
+
+			if (slot == nullptr)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: getSlot(%u) returned null, skipping", pLobbyMember.m_SlotIndex);
+				continue;
+			}
 
 			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
 			slot->setState((SlotState)pLobbyMember.m_SlotState, UnicodeString(from_utf8(pLobbyMember.display_name).c_str()), pLobbyMember.m_SlotIndex);
@@ -555,8 +567,13 @@ void NGMPGame::reset(void)
 void NGMPGame::StartCountdown()
 {
 	m_bCountdownStarted = true;
+#ifdef __APPLE__
 	m_countdownStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+	m_countdownStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
 	std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
 	if (pWS != nullptr)

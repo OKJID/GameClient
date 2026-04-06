@@ -19,10 +19,10 @@ void MacOSLocalFileSystem::init()
 		addSearchPath(AsciiString(zhPath));
 	}
 
-	const char* basePath = getenv("GENERALS_BASE_INSTALL_PATH");
-	if (basePath && basePath[0]) {
-		addSearchPath(AsciiString(basePath));
-	}
+	// [OKJI] Removed `addSearchPath(AsciiString(basePath));` here to strictly follow the "Windows Flow",
+	// where Zero Hour NEVER scans the Vanilla Base directory for loose files. Reading Vanilla loose 
+	// files replaces the expected ZeroHour .big archive data, causing INI parsing crashes due to 
+	// discarded Vanilla enums in the C++ executable.
 }
 
 std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Char *filename, Int access) const

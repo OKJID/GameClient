@@ -190,7 +190,7 @@ void NGMP_OnlineServices_SocialInterface::AcceptPendingRequest(int64_t target_us
 		});
 
 	// update notifications
-	--m_numTotalNotifications;
+	if (m_numTotalNotifications > 0) --m_numTotalNotifications;
 	TriggerCallback_OnNumberGlobalNotificationsChanged();
 }
 
@@ -205,7 +205,7 @@ void NGMP_OnlineServices_SocialInterface::RejectPendingRequest(int64_t target_us
 		});
 
     // update notifications
-    --m_numTotalNotifications;
+    if (m_numTotalNotifications > 0) --m_numTotalNotifications;
     TriggerCallback_OnNumberGlobalNotificationsChanged();
 }
 
@@ -432,6 +432,10 @@ void NGMP_OnlineServices_SocialInterface::CommitLobbyPlayerListToRecentlyPlayedW
             }
         }
 
+#ifdef __APPLE__
 	m_RecentlyPlayedWithTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+	m_RecentlyPlayedWithTimestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 }
 
