@@ -274,13 +274,6 @@ void LightEnvironmentClass::Add_Light(const LightClass & light)
 	/*
 	** If not rejected, add the directional component to the active lights
 	*/
-	static int rejected_cnt = 0;
-	if (rejected_cnt < 100) {
-		printf("Add_Light Check: DiffuseRejected=%d, Length2=%f, Cutoff2=%f\n",
-			(int)new_light.DiffuseRejected, new_light.Diffuse.Length2(), _LightingLODCutoff2);
-		fflush(stdout);
-		rejected_cnt++;
-	}
 
 	if (new_light.DiffuseRejected == false || new_light.m_point) {
 
