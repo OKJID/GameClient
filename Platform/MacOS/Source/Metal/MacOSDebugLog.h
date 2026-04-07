@@ -4,7 +4,7 @@
 #include <cstdio>
 #include <cstdarg>
 
-// #define METAL_DEBUG_LOG
+#define METAL_DEBUG_LOG
 
 namespace MacOSDebug {
 	inline void Log(const char* fmt, ...) {

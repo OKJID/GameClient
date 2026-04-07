@@ -751,6 +751,47 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
                              sampler sampler1 [[sampler(1)]],
                              sampler sampler2 [[sampler(2)]],
                              sampler sampler3 [[sampler(3)]]) {
+    auto computeTexCoord = [&](uint tci, uint stage) -> float3 {
+        uint tciMode = (tci >> 16) & 0x3;
+        uint uvIndex = tci & 0x3;
+        float4 unprojected;
+        
+        if (tciMode == 1 && uniforms.useProjection == 1) { 
+            // D3DTSS_TCI_CAMERASPACEPOSITION (1)
+            unprojected = float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
+        } else if (tciMode == 2) { 
+            // D3DTSS_TCI_CAMERASPACENORMAL (2)
+            unprojected = float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
+        } else if (tciMode == 3) { 
+            // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR (3)
+            float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
+            float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
+            float3 R = V - 2.0 * dot(V, N) * N;
+            unprojected = float4(R.x, R.y, R.z, 1.0);
+        } else {
+            // D3DTSS_TCI_PASSTHRU (0)
+            float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+            unprojected = float4(uv.x, uv.y, 0.0, 1.0);
+        }
+        
+        uint flags = uniforms.texTransformFlags[stage];
+        if (flags != 0) {
+            float4 tc = uniforms.texMatrix[stage] * unprojected;
+            if ((flags & 256) != 0) { // D3DTTFF_PROJECTED
+                uint count = flags & 255;
+                if (count == 3 && tc.z != 0.0) {
+                    tc.x /= tc.z;
+                    tc.y /= tc.z;
+                } else if (count == 4 && tc.w != 0.0) {
+                    tc.x /= tc.w;
+                    tc.y /= tc.w;
+                    tc.z /= tc.w;
+                }
+            }
+            return tc.xyz;
+        }
+        return unprojected.xyz;
+    };
 
     // ════════════════════════════════════════════════════
     //  Custom Pixel Shader path — bypasses TSS completely
@@ -759,46 +800,11 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
     // ════════════════════════════════════════════════════
     if (psUniforms.psType != 0) {
         // Select UV coordinates (PS uses tex coord index from TSS states)
-        float2 uv0 = in.texCoord;
-        float2 uv1 = in.texCoord2;
 
-        // Apply texture coordinate transforms for camera-space projection stages
-        // (Used by noise/cloud stages that set TCI_CAMERASPACEPOSITION)
-        auto computeUVPS = [&](uint tci, uint stage) -> float3 {
-            uint tciMode = (tci >> 16) & 0x3;
-            uint uvIndex = tci & 0x3;
-            if (tciMode == 1 && uniforms.useProjection == 1) { // D3DTSS_TCI_CAMERASPACENORMAL
-                if (uniforms.texTransformFlags[stage] != 0) {
-                    float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-                    return tc.xyz;
-                }
-                return float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-            }
-            if (tciMode == 2) { // D3DTSS_TCI_CAMERASPACEPOSITION
-                if (uniforms.texTransformFlags[stage] != 0) {
-                    float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-                    return tc.xyz;
-                }
-                return float3(in.camPosX, in.camPosY, in.camPosZ);
-            }
-            if (tciMode == 3) { // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR
-                float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
-                float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-                float3 R = V - 2.0 * dot(V, N) * N;
-                if (uniforms.texTransformFlags[stage] != 0) {
-                    float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
-                    return tc.xyz;
-                }
-                return R;
-            }
-            float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-            return float3(uv, 0.0);
-        };
-
-        float3 psUV0 = computeUVPS(fragUniforms.texCoordIndex[0], 0);
-        float3 psUV1 = computeUVPS(fragUniforms.texCoordIndex[1], 1);
-        float3 psUV2 = computeUVPS(fragUniforms.texCoordIndex[2], 2);
-        float3 psUV3 = computeUVPS(fragUniforms.texCoordIndex[3], 3);
+        float3 psUV0 = computeTexCoord(fragUniforms.texCoordIndex[0], 0);
+        float3 psUV1 = computeTexCoord(fragUniforms.texCoordIndex[1], 1);
+        float3 psUV2 = computeTexCoord(fragUniforms.texCoordIndex[2], 2);
+        float3 psUV3 = computeTexCoord(fragUniforms.texCoordIndex[3], 3);
 
         float4 t0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, psUV0) : 
                     (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, psUV0.xy) : float4(1.0);
@@ -946,63 +952,11 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
     //  TSS (Texture Stage State) path — fallback when no PS active
     // ════════════════════════════════════════════════════
     
-    // Select UV and apply texture coordinate transforms per stage.
-    // D3DTSS_TEXCOORDINDEX combines two fields:
-    //   Bits 16-17: TCI mode (0=PASSTHRU, 1=CAMERASPACEPOSITION, 2=CAMERASPACENORMAL)
-    //   Bits 0-1: which UV set to use (for PASSTHRU mode)
-    //
-    // For TCI_CAMERASPACEPOSITION: the texture matrix expects the FULL 3D camera-space
-    // position (x,y,z,1), not just the 2D UV. The matrix projects 3D → 2D UV.
-    // For PASSTHRU: the texture matrix transforms 2D UV as (u,v,0,1).
-    auto computeUV = [&](uint tci, uint stage) -> float3 {
-        uint tciMode = (tci >> 16) & 0x3;
-        uint uvIndex = tci & 0x3;
-        
-        if (tciMode == 1 && uniforms.useProjection == 1) {
-            // D3DTSS_TCI_CAMERASPACEPOSITION: full 3D position through texture matrix
-            if (uniforms.texTransformFlags[stage] != 0) {
-                float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-                return tc.xyz;
-            }
-            return float3(in.camPosX, in.camPosY, in.camPosZ);
-        }
-        
-        if (tciMode == 2) {
-            // D3DTSS_TCI_CAMERASPACENORMAL
-            if (uniforms.texTransformFlags[stage] != 0) {
-                float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-                return tc.xyz;
-            }
-            return float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-        }
-        
-        if (tciMode == 3) {
-            // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR
-            float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
-            float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-            float3 R = V - 2.0 * dot(V, N) * N;
-            if (uniforms.texTransformFlags[stage] != 0) {
-                float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
-                return tc.xyz;
-            }
-            return R;
-        }
-        
-        // D3DTSS_TCI_PASSTHRU: use vertex UV set, apply texture transform if set.
-        // PS path handles terrain/cloud/noise, so stale texTransformFlags
-        // from multi-pass TSS are no longer an issue for terrain.
-        float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-        if (uniforms.texTransformFlags[stage] != 0) {
-            uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
-        }
-        return float3(uv, 0.0);
-    };
-    
-    float3 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
+    float3 uv0 = computeTexCoord(fragUniforms.texCoordIndex[0], 0);
 
-    float3 uv1 = computeUV(fragUniforms.texCoordIndex[1], 1);
-    float3 uv2 = computeUV(fragUniforms.texCoordIndex[2], 2);
-    float3 uv3 = computeUV(fragUniforms.texCoordIndex[3], 3);
+    float3 uv1 = computeTexCoord(fragUniforms.texCoordIndex[1], 1);
+    float3 uv2 = computeTexCoord(fragUniforms.texCoordIndex[2], 2);
+    float3 uv3 = computeTexCoord(fragUniforms.texCoordIndex[3], 3);
     
     // Sample textures using their respective UV coordinates
     float4 texColor0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, uv0) :

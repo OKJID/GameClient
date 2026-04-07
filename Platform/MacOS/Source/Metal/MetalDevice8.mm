@@ -25,6 +25,11 @@
 #include "MetalTextureCapture.h"
 #include <cstdio>
 #include <cstring>
+#include <map>
+
+// [ZONE-DIAG] Global Map Tracker
+extern std::map<std::pair<uint32_t, uint32_t>, uint32_t> g_DrawStats;
+std::map<std::pair<uint32_t, uint32_t>, uint32_t> g_DrawStats;
 
 // Global MTLDevice pointer for VB/IB (avoids MTLCreateSystemDefaultDevice)
 // Set during MetalDevice8::InitMetal(), cleared in destructor.
@@ -819,14 +824,6 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     const float* w = (const float*)&m_Transforms[D3DTS_WORLD];
     const float* v = (const float*)&m_Transforms[D3DTS_VIEW];
     const float* p = (const float*)&m_Transforms[D3DTS_PROJECTION];
-    printf("[DIAG] BindUniforms fvf=0x%x useProj=%d frame=%d\n", (unsigned)fvf, u.useProjection, g_metalPresentCount);
-    printf("[DIAG]   World: [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
-           w[0],w[1],w[2],w[3], w[4],w[5],w[6],w[7], w[8],w[9],w[10],w[11], w[12],w[13],w[14],w[15]);
-    printf("[DIAG]   View:  [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
-           v[0],v[1],v[2],v[3], v[4],v[5],v[6],v[7], v[8],v[9],v[10],v[11], v[12],v[13],v[14],v[15]);
-    printf("[DIAG]   Proj:  [%.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f | %.3f,%.3f,%.3f,%.3f]\n",
-           p[0],p[1],p[2],p[3], p[4],p[5],p[6],p[7], p[8],p[9],p[10],p[11], p[12],p[13],p[14],p[15]);
-    fflush(stdout);
   }
   for (int s = 0; s < 4; ++s) {
     memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
@@ -1871,6 +1868,17 @@ STDMETHODIMP MetalDevice8::BeginScene() {
 
 STDMETHODIMP MetalDevice8::EndScene() {
   DLOG_RFLOW(1, "EndScene m_InScene=%d", m_InScene);
+  
+#ifdef METAL_DEBUG_LOG
+  DLOG_RFLOW(1, "--- EndScene Frame: Draw Stats ---");
+  for (auto& pair : g_DrawStats) {
+      uint32_t fvf = pair.first.first;
+      uint32_t polys = pair.first.second;
+      uint32_t calls = pair.second;
+      DLOG_RFLOW(1, "  [ZONE-DIAG] FVF=0x%X  polys=%u  called %u times", fvf, polys, calls);
+  }
+  g_DrawStats.clear();
+#endif
   if (!m_InScene)
     return D3D_OK;
   m_InScene = false;
@@ -2225,6 +2233,9 @@ STDMETHODIMP MetalDevice8::SetTextureStageState(DWORD Stage,
     //  printf("SetTextureStageState: Stage %u MAGFILTER set to %u\n", Stage, Value);
     // }
     m_TextureStageStates[Stage][(int)Type] = Value;
+    if (Type == D3DTSS_TEXTURETRANSFORMFLAGS || Type == D3DTSS_TEXCOORDINDEX || Type == D3DTSS_COLOROP) {
+      DLOG_RFLOW(17, "SetTextureStageState: Stage %u Type %u set to %u", Stage, (unsigned)Type, Value);
+    }
   }
   return D3D_OK;
 }
@@ -2534,9 +2545,21 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 
   DLOG_RFLOW(14, "DrawPrimitive pt=%u startVert=%u primCount=%u fvf=0x%x",
     (unsigned)pt, sv, pc, (unsigned)GetBufferFVF(m_StreamSource));
+#ifdef METAL_DEBUG_LOG
+  g_DrawStats[{(uint32_t)GetBufferFVF(m_StreamSource), pc}]++;
+#endif
 
   // 1. Get FVF and PSO
   DWORD fvf = GetBufferFVF(m_StreamSource);
+  if (fvf == 0) {
+    fvf = m_VertexShader;
+    if (fvf & 0x80000000) {
+      auto it = m_VSHandleMap.find(fvf);
+      if (it != m_VSHandleMap.end()) fvf = it->second.fvf;
+      else fvf = 0;
+    }
+    if (fvf == 0) fvf = D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1;
+  }
   id<MTLRenderPipelineState> pso =
       (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
   if (!pso)
@@ -2565,6 +2588,8 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   BindUniforms(fvf);
   BindCustomVSUniforms();
   BindTexturesAndSamplers();
+
+  
 
   MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
   UINT vertexCount = 0;
@@ -2609,6 +2634,10 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
                                                 UINT si, UINT pc) {
   EnsureCurrentEncoder();
+#ifdef METAL_DEBUG_LOG
+  if (m_StreamSource) { g_DrawStats[{(uint32_t)GetBufferFVF(m_StreamSource), pc}]++; }
+#endif
+
   DLOG_RFLOW(15, "DrawIndexedPrimitive pt=%u minIdx=%u numVerts=%u startIdx=%u primCount=%u encoder=%p",
     (unsigned)pt, mi, nv, si, pc, m_CurrentEncoder);
   if (!m_CurrentEncoder || !m_StreamSource || !m_IndexBuffer) {
@@ -2620,9 +2649,15 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
 
   // 1. Get FVF and PSO
   DWORD fvf = GetBufferFVF(m_StreamSource);
-
-
-
+  if (fvf == 0) {
+    fvf = m_VertexShader;
+    if (fvf & 0x80000000) {
+      auto it = m_VSHandleMap.find(fvf);
+      if (it != m_VSHandleMap.end()) fvf = it->second.fvf;
+      else fvf = 0;
+    }
+    if (fvf == 0) fvf = D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1;
+  }
 
   id<MTLRenderPipelineState> pso =
       (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
@@ -2706,6 +2741,8 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
     g_metalDrawCallsThisFrame++;
     DLOG_RFLOW(16, "DrawIndexedPrimitive EXEC idxCount=%u fvf=0x%x pso=%p useProj=%d",
                indexCount, (unsigned)fvf, pso, (fvf & D3DFVF_XYZRHW) ? 2 : 1);
+
+    
 
     [MTL_ENCODER drawIndexedPrimitives:mtlPt
                             indexCount:indexCount

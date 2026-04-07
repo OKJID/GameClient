@@ -222,8 +222,18 @@ class AsciiString;
 			fflush(stdout); \
 		} \
 	} while(0)
+
+	#define DEBUG_INFO_MAC(m)	do { \
+		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
+			printf("[DEBUG_INFO_MAC] "); \
+			printf m; \
+			printf("\n"); \
+			fflush(stdout); \
+		} \
+	} while(0)
 #else
 	#define DEBUG_CRASH_MAC(m) ((void)0)
+	#define DEBUG_INFO_MAC(m) ((void)0)
 #endif
 
 DEBUG_EXTERN_C void ReleaseCrash(const char* reason);
