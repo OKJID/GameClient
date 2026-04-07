@@ -13,6 +13,9 @@ struct Uniforms {
     int useProjection;      // 0=passthrough, 1=3D, 2=2D screen space
     uint shaderSettings;    // legacy bitfield (texturing bit etc.)
     uint texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+    float4 clipPlanes[6];
+    uint clipPlaneEnable;
+    uint3 _pad;
 };
 
 // ─────────────────────────────────────────────────────
@@ -202,6 +205,22 @@ struct VertexOut {
     float camNormalX;
     float camNormalY;
     float camNormalZ;
+    float clipDistance [[clip_distance]] [6];
+};
+
+struct FragmentIn {
+    float4 position [[position]];
+    float4 color;
+    float4 specularColor;
+    float2 texCoord;
+    float2 texCoord2;
+    float fogFactor;
+    float camPosX;
+    float camPosY;
+    float camPosZ;
+    float camNormalX;
+    float camNormalY;
+    float camNormalZ;
 };
 
 // ─────────────────────────────────────────────────────
@@ -215,6 +234,20 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     VertexOut out;
     
     float4 pos = float4(in.position.xyz, 1.0);
+    
+    auto applyClipPlanes = [&](float4 wPos, thread VertexOut& vOut) {
+        if (uniforms.clipPlaneEnable != 0) {
+            for (int i = 0; i < 6; ++i) {
+                if ((uniforms.clipPlaneEnable & (1 << i)) != 0) {
+                    vOut.clipDistance[i] = dot(wPos, uniforms.clipPlanes[i]);
+                } else {
+                    vOut.clipDistance[i] = 1.0;
+                }
+            }
+        } else {
+            for (int i = 0; i < 6; ++i) vOut.clipDistance[i] = 1.0;
+        }
+    };
     
     // ─── Custom Vertex Shader: Trees (shaderType == 1) ───
     // Implements Trees.vso: WVP transform, sway displacement, shroud UV generation
@@ -293,6 +326,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
             out.fogFactor = 1.0;
         }
         
+        applyClipPlanes(swayedPos, out);
         return out;
     }
     
@@ -333,6 +367,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
             out.fogFactor = 1.0;
         }
         
+        applyClipPlanes(pos, out);
         return out;
     }
     
@@ -551,6 +586,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     out.specularColor = float4(matSpecular.rgb * totalSpecular.rgb, 0.0);
     out.specularColor = clamp(out.specularColor, 0.0, 1.0);
     
+    applyClipPlanes(uniforms.world * pos, out);
     return out;
 }
 
@@ -699,7 +735,7 @@ bool alphaTestPass(uint func, float alphaVal, float ref) {
 // ─────────────────────────────────────────────────────
 //  Stage 7: Fragment Shader with full TSS support
 // ─────────────────────────────────────────────────────
-fragment float4 fragment_main(VertexOut in [[stage_in]],
+fragment float4 fragment_main(FragmentIn in [[stage_in]],
                              constant Uniforms &uniforms [[buffer(1)]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
                              constant CustomPSUniforms &psUniforms [[buffer(5)]],
@@ -707,6 +743,10 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                              texture2d<float> tex1 [[texture(1)]],
                              texture2d<float> tex2 [[texture(2)]],
                              texture2d<float> tex3 [[texture(3)]],
+                             texturecube<float> texCube0 [[texture(4)]],
+                             texturecube<float> texCube1 [[texture(5)]],
+                             texturecube<float> texCube2 [[texture(6)]],
+                             texturecube<float> texCube3 [[texture(7)]],
                              sampler sampler0 [[sampler(0)]],
                              sampler sampler1 [[sampler(1)]],
                              sampler sampler2 [[sampler(2)]],
@@ -724,22 +764,22 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
 
         // Apply texture coordinate transforms for camera-space projection stages
         // (Used by noise/cloud stages that set TCI_CAMERASPACEPOSITION)
-        auto computeUVPS = [&](uint tci, uint stage) -> float2 {
+        auto computeUVPS = [&](uint tci, uint stage) -> float3 {
             uint tciMode = (tci >> 16) & 0x3;
             uint uvIndex = tci & 0x3;
             if (tciMode == 1 && uniforms.useProjection == 1) { // D3DTSS_TCI_CAMERASPACENORMAL
                 if (uniforms.texTransformFlags[stage] != 0) {
                     float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-                    return tc.xy;
+                    return tc.xyz;
                 }
-                return float2(in.camNormalX, in.camNormalY);
+                return float3(in.camNormalX, in.camNormalY, in.camNormalZ);
             }
             if (tciMode == 2) { // D3DTSS_TCI_CAMERASPACEPOSITION
                 if (uniforms.texTransformFlags[stage] != 0) {
                     float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-                    return tc.xy;
+                    return tc.xyz;
                 }
-                return float2(in.camPosX, in.camPosY);
+                return float3(in.camPosX, in.camPosY, in.camPosZ);
             }
             if (tciMode == 3) { // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR
                 float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
@@ -747,22 +787,27 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                 float3 R = V - 2.0 * dot(V, N) * N;
                 if (uniforms.texTransformFlags[stage] != 0) {
                     float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
-                    return tc.xy;
+                    return tc.xyz;
                 }
-                return float2(R.x, R.y);
+                return R;
             }
-            return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+            float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+            return float3(uv, 0.0);
         };
 
-        float2 psUV0 = computeUVPS(fragUniforms.texCoordIndex[0], 0);
-        float2 psUV1 = computeUVPS(fragUniforms.texCoordIndex[1], 1);
-        float2 psUV2 = computeUVPS(fragUniforms.texCoordIndex[2], 2);
-        float2 psUV3 = computeUVPS(fragUniforms.texCoordIndex[3], 3);
+        float3 psUV0 = computeUVPS(fragUniforms.texCoordIndex[0], 0);
+        float3 psUV1 = computeUVPS(fragUniforms.texCoordIndex[1], 1);
+        float3 psUV2 = computeUVPS(fragUniforms.texCoordIndex[2], 2);
+        float3 psUV3 = computeUVPS(fragUniforms.texCoordIndex[3], 3);
 
-        float4 t0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, psUV0) : float4(1.0);
-        float4 t1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, psUV1) : float4(1.0);
-        float4 t2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, psUV2) : float4(1.0);
-        float4 t3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, psUV3) : float4(1.0);
+        float4 t0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, psUV0) : 
+                    (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, psUV0.xy) : float4(1.0);
+        float4 t1 = (fragUniforms.hasTexture[1] == 2) ? texCube1.sample(sampler1, psUV1) : 
+                    (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, psUV1.xy) : float4(1.0);
+        float4 t2 = (fragUniforms.hasTexture[2] == 2) ? texCube2.sample(sampler2, psUV2) : 
+                    (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, psUV2.xy) : float4(1.0);
+        float4 t3 = (fragUniforms.hasTexture[3] == 2) ? texCube3.sample(sampler3, psUV3) : 
+                    (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, psUV3.xy) : float4(1.0);
 
         float4 diffuse = in.color;
         float4 result = float4(0.0);
@@ -909,7 +954,7 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
     // For TCI_CAMERASPACEPOSITION: the texture matrix expects the FULL 3D camera-space
     // position (x,y,z,1), not just the 2D UV. The matrix projects 3D → 2D UV.
     // For PASSTHRU: the texture matrix transforms 2D UV as (u,v,0,1).
-    auto computeUV = [&](uint tci, uint stage) -> float2 {
+    auto computeUV = [&](uint tci, uint stage) -> float3 {
         uint tciMode = (tci >> 16) & 0x3;
         uint uvIndex = tci & 0x3;
         
@@ -917,18 +962,18 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             // D3DTSS_TCI_CAMERASPACEPOSITION: full 3D position through texture matrix
             if (uniforms.texTransformFlags[stage] != 0) {
                 float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-                return tc.xy;
+                return tc.xyz;
             }
-            return float2(in.camPosX, in.camPosY);
+            return float3(in.camPosX, in.camPosY, in.camPosZ);
         }
         
         if (tciMode == 2) {
             // D3DTSS_TCI_CAMERASPACENORMAL
             if (uniforms.texTransformFlags[stage] != 0) {
                 float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-                return tc.xy;
+                return tc.xyz;
             }
-            return float2(in.camNormalX, in.camNormalY);
+            return float3(in.camNormalX, in.camNormalY, in.camNormalZ);
         }
         
         if (tciMode == 3) {
@@ -938,9 +983,9 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
             float3 R = V - 2.0 * dot(V, N) * N;
             if (uniforms.texTransformFlags[stage] != 0) {
                 float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
-                return tc.xy;
+                return tc.xyz;
             }
-            return float2(R.x, R.y);
+            return R;
         }
         
         // D3DTSS_TCI_PASSTHRU: use vertex UV set, apply texture transform if set.
@@ -950,20 +995,24 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         if (uniforms.texTransformFlags[stage] != 0) {
             uv = (uniforms.texMatrix[stage] * float4(uv, 0.0, 1.0)).xy;
         }
-        return uv;
+        return float3(uv, 0.0);
     };
     
-    float2 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
+    float3 uv0 = computeUV(fragUniforms.texCoordIndex[0], 0);
 
-    float2 uv1 = computeUV(fragUniforms.texCoordIndex[1], 1);
-    float2 uv2 = computeUV(fragUniforms.texCoordIndex[2], 2);
-    float2 uv3 = computeUV(fragUniforms.texCoordIndex[3], 3);
+    float3 uv1 = computeUV(fragUniforms.texCoordIndex[1], 1);
+    float3 uv2 = computeUV(fragUniforms.texCoordIndex[2], 2);
+    float3 uv3 = computeUV(fragUniforms.texCoordIndex[3], 3);
     
     // Sample textures using their respective UV coordinates
-    float4 texColor0 = (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0) : float4(1.0);
-    float4 texColor1 = (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1) : float4(1.0);
-    float4 texColor2 = (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2) : float4(1.0);
-    float4 texColor3 = (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3) : float4(1.0);
+    float4 texColor0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, uv0) :
+                       (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0.xy) : float4(1.0);
+    float4 texColor1 = (fragUniforms.hasTexture[1] == 2) ? texCube1.sample(sampler1, uv1) :
+                       (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1.xy) : float4(1.0);
+    float4 texColor2 = (fragUniforms.hasTexture[2] == 2) ? texCube2.sample(sampler2, uv2) :
+                       (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2.xy) : float4(1.0);
+    float4 texColor3 = (fragUniforms.hasTexture[3] == 2) ? texCube3.sample(sampler3, uv3) :
+                       (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3.xy) : float4(1.0);
     
     // Apply texture format data unpacking
     if (fragUniforms.texFormatType[0] == 1) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, 1.0);

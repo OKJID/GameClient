@@ -19,6 +19,7 @@
 #include "MetalIndexBuffer8.h"
 #include "MetalSurface8.h"
 #include "MetalTexture8.h"
+#include "MetalCubeTexture8.h"
 #include "MetalVertexBuffer8.h"
 #include "MacOSDebugLog.h"
 #include "MetalTextureCapture.h"
@@ -286,6 +287,9 @@ struct MetalUniforms {
   int useProjection; // 0=None, 1=3D, 2=2D(ScreenSpace)
   uint32_t shaderSettings;
   uint32_t texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+  simd::float4 clipPlanes[6];
+  uint32_t clipPlaneEnable;
+  uint32_t _pad[3];
 };
 
 // Stage 7: TextureStageConfig (matches MacOSShaders.metal)
@@ -828,6 +832,10 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
     u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
   }
+  u.clipPlaneEnable = m_RenderStates[D3DRS_CLIPPLANEENABLE];
+  for (int i = 0; i < 6; ++i) {
+    u.clipPlanes[i] = simd::float4{m_ClipPlanes[i][0], m_ClipPlanes[i][1], m_ClipPlanes[i][2], m_ClipPlanes[i][3]};
+  }
   [MTL_ENCODER setVertexBytes:&u length:sizeof(u) atIndex:1];
   [MTL_ENCODER setFragmentBytes:&u length:sizeof(u) atIndex:1];
 
@@ -869,7 +877,11 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
   for (int s = 0; s < 4; ++s) {
-    fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
+    if (m_Textures[s]) {
+      fu.hasTexture[s] = (m_Textures[s]->GetType() == D3DRTYPE_CUBETEXTURE) ? 2 : 1;
+    } else {
+      fu.hasTexture[s] = 0;
+    }
   }
   // DIAG: dump TSS for first draw each frame
   if (0) { // if (g_metalPresentCount % 120 == 0) {
@@ -1000,13 +1012,30 @@ void MetalDevice8::BindCustomVSUniforms() {
   [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
 }
 
+static id<MTLTexture> GetMTLTextureForBase(IDirect3DBaseTexture8* t) {
+  if (!t) return nil;
+  if (t->GetType() == D3DRTYPE_CUBETEXTURE) 
+    return ((MetalCubeTexture8*)t)->GetMTLTexture();
+  return ((MetalTexture8*)t)->GetMTLTexture();
+}
+
+static uint32_t GetTextureGeneration(IDirect3DBaseTexture8* t) {
+  if (!t) return 0;
+  if (t->GetType() == D3DRTYPE_CUBETEXTURE) 
+    return ((MetalCubeTexture8*)t)->GetGeneration();
+  return ((MetalTexture8*)t)->GetGeneration();
+}
+
 void MetalDevice8::BindTexturesAndSamplers() {
   for (int s = 0; s < 4; s++) {
     if (m_Textures[s]) {
-      MetalTexture8 *tex = (MetalTexture8 *)m_Textures[s];
-      id<MTLTexture> mtlTex = tex->GetMTLTexture();
+      id<MTLTexture> mtlTex = GetMTLTextureForBase(m_Textures[s]);
       if (mtlTex) {
-        [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
+        if (m_Textures[s]->GetType() == D3DRTYPE_CUBETEXTURE) {
+          [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s + 4];
+        } else {
+          [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
+        }
       }
     }
     void *samplerState = GetSamplerState(s);
@@ -1150,7 +1179,8 @@ STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
   pCaps->MaxTextureHeight = 4096;
   pCaps->RasterCaps =
       D3DPRASTERCAPS_FOGRANGE | 0x00000100 | 0x00000200 | D3DPRASTERCAPS_ZBIAS;
-  pCaps->TextureCaps = 0x00000001 | 0x00000002 | 0x00000004;
+  pCaps->TextureCaps = 0x00000001 | 0x00000002 | 0x00000004 | D3DPTEXTURECAPS_MIPMAP |
+                       D3DPTEXTURECAPS_CUBEMAP | D3DPTEXTURECAPS_MIPCUBEMAP;
   pCaps->TextureOpCaps =
       D3DTEXOPCAPS_DISABLE | D3DTEXOPCAPS_SELECTARG1 | D3DTEXOPCAPS_SELECTARG2 |
       D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_MODULATE4X |
@@ -1344,8 +1374,9 @@ STDMETHODIMP MetalDevice8::CreateVolumeTexture(UINT w, UINT h, UINT d, UINT l,
 STDMETHODIMP MetalDevice8::CreateCubeTexture(UINT s, UINT l, DWORD u,
                                              D3DFORMAT f, D3DPOOL p,
                                              IDirect3DCubeTexture8 **t) {
-  // Cube textures not implemented — engine handles nullptr gracefully.
-  if (t) *t = nullptr;
+  if (!t) return E_FAIL;
+  auto *tex = new MetalCubeTexture8(this, s, l, u, f, p);
+  *t = tex;
   return D3D_OK;
 }
 
@@ -2089,6 +2120,8 @@ HRESULT MetalDevice8::GetLightEnable(DWORD i, BOOL *b) {
 // ─────────────────────────────────────────────────────
 
 STDMETHODIMP MetalDevice8::SetClipPlane(DWORD i, const float *p) {
+  if (i >= 6 || !p) return E_FAIL;
+  memcpy(m_ClipPlanes[i], p, sizeof(float) * 4);
   return D3D_OK;
 }
 
@@ -2140,8 +2173,7 @@ STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
     // Here we restore caching by checking the texture's generation counter:
     // generation increments on every UnlockRect (content update).
     if (m_Textures[Stage] == pTexture && pTexture != nullptr) {
-      MetalTexture8 *mt = (MetalTexture8 *)pTexture;
-      uint32_t gen = mt->GetGeneration();
+      uint32_t gen = GetTextureGeneration(pTexture);
       if (gen == m_TextureGeneration[Stage]) {
         return D3D_OK; // same texture, same content — skip
       }
@@ -2149,7 +2181,7 @@ STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
     } else {
       m_Textures[Stage] = pTexture;
       if (pTexture) {
-        m_TextureGeneration[Stage] = ((MetalTexture8 *)pTexture)->GetGeneration();
+        m_TextureGeneration[Stage] = GetTextureGeneration(pTexture);
       } else {
         m_TextureGeneration[Stage] = 0;
       }
@@ -2159,8 +2191,7 @@ STDMETHODIMP MetalDevice8::SetTexture(DWORD Stage,
 
   if (Stage == 0) {
     if (pTexture) {
-      MetalTexture8 *mt = (MetalTexture8 *)pTexture;
-      id<MTLTexture> mtl = mt->GetMTLTexture();
+      id<MTLTexture> mtl = GetMTLTextureForBase(pTexture);
       DLOG_RFLOW(17, "SetTexture stage=0 tex=%p mtl=%p %lux%lu fmt=%lu",
         (void*)pTexture, mtl ? (__bridge void*)mtl : nullptr,
         mtl ? (unsigned long)mtl.width : 0, mtl ? (unsigned long)mtl.height : 0,

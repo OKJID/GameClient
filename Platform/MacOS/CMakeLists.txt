@@ -7,6 +7,7 @@ set(METAL_SRC
     Source/Metal/MetalInterface8.mm
     Source/Metal/MetalSurface8.mm
     Source/Metal/MetalTexture8.mm
+    Source/Metal/MetalCubeTexture8.mm
     Source/Metal/MetalVertexBuffer8.mm
     Source/Metal/MetalIndexBuffer8.mm
     Source/Metal/dx8wrapper_metal.mm
@@ -186,6 +187,7 @@ set_source_files_properties(
     Source/Metal/MetalInterface8.mm
     Source/Metal/MetalSurface8.mm
     Source/Metal/MetalTexture8.mm
+    Source/Metal/MetalCubeTexture8.mm
     Source/Metal/MetalVertexBuffer8.mm
     Source/Metal/MetalIndexBuffer8.mm
     Source/Metal/dx8wrapper_metal.mm

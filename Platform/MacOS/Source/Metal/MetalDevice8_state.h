@@ -22,6 +22,7 @@ private:
   D3DMATRIX m_Transforms[260];
   D3DVIEWPORT8 m_Viewport;
   D3DMATERIAL8 m_Material;
+  float m_ClipPlanes[6][4];
 
   static const int MAX_LIGHTS = 8;
   D3DLIGHT8 m_Lights[MAX_LIGHTS];
