@@ -128,15 +128,9 @@ void MacOSGameEngine::reset()
 
 // ── update() mirrors Win32GameEngine::update() lines 87-132 ──
 
-static int g_updateCount = 0;
 void MacOSGameEngine::update()
 {
 	@autoreleasepool {
-		if (g_updateCount % 60 == 0) {
-			printf("[DIAG] MacOSGameEngine::update tick=%d\n", g_updateCount);
-			fflush(stdout);
-		}
-		g_updateCount++;
 		GameEngine::update();
 		serviceWindowsOS();
 	}

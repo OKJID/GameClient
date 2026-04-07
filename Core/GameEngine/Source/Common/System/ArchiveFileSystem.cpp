@@ -279,7 +279,7 @@ ArchiveFileSystem::ArchivedDirectoryInfoResult ArchiveFileSystem::getArchivedDir
 		}
 		else
 		{
-			fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - FAILED to find segment '%s' in path '%s'\n", token.str(), directory);
+			// fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - FAILED to find segment '%s' in path '%s'\n", token.str(), directory);
 			// the directory doesn't exist
 			result.dirInfo = nullptr;
 			result.lastToken = AsciiString::TheEmptyString;
@@ -288,7 +288,7 @@ ArchiveFileSystem::ArchivedDirectoryInfoResult ArchiveFileSystem::getArchivedDir
 	}
 
 	if (dirInfo) {
-		fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - found path for '%s', lastToken='%s', filesCount=%d\n", directory, token.str(), (int)dirInfo->m_files.size());
+		// fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - found path for '%s', lastToken='%s', filesCount=%d\n", directory, token.str(), (int)dirInfo->m_files.size());
 	}
 
 	result.dirInfo = dirInfo;

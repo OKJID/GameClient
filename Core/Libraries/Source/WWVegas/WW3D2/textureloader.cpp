@@ -671,9 +671,9 @@ void TextureLoader::Request_Background_Loading(TextureBaseClass *tc)
 {
 	WWPROFILE(("TextureLoader::Request_Background_Loading()"));
 #ifdef __APPLE__
-	printf("[DIAG] Request_Background_Loading: tex=%p name='%s' initialized=%d\n",
-	       tc, "(tex)", tc->Is_Initialized());
-	fflush(stdout);
+	// printf("[DIAG] Request_Background_Loading: tex=%p name='%s' initialized=%d\n",
+	//        tc, "(tex)", tc->Is_Initialized());
+	// fflush(stdout);
 #endif
 	// Grab the foreground lock. This prevents the foreground thread
 	// from retiring any tasks related to this texture. It also
@@ -707,9 +707,9 @@ void TextureLoader::Request_Foreground_Loading(TextureBaseClass *tc)
 {
 	WWPROFILE(("TextureLoader::Request_Foreground_Loading()"));
 #ifdef __APPLE__
-	printf("[DIAG] Request_Foreground_Loading: tex=%p name='%s'\n",
-	       tc, "(tex)");
-	fflush(stdout);
+	// printf("[DIAG] Request_Foreground_Loading: tex=%p name='%s'\n",
+	//        tc, "(tex)");
+	// fflush(stdout);
 #endif
 	// Grab the foreground lock. This prevents the foreground thread
 	// from retiring the load tasks for this texture. It also

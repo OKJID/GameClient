@@ -811,7 +811,7 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
 
   // DIAG: dump matrices every 60th present frame
   extern int g_metalPresentCount;
-  if (g_metalPresentCount % 120 == 0) {
+  if (0) { // if (g_metalPresentCount % 120 == 0) {
     const float* w = (const float*)&m_Transforms[D3DTS_WORLD];
     const float* v = (const float*)&m_Transforms[D3DTS_VIEW];
     const float* p = (const float*)&m_Transforms[D3DTS_PROJECTION];
@@ -872,7 +872,7 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     fu.hasTexture[s] = (m_Textures[s] != nullptr) ? 1 : 0;
   }
   // DIAG: dump TSS for first draw each frame
-  if (g_metalPresentCount % 120 == 0) {
+  if (0) { // if (g_metalPresentCount % 120 == 0) {
     printf("[DIAG] TSS frame=%d: s0[cOp=%u cA1=0x%x cA2=0x%x aOp=%u hasTex=%u] s1[cOp=%u hasTex=%u]\n",
            g_metalPresentCount,
            fu.stages[0].colorOp, fu.stages[0].colorArg1, fu.stages[0].colorArg2,
@@ -1044,6 +1044,17 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
   DWORD minF = m_TextureStageStates[stage][D3DTSS_MINFILTER];
   DWORD mipF = m_TextureStageStates[stage][D3DTSS_MIPFILTER];
 
+  // MacOS Metal Hack: The engine's Mac dx8caps.cpp misses LINEAR filter capabilities, causing
+  // TextureFilterClass::FILTER_TYPE_DEFAULT to silently degrade to POINT filtering globally.
+  // We want to force LINEAR for Shroud, Radar, Shadows, and Water which use CLAMP,
+  // while preserving POINT for generic UI buttons (which use REPEAT) to prevent DXT artifacts.
+  if (magF == D3DTEXF_POINT && minF == D3DTEXF_POINT) {
+    if (addrU == D3DTADDRESS_CLAMP && addrV == D3DTADDRESS_CLAMP) {
+      magF = D3DTEXF_LINEAR;
+      minF = D3DTEXF_LINEAR;
+    }
+  }
+
   // Build key: addrU(3) | addrV(3) | mag(3) | min(3) | mip(3) = 15 bits
   uint32_t key = (addrU & 0x7) | ((addrV & 0x7) << 3) | ((magF & 0x7) << 6) |
                  ((minF & 0x7) << 9) | ((mipF & 0x7) << 12);
@@ -1196,9 +1207,9 @@ int g_metalDrawCallsThisFrame = 0;
 
 STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
                                    const void *r) {
-  printf("[DIAG] Present frame=%d drawable=%p cmdBuf=%p encoder=%p drawCalls=%d\n",
-         g_metalPresentCount, m_CurrentDrawable, m_CurrentCommandBuffer, m_CurrentEncoder, g_metalDrawCallsThisFrame);
-  fflush(stdout);
+  // printf("[DIAG] Present frame=%d drawable=%p cmdBuf=%p encoder=%p drawCalls=%d\n",
+  //        g_metalPresentCount, m_CurrentDrawable, m_CurrentCommandBuffer, m_CurrentEncoder, g_metalDrawCallsThisFrame);
+  // fflush(stdout);
   g_metalDrawCallsThisFrame = 0;
   if (m_CurrentEncoder) {
     [MTL_ENCODER endEncoding];
@@ -1215,7 +1226,7 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
     [MTL_CMD_BUF waitUntilCompleted];
 
     // DIAG: Read back center pixel to verify GPU actually rendered something
-    if (m_CurrentDrawable && (g_metalPresentCount % 60 == 0)) {
+    if (0 && m_CurrentDrawable && (g_metalPresentCount % 60 == 0)) {
       id<MTLTexture> tex = MTL_DRAWABLE.texture;
       if (tex && tex.width > 0 && tex.height > 0) {
         uint8_t pixel[4] = {0};
@@ -1311,13 +1322,13 @@ STDMETHODIMP MetalDevice8::CreateTexture(UINT w, UINT h, UINT l, DWORD u,
     return E_POINTER;
   *t = W3DNEW MetalTexture8(this, w, h, l, u, f, p);
   
-  static int s_createTexCount = 0;
-  s_createTexCount++;
+  // static int s_createTexCount = 0;
+  // s_createTexCount++;
   // Get return address to identify caller
-  void* ra = __builtin_return_address(0);
-  void* ra2 = __builtin_return_address(1);
-  fprintf(stderr, "[MetalDevice8::CreateTexture] #%d: %ux%u fmt=%u mips=%u pool=%u tex=%p caller=%p caller2=%p\n",
-          s_createTexCount, w, h, (unsigned)f, l, (unsigned)p, (void*)*t, ra, ra2);
+  // void* ra = __builtin_return_address(0);
+  // void* ra2 = __builtin_return_address(1);
+  // fprintf(stderr, "[MetalDevice8::CreateTexture] #%d: %ux%u fmt=%u mips=%u pool=%u tex=%p caller=%p caller2=%p\n",
+  //         s_createTexCount, w, h, (unsigned)f, l, (unsigned)p, (void*)*t, ra, ra2);
   
   return D3D_OK;
 }
@@ -1813,15 +1824,15 @@ STDMETHODIMP MetalDevice8::BeginScene() {
 
   id<CAMetalDrawable> drawable = [MTL_LAYER nextDrawable];
   if (!drawable) {
-    printf("[DIAG] BeginScene: nextDrawable returned nil! layer=%p\n", m_MetalLayer);
-    fflush(stdout);
+    // printf("[DIAG] BeginScene: nextDrawable returned nil! layer=%p\n", m_MetalLayer);
+    // fflush(stdout);
     m_InScene = false;
     CLEAR_MTL(CurrentCommandBuffer);
     return E_FAIL;
   }
-  printf("[DIAG] BeginScene: got drawable=%p texture=%p %lux%lu\n",
-         drawable, drawable.texture, drawable.texture.width, drawable.texture.height);
-  fflush(stdout);
+  // printf("[DIAG] BeginScene: got drawable=%p texture=%p %lux%lu\n",
+  //        drawable, drawable.texture, drawable.texture.width, drawable.texture.height);
+  // fflush(stdout);
   SET_MTL(CurrentDrawable, drawable);
 
   return D3D_OK;
@@ -1968,7 +1979,7 @@ STDMETHODIMP MetalDevice8::SetTransform(D3DTRANSFORMSTATETYPE State,
   }
 
   // DIAG: log transform changes for key states
-  if (State == D3DTS_WORLD || State == D3DTS_VIEW || State == D3DTS_PROJECTION) {
+  if (0 && (State == D3DTS_WORLD || State == D3DTS_VIEW || State == D3DTS_PROJECTION)) {
     const float* f = (const float*)pMatrix;
     const char* name = (State == D3DTS_WORLD) ? "WORLD" : (State == D3DTS_VIEW) ? "VIEW" : "PROJ";
     printf("[DIAG] SetTransform %s(%d): diag=[%.3f,%.3f,%.3f,%.3f] [%.3f,%.3f,%.3f,%.3f]\n",
@@ -1996,10 +2007,10 @@ STDMETHODIMP MetalDevice8::GetTransform(D3DTRANSFORMSTATETYPE State,
 STDMETHODIMP MetalDevice8::SetViewport(const D3DVIEWPORT8 *pViewport) {
   if (!pViewport)
     return E_POINTER;
-  printf("[DIAG] SetViewport x=%u y=%u w=%u h=%u minZ=%.3f maxZ=%.3f\n",
-         pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height,
-         pViewport->MinZ, pViewport->MaxZ);
-  fflush(stdout);
+//   printf("[DIAG] SetViewport x=%u y=%u w=%u h=%u minZ=%.3f maxZ=%.3f\n",
+//          pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height,
+//          pViewport->MinZ, pViewport->MaxZ);
+//   fflush(stdout);
   m_Viewport = *pViewport;
 
   if (m_CurrentEncoder) {
@@ -2179,6 +2190,9 @@ STDMETHODIMP MetalDevice8::SetTextureStageState(DWORD Stage,
                                                 D3DTEXTURESTAGESTATETYPE Type,
                                                 DWORD Value) {
   if (Stage < MAX_TEXTURE_STAGES && (int)Type < 32) {
+    // if (Type == D3DTSS_MAGFILTER) {
+    //  printf("SetTextureStageState: Stage %u MAGFILTER set to %u\n", Stage, Value);
+    // }
     m_TextureStageStates[Stage][(int)Type] = Value;
   }
   return D3D_OK;
@@ -2567,9 +2581,9 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   DLOG_RFLOW(15, "DrawIndexedPrimitive pt=%u minIdx=%u numVerts=%u startIdx=%u primCount=%u encoder=%p",
     (unsigned)pt, mi, nv, si, pc, m_CurrentEncoder);
   if (!m_CurrentEncoder || !m_StreamSource || !m_IndexBuffer) {
-    printf("[DIAG] DrawIndexedPrimitive SKIPPED: encoder=%p streamSrc=%p indexBuf=%p\n",
-           m_CurrentEncoder, m_StreamSource, m_IndexBuffer);
-    fflush(stdout);
+//     printf("[DIAG] DrawIndexedPrimitive SKIPPED: encoder=%p streamSrc=%p indexBuf=%p\n",
+//            m_CurrentEncoder, m_StreamSource, m_IndexBuffer);
+//     fflush(stdout);
     return D3D_OK;
   }
 

@@ -174,7 +174,7 @@ static DynamicVectorClass<RenderDeviceDescClass> _RenderDeviceDescriptionTable;
 
 bool DX8Wrapper::Init(void* hwnd, bool lite)
 {
-	printf("[DIAG] DX8Wrapper::Init hwnd=%p lite=%d\n", hwnd, lite);
+	// printf("[DIAG] DX8Wrapper::Init hwnd=%p lite=%d\n", hwnd, lite);
 	fflush(stdout);
 	WWASSERT(!IsInitted);
 
@@ -304,7 +304,7 @@ void DX8Wrapper::Do_Onetime_Device_Dependent_Shutdowns()
 
 bool DX8Wrapper::Create_Device()
 {
-	printf("[DIAG] DX8Wrapper::Create_Device hwnd=%p res=%dx%d\n", _Hwnd, ResolutionWidth, ResolutionHeight);
+	// printf("[DIAG] DX8Wrapper::Create_Device hwnd=%p res=%dx%d\n", _Hwnd, ResolutionWidth, ResolutionHeight);
 	fflush(stdout);
 	WWASSERT(D3DDevice==nullptr);
 
