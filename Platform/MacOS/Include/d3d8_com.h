@@ -183,6 +183,7 @@ struct ID3DXBuffer {
   virtual ~ID3DXBuffer() = default;
   virtual void *GetBufferPointer() = 0;
   virtual DWORD GetBufferSize() = 0;
+  virtual ULONG Release() = 0;
 };
 
 typedef IDirect3D8 *LPDIRECT3D8;

@@ -131,7 +131,7 @@ struct LightData {
 };
 
 struct LightingUniforms {
-    LightData lights[4];
+    LightData lights[8];
     float4 materialDiffuse;
     float4 materialAmbient;
     float4 materialSpecular;
@@ -144,6 +144,8 @@ struct LightingUniforms {
     uint   specularSource;
     uint   emissiveSource;
     uint   hasNormals;
+    uint   hasVertexColors;
+    uint   colorVertexEnable;
     // Stage 9: Fog parameters (for vertex fog computation)
     float  fogStart;
     float  fogEnd;
@@ -197,6 +199,9 @@ struct VertexOut {
     float camPosX;
     float camPosY;
     float camPosZ;
+    float camNormalX;
+    float camNormalY;
+    float camNormalZ;
 };
 
 // ─────────────────────────────────────────────────────
@@ -270,6 +275,9 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
         out.camPosX = csPos.x;
         out.camPosY = csPos.y;
         out.camPosZ = csPos.z;
+        out.camNormalX = 0.0;
+        out.camNormalY = 0.0;
+        out.camNormalZ = 1.0;
         
         // Fog
         float dist = length(csPos.xyz);
@@ -352,6 +360,9 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     out.camPosX = camPos.x;
     out.camPosY = camPos.y;
     out.camPosZ = camPos.z;
+    out.camNormalX = 0.0; // default for 2D UI elements
+    out.camNormalY = 0.0;
+    out.camNormalZ = 1.0;
     
     out.specularColor = float4(0.0, 0.0, 0.0, 0.0);
     
@@ -398,30 +409,61 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     float4x4 worldView = uniforms.view * uniforms.world;
     float3 posVS = (worldView * pos).xyz;
     
-    // Transform normal to view space using upper-left 3x3 of worldView
-    // (For non-uniform scale, we'd need inverse-transpose, but DX8 FFP
-    //  uses the world-view matrix directly and relies on D3DRS_NORMALIZENORMALS)
-    float3 N = normalize(float3x3(worldView[0].xyz, worldView[1].xyz, worldView[2].xyz) * in.normal);
+    // Transform normal to view space using upper-left 3x3 of worldView.
+    // To handle non-uniform scale and mirrored scaling accurately, we evaluate
+    // the cofactor matrix (which represents InverseTranspose scaled by determinant).
+    // We multiply by the sign of the determinant to prevent inward-facing normals on mirrored meshes!
+    float3x3 M_worldView = float3x3(worldView[0].xyz, worldView[1].xyz, worldView[2].xyz);
+    
+    float3x3 M_cof;
+    M_cof[0][0] = M_worldView[1][1]*M_worldView[2][2] - M_worldView[1][2]*M_worldView[2][1];
+    M_cof[0][1] = M_worldView[1][2]*M_worldView[2][0] - M_worldView[1][0]*M_worldView[2][2];
+    M_cof[0][2] = M_worldView[1][0]*M_worldView[2][1] - M_worldView[1][1]*M_worldView[2][0];
+    
+    M_cof[1][0] = M_worldView[2][1]*M_worldView[0][2] - M_worldView[2][2]*M_worldView[0][1];
+    M_cof[1][1] = M_worldView[2][2]*M_worldView[0][0] - M_worldView[2][0]*M_worldView[0][2];
+    M_cof[1][2] = M_worldView[2][0]*M_worldView[0][1] - M_worldView[2][1]*M_worldView[0][0];
+    
+    M_cof[2][0] = M_worldView[0][1]*M_worldView[1][2] - M_worldView[0][2]*M_worldView[1][1];
+    M_cof[2][1] = M_worldView[0][2]*M_worldView[1][0] - M_worldView[0][0]*M_worldView[1][2];
+    M_cof[2][2] = M_worldView[0][0]*M_worldView[1][1] - M_worldView[0][1]*M_worldView[1][0];
+
+    float det = M_worldView[0][0]*M_cof[0][0] + M_worldView[0][1]*M_cof[0][1] + M_worldView[0][2]*M_cof[0][2];
+    float3 N_raw = M_cof * in.normal;
+    if (det < 0.0) {
+        N_raw = -N_raw;
+    }
+    float N_len = length(N_raw);
+    float3 M_worldView_n = float3(N_len > 0.0001 ? (N_raw.x / N_len) : 0.0,
+                                  N_len > 0.0001 ? (N_raw.y / N_len) : 1.0,
+                                  N_len > 0.0001 ? (N_raw.z / N_len) : 0.0);
+    float3 N = M_worldView_n;
+    out.camNormalX = N.x;
+    out.camNormalY = N.y;
+    out.camNormalZ = N.z;
     
     // Resolve material source colors per DX8 spec
-    // D3DMCS_MATERIAL=0, D3DMCS_COLOR1=1, D3DMCS_COLOR2=2
-    float4 vertColor1 = in.color;
-    float4 vertColor2 = in.specVtxColor; // specular vertex color from attribute(4)
+    // If a mesh does not have D3DFVF_DIFFUSE, DX8 still expands the vertex providing a default White color for COLOR1.
+    // D3DRS_COLORVERTEX dictates whether vertex color is evaluated at all.
+    float4 col1 = lighting.hasVertexColors ? in.color : float4(1.0);
+    float4 col2 = lighting.hasVertexColors ? in.specVtxColor : float4(0.0);
     
-    float4 matDiffuse  = (lighting.diffuseSource  == D3DMCS_COLOR1) ? vertColor1 :
-                         (lighting.diffuseSource  == D3DMCS_COLOR2) ? vertColor2 :
+    bool colorVertex = (lighting.colorVertexEnable != 0);
+
+    float4 matDiffuse  = (colorVertex && lighting.diffuseSource  == D3DMCS_COLOR1) ? col1 :
+                         (colorVertex && lighting.diffuseSource  == D3DMCS_COLOR2) ? col2 :
                          lighting.materialDiffuse;
     
-    float4 matAmbient  = (lighting.ambientSource  == D3DMCS_COLOR1) ? vertColor1 :
-                         (lighting.ambientSource  == D3DMCS_COLOR2) ? vertColor2 :
+    float4 matAmbient  = (colorVertex && lighting.ambientSource  == D3DMCS_COLOR1) ? col1 :
+                         (colorVertex && lighting.ambientSource  == D3DMCS_COLOR2) ? col2 :
                          lighting.materialAmbient;
     
-    float4 matSpecular = (lighting.specularSource == D3DMCS_COLOR1) ? vertColor1 :
-                         (lighting.specularSource == D3DMCS_COLOR2) ? vertColor2 :
+    float4 matSpecular = (colorVertex && lighting.specularSource == D3DMCS_COLOR1) ? col1 :
+                         (colorVertex && lighting.specularSource == D3DMCS_COLOR2) ? col2 :
                          lighting.materialSpecular;
     
-    float4 matEmissive = (lighting.emissiveSource == D3DMCS_COLOR1) ? vertColor1 :
-                         (lighting.emissiveSource == D3DMCS_COLOR2) ? vertColor2 :
+    float4 matEmissive = (colorVertex && lighting.emissiveSource == D3DMCS_COLOR1) ? col1 :
+                         (colorVertex && lighting.emissiveSource == D3DMCS_COLOR2) ? col2 :
                          lighting.materialEmissive;
     
     // Accumulate lighting components
@@ -429,7 +471,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     float4 totalSpecular = float4(0.0);
     float4 totalAmbient  = lighting.globalAmbient; // start with global ambient Ga
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 8; i++) {
         if (lighting.lights[i].enabled == 0) continue;
         
         constant LightData &light = lighting.lights[i];
@@ -488,8 +530,8 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
         // Specular: (N·H)^power
         if (NdotL > 0.0 && lighting.materialPower > 0.0) {
             // Halfway vector: H = normalize(Ldir + V)
-            // For non-local viewer (DX8 default): V = (0,0,1) in view space
-            float3 V = float3(0.0, 0.0, 1.0);
+            // Use local viewer approximation from posVS
+            float3 V = normalize(-posVS);
             float3 H = normalize(Ldir + V);
             float NdotH = max(dot(N, H), 0.0);
             float specPow = pow(NdotH, lighting.materialPower);
@@ -685,12 +727,29 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
         auto computeUVPS = [&](uint tci, uint stage) -> float2 {
             uint tciMode = (tci >> 16) & 0x3;
             uint uvIndex = tci & 0x3;
-            if (tciMode == 1 && uniforms.useProjection == 1) {
+            if (tciMode == 1 && uniforms.useProjection == 1) { // D3DTSS_TCI_CAMERASPACENORMAL
+                if (uniforms.texTransformFlags[stage] != 0) {
+                    float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
+                    return tc.xy;
+                }
+                return float2(in.camNormalX, in.camNormalY);
+            }
+            if (tciMode == 2) { // D3DTSS_TCI_CAMERASPACEPOSITION
                 if (uniforms.texTransformFlags[stage] != 0) {
                     float4 tc = uniforms.texMatrix[stage] * float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
                     return tc.xy;
                 }
                 return float2(in.camPosX, in.camPosY);
+            }
+            if (tciMode == 3) { // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR
+                float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
+                float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
+                float3 R = V - 2.0 * dot(V, N) * N;
+                if (uniforms.texTransformFlags[stage] != 0) {
+                    float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
+                    return tc.xy;
+                }
+                return float2(R.x, R.y);
             }
             return (uvIndex == 1) ? in.texCoord2 : in.texCoord;
         };
@@ -861,6 +920,27 @@ fragment float4 fragment_main(VertexOut in [[stage_in]],
                 return tc.xy;
             }
             return float2(in.camPosX, in.camPosY);
+        }
+        
+        if (tciMode == 2) {
+            // D3DTSS_TCI_CAMERASPACENORMAL
+            if (uniforms.texTransformFlags[stage] != 0) {
+                float4 tc = uniforms.texMatrix[stage] * float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
+                return tc.xy;
+            }
+            return float2(in.camNormalX, in.camNormalY);
+        }
+        
+        if (tciMode == 3) {
+            // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR
+            float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
+            float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
+            float3 R = V - 2.0 * dot(V, N) * N;
+            if (uniforms.texTransformFlags[stage] != 0) {
+                float4 tc = uniforms.texMatrix[stage] * float4(R.x, R.y, R.z, 1.0);
+                return tc.xy;
+            }
+            return float2(R.x, R.y);
         }
         
         // D3DTSS_TCI_PASSTHRU: use vertex UV set, apply texture transform if set.

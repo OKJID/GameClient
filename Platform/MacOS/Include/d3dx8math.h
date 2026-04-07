@@ -2,6 +2,7 @@
 #ifdef __APPLE__
 #include <d3d8.h>
 #include <cmath>
+#include <string.h>
 
 #ifndef D3DX_PI
 #define D3DX_PI 3.14159265358979323846f
@@ -166,6 +167,54 @@ inline D3DXMATRIX* D3DXMatrixInverse(D3DXMATRIX *pOut, float *pDet, const D3DXMA
     float invDet = 1.0f / det;
     for(int i=0; i<4; i++) for(int j=0; j<4; j++) pOut->m[i][j] *= invDet;
     return pOut;
+}
+
+class DummyD3DXBuffer : public ID3DXBuffer {
+  DWORD* data;
+  DWORD size;
+public:
+  DummyD3DXBuffer(const DWORD* d, DWORD s) : size(s) {
+    data = new DWORD[s / sizeof(DWORD)];
+    memcpy(data, d, s);
+  }
+  virtual ~DummyD3DXBuffer() { delete[] data; }
+  virtual void* GetBufferPointer() override { return data; }
+  virtual DWORD GetBufferSize() override { return size; }
+  virtual ULONG Release() override { delete this; return 0; }
+};
+
+inline HRESULT D3DXAssembleShader(const char* pSrcData, UINT SrcDataLen, DWORD Flags, void* pConstants, ID3DXBuffer** ppShader, void** ppErrorMsgs) {
+    if (!pSrcData || !ppShader) return E_POINTER;
+    
+    DWORD tokens[32];
+    int t = 0;
+    tokens[t++] = 0xFFFF0101; // ps.1.1 version
+    
+    bool isTrapezoid = (strstr(pSrcData, "mad r0.rgb") != nullptr);
+    bool isWave = (strstr(pSrcData, "texbem t2") != nullptr);
+    
+    if (isTrapezoid) {
+        tokens[t++] = 0x00000042; // tex t0
+        tokens[t++] = 0x00000042; // tex t1
+        tokens[t++] = 0x00000042; // tex t2
+        tokens[t++] = 0x00000042; // tex t3
+        tokens[t++] = 0x00000004; // mad
+    } else if (isWave) {
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000041; // texbem
+    } else {
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000042; // tex
+        tokens[t++] = 0x00000002; // add
+    }
+    
+    tokens[t++] = 0x0000FFFF; // end
+    *ppShader = new DummyD3DXBuffer(tokens, (DWORD)(t * sizeof(DWORD)));
+    return 0; // S_OK
 }
 
 #endif

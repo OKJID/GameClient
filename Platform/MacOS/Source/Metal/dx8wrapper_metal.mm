@@ -23,6 +23,8 @@
 #include "dx8indexbuffer.h"
 #include "sortingrenderer.h"
 #include "wwprofile.h"
+
+#include "MetalTexture8.h"
 #include "render2d.h"
 #include "thread.h"
 #include "boxrobj.h"
@@ -1241,7 +1243,67 @@ void Log_DX8_ErrorCode(unsigned int code) {}
 void Non_Fatal_Log_DX8_ErrorCode(unsigned res, const char* file, int line) {}
 // — all defined WWINLINE in dx8wrapper.h
 
-void DX8Wrapper::Set_Light_Environment(LightEnvironmentClass* light_env) { Light_Environment = light_env; }
+void DX8Wrapper::Set_Light_Environment(LightEnvironmentClass* light_env) 
+{ 
+	Light_Environment = light_env; 
+
+	if (light_env)
+	{
+		int light_count = light_env->Get_Light_Count();
+		unsigned int color=Convert_Color(light_env->Get_Equivalent_Ambient(),0.0f);
+		if (RenderStates[D3DRS_AMBIENT]!=color)
+		{
+			Set_DX8_Render_State(D3DRS_AMBIENT,color);
+			render_state_changed|=MATERIAL_CHANGED;
+		}
+
+		_D3DLIGHT8 light;
+		int l=0;
+		for (;l<light_count;++l) {
+			::ZeroMemory(&light, sizeof(_D3DLIGHT8));
+
+			light.Type=D3DLIGHT_DIRECTIONAL;
+			(Vector3&)light.Diffuse=light_env->Get_Light_Diffuse(l);
+			Vector3 dir=-light_env->Get_Light_Direction(l);
+			light.Direction=(const D3DVECTOR&)(dir);
+
+			if (l==0) {
+				light.Specular.r = light.Specular.g = light.Specular.b = 1.0f;
+			}
+
+			if (light_env->isPointLight(l)) {
+				light.Type = D3DLIGHT_POINT;
+				(Vector3&)light.Diffuse=light_env->getPointDiffuse(l);
+				(Vector3&)light.Ambient=light_env->getPointAmbient(l);
+				light.Position = (const D3DVECTOR&)light_env->getPointCenter(l);
+				light.Range = light_env->getPointOrad(l);
+
+				double a,b;
+				b = light_env->getPointOrad(l);
+				a = light_env->getPointIrad(l);
+
+				light.Attenuation0=1.0f;
+				if (fabs(a-b)<1e-5 || a < 1e-5)
+					light.Attenuation1=0.0f;
+				else
+					light.Attenuation1=(float) 0.1/a;
+
+				light.Attenuation2=8.0f/(b*b);
+			}
+
+			Set_Light(l,&light);
+		}
+
+		for (;l<4;++l) {
+			Set_Light(l,nullptr);
+		}
+	} else {
+		Set_DX8_Render_State(D3DRS_AMBIENT,0);
+		for (int l=0; l<4; ++l) {
+			Set_Light(l,nullptr);
+		}
+	}
+}
 // ── Set_Gamma (mirrors dx8wrapper.cpp lines 3801-3848) ──
 void DX8Wrapper::Set_Gamma(float gamma, float bright, float contrast, bool calibrate, bool uselimit)
 {
@@ -1353,6 +1415,80 @@ IDirect3DTexture8* DX8Wrapper::_Create_DX8_Texture(const char* filename, MipCoun
 		return MissingTexture::_Get_Missing_Texture();
 	}
 	return texture;
+}
+
+HRESULT WINAPI D3DXLoadSurfaceFromSurface(
+    IDirect3DSurface8* pDestSurface, const void* pDestPalette, const RECT* pDestRect,
+    IDirect3DSurface8* pSrcSurface, const void* pSrcPalette, const RECT* pSrcRect,
+    DWORD Filter, DWORD ColorKey)
+{
+    D3DLOCKED_RECT srcLR, destLR;
+    if (pSrcSurface->LockRect(&srcLR, pSrcRect, 0) == D3D_OK) {
+        if (pDestSurface->LockRect(&destLR, pDestRect, 0) == D3D_OK) {
+            D3DSURFACE_DESC srcDesc, destDesc;
+            pSrcSurface->GetDesc(&srcDesc);
+            pDestSurface->GetDesc(&destDesc);
+            
+            unsigned int bpp = 4;
+            if (destDesc.Format == D3DFMT_A8R8G8B8 || destDesc.Format == D3DFMT_X8R8G8B8) bpp = 4;
+            else if (destDesc.Format == D3DFMT_R5G6B5 || destDesc.Format == D3DFMT_A1R5G5B5 || destDesc.Format == D3DFMT_A4R4G4B4 || destDesc.Format == D3DFMT_X1R5G5B5) bpp = 2;
+            else if (destDesc.Format == D3DFMT_A8 || destDesc.Format == D3DFMT_L8 || destDesc.Format == D3DFMT_P8) bpp = 1;
+            
+            unsigned int copyWidth = pDestRect ? (pDestRect->right - pDestRect->left) : destDesc.Width;
+            unsigned int copyHeight = pDestRect ? (pDestRect->bottom - pDestRect->top) : destDesc.Height;
+            
+            if (pSrcRect) {
+                copyWidth = std::min<unsigned int>(copyWidth, pSrcRect->right - pSrcRect->left);
+                copyHeight = std::min<unsigned int>(copyHeight, pSrcRect->bottom - pSrcRect->top);
+            }
+            
+            // Note: Since MetalSurface8 natively ignores pRect in LockRect (returning base pointer),
+            // we must manually offset our starting read/write pointers here just in case.
+            // D3D allows LockRect to return an offset pointer, but we do it manually to be safe.
+            unsigned int dstOffX = pDestRect ? pDestRect->left : 0;
+            unsigned int dstOffY = pDestRect ? pDestRect->top : 0;
+            unsigned int srcOffX = pSrcRect ? pSrcRect->left : 0;
+            unsigned int srcOffY = pSrcRect ? pSrcRect->top : 0;
+            
+            for (unsigned int y = 0; y < copyHeight; ++y) {
+                memcpy((char*)destLR.pBits + (dstOffY + y) * destLR.Pitch + (dstOffX * bpp),
+                       (char*)srcLR.pBits + (srcOffY + y) * srcLR.Pitch + (srcOffX * bpp), copyWidth * bpp);
+            }
+            pDestSurface->UnlockRect();
+        }
+        pSrcSurface->UnlockRect();
+    }
+    return D3D_OK;
+}
+
+HRESULT WINAPI D3DXFilterTexture(
+    IDirect3DTexture8* pTexture, const void* pPalette, UINT SrcLevel, DWORD Filter)
+{
+    if (!pTexture) return E_POINTER;
+    
+    // We strictly use MetalTexture8 in this port
+    MetalTexture8* mtlTex = static_cast<MetalTexture8*>(pTexture);
+    id<MTLTexture> tex = mtlTex->GetMTLTexture();
+    
+    if (!tex || tex.mipmapLevelCount <= 1) {
+        return D3D_OK; // No mipmaps to generate
+    }
+    
+    id<MTLDevice> device = tex.device;
+    id<MTLCommandQueue> queue = [device newCommandQueue];
+    if (!queue) return E_FAIL;
+    
+    id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+    if (!cmdBuf) return E_FAIL;
+    
+    id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
+    [blit generateMipmapsForTexture:tex];
+    [blit endEncoding];
+    
+    [cmdBuf commit];
+    [cmdBuf waitUntilCompleted];
+    
+    return D3D_OK;
 }
 
 IDirect3DTexture8* DX8Wrapper::_Create_DX8_Texture(IDirect3DSurface8* surface, MipCountType mip_level_count)

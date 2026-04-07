@@ -12,9 +12,10 @@
 #define D3DX_FILTER_BOX      0x00000005
 #define D3DX_FILTER_TRIANGLE 0x00000004
 
-inline HRESULT D3DXLoadSurfaceFromSurface(
-    IDirect3DSurface8*, const void*, const RECT*,
-    IDirect3DSurface8*, const void*, const RECT*, DWORD, DWORD) { return 0; }
+HRESULT WINAPI D3DXLoadSurfaceFromSurface(
+    IDirect3DSurface8* pDestSurface, const void* pDestPalette, const RECT* pDestRect,
+    IDirect3DSurface8* pSrcSurface, const void* pSrcPalette, const RECT* pSrcRect,
+    DWORD Filter, DWORD ColorKey);
 
 inline HRESULT D3DXLoadSurfaceFromMemory(
     IDirect3DSurface8*, const void*, const RECT*,

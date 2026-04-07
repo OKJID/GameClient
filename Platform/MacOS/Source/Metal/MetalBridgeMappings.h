@@ -380,12 +380,20 @@ inline FVFLayoutResult ComputeFVFLayout(DWORD fvf) {
   uint32_t offset = 0;
 
   // Position
-  if (fvf & D3DFVF_XYZRHW) {
+  DWORD posType = fvf & 0x400E; // D3DFVF_POSITION_MASK
+  if (posType == D3DFVF_XYZRHW) {
     r.position = {MTLVertexFormatFloat4, offset, 0, true};
     offset += 16;
-  } else if (fvf & D3DFVF_XYZ) {
+  } else if (posType != 0) {
     r.position = {MTLVertexFormatFloat3, offset, 0, true};
-    offset += 12;
+    offset += 12; // base XYZ
+    
+    // Add size of blend weights (padding)
+    if (posType == D3DFVF_XYZB1) offset += 4;
+    else if (posType == D3DFVF_XYZB2) offset += 8;
+    else if (posType == D3DFVF_XYZB3) offset += 12;
+    else if (posType == D3DFVF_XYZB4) offset += 16;
+    else if (posType == D3DFVF_XYZB5) offset += 20;
   }
 
   // Normal (must come after position in DX8 FVF order)

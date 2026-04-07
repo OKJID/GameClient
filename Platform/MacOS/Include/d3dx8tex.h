@@ -59,11 +59,10 @@ inline HRESULT D3DXCreateTextureFromFileExA(
     return pDevice->CreateTexture(w, h, MipLevels, Usage, Format, Pool, ppTexture);
 }
 
-inline HRESULT D3DXLoadSurfaceFromSurface(
-    IDirect3DSurface8*, const PALETTEENTRY*, const RECT*,
-    IDirect3DSurface8*, const PALETTEENTRY*, const RECT*,
-    DWORD, D3DCOLOR)
-{ return D3D_OK; }
+HRESULT WINAPI D3DXLoadSurfaceFromSurface(
+    IDirect3DSurface8* pDestSurface, const void* pDestPalette, const RECT* pDestRect,
+    IDirect3DSurface8* pSrcSurface, const void* pSrcPalette, const RECT* pSrcRect,
+    DWORD Filter, DWORD ColorKey);
 
 inline HRESULT D3DXLoadSurfaceFromMemory(
     IDirect3DSurface8*, const PALETTEENTRY*, const RECT*,
@@ -71,8 +70,7 @@ inline HRESULT D3DXLoadSurfaceFromMemory(
     const RECT*, DWORD, D3DCOLOR)
 { return D3D_OK; }
 
-inline HRESULT D3DXFilterTexture(
-    IDirect3DTexture8*, const PALETTEENTRY*, UINT, DWORD)
-{ return D3D_OK; }
+HRESULT WINAPI D3DXFilterTexture(
+    IDirect3DTexture8* pTexture, const void* pPalette, UINT SrcLevel, DWORD Filter);
 
 #endif

@@ -341,7 +341,7 @@ struct LightData {
 
 // Stage 8: LightingUniforms (matches MacOSShaders.metal, buffer 3)
 struct LightingUniforms {
-  LightData lights[4];
+  LightData lights[8];
   simd::float4 materialDiffuse;
   simd::float4 materialAmbient;
   simd::float4 materialSpecular;
@@ -354,6 +354,8 @@ struct LightingUniforms {
   uint32_t specularSource;
   uint32_t emissiveSource;
   uint32_t hasNormals; // 1 if FVF has D3DFVF_NORMAL
+  uint32_t hasVertexColors; // 1 if FVF has D3DFVF_DIFFUSE
+  uint32_t colorVertexEnable; // 1 if D3DRS_COLORVERTEX is true
   // Stage 9: Fog parameters (for vertex fog computation)
   float fogStart;
   float fogEnd;
@@ -787,8 +789,8 @@ void MetalDevice8::ApplyPerDrawState() {
   DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
   if (zBias != m_LastAppliedZBias) {
     if (zBias != 0) {
-      float bias = -(float)zBias;
-      float slopeScale = -2.0f;
+      float bias = -(float)zBias * 5000.0f;
+      float slopeScale = -(float)zBias * 1.0f;
       [MTL_ENCODER setDepthBias:bias slopeScale:slopeScale clamp:0.0f];
     } else {
       [MTL_ENCODER setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
@@ -945,6 +947,8 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   lu.specularSource = m_RenderStates[D3DRS_SPECULARMATERIALSOURCE];
   lu.emissiveSource = m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE];
   lu.hasNormals = (fvf & D3DFVF_NORMAL) ? 1 : 0;
+  lu.hasVertexColors = (fvf & D3DFVF_DIFFUSE) ? 1 : 0;
+  lu.colorVertexEnable = m_RenderStates[D3DRS_COLORVERTEX] ? 1 : 0;
   {
     DWORD fogEnable = m_RenderStates[D3DRS_FOGENABLE];
     if (fogEnable) {
@@ -2037,8 +2041,17 @@ HRESULT MetalDevice8::GetMaterial(D3DMATERIAL8 *p) {
 }
 
 STDMETHODIMP MetalDevice8::SetLight(DWORD i, const D3DLIGHT8 *l) {
-  if (i < MAX_LIGHTS && l)
+  if (i < MAX_LIGHTS && l) {
     m_Lights[i] = *l;
+    // Log light parameters for debugging
+    DLOG_RFLOW(1, "SetLight idx=%u type=%u enabled=%u dir=(%f,%f,%f) pos=(%f,%f,%f) range=%f", 
+               (unsigned)i,
+               l->Type,
+               m_LightEnabled[i],
+               l->Direction.x, l->Direction.y, l->Direction.z,
+               l->Position.x, l->Position.y, l->Position.z,
+               l->Range);
+  }
   return D3D_OK;
 }
 
@@ -2274,18 +2287,26 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   bool hasTexCoord1 = false;
 
   // --- Position ---
-  if (fvf & D3DFVF_XYZRHW) {
+  DWORD posType = fvf & 0x400E; // D3DFVF_POSITION_MASK
+  if (posType == D3DFVF_XYZRHW) {
     vd.attributes[0].format = MTLVertexFormatFloat4;
     vd.attributes[0].offset = currentOffset;
     vd.attributes[0].bufferIndex = 0;
     currentOffset += 16;
     hasPosition = true;
-  } else if (fvf & D3DFVF_XYZ) {
+  } else if (posType != 0) {
     vd.attributes[0].format = MTLVertexFormatFloat3;
     vd.attributes[0].offset = currentOffset;
     vd.attributes[0].bufferIndex = 0;
-    currentOffset += 12;
+    currentOffset += 12; // base XYZ
     hasPosition = true;
+    
+    // Add size of blend weights (padding)
+    if (posType == D3DFVF_XYZB1) currentOffset += 4;
+    else if (posType == D3DFVF_XYZB2) currentOffset += 8;
+    else if (posType == D3DFVF_XYZB3) currentOffset += 12;
+    else if (posType == D3DFVF_XYZB4) currentOffset += 16;
+    else if (posType == D3DFVF_XYZB5) currentOffset += 20;
   }
 
   // --- Normal --- mapped to attribute(3) for lighting

@@ -152,8 +152,10 @@ STDMETHODIMP MetalInterface8::GetDeviceCaps(UINT Adapter, DWORD DeviceType,
   pCaps->DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
   pCaps->MaxSimultaneousTextures = 8;
   pCaps->MaxTextureBlendStages = 8;
-  pCaps->VertexShaderVersion = 0x0101;
-  pCaps->PixelShaderVersion = 0x0101;
+  
+  // Architecture adaptation
+  pCaps->VertexShaderVersion = 0;
+  pCaps->PixelShaderVersion = 0;
   pCaps->MaxPrimitiveCount = 0xFFFFFF;
   pCaps->MaxVertexIndex = 0xFFFFFF;
   pCaps->MaxStreams = 8;

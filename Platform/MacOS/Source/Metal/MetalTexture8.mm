@@ -38,6 +38,10 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   if (usage & D3DUSAGE_RENDERTARGET) {
     desc.usage |= MTLTextureUsageRenderTarget;
   }
+  // To use generateMipmapsForTexture, the texture needs RenderTarget usage or ShaderWrite
+  if (m_Levels > 1) {
+    desc.usage |= MTLTextureUsageRenderTarget | MTLTextureUsageShaderWrite;
+  }
   // All textures use Shared storage on Apple Silicon:
   // - Non-RT: so replaceRegion is immediately GPU-visible (no synchronizeResource needed)
   // - RT: so zero-fill at creation is GPU-visible, and after rendering to an RT texture
