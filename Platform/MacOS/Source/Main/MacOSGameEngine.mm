@@ -24,6 +24,9 @@ extern MacOSMouse *TheMacOSMouse;
 #include "W3DDevice/GameClient/W3DWebBrowser.h"
 #include "GameClient/ParticleSys.h"
 #include "GameNetwork/NetworkInterface.h"
+#include "GameClient/IMEManager.h"
+
+extern HWND ApplicationHWnd;
 
 #include "../System/MacOSLocalFileSystem.h"
 #include "StdDevice/Common/StdBIGFileSystem.h"
@@ -127,12 +130,16 @@ void MacOSGameEngine::reset()
 }
 
 // ── update() mirrors Win32GameEngine::update() lines 87-132 ──
+// On Win32, keyboard uses DirectInput (hardware buffer independent of message loop),
+// so the order of GameEngine::update() vs serviceWindowsOS() doesn't matter.
+// On macOS, MacOSKeyboard ring buffer is filled ONLY by serviceWindowsOS(),
+// so we MUST poll events first, then let the engine read the buffer.
 
 void MacOSGameEngine::update()
 {
 	@autoreleasepool {
-		GameEngine::update();
 		serviceWindowsOS();
+		GameEngine::update();
 	}
 }
 
@@ -149,6 +156,7 @@ void MacOSGameEngine::serviceWindowsOS()
 		                                    dequeue:YES])) {
 			
 			unsigned int timeMs = (unsigned int)([event timestamp] * 1000.0);
+			TheMessageTime = timeMs;
 			NSEventType type = [event type];
 			
 			if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp) {
@@ -156,6 +164,21 @@ void MacOSGameEngine::serviceWindowsOS()
 					TheMacOSKeyboard->setModifiers([event modifierFlags], timeMs);
 					// The user specifically requested to NOT filter out 'isARepeat' right now.
 					TheMacOSKeyboard->addEvent([event keyCode], type == NSEventTypeKeyDown, timeMs);
+				}
+				
+				if (type == NSEventTypeKeyDown && TheIMEManager) {
+					NSString *chars = [event characters];
+					if (chars && [chars length] > 0) {
+						for (NSUInteger i = 0; i < [chars length]; i++) {
+							unichar ch = [chars characterAtIndex:i];
+							// Convert macOS keypad enter (0x03) to standard CR (0x0D)
+							if (ch == 0x03 || ch == 0x0A) ch = 0x0D;
+							// Pass printable characters and Enter (used by GUI textboxes)
+							if (ch >= 32 || ch == 0x0D) {
+								TheIMEManager->serviceIMEMessage(ApplicationHWnd, 0x0102 /* WM_CHAR */, ch, 0);
+							}
+						}
+					}
 				}
 			} else if (type == NSEventTypeFlagsChanged) {
 				if (TheMacOSKeyboard) {
@@ -223,10 +246,9 @@ void MacOSGameEngine::serviceWindowsOS()
 			[NSApp sendEvent:event];
 			[NSApp updateWindows];
 		}
+
+		TheMessageTime = 0;
         
-		// CRITICAL: Because GameMain() runs an infinite loop on the Main Thread (matching Windows),
-		// the main RunLoop never returns. Core Animation transactions (which show and update
-		// the window) never automatically flush. We must manually flush them!
 		[CATransaction flush];
 	}
 }

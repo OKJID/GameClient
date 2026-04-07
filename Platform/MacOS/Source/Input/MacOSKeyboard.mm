@@ -234,9 +234,6 @@ void MacOSKeyboard::addEvent(unsigned char keyCode, bool isDown,
   if (dikCode == 0)
     return;
 
-  // Update real-time key states in the base class array
-  m_keyStatus[dikCode].state = isDown ? KEY_STATE_DOWN : KEY_STATE_UP;
-
   unsigned int nextIndex = (m_nextFreeIndex + 1) % MAX_EVENTS;
   if (nextIndex == m_nextGetIndex) {
     // Buffer overflow
