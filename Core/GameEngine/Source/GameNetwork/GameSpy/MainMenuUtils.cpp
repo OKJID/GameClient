@@ -649,15 +649,15 @@ static GHTTPBool overallStatsCallback( GHTTPRequest request, GHTTPResult result,
 			message.nextToken(&totalLine, "\n");
 			message.nextToken(&winsLine, "\n");
 			message.nextToken(&lossesLine, "\n");
-			while (totalLine.isNotEmpty() && !isdigit(totalLine.getCharAt(0)))
+			while (totalLine.isNotEmpty() && !isdigit((unsigned char)totalLine.getCharAt(0)))
 			{
 				totalLine = totalLine.str()+1;
 			}
-			while (winsLine.isNotEmpty() && !isdigit(winsLine.getCharAt(0)))
+			while (winsLine.isNotEmpty() && !isdigit((unsigned char)winsLine.getCharAt(0)))
 			{
 				winsLine = winsLine.str()+1;
 			}
-			while (lossesLine.isNotEmpty() && !isdigit(lossesLine.getCharAt(0)))
+			while (lossesLine.isNotEmpty() && !isdigit((unsigned char)lossesLine.getCharAt(0)))
 			{
 				lossesLine = lossesLine.str()+1;
 			}
@@ -877,7 +877,7 @@ void StartPatchCheck()
 #if defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
 			bNeedsUpdate = false;
 #endif
-
+			bNeedsUpdate = false;
 			cantConnectBeforeOnline = !bSuccess;
 			mustDownloadPatch = bNeedsUpdate;
 

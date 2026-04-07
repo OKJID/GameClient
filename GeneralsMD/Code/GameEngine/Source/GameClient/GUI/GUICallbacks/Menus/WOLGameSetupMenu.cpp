@@ -3542,7 +3542,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 						for (int i = 0; i < asciiVal.getLength(); ++i)
 						{
 							char thisChar = asciiVal.getCharAt(i);
-							if (!std::isdigit(thisChar))
+							if (!std::isdigit((unsigned char)thisChar))
 							{
 								bIsNumber = false;
 								break;

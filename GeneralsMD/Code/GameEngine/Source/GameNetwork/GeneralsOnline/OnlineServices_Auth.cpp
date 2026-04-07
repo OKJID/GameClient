@@ -139,6 +139,37 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 		});
 }
 
+void NGMP_OnlineServices_AuthInterface::SendMiddlewareToken(std::string strMWToken)
+{
+	// TODO_AC: Service should just return 200 if no middleware is loaded
+    std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ProvideMWToken");
+
+    // login
+    std::map<std::string, std::string> mapHeaders;
+
+    nlohmann::json j;
+	j["mw_token"] = strMWToken;
+    std::string strPostData = j.dump();
+
+    NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strLoginURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+        {
+            if (statusCode >= 400 && statusCode < 500)
+            {
+                ClearGSMessageBoxes();
+                GSMessageBoxOk(UnicodeString(L"Middleware Login Failed"), UnicodeString(L"Middleware Login Failed"), []()
+                    {
+                        TheShell->pop();
+                    });
+                return;
+            }
+            else
+            {
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] MW LOGIN: Logged in");
+            }
+
+        }, nullptr);
+}
+
 void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken");
@@ -383,6 +414,10 @@ void NGMP_OnlineServices_AuthInterface::OnLoginComplete(ELoginResult loginResult
 {
 	if (loginResult == ELoginResult::Success)
 	{
+		// TODO_AC: Consider chaining this
+		// login to AC
+		AnticheatPlugInterface::Authenticate();
+
 		NGMP_OnlineServicesManager::GetInstance()->OnLogin(loginResult, szWSAddr, [=]() // wait for WS to connect
 			{
                 // move on to network capabilities section

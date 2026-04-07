@@ -762,6 +762,8 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	}
 }
 
+// TODO_AC: Do this elsewhere
+std::set<int64_t> g_AlreadyREgistered;
 void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(bool)> fnCallback)
 {
 	// refresh lobby
@@ -901,6 +903,20 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								memberEntryIter["SlotState"].get_to(memberEntry.m_SlotState);
 								memberEntryIter["SlotIndex"].get_to(memberEntry.m_SlotIndex);
 								memberEntryIter["Region"].get_to(memberEntry.region);
+								memberEntryIter["MiddlewareUserID"].get_to(memberEntry.middlewareUserID);
+
+								if (!memberEntry.middlewareUserID.empty())
+								{
+                                    if (!g_AlreadyREgistered.contains(memberEntry.user_id))
+                                    {
+                                        bool bSuccess = AnticheatPlugInterface::RegisterPlayer(memberEntry.middlewareUserID, memberEntry.user_id);
+										if (bSuccess)
+                                        {
+											g_AlreadyREgistered.insert(memberEntry.user_id);
+
+										}
+                                    }
+								}
 
 								lobbyEntry.members.push_back(memberEntry);
 
@@ -1407,6 +1423,9 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(bool)> fnCallback)
 {
+	// begin AC
+	AnticheatPlugInterface::BeginSession();
+
 	// join the network mesh too
 	if (m_pLobbyMesh == nullptr)
 	{

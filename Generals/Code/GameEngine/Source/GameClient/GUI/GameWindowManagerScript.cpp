@@ -260,7 +260,7 @@ static void readUntilSemicolon( File *fp, char *buffer, int maxBufLen )
 		fp->read(buffer + i, 1);
 
 		// make all whitespace characters spaces
-		if( isspace( buffer[ i ] ) )
+		if( isspace( (unsigned char)buffer[ i ] ) )
 		{
 
 			if( start == FALSE )

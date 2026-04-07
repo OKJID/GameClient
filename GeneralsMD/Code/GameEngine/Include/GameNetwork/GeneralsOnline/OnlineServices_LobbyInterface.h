@@ -27,6 +27,7 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
 	std::string region;
+	std::string middlewareUserID;
 	int latency = 0;
 
 	bool IsHuman() const

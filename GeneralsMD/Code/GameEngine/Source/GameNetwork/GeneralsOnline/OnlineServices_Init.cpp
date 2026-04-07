@@ -829,6 +829,12 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();
 
+#if _DEBUG
+	AnticheatPlugInterface::LoadPlugin("F:\\gen\\eac_module\\build\\Debug\\plugin.dll");
+#else
+	AnticheatPlugInterface::LoadPlugin("plugin.dll");
+#endif
+
 	// TODO_NGMP: Better location
 	// TODO_NGMP: Get all of this from the service
 	int moneyVal = 100000;
@@ -863,6 +869,8 @@ void NGMP_OnlineServicesManager::Init()
 
 void NGMP_OnlineServicesManager::Tick()
 {
+	AnticheatPlugInterface::Tick();
+
 	// screenshots
 	{
 		// send screenshot
