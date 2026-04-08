@@ -468,11 +468,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     if (det < 0.0) {
         N_raw = -N_raw;
     }
-    float N_len = length(N_raw);
-    float3 M_worldView_n = float3(N_len > 0.0001 ? (N_raw.x / N_len) : 0.0,
-                                  N_len > 0.0001 ? (N_raw.y / N_len) : 1.0,
-                                  N_len > 0.0001 ? (N_raw.z / N_len) : 0.0);
-    float3 N = M_worldView_n;
+    float3 N = any(N_raw != 0.0f) ? normalize(N_raw) : float3(0.0f, 1.0f, 0.0f);
     out.camNormalX = N.x;
     out.camNormalY = N.y;
     out.camNormalZ = N.z;
@@ -779,13 +775,17 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
             float4 tc = uniforms.texMatrix[stage] * unprojected;
             if ((flags & 256) != 0) { // D3DTTFF_PROJECTED
                 uint count = flags & 255;
-                if (count == 3 && tc.z != 0.0) {
+                if (count == 3 && tc.z != 0.0f) {
+                    if (tc.z <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
                     tc.x /= tc.z;
                     tc.y /= tc.z;
-                } else if (count == 4 && tc.w != 0.0) {
+                    if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
+                } else if (count == 4 && tc.w != 0.0f) {
+                    if (tc.w <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
                     tc.x /= tc.w;
                     tc.y /= tc.w;
                     tc.z /= tc.w;
+                    if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
                 }
             }
             return tc.xyz;
@@ -958,28 +958,41 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
     float3 uv2 = computeTexCoord(fragUniforms.texCoordIndex[2], 2);
     float3 uv3 = computeTexCoord(fragUniforms.texCoordIndex[3], 3);
     
-    // Sample textures using their respective UV coordinates
+    // Sample textures using their respective UV coordinates.
+    // If projective coordinates were truncated (tc.z < 0), DX8 hardware would have clipped this geometry.
+    // Emulate geometry clipping by completely discarding the fragment, preventing it from applying base diffuse logic.
+    if (uv0.z < 0.0f || uv1.z < 0.0f || uv2.z < 0.0f || uv3.z < 0.0f) {
+        discard_fragment();
+    }
+    
     float4 texColor0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, uv0) :
-                       (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0.xy) : float4(1.0);
+                       (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0.xy) : float4(1.0f);
     float4 texColor1 = (fragUniforms.hasTexture[1] == 2) ? texCube1.sample(sampler1, uv1) :
-                       (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1.xy) : float4(1.0);
+                       (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1.xy) : float4(1.0f);
     float4 texColor2 = (fragUniforms.hasTexture[2] == 2) ? texCube2.sample(sampler2, uv2) :
-                       (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2.xy) : float4(1.0);
+                       (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2.xy) : float4(1.0f);
     float4 texColor3 = (fragUniforms.hasTexture[3] == 2) ? texCube3.sample(sampler3, uv3) :
-                       (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3.xy) : float4(1.0);
+                       (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3.xy) : float4(1.0f);
     
     // Apply texture format data unpacking
-    if (fragUniforms.texFormatType[0] == 1) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, 1.0);
+    if (fragUniforms.texFormatType[0] == 1) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, 1.0f);
     else if (fragUniforms.texFormatType[0] == 2) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, texColor0.g);
     
-    if (fragUniforms.texFormatType[1] == 1) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, 1.0);
+    if (fragUniforms.texFormatType[1] == 1) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, 1.0f);
     else if (fragUniforms.texFormatType[1] == 2) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, texColor1.g);
     
-    if (fragUniforms.texFormatType[2] == 1) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, 1.0);
+    if (fragUniforms.texFormatType[2] == 1) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, 1.0f);
     else if (fragUniforms.texFormatType[2] == 2) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, texColor2.g);
     
-    if (fragUniforms.texFormatType[3] == 1) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, 1.0);
+    if (fragUniforms.texFormatType[3] == 1) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, 1.0f);
     else if (fragUniforms.texFormatType[3] == 2) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, texColor3.g);
+
+    // BC1 (DXT1) format decompression emulation. Empty blocks output exactly 0.0f into RGB.
+    // Using MSL 'all' spec operator explicitly avoids unsafe floating point approximation thresholds.
+    if (fragUniforms.texFormatType[0] == 3 && all(texColor0.rgb == 0.0f)) texColor0.a = 0.0f;
+    if (fragUniforms.texFormatType[1] == 3 && all(texColor1.rgb == 0.0f)) texColor1.a = 0.0f;
+    if (fragUniforms.texFormatType[2] == 3 && all(texColor2.rgb == 0.0f)) texColor2.a = 0.0f;
+    if (fragUniforms.texFormatType[3] == 3 && all(texColor3.rgb == 0.0f)) texColor3.a = 0.0f;
 
     float4 diffuse = in.color;
     
@@ -1031,22 +1044,6 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
     // Add specular only if D3DRS_SPECULARENABLE is TRUE
     if (fragUniforms.specularEnable != 0) {
         current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
-    }
-    // Discard opaque black fragments from DXT1 (BC1) texture blocks only.
-    // Empty/unloaded DXT1 blocks decode to exact (0,0,0,1) opaque black.
-    // Skip when alpha blending is enabled — with blending, black DXT1 pixels
-    // render correctly as semi-transparent dark overlays (e.g. menu buttons
-    // use SRC_ALPHA/ONE_MINUS_SRC_ALPHA blending and need dark backgrounds).
-    // Skip when alpha test is enabled — alpha test handles transparency
-    // for trees/particles, and their dark pixels are valid content.
-    // Only applies to DXT1 textures (texFormatType==3) to avoid killing
-    // legitimate black pixels from other formats or untextured draws.
-    if (uniforms.useProjection == 1 &&
-        fragUniforms.texFormatType[0] == 3 && // DXT1/BC1 only
-        fragUniforms.alphaTestEnable == 0 &&
-        fragUniforms.blendEnabled == 0 &&     // opaque draws only
-        dot(current.rgb, float3(1.0)) < 0.001) {
-        discard_fragment();
     }
 
     return current;
