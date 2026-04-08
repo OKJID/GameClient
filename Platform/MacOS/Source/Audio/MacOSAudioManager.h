@@ -120,7 +120,7 @@ protected:
   void processRequestList();
 
   // Internal Core Methods
-  ALuint loadAudioFileIntoBuffer(const AsciiString& path);
+  ALuint loadAudioFileIntoBuffer(const AsciiString& path, bool forceMono = false);
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand);
 
