@@ -253,7 +253,9 @@ Bool DoAnyMapTransfers(GameInfo *game)
 			DEBUG_LOG(("Adding player %d to transfer mask", i));
 			mask |= (1<<i);
 		}
+		DEBUG_INFO_MAC(("[MAP_XFER] slot[%d]: isHuman=%d hasMap=%d", i, TheGameInfo->getConstSlot(i)->isHuman(), TheGameInfo->getConstSlot(i)->hasMap()));
 	}
+	DEBUG_INFO_MAC(("[MAP_XFER] mask=0x%x map='%s'", mask, game->getMap().str()));
 	if (!mask)
 		return TRUE;
 

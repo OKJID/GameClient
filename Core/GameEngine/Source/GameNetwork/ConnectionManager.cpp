@@ -1244,6 +1244,7 @@ void ConnectionManager::update(Bool isInGame) {
 			if (m_connections[i]->isQuitting() && m_connections[i]->isQueueEmpty())
 			{
 				DEBUG_LOG(("ConnectionManager::update - deleting connection for slot %d", i));
+DEBUG_INFO_MAC(("[NET_CONN] deleting connection slot=%d frame=%d", i, TheGameLogic->getFrame()));
 				deleteInstance(m_connections[i]);
 				m_connections[i] = nullptr;
 			}
@@ -1252,6 +1253,7 @@ void ConnectionManager::update(Bool isInGame) {
 		if ((m_frameData[i] != nullptr) && (m_frameData[i]->getIsQuitting() == TRUE)) {
 			if (m_frameData[i]->getQuitFrame() == TheGameLogic->getFrame()) {
 				DEBUG_LOG(("ConnectionManager::update - deleting frame data for slot %d on quitting frame %d", i, m_frameData[i]->getQuitFrame()));
+DEBUG_INFO_MAC(("[NET_CONN] deleting frameData slot=%d quitFrame=%d curFrame=%d", i, m_frameData[i]->getQuitFrame(), TheGameLogic->getFrame()));
 				deleteInstance(m_frameData[i]);
 				m_frameData[i] = nullptr;
 			}
@@ -1951,6 +1953,7 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 	// Need to do the deletion of the slot's connection and frame data here.
 	PlayerLeaveCode retval = PLAYERLEAVECODE_CLIENT;
 	DEBUG_LOG(("ConnectionManager::disconnectPlayer - disconnecting slot %d on frame %d", slot, TheGameLogic->getFrame()));
+	DEBUG_INFO_MAC(("[NET_DISCONNECT] disconnectPlayer slot=%d frame=%d", slot, TheGameLogic->getFrame()));
 
 	if ((slot < 0) || (slot >= MAX_SLOTS)) {
 		return PLAYERLEAVECODE_UNKNOWN;

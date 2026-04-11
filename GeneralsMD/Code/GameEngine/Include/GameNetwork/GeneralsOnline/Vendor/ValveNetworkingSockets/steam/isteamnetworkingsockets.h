@@ -6,7 +6,6 @@
 
 #include "steamnetworkingtypes.h"
 #include "steam_api_common.h"
-#include <string>
 
 struct SteamNetAuthenticationStatus_t;
 struct SteamNetworkingFakeIPResult_t;
@@ -353,9 +352,6 @@ public:
 	/// - k_EResultInvalidParam - nLanes is bad
 	virtual EResult GetConnectionRealTimeStatus( HSteamNetConnection hConn, SteamNetConnectionRealTimeStatus_t *pStatus,
 		int nLanes, SteamNetConnectionRealTimeLaneStatus_t *pLanes ) = 0;
-
-	// GO_MODIFICATION
-	virtual int GetConnectionType( HSteamNetConnection hConn, char* pszBuf, int cbBuf ) = 0;
 
 	/// Returns detailed connection stats in text format.  Useful
 	/// for dumping to a log, etc.

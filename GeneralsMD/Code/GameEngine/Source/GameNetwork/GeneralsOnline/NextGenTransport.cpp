@@ -73,6 +73,7 @@ Bool NextGenTransport::doRecv(void)
         NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
     if (!pLobbyInterface)
     {
+        DEBUG_INFO_MAC(("[NET_RECV] FAIL: No lobby interface"));
         NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Recv: No lobby interface");
         return FALSE;
     }
@@ -80,6 +81,7 @@ Bool NextGenTransport::doRecv(void)
     NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
     if (!pMesh)
     {
+        DEBUG_INFO_MAC(("[NET_RECV] FAIL: No network mesh"));
         NetworkLog(ELogVerbosity::LOG_DEBUG, "Game Packet Recv: No network mesh");
         return FALSE;
     }
@@ -187,6 +189,7 @@ Bool NextGenTransport::doRecv(void)
 
             if (!isGenerals)
             {
+                DEBUG_INFO_MAC(("[NET_RECV] DROP: not a generals packet, size=%u from uid=%lld", numBytes, (long long)kvPair.second.m_userID));
                 NetworkLog(ELogVerbosity::LOG_RELEASE,
                     "Game Packet Recv: Is NOT a generals packet");
                 m_unknownPackets[m_statisticsSlot]++;
@@ -240,6 +243,7 @@ Bool NextGenTransport::doRecv(void)
 
             if (!stored)
             {
+                DEBUG_INFO_MAC(("[NET_RECV] DROP: m_inBuffer full"));
                 NetworkLog(ELogVerbosity::LOG_RELEASE,
                     "Game Packet Recv: m_inBuffer full, dropping packet");
             }
@@ -249,6 +253,15 @@ Bool NextGenTransport::doRecv(void)
                 bRet = TRUE;
             }
         }
+    }
+
+    static int s_totalRecv = 0;
+    s_totalRecv += numRead;
+    static int s_recvLogCounter = 0;
+    if (++s_recvLogCounter >= 300)
+    {
+        DEBUG_INFO_MAC(("[NET_RECV] heartbeat: %d packets this batch, %d total recv, connections=%zu", numRead, s_totalRecv, connections.size()));
+        s_recvLogCounter = 0;
     }
 
     NetworkLog(ELogVerbosity::LOG_DEBUG,
@@ -270,6 +283,7 @@ Bool NextGenTransport::doSend(void)
         NGMP_OnlineServicesManager* pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
         if (pOnlineServicesManager == nullptr)
         {
+            DEBUG_INFO_MAC(("[NET_SEND] FAIL: No OnlineServicesManager"));
             NetworkLog(ELogVerbosity::LOG_RELEASE,
                 "Game Packet Send: No OnlineServicesManager");
             return FALSE;
@@ -279,6 +293,7 @@ Bool NextGenTransport::doSend(void)
             NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
         if (pLobbyInterface == nullptr)
         {
+            DEBUG_INFO_MAC(("[NET_SEND] FAIL: No LobbyInterface"));
             NetworkLog(ELogVerbosity::LOG_RELEASE,
                 "Game Packet Send: No LobbyInterface");
             return FALSE;
@@ -286,6 +301,7 @@ Bool NextGenTransport::doSend(void)
 
         if (TheNGMPGame == nullptr)
         {
+            DEBUG_INFO_MAC(("[NET_SEND] FAIL: TheNGMPGame is null"));
             NetworkLog(ELogVerbosity::LOG_RELEASE,
                 "Game Packet Send: TheNGMPGame is null");
             return FALSE;
@@ -311,16 +327,31 @@ Bool NextGenTransport::doSend(void)
                 continue;
             }
 
+            NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+            if (pMesh == nullptr)
+            {
+                DEBUG_INFO_MAC(("[NET_SEND] FAIL: No network mesh for slot addr=%u", m_outBuffer[i].addr));
+                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                    "Game Packet Send: No network mesh");
+                m_outBuffer[i].length = 0;
+                retval = FALSE;
+                continue;
+            }
+
             int sendResult =
-                NGMP_OnlineServicesManager::GetNetworkMesh()->SendGamePacket(
+                pMesh->SendGamePacket(
                     static_cast<void*>(&m_outBuffer[i]),
                     totalLen,
                     pSlot->m_userID);
+
+            if (sendResult < 0)
+                DEBUG_INFO_MAC(("[NET_SEND] FAIL: SendGamePacket returned %d for uid=%lld", sendResult, (long long)pSlot->m_userID));
 
             retval = (sendResult >= 0);
         }
         else
         {
+            DEBUG_INFO_MAC(("[NET_SEND] FAIL: No slot for addr=%u", m_outBuffer[i].addr));
             NetworkLog(ELogVerbosity::LOG_RELEASE,
                 "Game Packet Send: No slot for addr %u", m_outBuffer[i].addr);
             retval = FALSE;
@@ -336,9 +367,18 @@ Bool NextGenTransport::doSend(void)
         }
         else
         {
-            // Keep the entry? For now, drop it to avoid infinite retry loops.
+            DEBUG_INFO_MAC(("[NET_SEND] DROP: failed packet for addr=%u, clearing", m_outBuffer[i].addr));
             m_outBuffer[i].length = 0;
         }
+    }
+
+    static int s_totalSent = 0;
+    s_totalSent += numSent;
+    static int s_sendLogCounter = 0;
+    if (++s_sendLogCounter >= 300)
+    {
+        DEBUG_INFO_MAC(("[NET_SEND] heartbeat: %d packets this batch, %d total sent", numSent, s_totalSent));
+        s_sendLogCounter = 0;
     }
 
     NetworkLog(ELogVerbosity::LOG_DEBUG,

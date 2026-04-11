@@ -183,7 +183,13 @@ void outputCRCDumpLines()
 
 static AsciiString getFname(AsciiString path)
 {
-	return path.reverseFind('\\') + 1;
+#ifdef __APPLE__
+    const char* ptr = path.reverseFind('\\');
+    if (!ptr) ptr = path.reverseFind('/');
+    return ptr ? ptr + 1 : path;
+#else
+    return path.reverseFind('\\') + 1;
+#endif
 }
 
 static void addCRCDebugLineInternal(bool count, const char *fmt, va_list args)

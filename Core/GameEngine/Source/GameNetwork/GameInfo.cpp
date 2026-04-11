@@ -1050,7 +1050,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 		if (val.isEmpty())
 		{
 			optionsOk = false;
-			DEBUG_LOG(("ParseAsciiStringToGameInfo - saw empty value, quitting"));
+			printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: val is empty for key %s\n", key.str());
+			fflush(stdout);
 			break;
 		}
 
@@ -1065,7 +1066,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 			if (val.getLength() < 3)
 			{
 				optionsOk = FALSE;
-				DEBUG_LOG(("ParseAsciiStringToGameInfo - saw bogus map; quitting"));
+				printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: val.length < 3 for M\n");
+				fflush(stdout);
 				break;
 			}
 			mapContentsMask = grabHexInt(val.str());
@@ -1087,11 +1089,9 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 			AsciiString realMapName = TheGameState->portableMapPathToRealMapPath(mapName);
 			if (realMapName.isEmpty())
 			{
-				// TheSuperHackers @security slurmlord 18/06/2025 As the map file name/path from the AsciiString failed to normalize,
-				// in other words is bogus and points outside of the approved target directory for maps, avoid an arbitrary file overwrite vulnerability
-				// if the save or network game embeds a custom map to store at the location, by flagging the options as not OK and rejecting the game.
 				optionsOk = FALSE;
-				DEBUG_LOG(("ParseAsciiStringToGameInfo - saw bogus map name ('%s'); quitting", mapName.str()));
+				printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: realMapName isEmpty for %s\n", mapName.str());
+				fflush(stdout);
 				break;
 			}
 			mapName = realMapName;
@@ -1164,7 +1164,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 							if(slotValue.isEmpty())
 							{
 								optionsOk = false;
-								DEBUG_LOG(("ParseAsciiStringToGameInfo - slotValue name is empty, quitting"));
+								printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: slotValue name is empty\n");
+								fflush(stdout);
 								break;
 							}
 							UnicodeString name;
@@ -1205,7 +1206,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 							if(slotValue.getLength() != 2)
 							{
 								optionsOk = false;
-								DEBUG_LOG(("ParseAsciiStringToGameInfo - slotValue accepted is mis-sized, quitting"));
+								printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: slotValue accepted is mis-sized (%d)\n", slotValue.getLength());
+								fflush(stdout);
 								break;
 							}
 							const char *svs = slotValue.str();
@@ -1237,7 +1239,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 							if (color < -1 || color >= TheMultiplayerSettings->getNumColors())
 							{
 								optionsOk = false;
-								DEBUG_LOG(("ParseAsciiStringToGameInfo - player color was invalid, quitting"));
+								printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: slotValue color invalid %d\n", color);
+								fflush(stdout);
 								break;
 							}
 							newSlot[i].setColor(color);
@@ -1458,7 +1461,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 						default:
 						{
 							optionsOk = false;
-							DEBUG_LOG(("ParseAsciiStringToGameInfo - unrecognized slot entry, quitting"));
+							printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: unrecognized slot entry '%c'\n", *rawSlot.str());
+							fflush(stdout);
 						}
 						break;
 					}
@@ -1469,6 +1473,8 @@ Bool ParseAsciiStringToGameInfo(GameInfo *game, AsciiString options)
 		else
 		{
 			optionsOk = false;
+			printf("[OKJI_DEBUG] ParseAsciiStringToGameInfo: key unknown %s\n", key.str());
+			fflush(stdout);
 			break;
 		}
 	}

@@ -74,7 +74,10 @@ void EnableAcceptControls(Bool Enabled, GameInfo *myGame, GameWindow *comboPlaye
 	Bool isObserver = myGame->getConstSlot(slotNum)->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER;
 
 	if( !myGame->amIHost() && (buttonStart != nullptr) )
-		buttonStart->winEnable(Enabled);
+	{
+		Bool canAccept = Enabled && myGame->getConstSlot(slotNum)->hasMap();
+		buttonStart->winEnable(canAccept);
+	}
 	if(comboColor[slotNum])
 	{
 		if (isObserver)
@@ -440,15 +443,9 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				}
 				else
 				{
-					if (slot->hasMap()) {
-						EnableAcceptControls(TRUE, myGame, comboPlayer, comboColor, comboPlayerTemplate,
-							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
-					}
-					else
-					{
-						EnableAcceptControls(willTransfer, myGame, comboPlayer, comboColor, comboPlayerTemplate,
-							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
-					}
+					Bool shouldEnableUI = slot->hasMap() || willTransfer;
+					EnableAcceptControls(shouldEnableUI, myGame, comboPlayer, comboColor, comboPlayerTemplate,
+						comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
 				}
 
 			}

@@ -21,7 +21,12 @@ std::string to_utf8(const std::wstring& wstr)
 std::wstring from_utf8(const std::string& utf8_str)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	return converter.from_bytes(utf8_str);
+	std::wstring result = converter.from_bytes(utf8_str);
+	DEBUG_INFO_MAC(("from_utf8 input='%s' (len %zu) -> output wlen=%zu", utf8_str.c_str(), utf8_str.length(), result.length()));
+	if (result.length() > 0) {
+		DEBUG_INFO_MAC(("from_utf8 first char: 0x%X", (unsigned int)result[0]));
+	}
+	return result;
 }
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)

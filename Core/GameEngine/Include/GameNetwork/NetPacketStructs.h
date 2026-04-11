@@ -85,8 +85,17 @@ inline size_t writeBytes(UnsignedByte *dest, const UnsignedByte* src, size_t len
 inline size_t writeStringWithoutNull(UnsignedByte *dest, const UnicodeString& value, size_t maxLen)
 {
 	const size_t copyLen = std::min<size_t>(value.getLength(), maxLen);
+#ifdef __APPLE__
+	const size_t copyBytes = copyLen * sizeof(UnsignedShort);
+	const WideChar* strData = value.str();
+	for (size_t i = 0; i < copyLen; ++i) {
+		UnsignedShort c16 = (UnsignedShort)strData[i];
+		memcpy(dest + (i * sizeof(UnsignedShort)), &c16, sizeof(UnsignedShort));
+	}
+#else
 	const size_t copyBytes = copyLen * sizeof(WideChar);
 	memcpy(dest, value.str(), copyBytes);
+#endif
 	return copyBytes;
 }
 

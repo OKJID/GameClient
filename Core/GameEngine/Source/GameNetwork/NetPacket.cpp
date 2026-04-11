@@ -1201,8 +1201,17 @@ NetCommandMsg * NetPacket::readDisconnectChatMessage(UnsignedByte *data, Int &i)
 	UnsignedByte length;
 	memcpy(&length, data + i, sizeof(UnsignedByte));
 	++i;
+#ifdef __APPLE__
+	for (int j = 0; j < length; ++j) {
+		UnsignedShort c16 = 0;
+		memcpy(&c16, data + i, sizeof(UnsignedShort));
+		i += sizeof(UnsignedShort);
+		text[j] = (WideChar)c16;
+	}
+#else
 	memcpy(text, data + i, length * sizeof(WideChar));
 	i += length * sizeof(WideChar);
+#endif
 	text[length] = 0;
 
 	UnicodeString unitext;
@@ -1225,8 +1234,17 @@ NetCommandMsg * NetPacket::readChatMessage(UnsignedByte *data, Int &i) {
 	Int playerMask;
 	memcpy(&length, data + i, sizeof(UnsignedByte));
 	++i;
+#ifdef __APPLE__
+	for (int j = 0; j < length; ++j) {
+		UnsignedShort c16 = 0;
+		memcpy(&c16, data + i, sizeof(UnsignedShort));
+		i += sizeof(UnsignedShort);
+		text[j] = (WideChar)c16;
+	}
+#else
 	memcpy(text, data + i, length * sizeof(WideChar));
 	i += length * sizeof(WideChar);
+#endif
 	text[length] = 0;
 	memcpy(&playerMask, data + i, sizeof(Int));
 	i += sizeof(Int);

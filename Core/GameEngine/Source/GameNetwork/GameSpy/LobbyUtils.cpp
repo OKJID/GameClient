@@ -814,10 +814,12 @@ struct GameSortStruct
 static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 {
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
+#ifndef __APPLE__
 	if (lobbyInfo.exe_crc != TheGlobalData->m_exeCRC || lobbyInfo.ini_crc != TheGlobalData->m_iniCRC)
 	{
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
+#endif
 #if defined(GENERALS_ONLINE)
 	// Buddy lobby highlight:
 	if (theBuddyGames && theBuddyGames->count(lobbyInfo.lobbyID))
@@ -840,7 +842,19 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	}
 
 	UnicodeString gameName;
+#ifdef __APPLE__
+	std::wstring wRoomName = from_utf8(lobbyInfo.name);
+	for (size_t i = 0; i < wRoomName.length(); ++i) {
+		gameName.concat((WideChar)wRoomName[i]);
+	}
+	gameName.concat(L" (");
+	for (size_t i = 0; i < strOwnerName.length(); ++i) {
+		gameName.concat((WideChar)strOwnerName[i]);
+	}
+	gameName.concat(L")");
+#else
 	gameName.format(L"%s (%s)", from_utf8(lobbyInfo.name).c_str(), strOwnerName.c_str());
+#endif
 
 	int numPlayers = lobbyInfo.current_players;
 	int maxPlayers = lobbyInfo.max_players;
@@ -914,7 +928,15 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 			if (slashPos)
 				start = slashPos + 1;
 
+#ifdef __APPLE__
+			mapName.clear();
+			std::wstring wStart = from_utf8(start);
+			for (size_t i = 0; i < wStart.length(); ++i) {
+				mapName.concat((WideChar)wStart[i]);
+			}
+#else
 			mapName.format(L"%s", from_utf8(start).c_str());
+#endif
 		}
 		GadgetListBoxAddEntryText(win, mapName, gameColor, index, COLUMN_MAP);
 

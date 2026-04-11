@@ -4,6 +4,7 @@
 #include "GameClient/MessageBox.h"
 #include "Common/FileSystem.h"
 #include "Common/file.h"
+#include "Common/System/NativeFileSystem.h"
 #include "realcrc.h"
 #include "GameNetwork/DownloadManager.h"
 #include <ws2tcpip.h>
@@ -21,6 +22,17 @@
 #include "GameNetwork/GeneralsOnline/Vendor/stb_image/stb_image_resize.h"
 #include "GameClient/GameText.h"
 #include <unordered_set>
+
+
+#ifdef __APPLE__
+// Generals.exe (Vanilla): 287639043
+// GeneralsOnlineZH.exe (30 FPS build): 3196037691
+// GeneralsOnlineZH_60.exe (60 FPS build): 1431066825
+namespace {
+	constexpr long MAC_PARITY_FALLBACK_EXE_CRC = 1431066825;    // GeneralsOnlineZH_60.exe (IEEE CRC32)
+	constexpr long MAC_PARITY_SHIFT_ADD_BASE   = 3966796141;    // GeneralsOnlineZH_60.exe (Shift-Add CRC)
+}
+#endif
 
 #ifdef _WIN32
 extern "C"
@@ -96,9 +108,9 @@ void NGMP_OnlineServicesManager::CaptureScreenshotToDisk()
 	// create dirs
 	std::string strScreenshotsDir = std::format("{}\\GeneralsOnlineScreenshots\\", TheGlobalData->getPath_UserData().str());
 
-	if (!std::filesystem::exists(strScreenshotsDir))
+	if (!NativeFileSystem::exists(strScreenshotsDir))
 	{
-		std::filesystem::create_directory(strScreenshotsDir);
+		NativeFileSystem::create_directory(strScreenshotsDir);
 	}
 
 	// calculate path
@@ -122,7 +134,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshotToDisk()
 			if (!vecBuffer.empty())
 			{
 				// write to disk
-				FILE* pFile = fopen(strFilePath.c_str(), "wb");
+				FILE* pFile = NativeFileSystem::fopen(strFilePath, "wb");
 				if (pFile != nullptr) {
 					fwrite(vecBuffer.data(), sizeof(uint8_t), vecBuffer.size(), pFile);
 					fclose(pFile);
@@ -198,6 +210,13 @@ struct VersionCheckResponse
 	int64_t patcher_size;
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionCheckResponse, result, patcher_name, patcher_path, patcher_size)
+};
+
+struct VersionManifestResponse
+{
+	int64_t execrc_60;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(VersionManifestResponse, execrc_60)
 };
 
 GenOnlineSettings NGMP_OnlineServicesManager::Settings;
@@ -278,7 +297,7 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 
 		if (serviceConf.do_replay_upload)
 		{
-			FILE* pFile = fopen(absoluteReplayPath.str(), "rb");
+			FILE* pFile = NativeFileSystem::fopen(absoluteReplayPath, "rb");
 
 			std::vector<unsigned char> replayData;
 			if (pFile)
@@ -353,74 +372,129 @@ void NGMP_OnlineServicesManager::Shutdown()
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] OnlineServicesManager shutdown complete");
 }
 
+void NGMP_OnlineServicesManager::FetchMacParityCRC(std::function<void(long)> fnCallback)
+{
+#ifdef __APPLE__
+	std::string strManifestURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionManifest");
+	std::map<std::string, std::string> mapHeaders;
+
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strManifestURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [fnCallback](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			long rawExeCRC = MAC_PARITY_FALLBACK_EXE_CRC; // fallback
+			if (bSuccess && statusCode == 200)
+			{
+				try
+				{
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					VersionManifestResponse manifestResp = jsonObject.get<VersionManifestResponse>();
+					rawExeCRC = manifestResp.execrc_60;
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Dynamic CRC obtained: %llu", (unsigned long long)rawExeCRC);
+				}
+				catch (...)
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Failed to parse response. Body: %s", strBody.c_str());
+				}
+			}
+			else
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Failed to get manifest (status %d)", statusCode);
+			}
+
+			fnCallback(rawExeCRC);
+		});
+#else
+	fnCallback(0);
+#endif
+}
+
 void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback)
 {
-	std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck");
-
-	// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
-	
-	// exe crc
-	Char filePath[_MAX_PATH];
-	GetModuleFileName(NULL, filePath, sizeof(filePath));
-	std::ifstream file(filePath, std::ios::binary | std::ios::ate);
-	std::streamsize size = file.tellg();
-
-	if (!file.is_open() || size <= 0)
+	FetchMacParityCRC([this, fnCallback](long macExeCRCOverride)
 	{
-		fnCallback(false, false);
-		return;
-	}
+		std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("VersionCheck");
 
-	file.seekg(0, std::ios::beg);
-	std::vector<uint8_t> buffer(size);
-	file.read((char*)buffer.data(), size);
-	uint32_t realExeCRC = CRC_Memory((unsigned char*)buffer.data(), size);
+		// NOTE: Generals 'CRCs' are not true CRC's, its a custom algorithm. This is fine for lobby comparisons, but its not good for patch comparisons.
+		
+		// exe crc
+		Char filePath[_MAX_PATH];
+		GetModuleFileName(NULL, filePath, sizeof(filePath));
+		std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+		std::streamsize size = file.tellg();
 
-	nlohmann::json j;
-	j["execrc"] = realExeCRC;
-	j["ver"] = GENERALS_ONLINE_VERSION;
-	j["netver"] = GENERALS_ONLINE_NET_VERSION;
-	j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
-	std::string strPostData = j.dump();
-
-	std::map<std::string, std::string> mapHeaders;
-	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		if (!file.is_open() || size <= 0)
 		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
-			try
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
-				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
-				VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
+			fnCallback(false, false);
+			return;
+		}
 
-				if (authResp.result == EVersionCheckResponseResult::OK)
+		file.seekg(0, std::ios::beg);
+		std::vector<uint8_t> buffer(size);
+		file.read((char*)buffer.data(), size);
+		uint32_t realExeCRC = CRC_Memory((unsigned char*)buffer.data(), size);
+
+#ifdef __APPLE__
+		if (macExeCRCOverride != 0)
+		{
+			realExeCRC = macExeCRCOverride; 
+            
+			// For P2P handshake, we need to seed the shift-add CRC algorithm.
+			// The VersionCheck API provides the IEEE CRC32 of the executable, so we map it
+			// to the corresponding runtime shift-add CRC base value for Windows parity.
+			long shiftAddBase = macExeCRCOverride;
+			if (macExeCRCOverride == MAC_PARITY_FALLBACK_EXE_CRC) { 
+				shiftAddBase = MAC_PARITY_SHIFT_ADD_BASE; // 60 FPS GeneralsOnlineZH_60.exe
+			}
+			
+			TheWritableGlobalData->m_exeCRC = GlobalData::generateExeCRCForMac(shiftAddBase);
+		}
+#endif
+
+		nlohmann::json j;
+		j["execrc"] = realExeCRC;
+		j["ver"] = GENERALS_ONLINE_VERSION;
+		j["netver"] = GENERALS_ONLINE_NET_VERSION;
+		j["servicesver"] = GENERALS_ONLINE_SERVICE_VERSION;
+		std::string strPostData = j.dump();
+
+		std::map<std::string, std::string> mapHeaders;
+		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
+				try
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
-					fnCallback(true, false);
-				}
-				else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
-				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+					VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
 
-					// cache the data
-					m_patcher_name = authResp.patcher_name;
-					m_patcher_path = authResp.patcher_path;
-					m_patcher_size = authResp.patcher_size;
+					if (authResp.result == EVersionCheckResponseResult::OK)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
+						fnCallback(true, false);
+					}
+					else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
 
-					fnCallback(true, true);
+						// cache the data
+						m_patcher_name = authResp.patcher_name;
+						m_patcher_path = authResp.patcher_path;
+						m_patcher_size = authResp.patcher_size;
+
+						fnCallback(true, true);
+					}
+					else
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed");
+						fnCallback(false, false);
+					}
 				}
-				else
+				catch (...)
 				{
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed");
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed to parse response");
 					fnCallback(false, false);
 				}
-			}
-			catch (...)
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed to parse response");
-				fnCallback(false, false);
-			}
-		}, nullptr, -1);
+			}, nullptr, -1);
+	});
 }
 
 void NGMP_OnlineServicesManager::ContinueUpdate()
@@ -472,12 +546,12 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 					std::vector<uint8_t> vecBuffer = pReq->GetBuffer();
 					size_t bufSize = pReq->GetBufferSize();
 
-					if (!std::filesystem::exists(strPatchDir))
+					if (!NativeFileSystem::exists(strPatchDir))
 					{
-						std::filesystem::create_directory(strPatchDir);
+						NativeFileSystem::create_directory(strPatchDir);
 					}
 
-					FILE* pFile = fopen(strOutPath.c_str(), "wb");
+					FILE* pFile = NativeFileSystem::fopen(strOutPath, "wb");
 					if (pFile != nullptr) {
 						fwrite(vecBuffer.data(), sizeof(uint8_t), bufSize, pFile);
 						fclose(pFile);
@@ -725,8 +799,8 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	shellexInfo.lpDirectory = GameDir;
 	//shellexInfo.lpParameters = "/VERYSILENT";
 
-	bool bPatcherExeExists = std::filesystem::exists(strPatcherPath) && std::filesystem::is_regular_file(strPatcherPath);
-	bool bPatcherDirExists = std::filesystem::exists(strPatcherDir) && std::filesystem::is_directory(strPatcherDir);
+	bool bPatcherExeExists = NativeFileSystem::exists(strPatcherPath) && NativeFileSystem::is_regular_file(strPatcherPath);
+	bool bPatcherDirExists = NativeFileSystem::exists(strPatcherDir) && NativeFileSystem::is_directory(strPatcherDir);
 	bool bInvalidSize = true;
 
 	// TODO_NGMP: Replace with CRC ASAP
@@ -734,7 +808,7 @@ void NGMP_OnlineServicesManager::LaunchPatcher()
 	// does the file size match?
 	if (bPatcherExeExists && bPatcherDirExists)
 	{
-		std::uintmax_t file_size = std::filesystem::file_size(strPatcherPath);
+		std::uintmax_t file_size = NativeFileSystem::file_size(strPatcherPath);
 		if (file_size == m_patcher_size)
 		{
 			bInvalidSize = false;
@@ -775,13 +849,7 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 
 	// cleanup current folder
 	std::string strPatchDir = GetPatcherDirectoryPath();
-	if (std::filesystem::exists(strPatchDir) && std::filesystem::is_directory(strPatchDir))
-	{
-		for (const auto& entry : std::filesystem::directory_iterator(strPatchDir))
-		{
-			std::filesystem::remove_all(entry.path());
-		}
-	}
+	NativeFileSystem::remove_all_in_directory(strPatchDir);
 
 	// start for real
 	ContinueUpdate();
@@ -993,16 +1061,16 @@ void NGMP_OnlineServicesManager::InitSentry()
 {
 #if !_DEBUG
 	std::string strDumpPath = std::format("{}/GeneralsOnlineCrashData/", TheGlobalData->getPath_UserData().str());
-	if (!std::filesystem::exists(strDumpPath))
+	if (!NativeFileSystem::exists(strDumpPath))
 	{
-		std::filesystem::create_directory(strDumpPath);
+		NativeFileSystem::create_directory(strDumpPath);
 	}
 
 	sentry_options_t* options = sentry_options_new();
 
 	sentry_options_set_dsn(options, "https://61750bebd112d279bcc286d617819269@o4509316925554688.ingest.us.sentry.io/4509316927586304");
-	sentry_options_set_database_path(options, strDumpPath.c_str());
-	sentry_options_set_release(options, "generalsonline-client@021326_QFE2");
+	sentry_options_set_database_path(options, NativeFileSystem::get_safe_path(strDumpPath).c_str());
+	sentry_options_set_release(options, "generalsonline-client@032926_QFE5");
 
 #if defined(USE_TEST_ENV)
 	sentry_options_set_environment(options, "test");

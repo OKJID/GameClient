@@ -13,6 +13,7 @@
 #endif
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
+#include "Common/System/NativeFileSystem.h"
 
 #ifdef _WIN32
 #pragma comment(lib, "Crypt32.lib")
@@ -255,7 +256,14 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 			});
 
 #if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
+#ifdef __APPLE__
+		{
+			std::string openCmd = std::format("open '{}'", strURI.c_str());
+			system(openCmd.c_str());
+		}
+#else
 		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 #endif
 			
 
@@ -293,7 +301,14 @@ void NGMP_OnlineServices_AuthInterface::DoReAuth()
 #endif
 
 #if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
+#ifdef __APPLE__
+	{
+		std::string openCmd = std::format("open '{}'", strURI.c_str());
+		system(openCmd.c_str());
+	}
+#else
 	ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 #endif
 }
 
@@ -414,9 +429,9 @@ void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 	// delete local credentials cache
 	std::string strCredentialsCachePath = GetCredentialsFilePath();
 
-	if (std::filesystem::exists(strCredentialsCachePath))
+	if (NativeFileSystem::exists(strCredentialsCachePath))
 	{
-		std::filesystem::remove(strCredentialsCachePath);
+		NativeFileSystem::remove(strCredentialsCachePath);
 	}
 }
 
@@ -432,7 +447,7 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshTok
 
 	std::string strData = root.dump(1);
 
-	FILE* file = fopen(GetCredentialsFilePath().c_str(), "wb");
+	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "wb");
 	if (file)
 	{
 #if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS) && defined(_WIN32)
@@ -465,7 +480,7 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 	return false;
 #endif
 	std::vector<uint8_t> vecBytes;
-	FILE* file = fopen(GetCredentialsFilePath().c_str(), "rb");
+	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "rb");
 	if (file)
 	{
 		fseek(file, 0, SEEK_END);

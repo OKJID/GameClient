@@ -558,6 +558,7 @@ Bool Network::processCommand(GameMessage* msg)
 #else
 			if (TheGameLogic->getFrame() == 1) {
 #endif
+				DEBUG_INFO_MAC(("[NET_STATE] PREGAME -> INGAME frame=%d", TheGameLogic->getFrame()));
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				deleteInstance(netcmdlist);
@@ -600,6 +601,7 @@ Bool Network::processCommand(GameMessage* msg)
 		m_conMgr->processFrameTick(executionFrame + 1); // since we send it for executionFrame+1, we need to process both ticks
 		m_lastFrameCompleted = executionFrame;
 		DEBUG_LOG(("Network::processCommand - player leaving on frame %d", executionFrame));
+		DEBUG_INFO_MAC(("[NET_STATE] INGAME -> LEAVING frame=%d", TheGameLogic->getFrame()));
 		m_localStatus = NETLOCALSTATUS_LEAVING;
 		return TRUE;
 	}
@@ -826,7 +828,8 @@ void Network::endOfGameCheck() {
 		if (m_conMgr->canILeave()) {
 			m_conMgr->disconnectLocalPlayer();
 			TheGameLogic->exitGame();
-			m_localStatus = NETLOCALSTATUS_POSTGAME;
+			DEBUG_INFO_MAC(("[NET_STATE] -> POSTGAME frame=%d", TheGameLogic->getFrame()));
+				m_localStatus = NETLOCALSTATUS_POSTGAME;
 
 			DEBUG_LOG(("Network::endOfGameCheck - about to show the shell"));
 		}
@@ -1028,6 +1031,7 @@ void Network::quitGame() {
 #endif
 
 	TheGameLogic->exitGame();
+	DEBUG_INFO_MAC(("[NET_STATE] -> POSTGAME frame=%d", TheGameLogic->getFrame()));
 	m_localStatus = NETLOCALSTATUS_POSTGAME;
 	DEBUG_LOG(("Network::quitGame - quitting game..."));
 }
