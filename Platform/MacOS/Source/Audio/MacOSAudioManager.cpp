@@ -10,175 +10,185 @@
 #include "../Utils/MacDebug.h"
 #include <unistd.h>
 
-#define Byte MacByte
-#define RGBColor MacRGBColor
-#define BOOL MacBOOL
-#include <AudioToolbox/AudioToolbox.h>
-#include <CoreFoundation/CoreFoundation.h>
-#undef Byte
-#undef RGBColor
-#undef BOOL
-
 extern FileSystem *TheFileSystem;
 
-static CFURLRef CreateTempAudioFileURL(const std::string& pathStr, const std::string& originalPath) {
-    if (pathStr.empty()) return nullptr;
+#pragma mark - WAV Loading from Engine FileSystem
 
+struct WavParseResult {
+    const uint8_t *pcmStart;
+    uint32_t pcmBytes;
+    uint16_t channels;
+    uint32_t sampleRate;
+    uint16_t bitsPerSample;
+};
+
+static uint16_t wav_read_u16(const uint8_t *p) { return (uint16_t)p[0] | ((uint16_t)p[1] << 8); }
+static uint32_t wav_read_u32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static bool parseWavHeader(const uint8_t *data, size_t len, WavParseResult *out) {
+    if (len < 44) return false;
+    if (memcmp(data, "RIFF", 4) != 0 || memcmp(data + 8, "WAVE", 4) != 0) return false;
+
+    const uint8_t *fmtChunk = nullptr;
+    uint32_t fmtSize = 0;
+    const uint8_t *dataChunk = nullptr;
+    uint32_t dataSize = 0;
+
+    size_t pos = 12;
+    while (pos + 8 <= len) {
+        uint32_t chunkSize = wav_read_u32(data + pos + 4);
+        if (pos + 8 + chunkSize > len) break;
+
+        if (memcmp(data + pos, "fmt ", 4) == 0) {
+            fmtChunk = data + pos + 8;
+            fmtSize = chunkSize;
+        } else if (memcmp(data + pos, "data", 4) == 0) {
+            dataChunk = data + pos + 8;
+            dataSize = chunkSize;
+        }
+        pos += 8 + chunkSize;
+        if (pos & 1) pos++;
+    }
+
+    if (!fmtChunk || fmtSize < 16 || !dataChunk || dataSize == 0) return false;
+    if (wav_read_u16(fmtChunk) != 1) return false;
+
+    out->channels = wav_read_u16(fmtChunk + 2);
+    out->sampleRate = wav_read_u32(fmtChunk + 4);
+    out->bitsPerSample = wav_read_u16(fmtChunk + 14);
+    out->pcmStart = dataChunk;
+    out->pcmBytes = dataSize;
+
+    if (out->channels == 0 || out->channels > 2) return false;
+    if (out->bitsPerSample != 8 && out->bitsPerSample != 16) return false;
+    if (out->sampleRate == 0 || out->sampleRate > 96000) return false;
+    if (out->pcmBytes > 50 * 1024 * 1024) return false;
+
+    return true;
+}
+
+static bool loadWavFromDisk(const std::string &pathStr, uint8_t **outData, size_t *outSize) {
     char cwd[1024];
     getcwd(cwd, sizeof(cwd));
     std::string fullPath = std::string(cwd) + "/" + pathStr;
-    
-    // Check if it exists on disk loosely
-    FILE *chk = fopen(fullPath.c_str(), "rb");
-    if (chk) {
-        fclose(chk);
-        DEBUG_AUDIO_MAC(("Found loosely on disk: %s", fullPath.c_str()));
-        CFStringRef cfPath = CFStringCreateWithCString(kCFAllocatorDefault, fullPath.c_str(), kCFStringEncodingUTF8);
-        CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, cfPath, kCFURLPOSIXPathStyle, false);
-        CFRelease(cfPath);
-        return url;
-    }
 
-    // Try extracting from .big via TheFileSystem using the original engine path (Slash Boundary contract)
-    if (TheFileSystem && TheFileSystem->doesFileExist(originalPath.c_str())) {
-        File *f = TheFileSystem->openFile(originalPath.c_str(), File::READ);
-        if (f) {
-            size_t fileSize = f->size();
-            char *buffer = static_cast<char*>(f->readEntireAndClose());
-            if (buffer && fileSize > 0) {
-                // Find filename only
-                size_t slashPos = pathStr.find_last_of("\\/");
-                std::string fileName = (slashPos != std::string::npos) ? pathStr.substr(slashPos + 1) : pathStr;
-                
-                char tmpFolder[1024];
-                if (confstr(_CS_DARWIN_USER_TEMP_DIR, tmpFolder, sizeof(tmpFolder)) == 0) {
-                    strcpy(tmpFolder, "/tmp/");
-                }
-                std::string tempPath = std::string(tmpFolder) + fileName;
-                FILE *out = fopen(tempPath.c_str(), "wb");
-                if (out) {
-                    fwrite(buffer, 1, fileSize, out);
-                    fclose(out);
-                    DEBUG_AUDIO_MAC(("Extracted from Big to %s (source: %s)", tempPath.c_str(), originalPath.c_str()));
-                } else {
-                    DEBUG_AUDIO_MAC(("FAILED to write to %s", tempPath.c_str()));
-                }
-                delete[] buffer;
-                
-                CFStringRef cfPath = CFStringCreateWithCString(kCFAllocatorDefault, tempPath.c_str(), kCFStringEncodingUTF8);
-                CFURLRef url = CFURLCreateWithFileSystemPath(kCFAllocatorDefault, cfPath, kCFURLPOSIXPathStyle, false);
-                CFRelease(cfPath);
-                return url;
-            } else {
-                DEBUG_AUDIO_MAC(("File read error from TheFileSystem: %s", originalPath.c_str()));
-            }
-        }
-    } else {
-        DEBUG_AUDIO_MAC(("TheFileSystem->doesFileExist FAILED for '%s'", originalPath.c_str()));
-    }
-    return nullptr;
+    FILE *f = fopen(fullPath.c_str(), "rb");
+    if (!f) return false;
+
+    fseek(f, 0, SEEK_END);
+    long fileSize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (fileSize <= 0 || fileSize > 50 * 1024 * 1024) { fclose(f); return false; }
+
+    uint8_t *buf = (uint8_t*)malloc(fileSize);
+    if (!buf) { fclose(f); return false; }
+
+    size_t rd = fread(buf, 1, fileSize, f);
+    fclose(f);
+
+    if ((long)rd != fileSize) { free(buf); return false; }
+
+    *outData = buf;
+    *outSize = (size_t)fileSize;
+    return true;
 }
 
-MacOSAudioManager::MacOSAudioManager() : m_device(nullptr), m_context(nullptr) {}
+static bool loadWavFromBig(const std::string &originalPath, uint8_t **outData, size_t *outSize) {
+    if (!TheFileSystem || !TheFileSystem->doesFileExist(originalPath.c_str())) return false;
+
+    File *f = TheFileSystem->openFile(originalPath.c_str(), File::READ);
+    if (!f) return false;
+
+    size_t fileSize = f->size();
+    if (fileSize == 0 || fileSize > 50 * 1024 * 1024) { f->close(); return false; }
+
+    uint8_t *buf = (uint8_t*)malloc(fileSize);
+    if (!buf) { f->close(); return false; }
+
+    Int bytesRead = f->read(buf, (Int)fileSize);
+    f->close();
+
+    if (bytesRead <= 0 || (size_t)bytesRead != fileSize) { free(buf); return false; }
+
+    *outData = buf;
+    *outSize = fileSize;
+    return true;
+}
+
+#pragma mark - MacOSAudioManager Lifecycle
+
+MacOSAudioManager::MacOSAudioManager() {}
 
 MacOSAudioManager::~MacOSAudioManager() {
-    for (auto &pa : m_sources) {
-        if (pa.sourceID != 0) {
-            alDeleteSources(1, &pa.sourceID);
-        }
-    }
-    m_sources.clear();
-
-    for (auto &kv : m_bufferCache) {
-        alDeleteBuffers(1, &kv.second.bufferID);
-    }
-    m_bufferCache.clear();
-
-    if (m_context) {
-        alcMakeContextCurrent(nullptr);
-        alcDestroyContext(m_context);
-        m_context = nullptr;
-    }
-    if (m_device) {
-        alcCloseDevice(m_device);
-        m_device = nullptr;
-    }
+    avbridge_shutdown();
 }
 
 void MacOSAudioManager::init() {
     AudioManager::init();
 
-    m_device = alcOpenDevice(nullptr); // default device
-    if (!m_device) {
-        fprintf(stderr, "MACOS AUDIO: Failed to open OpenAL device\n");
+    if (!avbridge_init(MAX_SOURCES)) {
+        printf("MACOS AUDIO: AVAudioEngine init FAILED!\n");
+        fflush(stdout);
         return;
     }
 
-    m_context = alcCreateContext(m_device, nullptr);
-    if (!m_context || !alcMakeContextCurrent(m_context)) {
-        fprintf(stderr, "MACOS AUDIO: Failed to create or set OpenAL context\n");
-        return;
-    }
-
-    // Pre-allocate N sources (Miles flow)
     for (int i = 0; i < MAX_SOURCES; ++i) {
-        ALuint sid = 0;
-        alGenSources(1, &sid);
-        if (alGetError() == AL_NO_ERROR) {
-            PlayingAudio pa;
-            pa.sourceID = sid;
-            pa.isPlaying = FALSE;
-            pa.eventRTS = nullptr;
-            pa.handle = 0;
-            pa.priority = 0;
-            m_sources.push_back(pa);
-        }
+        PlayingAudio pa;
+        pa.playerID = -1;
+        pa.isPlaying = FALSE;
+        pa.eventRTS = nullptr;
+        pa.handle = 0;
+        pa.priority = 0;
+        m_sources.push_back(pa);
     }
-    fprintf(stderr, "MACOS AUDIO: OpenAL Init Success. Preallocated %zu sources.\n", m_sources.size());
+
+    printf("MACOS AUDIO: AVAudioEngine Init Success. %d source slots.\n", MAX_SOURCES);
+    fflush(stdout);
 }
 
 void MacOSAudioManager::reset() {
     AudioManager::reset();
+    avbridge_stopAll();
     for (auto &pa : m_sources) {
-        alSourceStop(pa.sourceID);
-        alSourcei(pa.sourceID, AL_BUFFER, 0);
+        pa.playerID = -1;
         pa.isPlaying = FALSE;
-        pa.eventRTS = nullptr;
+        if (pa.eventRTS) { delete pa.eventRTS; pa.eventRTS = nullptr; }
         pa.handle = 0;
     }
 }
 
 void MacOSAudioManager::update() {
     AudioManager::update();
-    
+
     if (m_audioRequests.size() > 0) {
         DEBUG_AUDIO_MAC(("processRequestList running with %zu requests", m_audioRequests.size()));
     }
-    
+
     setDeviceListenerPosition();
     processRequestList();
 
-    // Check playing status
     for (auto &pa : m_sources) {
-        if (pa.isPlaying) {
-            ALint state;
-            alGetSourcei(pa.sourceID, AL_SOURCE_STATE, &state);
-            if (state == AL_STOPPED) {
-                stopSourceAndFree(pa);
-            }
+        if (!pa.isPlaying) continue;
+        if (pa.playerID < 0) continue;
+
+        if (!avbridge_isPlaying(pa.playerID)) {
+            stopSourceAndFree(pa);
         }
     }
 }
 
+#pragma mark - Source Management
+
 void MacOSAudioManager::stopSourceAndFree(PlayingAudio &pa) {
-    if (pa.sourceID != 0) {
-        alSourceStop(pa.sourceID);
-        alSourcei(pa.sourceID, AL_BUFFER, 0);
+    if (pa.playerID >= 0) {
+        avbridge_stop(pa.playerID);
     }
+    pa.playerID = -1;
     pa.isPlaying = FALSE;
     pa.handle = 0;
-    // Don't delete eventRTS here if handled closely, though if AR_Play handled it,
-    // we take ownership. If taking ownership, we must delete.
     if (pa.eventRTS) {
         delete pa.eventRTS;
         pa.eventRTS = nullptr;
@@ -190,16 +200,14 @@ PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand) {
     int lowestPri = 999999;
 
     for (auto &pa : m_sources) {
-        if (!pa.isPlaying) {
-            return &pa;
-        }
+        if (!pa.isPlaying) return &pa;
+
         if (pa.priority < lowestPri) {
             lowestPri = pa.priority;
             lowestPriorityPlaying = &pa;
         }
     }
 
-    // Kill lowest priority if demanding higher
     if (priorityToDemand > lowestPri && lowestPriorityPlaying) {
         stopSourceAndFree(*lowestPriorityPlaying);
         return lowestPriorityPlaying;
@@ -207,7 +215,9 @@ PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand) {
     return nullptr;
 }
 
-ALuint MacOSAudioManager::loadAudioFileIntoBuffer(const AsciiString& path, bool forceMono) {
+#pragma mark - Buffer Loading
+
+int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) {
     std::string originalPath = path.str();
     std::string pathStr = originalPath;
     for (size_t i = 0; i < pathStr.length(); ++i) {
@@ -215,83 +225,66 @@ ALuint MacOSAudioManager::loadAudioFileIntoBuffer(const AsciiString& path, bool 
     }
 
     std::string cacheKey = originalPath + (forceMono ? "_mono" : "_stereo");
-    auto hit = m_bufferCache.find(cacheKey); // Cache by path and format
+    auto hit = m_bufferCache.find(cacheKey);
     if (hit != m_bufferCache.end()) {
-        return hit->second.bufferID;
+        return hit->second;
     }
 
-    CFURLRef url = CreateTempAudioFileURL(pathStr, originalPath);
-    if (!url) {
-        DEBUG_AUDIO_MAC(("loadAudio: CreateTempAudioFileURL failed for %s", pathStr.c_str()));
+    uint8_t *fileData = nullptr;
+    size_t fileSize = 0;
+
+    bool loaded = loadWavFromDisk(pathStr, &fileData, &fileSize);
+    if (!loaded) {
+        loaded = loadWavFromBig(originalPath, &fileData, &fileSize);
+    }
+    if (!loaded || !fileData) {
+        DEBUG_AUDIO_MAC(("loadAudioBuffer: file not found for %s", pathStr.c_str()));
         return 0;
     }
 
-    ExtAudioFileRef audioFile = nullptr;
-    OSStatus err = ExtAudioFileOpenURL(url, &audioFile);
-    CFRelease(url);
-    if (err != noErr || !audioFile) {
-        DEBUG_AUDIO_MAC(("loadAudio: ExtAudioFileOpenURL failed with err %d for %s", (int)err, pathStr.c_str()));
+    WavParseResult wav;
+    if (!parseWavHeader(fileData, fileSize, &wav)) {
+        DEBUG_AUDIO_MAC(("loadAudioBuffer: WAV parse failed for %s (not PCM WAV)", pathStr.c_str()));
+        free(fileData);
         return 0;
     }
 
-    AudioStreamBasicDescription fileFormat;
-    UInt32 size = sizeof(fileFormat);
-    ExtAudioFileGetProperty(audioFile, kExtAudioFileProperty_FileDataFormat, &size, &fileFormat);
+    uint16_t outChannels = wav.channels;
+    const uint8_t *pcmData = wav.pcmStart;
+    uint32_t pcmBytes = wav.pcmBytes;
+    uint8_t *monoData = nullptr;
 
-    AudioStreamBasicDescription clientFormat;
-    memset(&clientFormat, 0, sizeof(clientFormat));
-    clientFormat.mSampleRate = fileFormat.mSampleRate;
-    clientFormat.mFormatID = kAudioFormatLinearPCM;
-    clientFormat.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
-    clientFormat.mBitsPerChannel = 16;
-    clientFormat.mChannelsPerFrame = forceMono ? 1 : fileFormat.mChannelsPerFrame;
-    clientFormat.mFramesPerPacket = 1;
-    clientFormat.mBytesPerFrame = (clientFormat.mBitsPerChannel / 8) * clientFormat.mChannelsPerFrame;
-    clientFormat.mBytesPerPacket = clientFormat.mBytesPerFrame;
+    if (forceMono && wav.channels == 2 && wav.bitsPerSample == 16) {
+        uint32_t numSamples = wav.pcmBytes / 4;
+        monoData = (uint8_t*)malloc(numSamples * 2);
+        const int16_t *src = (const int16_t*)wav.pcmStart;
+        int16_t *dst = (int16_t*)monoData;
+        for (uint32_t i = 0; i < numSamples; i++) {
+            dst[i] = (int16_t)(((int32_t)src[i*2] + (int32_t)src[i*2+1]) / 2);
+        }
+        pcmData = monoData;
+        pcmBytes = numSamples * 2;
+        outChannels = 1;
+    }
 
-    ExtAudioFileSetProperty(audioFile, kExtAudioFileProperty_ClientDataFormat, sizeof(clientFormat), &clientFormat);
+    int bufID = avbridge_loadBuffer(pcmData, pcmBytes, wav.sampleRate, outChannels, wav.bitsPerSample);
 
-    SInt64 numFrames = 0;
-    size = sizeof(numFrames);
-    ExtAudioFileGetProperty(audioFile, kExtAudioFileProperty_FileLengthFrames, &size, &numFrames);
+    if (monoData) free(monoData);
+    free(fileData);
 
-    UInt32 totalBytes = numFrames * clientFormat.mBytesPerFrame;
-    uint8_t *audioData = new uint8_t[totalBytes];
-
-    AudioBufferList bufList;
-    bufList.mNumberBuffers = 1;
-    bufList.mBuffers[0].mNumberChannels = clientFormat.mChannelsPerFrame;
-    bufList.mBuffers[0].mDataByteSize = totalBytes;
-    bufList.mBuffers[0].mData = audioData;
-
-    UInt32 framesToRead = (UInt32)numFrames;
-    ExtAudioFileRead(audioFile, &framesToRead, &bufList);
-    ExtAudioFileDispose(audioFile);
-
-    ALuint bufferID = 0;
-    alGenBuffers(1, &bufferID);
-    
-    ALenum format = (clientFormat.mChannelsPerFrame == 1) ? AL_FORMAT_MONO16 : AL_FORMAT_STEREO16;
-    alBufferData(bufferID, format, audioData, totalBytes, clientFormat.mSampleRate);
-    delete[] audioData;
-
-    if (alGetError() != AL_NO_ERROR) {
-        DEBUG_AUDIO_MAC(("loadAudio: alBufferData failed for %s", pathStr.c_str()));
-        alDeleteBuffers(1, &bufferID);
+    if (bufID <= 0) {
+        DEBUG_AUDIO_MAC(("loadAudioBuffer: avbridge_loadBuffer failed for %s", pathStr.c_str()));
         return 0;
     }
-    
-    DEBUG_AUDIO_MAC(("loadAudio: Successfully loaded %s into OpenAL buffer %d (frames=%lld, bytes=%u)", pathStr.c_str(), bufferID, numFrames, (unsigned)totalBytes));
 
-    AudioBufferCacheEntry entry;
-    entry.path = path;
-    entry.bufferID = bufferID;
-    entry.refCount = 1;
-    entry.valid = true;
-    m_bufferCache[cacheKey] = entry;
+    DEBUG_AUDIO_MAC(("loadAudioBuffer: OK %s -> bridge buf=%d ch=%d rate=%u",
+        pathStr.c_str(), bufID, outChannels, wav.sampleRate));
 
-    return bufferID;
+    m_bufferCache[cacheKey] = bufID;
+    return bufID;
 }
+
+#pragma mark - Request Processing
 
 void MacOSAudioManager::processRequestList() {
     for (auto it = m_audioRequests.begin(); it != m_audioRequests.end();) {
@@ -304,7 +297,7 @@ void MacOSAudioManager::processRequestList() {
         switch (req->m_request) {
             case AR_Play: {
                 if (req->m_usePendingEvent && req->m_pendingEvent) {
-                    friend_forcePlayAudioEventRTS(req->m_pendingEvent);
+                    playAudioEvent(req->m_pendingEvent);
                     req->m_pendingEvent = nullptr;
                 }
                 break;
@@ -312,13 +305,7 @@ void MacOSAudioManager::processRequestList() {
             case AR_Stop: {
                 for (auto &pa : m_sources) {
                     if (pa.isPlaying && pa.handle == req->m_handleToInteractOn) {
-                        alSourceStop(pa.sourceID);
-                        pa.isPlaying = FALSE;
-                        pa.handle = 0;
-                        if (pa.eventRTS) {
-                            delete pa.eventRTS;
-                            pa.eventRTS = nullptr;
-                        }
+                        stopSourceAndFree(pa);
                     }
                 }
                 break;
@@ -332,41 +319,39 @@ void MacOSAudioManager::processRequestList() {
     }
 }
 
-void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *eventToPlay) {
+#pragma mark - Play Audio Event (3D Game Sounds)
+
+void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     if (!eventToPlay) return;
 
-    AudioEventRTS *event = const_cast<AudioEventRTS*>(eventToPlay);
+    AudioEventRTS *event = eventToPlay;
     event->generateFilename();
     AsciiString filename = event->getFilename();
     if (filename.isEmpty()) {
-        DEBUG_AUDIO_MAC(("forcePlay: Filename is empty. Deleting event."));
+        DEBUG_AUDIO_MAC(("playAudioEvent: Filename is empty. Deleting event."));
         delete event;
         return;
     }
 
     bool isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
-    ALuint buffer = loadAudioFileIntoBuffer(filename, isPos);
-    if (!buffer) {
-        DEBUG_AUDIO_MAC(("forcePlay: buffer failed to load for %s. Deleting event.", filename.str()));
+    int bufID = loadAudioBuffer(filename, isPos);
+    if (bufID <= 0) {
+        DEBUG_AUDIO_MAC(("playAudioEvent: buffer failed for %s. Deleting event.", filename.str()));
         delete event;
         return;
     }
 
-    int priority = 50; 
+    int priority = 50;
     const AudioEventInfo *info = event->getAudioEventInfo();
     if (info) priority = info->m_priority;
 
     PlayingAudio *pa = findFreeSource(priority);
     if (!pa) {
-        DEBUG_AUDIO_MAC(("forcePlay: No free source for %s (priority %d). Deleting event.", filename.str(), priority));
+        DEBUG_AUDIO_MAC(("playAudioEvent: No free source for %s (pri %d). Deleting event.", filename.str(), priority));
         delete event;
         return;
     }
 
-    // Setup source
-    alSourcei(pa->sourceID, AL_BUFFER, buffer);
-    
-    // Volume & Pitch
     float baseVol = 1.0f;
     if (info) {
         if (info->m_soundType == AT_Music) baseVol = getVolume(AudioAffect_Music);
@@ -375,81 +360,104 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *event
     } else {
         baseVol = getVolume(AudioAffect_Sound);
     }
-    
-    alSourcef(pa->sourceID, AL_GAIN, event->getVolume() * baseVol);
-    alSourcef(pa->sourceID, AL_PITCH, event->getPitchShift() > 0 ? event->getPitchShift() : 1.0f);
 
-    // 3D Audio Pos
+    float gain = event->getVolume() * baseVol;
+    float pitch = event->getPitchShift() > 0 ? event->getPitchShift() : 1.0f;
+
+    int playerID = -1;
     const Coord3D *pos = event->getPosition();
     if (pos && event->isPositionalAudio()) {
-        alSourcei(pa->sourceID, AL_SOURCE_RELATIVE, AL_FALSE);
-        alSource3f(pa->sourceID, AL_POSITION, pos->x, pos->y, pos->z);
-        // Default max dist
-        alSourcef(pa->sourceID, AL_MAX_DISTANCE, 500.0f);
-        alSourcef(pa->sourceID, AL_REFERENCE_DISTANCE, 50.0f);
+        playerID = avbridge_play3D(bufID, gain, pitch,
+                                   pos->x, pos->y, pos->z,
+                                   500.0f, 50.0f);
     } else {
-        alSourcei(pa->sourceID, AL_SOURCE_RELATIVE, AL_TRUE);
-        alSource3f(pa->sourceID, AL_POSITION, 0, 0, 0);
+        playerID = avbridge_play(bufID, gain, pitch, false);
     }
 
-    alSourcePlay(pa->sourceID);
+    if (playerID < 0) {
+        DEBUG_AUDIO_MAC(("playAudioEvent: avbridge_play failed for %s", filename.str()));
+        delete event;
+        return;
+    }
 
-    DEBUG_AUDIO_MAC(("forcePlay: PLAYING %s! SourceID=%d, Volume=%.2f, Pitch=%.2f", filename.str(), pa->sourceID, event->getVolume() * baseVol, event->getPitchShift() > 0 ? event->getPitchShift() : 1.0f));
+    DEBUG_AUDIO_MAC(("playAudioEvent: PLAYING %s! playerID=%d, Volume=%.2f", filename.str(), playerID, gain));
 
+    pa->playerID = playerID;
     pa->isPlaying = TRUE;
     pa->eventRTS = event;
     pa->handle = event->getPlayingHandle();
     pa->priority = priority;
 }
 
-void MacOSAudioManager::setDeviceListenerPosition() {
-    ALfloat pos[] = { m_listenerPosition.x, m_listenerPosition.y, m_listenerPosition.z };
-    alListenerfv(AL_POSITION, pos);
+#pragma mark - Force Play (2D UI/Lobby Sounds)
 
-    // Orientation expects 6 floats: "forward" vector, then "up" vector.
-    // C&C Generals uses Z as UP. m_listenerOrientation usually dictates forward vector.
-    ALfloat ori[] = { m_listenerOrientation.x, m_listenerOrientation.y, m_listenerOrientation.z, 0.0f, 0.0f, 1.0f };
-    alListenerfv(AL_ORIENTATION, ori);
+void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *eventToPlay) {
+    if (!eventToPlay) return;
+
+    AudioEventRTS eventCopy = *eventToPlay;
+    eventCopy.generateFilename();
+    AsciiString filename = eventCopy.getFilename();
+    if (filename.isEmpty()) return;
+
+    int bufID = loadAudioBuffer(filename, false);
+    if (bufID <= 0) return;
+
+    float baseVol = 1.0f;
+    const AudioEventInfo *info = eventCopy.getAudioEventInfo();
+    if (info) {
+        if (info->m_soundType == AT_Music) baseVol = getVolume(AudioAffect_Music);
+        else if (info->m_soundType == AT_Streaming) baseVol = getVolume(AudioAffect_Speech);
+        else baseVol = getVolume(AudioAffect_Sound);
+    } else {
+        baseVol = getVolume(AudioAffect_Sound);
+    }
+
+    float gain = eventCopy.getVolume() * baseVol;
+    float pitch = eventCopy.getPitchShift() > 0 ? eventCopy.getPitchShift() : 1.0f;
+
+    avbridge_play(bufID, gain, pitch, false);
 }
+
+#pragma mark - Listener
+
+void MacOSAudioManager::setDeviceListenerPosition() {
+    avbridge_setListenerPosition(
+        m_listenerPosition.x, m_listenerPosition.y, m_listenerPosition.z,
+        m_listenerOrientation.x, m_listenerOrientation.y, m_listenerOrientation.z,
+        0.0f, 0.0f, 1.0f
+    );
+}
+
+#pragma mark - Query
 
 Bool MacOSAudioManager::isCurrentlyPlaying(AudioHandle handle) {
     if (handle == 0) return FALSE;
     for (auto &pa : m_sources) {
         if (pa.isPlaying && pa.handle == handle) {
-            ALint state;
-            alGetSourcei(pa.sourceID, AL_SOURCE_STATE, &state);
-            return (state == AL_PLAYING) ? TRUE : FALSE;
+            return avbridge_isPlaying(pa.playerID) ? TRUE : FALSE;
         }
     }
     return FALSE;
 }
 
+#pragma mark - Global Controls
+
 void MacOSAudioManager::stopAudio(AudioAffect which) {
     for (auto &pa : m_sources) {
-        if (pa.isPlaying) {
-            alSourceStop(pa.sourceID);
-            pa.isPlaying = FALSE;
-            pa.handle = 0;
-            if (pa.eventRTS) { delete pa.eventRTS; pa.eventRTS = nullptr; }
-        }
-    }
-}
-void MacOSAudioManager::pauseAudio(AudioAffect which) {
-    for (auto &pa : m_sources) {
-        if (pa.isPlaying) alSourcePause(pa.sourceID);
-    }
-}
-void MacOSAudioManager::resumeAudio(AudioAffect which) {
-    for (auto &pa : m_sources) {
-        if (pa.isPlaying) {
-            ALint state;
-            alGetSourcei(pa.sourceID, AL_SOURCE_STATE, &state);
-            if (state == AL_PAUSED) alSourcePlay(pa.sourceID);
-        }
+        if (pa.isPlaying) stopSourceAndFree(pa);
     }
 }
 
+void MacOSAudioManager::pauseAudio(AudioAffect which) {
+    avbridge_pauseAll();
+}
+
+void MacOSAudioManager::resumeAudio(AudioAffect which) {
+    avbridge_resumeAll();
+}
+
 void MacOSAudioManager::pauseAmbient(Bool shouldPause) {}
+
 void MacOSAudioManager::killAudioEventImmediately(AudioHandle audioEvent) {
     for (auto &pa : m_sources) {
         if (pa.isPlaying && pa.handle == audioEvent) {
@@ -457,6 +465,9 @@ void MacOSAudioManager::killAudioEventImmediately(AudioHandle audioEvent) {
         }
     }
 }
+
+#pragma mark - Stubs
+
 void MacOSAudioManager::nextMusicTrack() {}
 void MacOSAudioManager::prevMusicTrack() {}
 Bool MacOSAudioManager::isMusicPlaying() const { return FALSE; }
@@ -468,7 +479,7 @@ void MacOSAudioManager::closeDevice() {}
 void *MacOSAudioManager::getDevice() { return nullptr; }
 void MacOSAudioManager::notifyOfAudioCompletion(UnsignedInt audioCompleted, UnsignedInt flags) {}
 UnsignedInt MacOSAudioManager::getProviderCount() const { return 1; }
-AsciiString MacOSAudioManager::getProviderName(UnsignedInt providerNum) const { return "MacOS OpenAL Audio"; }
+AsciiString MacOSAudioManager::getProviderName(UnsignedInt providerNum) const { return "MacOS AVAudioEngine"; }
 UnsignedInt MacOSAudioManager::getProviderIndex(AsciiString providerName) const { return 0; }
 void MacOSAudioManager::selectProvider(UnsignedInt providerNdx) {}
 void MacOSAudioManager::unselectProvider() {}

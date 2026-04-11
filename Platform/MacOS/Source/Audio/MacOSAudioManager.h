@@ -1,47 +1,17 @@
 #pragma once
 
 #include "Common/GameAudio.h"
-#include <OpenAL/al.h>
-#include <OpenAL/alc.h>
+#include "AVAudioBridge.h"
 #include <vector>
 #include <string>
 #include <unordered_map>
-#include <set>
 
-#pragma pack(push, 1)
-// Standard RIFF WAV header struct for simple loading
-struct WAVHeader {
-    char riff[4];
-    uint32_t fileSize;
-    char wave[4];
-    char fmt[4];
-    uint32_t fmtSize;
-    uint16_t audioFormat;
-    uint16_t numChannels;
-    uint32_t sampleRate;
-    uint32_t byteRate;
-    uint16_t blockAlign;
-    uint16_t bitsPerSample;
-    char data[4];
-    uint32_t dataSize;
-};
-#pragma pack(pop)
-
-// Represents a loaded audio file in the OpenAL buffer pool
-struct AudioBufferCacheEntry {
-    AsciiString path;
-    ALuint bufferID;
-    UnsignedInt refCount; // Though we just load once normally
-    bool valid;
-};
-
-// Represents a hardware/software channel (Voice) in the OpenAL engine
 struct PlayingAudio {
-    ALuint sourceID;
+    int playerID;
     Bool isPlaying;
     AudioEventRTS *eventRTS;
     AudioHandle handle;
-    int priority; 
+    int priority;
 };
 
 class MacOSAudioManager : public AudioManager {
@@ -49,12 +19,10 @@ public:
   MacOSAudioManager();
   virtual ~MacOSAudioManager();
 
-  // SubsystemInterface overrides
   virtual void init() override;
   virtual void reset() override;
   virtual void update() override;
 
-  // AudioManager overrides
   virtual void stopAudio(AudioAffect which) override;
   virtual void pauseAudio(AudioAffect which) override;
   virtual void resumeAudio(AudioAffect which) override;
@@ -117,18 +85,15 @@ public:
 #endif
 
 protected:
-  void processRequestList();
+  void processRequestList() override;
+  void playAudioEvent(AudioEventRTS *eventToPlay);
 
-  // Internal Core Methods
-  ALuint loadAudioFileIntoBuffer(const AsciiString& path, bool forceMono = false);
+  int loadAudioBuffer(const AsciiString& path, bool forceMono = false);
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand);
 
 private:
-  ALCdevice *m_device;
-  ALCcontext *m_context;
-
   static const int MAX_SOURCES = 64;
   std::vector<PlayingAudio> m_sources;
-  std::unordered_map<std::string, AudioBufferCacheEntry> m_bufferCache;
+  std::unordered_map<std::string, int> m_bufferCache;
 };
