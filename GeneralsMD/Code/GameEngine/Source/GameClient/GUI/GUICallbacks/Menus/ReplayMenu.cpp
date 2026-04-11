@@ -272,13 +272,18 @@ void PopulateReplayFileListbox(GameWindow *listbox)
 	FilenameListIter it;
 
 	TheFileSystem->getFileListInDirectory(TheRecorder->getReplayDir(), asciisearch, replayFilenames, FALSE);
+	
+	printf("[OKJI_DEBUG] PopulateReplayFileListbox: Found %lu files matching %s in %s\n", (unsigned long)replayFilenames.size(), asciisearch.str(), TheRecorder->getReplayDir().str());
+	fflush(stdout);
 
 	TheMapCache->updateCache();
 
-	for (it = replayFilenames.begin(); it != replayFilenames.end(); ++it)
+	for (FilenameList::iterator fit = replayFilenames.begin(); fit != replayFilenames.end(); ++fit)
 	{
+		printf("[OKJI_DEBUG] PopulateReplayFileListbox: Checking file %s\n", (*fit).str());
+		fflush(stdout);
 		// just want the filename
-		asciistr.set((*it).reverseFind('\\') + 1);
+		asciistr.set((*fit).reverseFind('\\') + 1);
 
 		RecorderClass::ReplayHeader header;
 		ReplayGameInfo info;
@@ -286,6 +291,8 @@ void PopulateReplayFileListbox(GameWindow *listbox)
 
 		if (readReplayMapInfo(asciistr, header, info, mapData))
 		{
+			printf("[OKJI_DEBUG] PopulateReplayFileListbox: Successfully loaded %s\n", (*fit).str());
+			fflush(stdout);
 			// columns are: name, date, version, map, extra
 
 			// name

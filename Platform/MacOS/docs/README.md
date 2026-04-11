@@ -4,6 +4,9 @@
 > 
 > Ветка: `okji/feat/macos-port` | Репозиторий: GameClient (чистая реализация)
 
+https://github.com/user-attachments/assets/dd032fec-724d-4958-9ea0-d7bac97059ce
+
+
 ## Документы
 
 | Документ | Описание |

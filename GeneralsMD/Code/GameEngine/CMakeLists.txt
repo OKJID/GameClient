@@ -1241,6 +1241,21 @@ target_link_libraries(z_gameengine PUBLIC
     z_wwvegas
 )
 
+if(APPLE)
+    target_sources(z_gameengine PRIVATE
+        ../../../Core/GameEngine/Source/Common/CRCDebug.cpp
+    )
+    target_compile_definitions(z_gameengine PRIVATE DEBUG_CRC)
+
+    target_link_libraries(z_gameengine PUBLIC
+        libcurl
+        GameNetworkingSockets
+        "-framework Security"
+        "-framework SystemConfiguration"
+        z
+    )
+endif()
+
 target_precompile_headers(z_gameengine PRIVATE
     [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
     Include/Precompiled/PreRTS.h

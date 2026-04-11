@@ -1892,7 +1892,29 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 			GameSpyCloseOverlay(GSOVERLAY_PLAYERINFO);
 
+			DEBUG_INFO_MAC(("[GAME_START] === Before copy: myGame slots ==="));
+			for (Int di = 0; di < MAX_SLOTS; ++di)
+			{
+				const GameSlot* ds = myGame->getConstSlot(di);
+				if (ds) DEBUG_INFO_MAC(("[GAME_START] myGame slot[%d]: state=%d isHuman=%d hasMap=%d", di, (int)ds->getState(), ds->isHuman(), ds->hasMap()));
+			}
+			DEBUG_INFO_MAC(("[GAME_START] === Before copy: TheNGMPGame slots ==="));
+			for (Int di2 = 0; di2 < MAX_SLOTS; ++di2)
+			{
+				const GameSlot* ds2 = TheNGMPGame->getConstSlot(di2);
+				if (ds2) DEBUG_INFO_MAC(("[GAME_START] TheNGMPGame slot[%d]: state=%d isHuman=%d hasMap=%d", di2, (int)ds2->getState(), ds2->isHuman(), ds2->hasMap()));
+			}
+			DEBUG_INFO_MAC(("[GAME_START] myGame=%p TheNGMPGame=%p (same=%d)", (void*)myGame, (void*)TheNGMPGame, (myGame == TheNGMPGame)));
+
 			*TheNGMPGame = *myGame;
+
+			DEBUG_INFO_MAC(("[GAME_START] === After copy: TheNGMPGame slots ==="));
+			for (Int di3 = 0; di3 < MAX_SLOTS; ++di3)
+			{
+				const GameSlot* ds3 = TheNGMPGame->getConstSlot(di3);
+				if (ds3) DEBUG_INFO_MAC(("[GAME_START] TheNGMPGame slot[%d]: state=%d isHuman=%d hasMap=%d", di3, (int)ds3->getState(), ds3->isHuman(), ds3->hasMap()));
+			}
+
 			TheNGMPGame->startGame(0);
 		});
 

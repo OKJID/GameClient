@@ -1250,6 +1250,13 @@ FontCharsClass::Get_Char_Data (WCHAR ch)
 {
 	const FontCharsClassCharDataStruct *retval = nullptr;
 
+#ifdef __APPLE__
+	if ( ch >= 0xFFFD || (ch >= 256 && AlternateUnicodeFont == nullptr && this == AlternateUnicodeFont) )
+	{
+		ch = L'?';
+	}
+#endif
+
 	if ( ch < 256 )
 	{
 		retval = ASCIICharArray[ch];

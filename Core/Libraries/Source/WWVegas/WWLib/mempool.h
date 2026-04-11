@@ -85,7 +85,11 @@ public:
 protected:
 
 	T	*		FreeListHead;
+#ifdef __APPLE__
+	void **	BlockListHead;
+#else
 	uint32 *	BlockListHead;
+#endif
 	int		FreeObjectCount;
 	int		TotalObjectCount;
 	FastCriticalSectionClass ObjectPoolCS;
@@ -205,7 +209,11 @@ ObjectPoolClass<T,BLOCK_SIZE>::~ObjectPoolClass()
 	// delete all of the blocks we allocated
 	int block_count = 0;
 	while (BlockListHead != nullptr) {
+#ifdef __APPLE__
+		void ** next_block = (void **)*BlockListHead;
+#else
 		uint32 * next_block = *(uint32 **)BlockListHead;
+#endif
 		::operator delete(BlockListHead);
 		BlockListHead = next_block;
 		block_count++;
@@ -281,10 +289,17 @@ T * ObjectPoolClass<T,BLOCK_SIZE>::Allocate_Object_Memory()
 	if ( FreeListHead == nullptr ) {
 
 		// No free objects, allocate another block
+#ifdef __APPLE__
+		void ** tmp_block_head = BlockListHead;
+		BlockListHead = (void**)::operator new( sizeof(T) * BLOCK_SIZE + sizeof(void **));
+		// Link this block into the block list
+		*BlockListHead = tmp_block_head;
+#else
 		uint32 * tmp_block_head = BlockListHead;
 		BlockListHead = (uint32*)::operator new( sizeof(T) * BLOCK_SIZE + sizeof(uint32 *));
 		// Link this block into the block list
 		*(void **)BlockListHead = tmp_block_head;
+#endif
 
 		// Link the objects in the block into the free object list
 		FreeListHead = (T*)(BlockListHead + 1);

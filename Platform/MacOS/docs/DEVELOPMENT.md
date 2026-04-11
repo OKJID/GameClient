@@ -88,21 +88,114 @@ sh build_run_mac.sh --lldb           # запуск под дебаггером
 ```
 
 ### Файлы логов
-- `Platform/MacOS/Build/Logs/game.log` — stdout игры
-- `Platform/MacOS/Build/Logs/screenshot_game_window.png` — скриншот (при `--screenshot`)
+
+| Файл | Что пишет | Как активировать |
+|:---|:---|:---|
+| `Platform/MacOS/Build/Logs/game.log` | stdout игры (`printf`, `DEBUG_INFO_MAC`) | Всегда (stdout → pipe) |
+| `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log` | `NetworkLog()` — сетевой трафик, HTTP, ICE, mesh | Всегда (⚠ путь с backslash — см. ниже) |
+| `CRCLogs/DebugFrame_*.txt` | Покадровый CRC dump | `--saveDebugCRCPerFrame ./CRCLogs` |
+| `Platform/MacOS/Build/Logs/screenshot_game_window.png` | Скриншот | `--screenshot=N` |
+
+> **⚠ GeneralsOnline.log — backslash path quirk:**
+> `NetworkLog` формирует путь через `std::format("{}\\GeneralsOnlineData\\GeneralsOnline.log", UserData)`.
+> На macOS `\` не является разделителем папок — файл создаётся с **литеральным backslash в имени**.
+> Путь:  
+> `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log`
+>
+> Для чтения в терминале:
+> ```bash
+> cat ~/Command\ and\ Conquer\ Generals\ Zero\ Hour\ Data/\\GeneralsOnlineData\\GeneralsOnline.log
+> ```
 
 ---
 
-## Диагностические логи (текущие)
+## DEBUG_INFO_MAC — Система диагностики
 
-В коде расставлены `[DIAG]` логи для отладки рендеринга:
-- `[DIAG] Present frame=N drawable=... drawCalls=N` — каждый фрейм
-- `[DIAG] BeginScene: got drawable=... texture=... WxH` — получение drawable
-- `[DIAG] DrawIndexedPrimitive SKIPPED` — пропущенные draw calls (если VB/IB=null)
-- `[DIAG] BindUniforms fvf=... useProj=...` — матрицы (каждые 120 фреймов)
-- `[DIAG] SetTransform WORLD/VIEW/PROJ` — все изменения матриц
-- `[DIAG] SetViewport` — все изменения viewport
-- `[DIAG] TSS` — texture stage states (каждые 120 фреймов)
-- `[DIAG] CENTER_PIXEL / TL / BR` — readback пикселей (каждые 60 фреймов)
+### Активация
 
-**Не удалять** — нужны для дальнейшей отладки.
+```bash
+export GENERALS_MAC_DEBUG=1
+```
+
+Макрос `DEBUG_INFO_MAC((fmt, ...))` определён в `Core/GameEngine/Include/Common/Debug.h`.
+На macOS: `printf("[DEBUG_INFO_MAC] " fmt "\n"); fflush(stdout)` → попадает в `game.log`.
+На не-Apple: `((void)0)` — no-op. **Не нужен `#ifdef __APPLE__`.**
+
+### Теги по подсистемам
+
+#### Сетевое лобби и map transfer
+
+| Тег | Файл | Что логирует |
+|:---|:---|:---|
+| `[ROOM_DATA]` | `OnlineServices_LobbyInterface.cpp` | Map path correction, member parsing (uid/hasMap/slot), ignoring updates during gameplay, SyncWithLobby calls |
+| `[SYNC_LOBBY]` | `NGMPGame.cpp` | Map resolution: OFFICIAL / CUSTOM / FALLBACK с путями |
+| `[SLOT_SYNC]` | `NGMPGame.cpp` | Каждый слот при синхронизации (uid/hasMap/name), `m_inProgress` блок, AI слоты |
+| `[GAME_START]` | `WOLGameSetupMenu.cpp` | Все слоты `myGame` vs `TheNGMPGame` ДО и ПОСЛЕ `*TheNGMPGame = *myGame` (адреса объектов) |
+| `[START_GAME]` | `NGMPGame.cpp` | Вход в `startGame()`, `m_inProgress`, `m_inGame`, все human-слоты |
+| `[LAUNCH]` | `NGMPGame.cpp` | Все слоты перед `DoAnyMapTransfers`, результат, `findMap` путь/результат, BAIL |
+| `[MAP_XFER]` | `FileTransfer.cpp` | Каждый слот в mask-loop (isHuman/hasMap), итоговый mask |
+
+#### CRC / Out-of-Sync
+
+| Тег | Файл | Что логирует |
+|:---|:---|:---|
+| `[CRC_CHECK]` | `GameLogic.cpp` | Validator CRC, каждый player CRC, MISMATCH/ok, missing CRCs |
+
+#### Рендеринг
+
+| Тег | Файл | Что логирует |
+|:---|:---|:---|
+| `[DIAG]` | Metal backend | Present, BeginScene, DrawCalls, матрицы, viewport, TSS, readback |
+
+### Пример вывода в game.log
+
+```
+[DEBUG_INFO_MAC] [ROOM_DATA] parsed member slot[1]: uid=52117 name='dima ok' hasMap=0 state=5
+[DEBUG_INFO_MAC] [SYNC_LOBBY] Map resolved as CUSTOM: 'data/maps/! 1v1 cxn/! 1v1 cxn.map'
+[DEBUG_INFO_MAC] [SLOT_SYNC] slot[1] uid=52117 hasMap=0 name='dima ok'
+[DEBUG_INFO_MAC] [GAME_START] === Before copy: myGame slots ===
+[DEBUG_INFO_MAC] [GAME_START] myGame slot[1]: state=5 isHuman=1 hasMap=0
+[DEBUG_INFO_MAC] [GAME_START] === After copy: TheNGMPGame slots ===
+[DEBUG_INFO_MAC] [GAME_START] TheNGMPGame slot[1]: state=5 isHuman=1 hasMap=???  <-- key moment
+[DEBUG_INFO_MAC] [MAP_XFER] slot[1]: isHuman=1 hasMap=??? 
+[DEBUG_INFO_MAC] [MAP_XFER] mask=0x??? map='...'
+[DEBUG_INFO_MAC] [CRC_CHECK] frame=100 validating CRCs
+[DEBUG_INFO_MAC] [CRC_CHECK] validator player[0] CRC=0x1A2B3C4D (numCRCs=2 numPlayers=2)
+[DEBUG_INFO_MAC] [CRC_CHECK] player[1] CRC=0x1A2B3C4D vs validator=0x1A2B3C4D ok
+```
+
+---
+
+## CRC Debug (покадровый)
+
+Подключается через CLI флаг в `build_run_mac.sh`:
+```
+-saveDebugCRCPerFrame /path/to/CRCLogs
+```
+
+Генерирует `DebugFrame_NNNN.txt` для каждого фрейма с полным state dump.
+`NET_CRC_INTERVAL` = 100 (release) / 1 (debug) — интервал сверки CRC между клиентами.
+
+---
+
+## NetworkLog — Сетевые логи
+
+`NetworkLog(ELogVerbosity, fmt, ...)` определён в `NGMP_Helpers.cpp`.
+Пишет в `GeneralsOnline.log` (см. quirk выше).
+
+### Уровни
+
+| Уровень | Когда пишет |
+|:---|:---|
+| `LOG_RELEASE` | Всегда (ошибки, drop пакетов, disconnect) |
+| `LOG_DEBUG` | Только если `Debug_VerboseLogging()` = true |
+
+### Что покрывает
+
+- HTTP запросы/ответы к `api.playgenerals.online`
+- ICE/P2P mesh — подключение, disconnect, signaling
+- Game packet recv/send — размеры, drop reasons, buffer overflow
+- Lobby sync polling
+- `[PRESEED]` — latency seeding
+
+**Не удалять логи** — нужны для дальнейшей отладки.

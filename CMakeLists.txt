@@ -35,6 +35,7 @@ project(genzh LANGUAGES C CXX)
 
 if(APPLE)
     enable_language(OBJCXX)
+    add_compile_options(-ffp-contract=off)
 endif()
 
 # This file handles extra settings wanted/needed for different compilers.
@@ -69,6 +70,8 @@ endif()
 include(cmake/config.cmake)
 include(cmake/gamespy.cmake)
 include(cmake/lzhl.cmake)
+include(cmake/curl.cmake)
+include(cmake/gns.cmake)
 
 if (IS_VS6_BUILD)
     # The original max sdk does not compile against a modern compiler.

@@ -85,6 +85,11 @@ if(APPLE)
     set_target_properties(z_generals PROPERTIES
         WIN32_EXECUTABLE FALSE
         MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.playgenerals.online"
+        MACOSX_BUNDLE_BUNDLE_NAME "GeneralsOnlineZH"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.4.0"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Platform/MacOS/Info.plist.in"
     )
 
     # Remove Windows-only link libraries, add macOS frameworks

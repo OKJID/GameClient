@@ -2699,6 +2699,7 @@ void GameLogic::processCommandList(CommandList* list)
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;
+		DEBUG_INFO_MAC(("[CRC_CHECK] frame=%d validating CRCs", m_frame));
 		DEBUG_ASSERTCRASH(TheNetwork, ("No Network!"));
 		if (TheNetwork)
 		{
@@ -2711,6 +2712,12 @@ void GameLogic::processCommandList(CommandList* list)
 			if (m_cachedCRCs.size() < numPlayers)
 			{
 				DEBUG_CRASH(("Not enough CRCs!"));
+				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+				{
+					DEBUG_INFO_MAC(("[CRC_CHECK_DUMP] We HAVE CRC from playerIndex=%d CRC=0x%08X", crcIt->first, crcIt->second));
+				}
+				DEBUG_INFO_MAC(("[CRC_CHECK_DUMP] Our local generated CRC=0x%08X", getCRC()));
+				DEBUG_INFO_MAC(("[CRC_CHECK] NOT ENOUGH CRCs: have=%zu expected=%d", m_cachedCRCs.size(), numPlayers));
 				sawCRCMismatch = TRUE;
 			}
 			else
@@ -2718,11 +2725,11 @@ void GameLogic::processCommandList(CommandList* list)
 				//DEBUG_LOG(("Comparing %d CRCs on frame %d", m_cachedCRCs.size(), m_frame));
 				std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin();
 				Int validatorCRC = crcIt->second;
-				//DEBUG_LOG(("Validator CRC from player %d is %8.8X", crcIt->first, validatorCRC));
+				DEBUG_INFO_MAC(("[CRC_CHECK] validator player[%d] CRC=0x%08X (numCRCs=%zu numPlayers=%d)", crcIt->first, validatorCRC, m_cachedCRCs.size(), numPlayers));
 				while (++crcIt != m_cachedCRCs.end())
 				{
 					Int validatedCRC = crcIt->second;
-					//DEBUG_LOG(("CRC to validate is from player %d: %8.8X", crcIt->first, validatedCRC));
+					DEBUG_INFO_MAC(("[CRC_CHECK] player[%d] CRC=0x%08X vs validator=0x%08X %s", crcIt->first, validatedCRC, validatorCRC, (validatorCRC != validatedCRC) ? "MISMATCH!" : "ok"));
 					if (validatorCRC != validatedCRC)
 					{
 						DEBUG_CRASH(("CRC mismatch!"));

@@ -59,6 +59,42 @@
 	#include "Common/StackDump.h"
 #endif
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#include <malloc/malloc.h>
+#include <string.h>
+
+static uintptr_t gExeStart = 0;
+static uintptr_t gExeEnd = 0;
+static bool gInitializingBounds = false;
+
+static inline bool isCallerAppleSystem() {
+    if (__builtin_expect(gExeStart == 0, 0)) {
+        if (gInitializingBounds) return true; // Fallback to native malloc to prevent recursion
+        gInitializingBounds = true;
+        
+        Dl_info info;
+        if (dladdr((void*)isCallerAppleSystem, &info) && info.dli_fbase != nullptr) {
+            gExeStart = (uintptr_t)info.dli_fbase;
+            gExeEnd = gExeStart + 0x0FFFFFFF; // 256MB conservative bound for the executable
+        } else {
+            gExeStart = 1;
+            gExeEnd = 1;
+        }
+        gInitializingBounds = false;
+    }
+    
+    uintptr_t retAddr = (uintptr_t)__builtin_return_address(0);
+    // If inside our 256MB executable bounds, it's game code
+    if (retAddr >= gExeStart && retAddr < gExeEnd) {
+        return false;
+    }
+    
+    // Otherwise, it's Apple Frameworks, AudioToolbox, or libc++
+    return true;
+}
+#endif
+
 #ifdef MEMORYPOOL_DEBUG
 DECLARE_PERF_TIMER(MemoryPoolDebugging)
 DECLARE_PERF_TIMER(MemoryPoolInitFilling)
@@ -2298,6 +2334,13 @@ void DynamicMemoryAllocator::freeBytes(void* pBlockPtr)
 	if (!pBlockPtr)
 		return;
 
+#ifdef __APPLE__
+	if (malloc_size(pBlockPtr) > 0) {
+		free(pBlockPtr);
+		return;
+	}
+#endif
+
 	ScopedCriticalSection scopedCriticalSection(TheDmaCriticalSection);
 
 #ifdef MEMORYPOOL_CHECK_BLOCK_OWNERSHIP
@@ -3288,6 +3331,13 @@ void STLSpecialAlloc::deallocate(void* __p, size_t)
 */
 void *operator new(size_t size)
 {
+#ifdef __APPLE__
+	if (isCallerAppleSystem()) {
+		if (size == 0) size = 1;
+		return malloc(size);
+	}
+#endif
+
 	++theLinkTester;
 	preMainInitMemoryManager();
 	DEBUG_ASSERTCRASH(TheDynamicMemoryAllocator != nullptr, ("must init memory manager before calling global operator new"));
@@ -3300,6 +3350,13 @@ void *operator new(size_t size)
 */
 void *operator new[](size_t size)
 {
+#ifdef __APPLE__
+	if (isCallerAppleSystem()) {
+		if (size == 0) size = 1;
+		return malloc(size);
+	}
+#endif
+
 	++theLinkTester;
 	preMainInitMemoryManager();
 	DEBUG_ASSERTCRASH(TheDynamicMemoryAllocator != nullptr, ("must init memory manager before calling global operator new"));

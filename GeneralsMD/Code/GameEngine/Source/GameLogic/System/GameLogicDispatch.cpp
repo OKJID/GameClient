@@ -2074,6 +2074,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 				UnsignedInt newCRC = msg->getArgument(0)->integer;
 				//DEBUG_LOG(("Received CRC of %8.8X from %ls on frame %d", newCRC,
 					//msgPlayer->getPlayerDisplayName().str(), m_frame));
+				DEBUG_INFO_MAC(("[CRC_MESSAGE] Received live CRC=0x%08X from playerIndex=%d on frame %d", newCRC, msgPlayer->getPlayerIndex(), m_frame));
 				m_cachedCRCs[msgPlayer->getPlayerIndex()] = newCRC;
 			}
 			else if (TheRecorder && TheRecorder->isPlaybackMode())
@@ -2082,6 +2083,7 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 				//DEBUG_LOG(("Saw CRC of %X from player %d.  Our CRC is %X.  Arg count is %d",
 					//newCRC, msgPlayer->getPlayerIndex(), getCRC(), msg->getArgumentCount()));
 
+				DEBUG_INFO_MAC(("[CRC_MESSAGE] Replay Saw CRC=0x%08X from playerIndex=%d. Our local generated CRC=0x%08X. frame=%d", newCRC, msgPlayer->getPlayerIndex(), getCRC(), m_frame));
 				TheRecorder->handleCRCMessage(newCRC, msgPlayer->getPlayerIndex(), (msg->getArgument(1)->boolean));
 			}
 			break;

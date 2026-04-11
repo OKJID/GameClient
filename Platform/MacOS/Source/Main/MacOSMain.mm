@@ -22,6 +22,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <signal.h>
+#include <execinfo.h>
 
 #include "always.h"
 #include <windows.h>
@@ -65,7 +66,22 @@ static CriticalSection critSec1, critSec2, critSec3, critSec4, critSec5;
 // ── Signal handler (mirrors UnHandledExceptionFilter) ──
 
 static void macosSignalHandler(int sig) {
-    DEBUG_LOG(("Caught signal %d", sig));
+    DEBUG_LOG(("Caught signal %d (CRASH)", sig));
+    printf("FATAL: Caught signal %d\n", sig);
+    fflush(stdout);
+
+    void* callstack[128];
+    int frames = backtrace(callstack, 128);
+    char** strs = backtrace_symbols(callstack, frames);
+    if (strs) {
+        for (int i = 0; i < frames; i++) {
+            DEBUG_LOG(("CRASH BACKTRACE: %s", strs[i]));
+            printf("CRASH BACKTRACE: %s\n", strs[i]);
+        }
+        free(strs);
+    }
+    fflush(stdout);
+
     _exit(1);
 }
 
@@ -273,7 +289,19 @@ GameEngine* CreateGameEngine() {
 
 // ── main() (mirrors WinMain entry point) ──
 
+char MacOSCommandLineString[4096] = "";
+
 int main(int argc, char* argv[]) {
+    MacOSCommandLineString[0] = '\0';
+    for (int i=0; i<argc; ++i) {
+        if (i>0) strncat(MacOSCommandLineString, " ", sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));
+        bool hasSpace = strchr(argv[i], ' ') != nullptr;
+        if (hasSpace) strncat(MacOSCommandLineString, "\"", sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));
+        strncat(MacOSCommandLineString, argv[i], sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));
+        if (hasSpace) strncat(MacOSCommandLineString, "\"", sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));
+    }
+    printf("[DIAG] MacOSMain: Built cmd line: %s\n", MacOSCommandLineString);
+    fflush(stdout);
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
         [app setActivationPolicy:NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal

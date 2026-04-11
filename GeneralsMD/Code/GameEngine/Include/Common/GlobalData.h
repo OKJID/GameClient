@@ -582,6 +582,11 @@ public:
 private:
 
 	static UnsignedInt generateExeCRC();
+	
+public:
+	static UnsignedInt generateExeCRCForMac(long exeCRC);
+	
+private:
 
 	static const FieldParse s_GlobalDataFieldParseTable[];
 

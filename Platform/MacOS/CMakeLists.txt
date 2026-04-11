@@ -33,6 +33,8 @@ set(MAIN_SRC
 set(AUDIO_SRC
     Source/Audio/MacOSAudioManager.cpp
     Source/Audio/MacOSAudioManager.h
+    Source/Audio/AVAudioBridge.mm
+    Source/Audio/AVAudioBridge.h
 )
 
 # ── Input ──
@@ -103,7 +105,6 @@ find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox REQUIRED)
 find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
 find_library(CORETEXT_FRAMEWORK CoreText REQUIRED)
 find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
-find_library(OPENAL_FRAMEWORK OpenAL REQUIRED)
 
 target_link_libraries(macos_platform PUBLIC
     ${METAL_FRAMEWORK}
@@ -116,7 +117,6 @@ target_link_libraries(macos_platform PUBLIC
     ${AVFOUNDATION_FRAMEWORK}
     ${CORETEXT_FRAMEWORK}
     ${COREGRAPHICS_FRAMEWORK}
-    ${OPENAL_FRAMEWORK}
 )
 
 # ── Project dependencies ──
@@ -197,6 +197,7 @@ set_source_files_properties(
     Source/Input/MacOSKeyboard.mm
     Source/Input/MacOSMouse.mm
     Source/System/MacOSLocalFileSystem.mm
+    Source/Audio/AVAudioBridge.mm
     PROPERTIES
         SKIP_PRECOMPILE_HEADERS ON
         LANGUAGE OBJCXX

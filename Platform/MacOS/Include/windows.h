@@ -294,8 +294,9 @@ inline DWORD GetModuleFileName(HMODULE, char* lpFilename, DWORD nSize) {
     return 0;
 }
 
+extern char MacOSCommandLineString[4096];
 inline LPCSTR GetCommandLineA() {
-    return "";
+    return MacOSCommandLineString;
 }
 
 #ifndef MAKE_HRESULT
@@ -613,13 +614,20 @@ inline void GetSystemTime(SYSTEMTIME* st) { GetLocalTime(st); }
 // ============================================================================
 
 inline BOOL CopyFile(LPCSTR src, LPCSTR dst, BOOL failIfExists) {
+    char pSrc[MAX_PATH];
+    char pDst[MAX_PATH];
+    strncpy(pSrc, src, MAX_PATH - 1); pSrc[MAX_PATH - 1] = '\0';
+    strncpy(pDst, dst, MAX_PATH - 1); pDst[MAX_PATH - 1] = '\0';
+    for(char* p = pSrc; *p; ++p) if(*p == '\\') *p = '/';
+    for(char* p = pDst; *p; ++p) if(*p == '\\') *p = '/';
+
     if (failIfExists) {
         struct stat st;
-        if (::stat(dst, &st) == 0) return FALSE;
+        if (::stat(pDst, &st) == 0) return FALSE;
     }
-    FILE* in = fopen(src, "rb");
+    FILE* in = fopen(pSrc, "rb");
     if (!in) return FALSE;
-    FILE* out = fopen(dst, "wb");
+    FILE* out = fopen(pDst, "wb");
     if (!out) { fclose(in); return FALSE; }
     char buf[4096];
     size_t n;

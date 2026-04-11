@@ -1311,6 +1311,16 @@ void GlobalData::parseCustomDefinition()
 	}
 }
 
+long tempExeCRC = 2339762132;
+
+
+UnsignedInt GlobalData::generateExeCRCForMac(long exeCRC)
+{
+	tempExeCRC = exeCRC;
+	return generateExeCRC();
+}
+
+
 UnsignedInt GlobalData::generateExeCRC()
 {
 	DEBUG_ASSERTCRASH(TheFileSystem != nullptr, ("TheFileSystem is null"));
@@ -1331,6 +1341,9 @@ UnsignedInt GlobalData::generateExeCRC()
 	DEBUG_LOG(("Fake EXE CRC is 0x%8.8X", exeCRC.get()));
 
 #else
+#if defined(__APPLE__)
+	exeCRC.set(tempExeCRC);
+#else
 	{
 		Char buffer[ _MAX_PATH ];
 		GetModuleFileName( nullptr, buffer, sizeof( buffer ) );
@@ -1350,6 +1363,7 @@ UnsignedInt GlobalData::generateExeCRC()
 			DEBUG_CRASH(("Executable file has failed to open"));
 		}
 	}
+#endif
 #endif
 
 	UnsignedInt version = 0;
@@ -1383,6 +1397,7 @@ UnsignedInt GlobalData::generateExeCRC()
 	}
 
 	DEBUG_LOG(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
+	DEBUG_INFO_MAC(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
 
 	return exeCRC.get();
 }
@@ -1454,7 +1469,7 @@ AsciiString GlobalData::BuildUserDataPathFromRegistry()
 	{
 		std::string s = myDocumentsDirectory.str();
 		for (size_t j = 0; j < s.length(); ++j) {
-			if (s[j] == '\\') s[j] = '/';
+			if (s[j] == '/') s[j] = '\\';
 		}
 		myDocumentsDirectory = s.c_str();
 	}
