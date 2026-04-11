@@ -337,11 +337,7 @@ AsciiString MapCache::getMapExtension() const
 void MapCache::writeCacheINI( const AsciiString &mapDir )
 {
 	AsciiString filepath = mapDir;
-#ifdef __APPLE__
-	filepath.concat('/');
-#else
 	filepath.concat('\\');
-#endif
 
 	TheFileSystem->createDirectory(mapDir);
 
@@ -420,17 +416,13 @@ void MapCache::updateCache()
 	const AsciiString mapDir = getMapDir();
 	const AsciiString userMapDir = getUserMapDir();
 
-#ifdef __APPLE__
-	printf("[DIAG] MapCache::updateCache - mapDir='%s', userMapDir='%s'\n", mapDir.str(), userMapDir.str());
-#endif
-
 	// Create the standard map cache if required. Is only relevant for Mod developers.
 	// TheSuperHackers @tweak This step is done before loading any other map caches to not poison the cached state.
 	if (m_doCreateStandardMapCacheINI)
 	{
 #if defined(__APPLE__)
 		AsciiString fname;
-		fname.format("%s/%s", mapDir.str(), m_mapCacheName);
+		fname.format("%s\\%s", mapDir.str(), m_mapCacheName);
 		// If the official cache is missing, auto-generate it (replicating Windows launcher behavior)
 		const Bool buildMapCache = TheGlobalData->m_buildMapCache || !TheFileSystem->doesFileExist(fname.str());
 #elif defined(RTS_DEBUG)
@@ -453,9 +445,6 @@ void MapCache::updateCache()
 	}
 
 	// Load user map cache first.
-#ifdef __APPLE__
-	printf("[DIAG] MapCache::updateCache - m_doLoadUserMapCacheINI = %d\n", (int)m_doLoadUserMapCacheINI);
-#endif
 	if (m_doLoadUserMapCacheINI)
 	{
 		loadMapsFromMapCacheINI(userMapDir);
@@ -471,9 +460,6 @@ void MapCache::updateCache()
 
 	// Load standard maps from map cache last.
 	// This overwrites matching user maps to prevent munkees getting rowdy :)
-#ifdef __APPLE__
-	printf("[DIAG] MapCache::updateCache - m_doLoadStandardMapCacheINI = %d\n", (int)m_doLoadStandardMapCacheINI);
-#endif
 	if (m_doLoadStandardMapCacheINI)
 	{
 		loadMapsFromMapCacheINI(mapDir);
@@ -526,18 +512,11 @@ void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
 	AsciiString fname;
 	fname.format("%s\\%s", mapDir.str(), m_mapCacheName);
 
-#ifdef __APPLE__
-	printf("[DIAG] loadMapsFromMapCacheINI - Trying to load from '%s'\n", fname.str());
-	if (!TheFileSystem->doesFileExist(fname.str())) {
-		printf("[DIAG] loadMapsFromMapCacheINI - FILE DOES NOT EXIST: '%s'\n", fname.str());
-	}
-#endif
+
 
 	if (TheFileSystem->doesFileExist(fname.str()))
 	{
-#ifdef __APPLE__
-		printf("[DIAG] loadMapsFromMapCacheINI - FOUND FILE: '%s'\n", fname.str());
-#endif
+
 		ini.load( fname, INI_LOAD_OVERWRITE, nullptr );
 	}
 }
@@ -566,9 +545,7 @@ INI ini;
 
 	TheFileSystem->getFileListInDirectory(toplevelPattern, filenamepattern, filepathList, TRUE);
 
-#ifdef __APPLE__
-	printf("[DIAG] loadMapsFromDisk - Scanning dir='%s' for '%s'. Found %zu files.\n", toplevelPattern.str(), filenamepattern.str(), filepathList.size());
-#endif
+
 
 	filepathIt = filepathList.begin();
 
@@ -601,9 +578,6 @@ INI ini;
 		{
 			DEBUG_CRASH(("Found map '%s' in wrong spot (%s)", filenameLower.str(), filepathLower.str()));
 			DEBUG_CRASH_MAC(("Found map '%s' in wrong spot (%s)", filenameLower.str(), filepathLower.str()));
-#ifdef __APPLE__
-			printf("[DIAG] loadMapsFromDisk - REJECTED '%s'. Expected ending: '%s'\n", filepathLower.str(), endingStr.str());
-#endif
 			continue;
 		}
 
@@ -614,9 +588,6 @@ INI ini;
 		}
 
 		mapListChanged |= addMap(mapDir, *filepathIt, filepathLower, fileInfo, isOfficial);
-#ifdef __APPLE__
-		printf("[DIAG] loadMapsFromDisk - ADDED '%s'\n", filepathLower.str());
-#endif
 	}
 
 	if (clearUnseenMaps(mapDir))

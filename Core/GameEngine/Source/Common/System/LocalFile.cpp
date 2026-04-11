@@ -381,12 +381,19 @@ Int LocalFile::readChar()
 
 Int LocalFile::readWideChar()
 {
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Translator reads 2-byte UTF-16 from disk and promotes to 4-byte native WideChar
+	UnsignedShort c16 = 0;
+	Int ret = read(&c16, sizeof(UnsignedShort));
+	if (ret == sizeof(UnsignedShort))
+		return (Int)c16;
+#else
 	WideChar character = L'\0';
-
 	Int ret = read( &character, sizeof(character) );
 
 	if (ret == sizeof(character))
 		return (Int)character;
+#endif
 
 	return WEOF;
 }
@@ -440,7 +447,16 @@ Int LocalFile::writeFormat( const WideChar* format, ... )
 	Int length = vswprintf(buffer, sizeof(buffer) / sizeof(WideChar), format, args);
 	va_end(args);
 
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Translator strips 4-byte native WideChar down to 2-byte UTF-16 for disk writing
+	UnsignedShort utf16Buffer[1024];
+	for (Int i = 0; i < length; ++i) {
+		utf16Buffer[i] = (UnsignedShort)buffer[i];
+	}
+	return write( utf16Buffer, length * sizeof(UnsignedShort) );
+#else
 	return write( buffer, length * sizeof(WideChar) );
+#endif
 }
 
 //=================================================================
@@ -466,13 +482,17 @@ Int LocalFile::writeChar( const Char* character )
 
 Int LocalFile::writeChar( const WideChar* character )
 {
-	if ( write( character, sizeof(WideChar) ) == sizeof(WideChar) ) {
 #ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Write Windows-compatible 2-byte UTF-16 characters
+	UnsignedShort c16 = (UnsignedShort)(*character);
+	if ( write( &c16, sizeof(UnsignedShort) ) == sizeof(UnsignedShort) ) {
 		return (Int)(uintptr_t)character;
-#else
-		return (Int)character;
-#endif
 	}
+#else
+	if ( write( character, sizeof(WideChar) ) == sizeof(WideChar) ) {
+		return (Int)character;
+	}
+#endif
 
 	return WEOF;
 }

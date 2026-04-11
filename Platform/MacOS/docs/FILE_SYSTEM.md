@@ -34,6 +34,15 @@ export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Genera
 
 Указывает на **рутовую** директорию, содержащую подпапки с режимами игры.
 
+### Папка пользователя (User Data / Replays / Cache)
+
+Пользовательские данные (кастомные карты, кэш `MapCache.ini`, реплеи, сохранения) хранятся в домашней директории пользователя в зависимости от ключа реестра `UserDataLeafName` (задается в `GlobalData::BuildUserDataPathFromRegistry()`).
+Метод `SHGetSpecialFolderPath` с флагом `CSIDL_PERSONAL` на macOS порте резолвится в корень домашней директории (`~/`).
+Пример пути:
+`~/Command and Conquer Generals Zero Hour Data/`
+Здесь в подпапке `Maps/` лежат скачанные карты и автоматически генерируемые кэши (`MapCache.ini`, `MapCacheGO.ini`).
+**Важно:** Как и внутри движка, при формировании этого пути в `GlobalData.cpp` генерируются строго виндовые слеши `\`, которые транслируются в `/` только перед вызовом нативных macOS API силами `MacOSLocalFileSystem`.
+
 ### Структура данных
 
 ```

@@ -292,6 +292,15 @@ Int RAMFile::readChar()
 
 Int RAMFile::readWideChar()
 {
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Translator reads 2-byte UTF-16 from disk/RAM and promotes to 4-byte native WideChar
+	UnsignedShort c16 = 0;
+	if (read(&c16, sizeof(UnsignedShort)) == sizeof(UnsignedShort))
+		return (Int)c16;
+#else
+	return WEOF;
+#endif
+
 	return WEOF;
 }
 
@@ -319,7 +328,23 @@ Int RAMFile::writeFormat( const Char* format, ... )
 
 Int RAMFile::writeFormat( const WideChar* format, ... )
 {
+#ifdef __APPLE__
+	WideChar buffer[1024];
+
+	va_list args;
+	va_start(args, format);
+	Int length = vswprintf(buffer, sizeof(buffer) / sizeof(WideChar), format, args);
+	va_end(args);
+
+	// TheSuperHackers @fix macOS: Translator strips 4-byte native WideChar down to 2-byte UTF-16
+	UnsignedShort utf16Buffer[1024];
+	for (Int i = 0; i < length; ++i) {
+		utf16Buffer[i] = (UnsignedShort)buffer[i];
+	}
+	return write( utf16Buffer, length * sizeof(UnsignedShort) );
+#else
 	return -1;
+#endif
 }
 
 //=================================================================
@@ -337,6 +362,16 @@ Int RAMFile::writeChar( const Char* character )
 
 Int RAMFile::writeChar( const WideChar* character )
 {
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Write Windows-compatible 2-byte UTF-16 characters
+	UnsignedShort c16 = (UnsignedShort)(*character);
+	if ( write( &c16, sizeof(UnsignedShort) ) == sizeof(UnsignedShort) ) {
+		return (Int)(uintptr_t)character;
+	}
+#else
+	return WEOF;
+#endif
+
 	return WEOF;
 }
 
