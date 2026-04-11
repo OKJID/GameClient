@@ -97,6 +97,7 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_VERBOSE, 1L);
 #else
+#ifdef __APPLE__
         if (HTTPManager::IsCACertStoreBad())
         {
             curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
@@ -120,6 +121,10 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
                 curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
             }
         }
+#else
+		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
+		curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
+#endif
 #endif
 
 

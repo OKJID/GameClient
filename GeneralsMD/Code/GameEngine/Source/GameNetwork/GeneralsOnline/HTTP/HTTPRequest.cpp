@@ -278,10 +278,36 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
+#ifdef __APPLE__
+		if (HTTPManager::IsCACertStoreBad())
+		{
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		}
+		else
+		{
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+		}
+#else
         curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
 
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+#endif
 #endif
 
 		pHTTPManager->AddHandleToMulti(m_pCURL);
