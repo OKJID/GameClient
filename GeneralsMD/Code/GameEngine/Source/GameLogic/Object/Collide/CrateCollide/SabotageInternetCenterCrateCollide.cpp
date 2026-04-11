@@ -32,6 +32,7 @@
 
 
 
+// TheSuperHackers @build Okladnoj 11/04/2026 Fix uintptr_t casts for 64-bit macOS compliance.
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
