@@ -76,10 +76,20 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 			ch = '\\';
 	}
 
-	std::string correctedMapPath = std::format("{}{}", TheGlobalData->getPath_UserData().str(), rawMapPath.c_str());
-	
-	AsciiString asciiMapOfficial(rawMapPath.c_str());
-	AsciiString asciiMapCustom(correctedMapPath.c_str());
+	AsciiString rawAscii(rawMapPath.c_str());
+	AsciiString asciiMapOfficial(rawAscii);
+	AsciiString asciiMapCustom;
+
+	// Only prepend the UserData path if it doesn't already start with it (avoids duplication on local host)
+	if (rawAscii.startsWithNoCase(TheGlobalData->getPath_UserData()))
+	{
+		asciiMapCustom = rawAscii;
+	}
+	else
+	{
+		std::string correctedMapPath = std::format("{}{}", TheGlobalData->getPath_UserData().str(), rawMapPath.c_str());
+		asciiMapCustom = correctedMapPath.c_str();
+	}
 	//TheNGMPGame->setMap(asciiMap);
 	asciiMapOfficial.toLower();
 	asciiMapCustom.toLower();
@@ -110,7 +120,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	else // fallback
 	{
 		setMap(rawMapPath.c_str());
-		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map FALLBACK (NOT FOUND): official='%s' custom='%s' raw='%s'", asciiMapOfficial.str(), asciiMapCustom.str(), rawMapPath.c_str()));
+		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map FALLBACK (NOT FOUND): raw='%s' official='%s' custom='%s'", rawMapPath.c_str(), asciiMapOfficial.str(), asciiMapCustom.str()));
 	}
 
 	// superweapon

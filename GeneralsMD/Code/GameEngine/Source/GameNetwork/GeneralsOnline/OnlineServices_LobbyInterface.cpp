@@ -858,14 +858,23 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							const char* mapFileName = strrchr(lobbyEntry.map_path.c_str(), '\\');
 							mapFileName = mapFileName != nullptr ? mapFileName + 1 : lobbyEntry.map_path.c_str();
 
+							bool bFoundInCache = false;
 							for (std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->begin(); it != TheMapCache->end(); ++it)
 							{
 								const char* cacheFileName = strrchr(it->first.str(), '\\');
 								if (cacheFileName && _stricmp(cacheFileName + 1, mapFileName) == 0)
 								{
 									lobbyEntry.map_path = it->first.str();
+									bFoundInCache = true;
 									break;
 								}
+							}
+
+							if (!bFoundInCache)
+							{
+								AsciiString strUserMapDir = TheMapCache->getUserMapDir(true);
+								strUserMapDir.toLower();
+								lobbyEntry.map_path = std::format("{}\\{}", strUserMapDir.str(), lobbyEntry.map_path.c_str());
 							}
 						}
 						DEBUG_INFO_MAC(("[ROOM_DATA] map_official=%d corrected_path='%s' current_map='%s'", lobbyEntry.map_official, lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()));

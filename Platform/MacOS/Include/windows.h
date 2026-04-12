@@ -271,6 +271,13 @@ typedef struct _SYSTEMTIME {
     WORD wMilliseconds;
 } SYSTEMTIME;
 
+inline void ConvertToEnginePath(char* path) {
+    if (!path) return;
+    for (char* p = path; *p; ++p) {
+        if (*p == '/') *p = '\\';
+    }
+}
+
 inline DWORD GetDoubleClickTime() { return 500; }
 
 inline BOOL SHGetSpecialFolderPath(HWND, char* pszPath, int, BOOL) {
@@ -278,6 +285,7 @@ inline BOOL SHGetSpecialFolderPath(HWND, char* pszPath, int, BOOL) {
     if (home && pszPath) {
         strncpy(pszPath, home, MAX_PATH - 1);
         pszPath[MAX_PATH - 1] = '\0';
+        ConvertToEnginePath(pszPath);
         return TRUE;
     }
     return FALSE;
@@ -289,8 +297,10 @@ inline BOOL CreateDirectory(LPCSTR lpPathName, void*) {
 
 inline DWORD GetModuleFileName(HMODULE, char* lpFilename, DWORD nSize) {
     uint32_t bufsize = nSize;
-    if (_NSGetExecutablePath(lpFilename, &bufsize) == 0)
+    if (_NSGetExecutablePath(lpFilename, &bufsize) == 0) {
+        ConvertToEnginePath(lpFilename);
         return (DWORD)strlen(lpFilename);
+    }
     return 0;
 }
 
@@ -461,7 +471,10 @@ inline int GetDateFormat(DWORD, DWORD, const void*, const char* format, char* da
 inline DWORD GetFileAttributes(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
 inline DWORD GetFileAttributesA(LPCSTR p) { return GetFileAttributes(p); }
 inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
-    if (getcwd(buf, n)) return (DWORD)strlen(buf);
+    if (getcwd(buf, n)) {
+        ConvertToEnginePath(buf);
+        return (DWORD)strlen(buf);
+    }
     return 0;
 }
 #define GetCurrentDirectory GetCurrentDirectoryA

@@ -418,7 +418,7 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 		// exe crc
 		Char filePath[_MAX_PATH];
 		GetModuleFileName(NULL, filePath, sizeof(filePath));
-		std::ifstream file(filePath, std::ios::binary | std::ios::ate);
+		std::ifstream file(NativeFileSystem::get_safe_path(filePath), std::ios::binary | std::ios::ate);
 		std::streamsize size = file.tellg();
 
 		if (!file.is_open() || size <= 0)

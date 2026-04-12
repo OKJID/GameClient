@@ -211,31 +211,6 @@ class AsciiString;
 
 #endif
 
-#ifdef __APPLE__
-	#include <stdio.h>
-	#include <stdlib.h>
-	#define DEBUG_CRASH_MAC(m)	do { \
-		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
-			printf("[DEBUG_CRASH_MAC] "); \
-			printf m; \
-			printf("\n"); \
-			fflush(stdout); \
-		} \
-	} while(0)
-
-	#define DEBUG_INFO_MAC(m)	do { \
-		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
-			printf("[DEBUG_INFO_MAC] "); \
-			printf m; \
-			printf("\n"); \
-			fflush(stdout); \
-		} \
-	} while(0)
-#else
-	#define DEBUG_CRASH_MAC(m) ((void)0)
-	#define DEBUG_INFO_MAC(m) ((void)0)
-#endif
-
 DEBUG_EXTERN_C void ReleaseCrash(const char* reason);
 DEBUG_EXTERN_C void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m);
 
@@ -282,3 +257,45 @@ public:
 #endif
 
 // MACROS //////////////////////////////////////////////////////////////////
+
+
+
+#ifdef __APPLE__
+	#include <stdio.h>
+	#include <stdlib.h>
+	#define DEBUG_CRASH_MAC(m)	do { \
+		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
+			printf("[DEBUG_CRASH_MAC] "); \
+			printf m; \
+			printf("\n"); \
+			fflush(stdout); \
+		} \
+	} while(0)
+
+	#define DEBUG_INFO_MAC(m)	do { \
+		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
+			printf("[DEBUG_INFO_MAC] "); \
+			printf m; \
+			printf("\n"); \
+			fflush(stdout); \
+		} \
+	} while(0)
+#else
+	#define DEBUG_CRASH_MAC(m) ((void)0)
+	#define DEBUG_INFO_MAC(m) ((void)0)
+#endif
+
+#define DEBUG_BUILDMAPCACHE_FLAG
+
+#ifdef DEBUG_BUILDMAPCACHE_FLAG
+#define DEBUG_BUILDMAPCACHE(m)                                                 \
+  do {                                                                         \
+    printf("[DEBUG_BUILDMAPCACHE] ");                                          \
+    printf m;                                                                  \
+    printf("\n");                                                              \
+    fflush(stdout);                                                            \
+  } while (0)
+#else
+#define DEBUG_BUILDMAPCACHE(m) ((void)0)
+#endif
+

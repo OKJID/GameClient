@@ -57,6 +57,18 @@ set(STUBS_SRC
     Source/GeneralsOnlineStubs.cpp
 )
 
+# ── Cross-Platform Sync Flags (Windows Retail Match) ──
+# "Generals Online" Windows players use the original 2003 binary (retail behavior = 1)
+# but the launcher injects memory patches (like fixing the network packet size to 1104).
+# Because our codebase uses GENERALS_ONLINE, it defaults to setting ALL retail flags to 0.
+# To prevent desyncs and packet drops, we MUST force retail gameplay behaviors to 1,
+# and only set the networking flag to 0 (which matches the launcher's memory patch).
+# We inject these into the parent scope so Core and GameEngine receive them.
+set(MAC_SYNC_FLAGS " -DRETAIL_COMPATIBLE_NETWORKING=0 -DRETAIL_COMPATIBLE_CRC=1 -DRETAIL_COMPATIBLE_XFER_SAVE=1 -DRETAIL_COMPATIBLE_PATHFINDING=1 -DRETAIL_COMPATIBLE_PATHFINDING_ALLOCATION=1 -DRETAIL_COMPATIBLE_AIGROUP=1 -DRETAIL_COMPATIBLE_CIRCLE_FILL_ALGORITHM=1")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+
 # ── Combine all sources ──
 add_library(macos_platform STATIC
     ${METAL_SRC}

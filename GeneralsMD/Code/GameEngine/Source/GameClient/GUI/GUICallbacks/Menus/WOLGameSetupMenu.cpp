@@ -1846,7 +1846,11 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			}
 			else
 			{
+#ifdef __APPLE__
+				mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(TheNGMPGame->getMap()).str());
+#else
 				mapDisplayName.format(L"%hs", TheNGMPGame->getMap().str());
+#endif
 				willTransfer = WouldMapTransfer(TheNGMPGame->getMap());
 			}
 

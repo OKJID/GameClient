@@ -46,6 +46,7 @@
 #include "Common/FileSystem.h"
 #include "Common/GameAudio.h"
 #include "Common/INI.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/Registry.h"
 #include "Common/OptionPreferences.h"
 #include "Common/version.h"
@@ -1065,14 +1066,10 @@ GlobalData::GlobalData()
   if (::SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true))
   {
     AsciiString myDocumentsDirectory = temp;
+    myDocumentsDirectory = NativeFileSystem::get_engine_path(myDocumentsDirectory.str()).c_str();
 
-#ifdef __APPLE__
-    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '/')
-      myDocumentsDirectory.concat('/');
-#else
     if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
       myDocumentsDirectory.concat('\\');
-#endif
 
     AsciiString leafName;
 
@@ -1084,13 +1081,8 @@ GlobalData::GlobalData()
     }
 
     myDocumentsDirectory.concat( leafName );
-#ifdef __APPLE__
-    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '/')
-      myDocumentsDirectory.concat('/');
-#else
     if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
       myDocumentsDirectory.concat('\\');
-#endif
 
     CreateDirectory(myDocumentsDirectory.str(), nullptr);
     m_userDataDir = myDocumentsDirectory;
@@ -1448,6 +1440,8 @@ AsciiString GlobalData::BuildUserDataPathFromRegistry()
 #endif
 
 	if (!myDocumentsDirectory.isEmpty()) {
+		myDocumentsDirectory = NativeFileSystem::get_engine_path(myDocumentsDirectory.str()).c_str();
+
 		// Now build the full path string
 		if (!myDocumentsDirectory.endsWith("\\"))
 			myDocumentsDirectory.concat('\\');
@@ -1464,16 +1458,6 @@ AsciiString GlobalData::BuildUserDataPathFromRegistry()
 		if (!myDocumentsDirectory.endsWith("\\"))
 			myDocumentsDirectory.concat('\\');
 	}
-
-#ifdef __APPLE__
-	{
-		std::string s = myDocumentsDirectory.str();
-		for (size_t j = 0; j < s.length(); ++j) {
-			if (s[j] == '/') s[j] = '\\';
-		}
-		myDocumentsDirectory = s.c_str();
-	}
-#endif
 
 	return myDocumentsDirectory;
 }

@@ -76,6 +76,7 @@ void EnableAcceptControls(Bool Enabled, GameInfo *myGame, GameWindow *comboPlaye
 	if( !myGame->amIHost() && (buttonStart != nullptr) )
 	{
 		Bool canAccept = Enabled && myGame->getConstSlot(slotNum)->hasMap();
+		DEBUG_INFO_MAC(("[ACCEPT_BTN] canAccept=%d Enabled=%d hasMap=%d slot=%d", canAccept, Enabled, myGame->getConstSlot(slotNum)->hasMap(), slotNum));
 		buttonStart->winEnable(canAccept);
 	}
 	if(comboColor[slotNum])
@@ -421,6 +422,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 	{
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
+	DEBUG_INFO_MAC(("[SLOT_LIST] willTransfer=%d mapInCache=%d map='%s'", willTransfer, mapData != nullptr, myGame->getMap().str()));
 
 	if (myGame)
 	{
@@ -444,6 +446,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				else
 				{
 					Bool shouldEnableUI = slot->hasMap() || willTransfer;
+					DEBUG_INFO_MAC(("[SLOT_LIST] shouldEnableUI=%d hasMap=%d willTransfer=%d isAccepted=%d", shouldEnableUI, slot->hasMap(), willTransfer, slot->isAccepted()));
 					EnableAcceptControls(shouldEnableUI, myGame, comboPlayer, comboColor, comboPlayerTemplate,
 						comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
 				}

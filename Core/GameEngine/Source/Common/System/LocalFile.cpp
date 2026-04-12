@@ -57,7 +57,7 @@
 #include "Common/RAMFile.h"
 #include "Lib/BaseType.h"
 #include "Common/PerfTimer.h"
-
+#include "Common/System/NativeFileSystem.h"
 
 
 //----------------------------------------------------------------------------
@@ -190,7 +190,7 @@ Bool LocalFile::open( const Char *filename, Int access, size_t bufferSize )
 		mode = binary ? "rb" : "r";
 	}
 
-	m_file = fopen(filename, mode);
+	m_file = NativeFileSystem::fopen(filename, mode);
 	if (m_file == nullptr)
 	{
 		goto error;

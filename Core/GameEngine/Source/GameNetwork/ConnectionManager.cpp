@@ -2511,7 +2511,11 @@ Int ConnectionManager::getFileTransferProgress(Int playerID, AsciiString path)
 	{
 		//DEBUG_LOG(("ConnectionManager::getFileTransferProgress(%s): looking at existing transfer of '%s'",
 		//	path.str(), commandIt->second.str()));
+#ifdef __APPLE__
+		if (commandIt->second.compareNoCase(path) == 0)
+#else
 		if (commandIt->second == path)
+#endif
 		{
 			return s_fileProgressMap[playerID][commandIt->first];
 		}

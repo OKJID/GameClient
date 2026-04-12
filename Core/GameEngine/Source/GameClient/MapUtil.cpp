@@ -512,11 +512,8 @@ void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
 	AsciiString fname;
 	fname.format("%s\\%s", mapDir.str(), m_mapCacheName);
 
-
-
 	if (TheFileSystem->doesFileExist(fname.str()))
 	{
-
 		ini.load( fname, INI_LOAD_OVERWRITE, nullptr );
 	}
 }
@@ -528,15 +525,15 @@ Bool MapCache::loadMapsFromDisk( const AsciiString &mapDir, Bool isOfficial, Boo
 	FilenameList filepathList;
 	FilenameListIter filepathIt;
 
-INI ini;
-		AsciiString fname;
-		fname.format("GeneralsOnlineGameData\\%s", m_mapCacheName);
-		File *fp = TheFileSystem->openFile(fname.str(), File::READ);
-		if (fp)
-		{
-			fp->close();
-			ini.load( fname, INI_LOAD_OVERWRITE, NULL );
-		}
+	INI ini;
+	AsciiString fname;
+	fname.format("GeneralsOnlineGameData\\%s", m_mapCacheName);
+	File *fp = TheFileSystem->openFile(fname.str(), File::READ);
+	if (fp)
+	{
+		fp->close();
+		ini.load( fname, INI_LOAD_OVERWRITE, NULL );
+	}
 	AsciiString toplevelPattern;
 	toplevelPattern.format("%s\\", mapDir.str());
 	Bool mapListChanged = FALSE;
@@ -544,8 +541,6 @@ INI ini;
 	filenamepattern.format("*.%s", getMapExtension().str());
 
 	TheFileSystem->getFileListInDirectory(toplevelPattern, filenamepattern, filepathList, TRUE);
-
-
 
 	filepathIt = filepathList.begin();
 
@@ -644,16 +639,7 @@ Bool MapCache::addMap(
 //			DEBUG_LOG(("MapCache::addMap - found match for map %s", lowerFname.str()));
 			return FALSE;	// OK, it checks out.
 		}
-		DEBUG_LOG(("%s didn't match file in MapCache", fname.str()));
-		DEBUG_LOG(("size: %d / %d", fileInfo.sizeLow, md.m_filesize));
-		DEBUG_LOG(("time1: %d / %d", fileInfo.timestampHigh, md.m_timestamp.m_highTimeStamp));
-		DEBUG_LOG(("time2: %d / %d", fileInfo.timestampLow, md.m_timestamp.m_lowTimeStamp));
-//		DEBUG_LOG(("size: %d / %d", filesize, md.m_filesize));
-//		DEBUG_LOG(("time1: %d / %d", timestamp.m_highTimeStamp, md.m_timestamp.m_highTimeStamp));
-//		DEBUG_LOG(("time2: %d / %d", timestamp.m_lowTimeStamp, md.m_timestamp.m_lowTimeStamp));
 	}
-
-	DEBUG_LOG(("MapCache::addMap(): caching '%s' because '%s' was not found", fname.str(), lowerFname.str()));
 
 	loadMap(fname); // Just load for querying the data, since we aren't playing this map.
 
@@ -671,7 +657,7 @@ Bool MapCache::addMap(
 	md.m_supplyPositions = m_supplyPositions;
 	md.m_techPositions = m_techPositions;
 	md.m_CRC = calcCRC(fname);
-
+	
 	Bool exists = false;
 	AsciiString nameLookupTag = worldDict.getAsciiString(TheKey_mapName, &exists);
 	md.m_nameLookupTag = nameLookupTag;
@@ -712,6 +698,9 @@ Bool MapCache::addMap(
 
 	(*this)[lowerFname] = md;
 
+	DEBUG_BUILDMAPCACHE(("Map Dump (isOfficial=%d, mapDir=%s): %s | size:%u, tsHi:%u, tsLo:%d, crc:%u, pl:%d, tag:%s", 
+		(int)md.m_isOfficial, mapDir.str(), lowerFname.str(), md.m_filesize, md.m_timestamp.m_highTimeStamp, md.m_timestamp.m_lowTimeStamp, md.m_CRC, md.m_numPlayers, md.m_nameLookupTag.str()));
+
 	DEBUG_LOG(("  filesize = %d bytes", md.m_filesize));
 	DEBUG_LOG(("  displayName = %ls", md.m_displayName.str()));
 	DEBUG_LOG(("  CRC = %X", md.m_CRC));
@@ -744,7 +733,9 @@ MapCache *TheMapCache = nullptr;
 
 Bool WouldMapTransfer( const AsciiString& mapName )
 {
-	return mapName.startsWithNoCase(TheMapCache->getUserMapDir());
+	Bool result = mapName.startsWithNoCase(TheMapCache->getUserMapDir());
+	DEBUG_LOG(("[WOULD_XFER] result=%d mapName='%s' userMapDir='%s'", result, mapName.str(), TheMapCache->getUserMapDir().str()));
+	return result;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -758,6 +749,7 @@ static void buildMapListForNumPlayers(MapNameList &outMapNames, MapDisplayToFile
 	for (; it != TheMapCache->end(); ++it)
 	{
 		const MapMetaData &mapData = it->second;
+
 		if (mapData.m_numPlayers == numPlayers)
 		{
 			outMapNames.insert(it->second.m_displayName);
@@ -810,6 +802,8 @@ static Bool addMapToMapListbox(
 	const AsciiString& mapName,
 	const MapMetaData& mapMetaData)
 {
+	DEBUG_BUILDMAPCACHE(("UI MAP CHECK: mapName='%s' vs mapDir='%s'| match=%d", mapName.str(), mapDir.str(), (int)mapName.startsWithNoCase(mapDir.str())));
+
 	const Bool mapOk = mapName.startsWithNoCase(mapDir.str()) && lbData.isMultiplayer == mapMetaData.m_isMultiplayer && !mapMetaData.m_displayName.isEmpty();
 
 	if (mapOk)
@@ -872,12 +866,6 @@ static Bool addMapToMapListbox(
 		{
 			GadgetListBoxSetItemData( lbData.listbox, (void *)imageItemData, index, 1 );
 		}
-
-		// TheSuperHackers @performance Now stops processing when the list is full.
-		if (index == lbData.numLength - 1)
-		{
-			return false;
-		}
 	}
 
 	return true;
@@ -938,6 +926,10 @@ Int populateMapListboxNoReset( GameWindow *listbox, Bool useSystemMaps, Bool isM
 
 	if (!listbox)
 		return -1;
+
+	// TheSuperHackers @performance The UI layout typically limits the list box to 128 elements.
+	// But there are >500 maps in Zero Hour, and missing them causes 'missing maps' reports.
+	GadgetListBoxSetListLength(listbox, TheMapCache->size() + 32);
 
 	MapListBoxData lbData;
 	lbData.listbox = listbox;
