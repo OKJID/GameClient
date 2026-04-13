@@ -75,7 +75,8 @@ void EnableAcceptControls(Bool Enabled, GameInfo *myGame, GameWindow *comboPlaye
 
 	if( !myGame->amIHost() && (buttonStart != nullptr) )
 	{
-		Bool canAccept = Enabled && myGame->getConstSlot(slotNum)->hasMap();
+		// Bool canAccept = Enabled && myGame->getConstSlot(slotNum)->hasMap();
+		Bool canAccept = Enabled ;
 		DEBUG_INFO_MAC(("[ACCEPT_BTN] canAccept=%d Enabled=%d hasMap=%d slot=%d", canAccept, Enabled, myGame->getConstSlot(slotNum)->hasMap(), slotNum));
 		buttonStart->winEnable(canAccept);
 	}

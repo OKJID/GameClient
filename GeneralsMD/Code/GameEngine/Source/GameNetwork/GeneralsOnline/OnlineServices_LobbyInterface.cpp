@@ -174,7 +174,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 {
 	// do we have the map?
-	bool bHasMap = TheMapCache->findMap(AsciiString(m_CurrentLobby.map_path.c_str()));
+	bool bHasMap = TheMapCache->findMap(TheNGMPGame->getMap());
 
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;

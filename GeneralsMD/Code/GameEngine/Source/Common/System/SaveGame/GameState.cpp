@@ -886,6 +886,7 @@ const char* PORTABLE_USER_MAPS	= "UserData\\Maps\\";
 // ------------------------------------------------------------------------------------------------
 AsciiString GameState::realMapPathToPortableMapPath(const AsciiString& in) const
 {
+	DEBUG_INFO_MAC(("[PATH_RESOLVE] realToPortable IN: '%s' mapDir='%s' userMapDir='%s'", in.str(), TheMapCache->getMapDir().str(), TheMapCache->getUserMapDir().str()));
 	AsciiString prefix;
 	if (in.startsWithNoCase(getSaveDirectory()))
 	{
@@ -905,17 +906,20 @@ AsciiString GameState::realMapPathToPortableMapPath(const AsciiString& in) const
 	else
 	{
 		DEBUG_CRASH(("Map file was not found in any of the expected directories; this is impossible"));
+		DEBUG_INFO_MAC(("[PATH_RESOLVE] realToPortable NO_PREFIX_MATCH: in='%s'", in.str()));
 		//throw INI_INVALID_DATA;
 		// uncaught exceptions crash us. better to just use a bad path.
 		prefix = in;
 	}
 	prefix.toLower();
+	DEBUG_INFO_MAC(("[PATH_RESOLVE] realToPortable OUT: '%s'", prefix.str()));
 	return prefix;
 }
 
 // ------------------------------------------------------------------------------------------------
 AsciiString GameState::portableMapPathToRealMapPath(const AsciiString& in) const
 {
+	DEBUG_INFO_MAC(("[PATH_RESOLVE] portableToReal IN: '%s'", in.str()));
 	AsciiString prefix;
 	// The directory where the real map path should be contained in.
 	AsciiString containingBasePath;
@@ -945,6 +949,7 @@ AsciiString GameState::portableMapPathToRealMapPath(const AsciiString& in) const
 	else
 	{
 		DEBUG_CRASH(("Map file was not found in any of the expected directories; this is impossible"));
+		DEBUG_INFO_MAC(("[PATH_RESOLVE] portableToReal NO_PREFIX: in='%s'", in.str()));
 		// Empty string represents a failure, either caused by an invalid prefix or a relative path leading outside the base path.
 		return AsciiString::TheEmptyString;
 	}
@@ -956,6 +961,7 @@ AsciiString GameState::portableMapPathToRealMapPath(const AsciiString& in) const
 	}
 
 	prefix.toLower();
+	DEBUG_INFO_MAC(("[PATH_RESOLVE] portableToReal OUT: '%s' base='%s'", prefix.str(), containingBasePath.str()));
 	return prefix;
 }
 

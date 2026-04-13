@@ -76,7 +76,7 @@ std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Cha
 				{
 					return std::filesystem::path();
 				}
-				pathFixed = p;
+				pathFixedPart = p;
 			}
 			pathFixed /= pathFixedPart;
 			pathCurrent /= p;

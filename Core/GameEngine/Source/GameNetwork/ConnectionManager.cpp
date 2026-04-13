@@ -714,6 +714,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 #endif
 
 	AsciiString realFileName = msg->getRealFilename();
+	DEBUG_INFO_MAC(("[XFER_RECV] processFile: portable='%s' real='%s' bytes=%d", msg->getPortableFilename().str(), realFileName.str(), msg->getFileLength()));
 	if (realFileName.isEmpty())
 	{
 		// TheSuperHackers @security slurmlord 18/06/2025 As the file name/path from the NetFileCommandMsg failed to normalize,
@@ -721,6 +722,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		// by simply returning and let the transfer time out.
 		DEBUG_LOG(("Got a file name transferred that failed to normalize: '%s'!", msg->getPortableFilename().str()));
 		return;
+		DEBUG_INFO_MAC(("[XFER_RECV] REJECTED: normalize failed, portable='%s'", msg->getPortableFilename().str()));
 	}
 
 	// TheSuperHackers @security bobtista 06/11/2025 Validate file extension to prevent arbitrary file types
@@ -769,11 +771,13 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		fp->close();
 		fp = nullptr;
 		DEBUG_LOG(("Wrote %d bytes to file %s!", len, realFileName.str()));
+		DEBUG_INFO_MAC(("[XFER_RECV] SUCCESS: wrote %d bytes to '%s'", len, realFileName.str()));
 
 	}
 	else
 	{
 		DEBUG_LOG(("Cannot open file!"));
+		DEBUG_INFO_MAC(("[XFER_RECV] FAILED: cannot open '%s' for write", realFileName.str()));
 	}
 
 	DEBUG_LOG(("ConnectionManager::processFile() - sending a NetFileProgressCommandMsg"));
