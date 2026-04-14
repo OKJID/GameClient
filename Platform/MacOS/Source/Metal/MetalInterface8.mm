@@ -124,6 +124,13 @@ STDMETHODIMP MetalInterface8::CheckDeviceType(UINT a, DWORD dt, D3DFORMAT df,
 STDMETHODIMP MetalInterface8::CheckDeviceFormat(UINT a, DWORD dt, D3DFORMAT af,
                                                 DWORD u, DWORD rt,
                                                 D3DFORMAT cf) {
+  // Specifically reject 16-bit legacy color formats. Modern Apple Silicon GPUs
+  // do not support 16-bit packed RGB formats natively, causing the Metal backend
+  // to fallback to a purely software (CPU-bound) CopyRect conversion layer.
+  if (cf == D3DFMT_R5G6B5 || cf == D3DFMT_X1R5G5B5 ||
+      cf == D3DFMT_A1R5G5B5 || cf == D3DFMT_A4R4G4B4 || cf == D3DFMT_R3G3B2) {
+    return D3DERR_NOTAVAILABLE;
+  }
   return D3D_OK;
 }
 

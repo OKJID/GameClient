@@ -31,8 +31,39 @@ cp -R "$CMAKE_APP_DIR" "$FINAL_APP_DIR"
 CONTENTS_DIR="$FINAL_APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
+GAME_BINARY="$MACOS_DIR/GeneralsOnlineZH"
+GNS_SEARCH_PATH="../../../build/macos/bin"
 
-echo "🔨 [1/4] Compiling Swift Launcher into the package..."
+echo "📦 [1/6] Bundling third-party dynamic libraries..."
+export PATH="/opt/homebrew/bin:$PATH"
+
+if ! command -v dylibbundler &>/dev/null; then
+    echo "🚨 ERROR: dylibbundler not found. Install with: brew install dylibbundler"
+    exit 1
+fi
+
+dylibbundler -od -b \
+    -x "$GAME_BINARY" \
+    -d "$FRAMEWORKS_DIR" \
+    -p @executable_path/../Frameworks/ \
+    -s "$GNS_SEARCH_PATH"
+
+if [ $? -ne 0 ]; then
+    echo "❌ dylibbundler failed!"
+    exit 1
+fi
+
+echo "🔒 [2/6] Cleaning RPATHs and re-signing..."
+EXISTING_RPATHS=$(otool -l "$GAME_BINARY" | grep -A 2 LC_RPATH | awk '/path / {print $2}')
+for rp in $EXISTING_RPATHS; do
+    while install_name_tool -delete_rpath "$rp" "$GAME_BINARY" 2>/dev/null; do true; done
+done
+install_name_tool -add_rpath "@executable_path/../Frameworks/" "$GAME_BINARY"
+
+codesign --force --deep -s - "$FINAL_APP_DIR"
+
+echo "🔨 [3/6] Compiling Swift Launcher into the package..."
 swiftc Sources/LauncherApp.swift Sources/MainView.swift \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
        -target arm64-apple-macosx11.0
@@ -42,7 +73,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "🎨 [2/4] Injecting Launcher UI assets and patching..."
+echo "🎨 [4/6] Injecting Launcher UI assets and patching..."
 cp assets/background.png "$RESOURCES_DIR/background.png" 2>/dev/null || true
 cp assets/dir_image.png "$RESOURCES_DIR/dir_image.png" 2>/dev/null || true
 cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
@@ -53,7 +84,7 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$PLIST_FILE" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon.png" "$PLIST_FILE"
 
-echo "📝 [3/4] Generating README instruction..."
+echo "📝 [5/6] Generating README instruction..."
 cat << 'EOF' > "$OUTPUTS_DIR/$README_NAME"
 # Command and Conquer Generals – Mac OS Port 🍏
 
@@ -97,7 +128,7 @@ When the Launcher opens, you **MUST** select the parent folder of your Windows v
 Have a great game, General! 🫡
 EOF
 
-echo "🗜️ [4/4] Creating final deployment ZIP..."
+echo "🗜️ [6/6] Creating final deployment ZIP..."
 # Идем в dist, чтобы в архиве корневым элементом была сама app, без папок build/dist
 cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"

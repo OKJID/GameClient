@@ -31,6 +31,7 @@
 #include "Common/LocalFileSystem.h"
 #include "GameClient/InGameUI.h"
 #include "GameNetwork/IPEnumeration.h"
+#include "Common/System/NativeFileSystem.h"
 #include <cstdarg>
 
 
@@ -93,7 +94,7 @@ void outputCRCDebugLines()
 	IPEnumeration ips;
 	AsciiString fname;
 	fname.format("crcDebug%s.txt", ips.getMachineName().str());
-	FILE *fp = fopen(fname.str(), "wt");
+	FILE *fp = NativeFileSystem::fopen(fname.str(), "wt");
 	int start = 0;
 	int end = nextDebugString;
 	if (numDebugStrings >= MaxStrings)
@@ -145,7 +146,7 @@ static void outputCRCDebugLinesPerFrame()
 		return;
 	AsciiString fname;
 	fname.format("%s/DebugFrame_%06d.txt", g_saveDebugCRCPerFrameDir.str(), lastCRCDebugFrame);
-	FILE *fp = fopen(fname.str(), "wt");
+	FILE *fp = NativeFileSystem::fopen(fname.str(), "wt");
 	int start = 0;
 	int end = nextDebugString;
 	if (numDebugStrings >= MaxStrings)

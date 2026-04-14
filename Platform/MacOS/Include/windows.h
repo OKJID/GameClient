@@ -413,7 +413,13 @@ typedef void* LPITEMIDLIST;
 inline BOOL SHGetSpecialFolderLocation(void*, int, LPITEMIDLIST*) { return FALSE; }
 inline BOOL SHGetPathFromIDList(LPITEMIDLIST, char*) { return FALSE; }
 #include <unistd.h>
-inline BOOL DeleteFile(const char* lpFileName) { return unlink(lpFileName) == 0; }
+inline BOOL DeleteFile(const char* lpFileName) {
+    if (!lpFileName) return FALSE;
+    char pSrc[MAX_PATH];
+    strncpy(pSrc, lpFileName, MAX_PATH - 1); pSrc[MAX_PATH - 1] = '\0';
+    for(char* p = pSrc; *p; ++p) if(*p == '\\') *p = '/';
+    return unlink(pSrc) == 0;
+}
 
 typedef struct _OSVERSIONINFOA {
     DWORD dwOSVersionInfoSize;

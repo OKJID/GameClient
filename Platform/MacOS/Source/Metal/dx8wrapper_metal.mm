@@ -41,6 +41,7 @@
 #include "MetalDevice8.h"
 #include "MetalInterface8.h"
 #include "MetalSurface8.h"
+#include "../Utils/MacDebug.h"
 
 // ── Constants (mirrors dx8wrapper.cpp lines 91-95) ──
 
@@ -539,6 +540,7 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits, int
 	if (height != -1) ResolutionHeight = height;
 
 	Render2DClass::Set_Screen_Resolution( RectClass( 0, 0, ResolutionWidth, ResolutionHeight ) );
+	DEBUG_RENDERING_MAC(("Set_Render_Device: res=%dx%d Render2D set", ResolutionWidth, ResolutionHeight));
 
 	if (bits != -1) BitDepth = bits;
 	if (windowed != -1) IsWindowed = (windowed != 0);
@@ -634,6 +636,9 @@ void DX8Wrapper::Resize_And_Position_Window()
 	       (int)currentSize.width, (int)currentSize.height,
 	       ResolutionWidth, ResolutionHeight);
 	fflush(stdout);
+	DEBUG_RENDERING_MAC(("Resize_And_Position_Window: %dx%d -> %dx%d",
+	       (int)currentSize.width, (int)currentSize.height,
+	       ResolutionWidth, ResolutionHeight));
 
 	// 1. Resize NSWindow (mirrors AdjustWindowRect + SetWindowPos)
 	NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth, ResolutionHeight);
@@ -641,20 +646,35 @@ void DX8Wrapper::Resize_And_Position_Window()
 
 	NSScreen* screen = [win screen] ?: [NSScreen mainScreen];
 	NSRect visibleFrame = screen.visibleFrame;
+
+	// Clamp newFrame to visibleFrame to prevent it from going under the dock
+	// or off the top of the screen when Resolution is larger than usable area.
+	if (newFrame.size.width > visibleFrame.size.width) {
+		newFrame.size.width = visibleFrame.size.width;
+	}
+	if (newFrame.size.height > visibleFrame.size.height) {
+		newFrame.size.height = visibleFrame.size.height;
+	}
+
 	newFrame.origin.x = (visibleFrame.size.width - newFrame.size.width) / 2 + visibleFrame.origin.x;
 	newFrame.origin.y = NSMaxY(visibleFrame) - newFrame.size.height;
 
 	[win setFrame:newFrame display:YES animate:NO];
 
 	// 2. Update CAMetalLayer drawable size
+	CGFloat bsf = win.backingScaleFactor;
 	if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
 		CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
-		layer.contentsScale = 1.0;
-		layer.drawableSize = CGSizeMake(ResolutionWidth, ResolutionHeight);
+		layer.contentsScale = bsf;
+		// Ensure aspect ratio is maintained and layer is letterboxed if window was clamped
+		layer.contentsGravity = kCAGravityResizeAspect; 
+		layer.drawableSize = CGSizeMake(ResolutionWidth * bsf, ResolutionHeight * bsf);
 	}
 
 	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport
-	MacOS_UpdateMetalDeviceScreenSize(ResolutionWidth, ResolutionHeight);
+	MacOS_UpdateMetalDeviceScreenSize(ResolutionWidth * bsf, ResolutionHeight * bsf);
+	DEBUG_RENDERING_MAC(("Resize_And_Position_Window: after UpdateMetalDeviceScreenSize(%.1f, %.1f)",
+	       ResolutionWidth * bsf, ResolutionHeight * bsf));
 }
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──

@@ -437,6 +437,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     if (lighting.lightingEnabled == 0 || lighting.hasNormals == 0) {
         // Lighting disabled or no normals: pass through vertex color
         out.color = in.color;
+        applyClipPlanes(uniforms.world * pos, out);
         return out;
     }
     

@@ -74,6 +74,8 @@
 #include "Common/MiniDumper.h"
 #endif
 
+#include "Common/System/NativeFileSystem.h"
+
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
 extern HWND ApplicationHWnd;
@@ -406,21 +408,19 @@ void DebugInit(int flags)
 		}
 		strlcat(theLogFileName, ".txt", ARRAY_SIZE(theLogFileNamePrev));
 
-		remove(theLogFileNamePrev);
-		if (rename(theLogFileName, theLogFileNamePrev) != 0)
+		NativeFileSystem::remove(theLogFileNamePrev);
+		if (NativeFileSystem::rename(theLogFileName, theLogFileNamePrev) != 0)
 		{
 #ifdef DEBUG_LOGGING
 			DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", theLogFileName, theLogFileNamePrev);
 #endif
-			if (remove(theLogFileName) != 0)
+			if (NativeFileSystem::exists(theLogFileName))
 			{
-#ifdef DEBUG_LOGGING
-				DebugLog("Warning: Failed to remove file '%s'", theLogFileName);
-#endif
+				NativeFileSystem::remove(theLogFileName);
 			}
 		}
 
-		theLogFile = fopen(theLogFileName, "w");
+		theLogFile = NativeFileSystem::fopen(theLogFileName, "w");
 		if (theLogFile != nullptr)
 		{
 			DebugLog("Log %s opened: %s", theLogFileName, getCurrentTimeString());
@@ -775,21 +775,19 @@ void ReleaseCrash(const char *reason)
 	strlcpy(curbuf, TheGlobalData->getPath_UserData().str(), ARRAY_SIZE(curbuf));
 	strlcat(curbuf, RELEASECRASH_FILE_NAME, ARRAY_SIZE(curbuf));
 
- 	remove(prevbuf);
-	if (rename(curbuf, prevbuf) != 0)
+ 	NativeFileSystem::remove(prevbuf);
+	if (NativeFileSystem::rename(curbuf, prevbuf) != 0)
 	{
 #ifdef DEBUG_LOGGING
 		DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", curbuf, prevbuf);
 #endif
-		if (remove(curbuf) != 0)
+		if (NativeFileSystem::exists(curbuf))
 		{
-#ifdef DEBUG_LOGGING
-			DebugLog("Warning: Failed to remove file '%s'", curbuf);
-#endif
+			NativeFileSystem::remove(curbuf);
 		}
 	}
 
-	theReleaseCrashLogFile = fopen(curbuf, "w");
+	theReleaseCrashLogFile = NativeFileSystem::fopen(curbuf, "w");
 	if (theReleaseCrashLogFile)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %s\n", getCurrentTimeString(), reason);
@@ -880,21 +878,19 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 	strlcpy(curbuf, TheGlobalData->getPath_UserData().str(), ARRAY_SIZE(curbuf));
 	strlcat(curbuf, RELEASECRASH_FILE_NAME, ARRAY_SIZE(curbuf));
 
- 	remove(prevbuf);
-	if (rename(curbuf, prevbuf) != 0)
+ 	NativeFileSystem::remove(prevbuf);
+	if (NativeFileSystem::rename(curbuf, prevbuf) != 0)
 	{
 #ifdef DEBUG_LOGGING
 		DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", curbuf, prevbuf);
 #endif
-		if (remove(curbuf) != 0)
+		if (NativeFileSystem::exists(curbuf))
 		{
-#ifdef DEBUG_LOGGING
-			DebugLog("Warning: Failed to remove file '%s'", curbuf);
-#endif
+			NativeFileSystem::remove(curbuf);
 		}
 	}
 
-	theReleaseCrashLogFile = fopen(curbuf, "w");
+	theReleaseCrashLogFile = NativeFileSystem::fopen(curbuf, "w");
 	if (theReleaseCrashLogFile)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %ls\n", getCurrentTimeString(), mesg.str());

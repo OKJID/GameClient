@@ -281,8 +281,9 @@ public:
 	#define DEBUG_CRASH_MAC(m) ((void)0)
 #endif
 
-// #define DEBUG_BUILDMAPCACHE_FLAG
-// #define DEBUG_INFO_MAC_FLAG
+#define DEBUG_BUILDMAPCACHE_FLAG
+#define DEBUG_INFO_MAC_FLAG
+#define DEBUG_FILESYSTEM_MAC_FLAG
 
 #ifdef DEBUG_BUILDMAPCACHE_FLAG
 	#define DEBUG_BUILDMAPCACHE(m) MAC_LOG_TAG("DEBUG_BUILDMAPCACHE", m)
@@ -294,5 +295,11 @@ public:
 	#define DEBUG_INFO_MAC(m) MAC_LOG_TAG("DEBUG_INFO_MAC", m)
 #else
 	#define DEBUG_INFO_MAC(m) ((void)0)
+#endif
+
+#ifdef DEBUG_FILESYSTEM_MAC_FLAG
+	#define DEBUG_FILESYSTEM_MAC(m) MAC_LOG_TAG("DEBUG_FILESYSTEM_MAC", m)
+#else
+	#define DEBUG_FILESYSTEM_MAC(m) ((void)0)
 #endif
 

@@ -3779,5 +3779,5 @@ void ControlBar::setFullViewportHeight()
 
 void ControlBar::setScaledViewportHeight()
 {
-	TheTacticalView->setHeight(TheDisplay->getHeight() * TheGlobalData->m_viewportHeightScale);
+	TheTacticalView->setHeight(TheDisplay->getHeight());
 }

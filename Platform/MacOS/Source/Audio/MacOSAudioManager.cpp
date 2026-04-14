@@ -227,6 +227,7 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     std::string cacheKey = originalPath + (forceMono ? "_mono" : "_stereo");
     auto hit = m_bufferCache.find(cacheKey);
     if (hit != m_bufferCache.end()) {
+        if (hit->second <= 0) return 0; // Previously failed to load/parse
         return hit->second;
     }
 
@@ -238,13 +239,16 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
         loaded = loadWavFromBig(originalPath, &fileData, &fileSize);
     }
     if (!loaded || !fileData) {
-        DEBUG_AUDIO_MAC(("loadAudioBuffer: file not found for %s", pathStr.c_str()));
+        // Cache the failure so we don't spam disk/network
+        m_bufferCache[cacheKey] = -1;
         return 0;
     }
 
     WavParseResult wav;
     if (!parseWavHeader(fileData, fileSize, &wav)) {
+        // Log once, then cache the failure to avoid thread stutter
         DEBUG_AUDIO_MAC(("loadAudioBuffer: WAV parse failed for %s (not PCM WAV)", pathStr.c_str()));
+        m_bufferCache[cacheKey] = -1;
         free(fileData);
         return 0;
     }
@@ -273,7 +277,7 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     free(fileData);
 
     if (bufID <= 0) {
-        DEBUG_AUDIO_MAC(("loadAudioBuffer: avbridge_loadBuffer failed for %s", pathStr.c_str()));
+        m_bufferCache[cacheKey] = -1;
         return 0;
     }
 
@@ -336,7 +340,8 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     bool isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
     int bufID = loadAudioBuffer(filename, isPos);
     if (bufID <= 0) {
-        DEBUG_AUDIO_MAC(("playAudioEvent: buffer failed for %s. Deleting event.", filename.str()));
+        // Suppress this log because it will spam every time a missing/ADPCM sound is triggered, nuking FPS.
+        // DEBUG_AUDIO_MAC(("playAudioEvent: buffer failed for %s. Deleting event.", filename.str()));
         delete event;
         return;
     }

@@ -89,6 +89,7 @@ ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
 	DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - opening BIG file %s", filename));
 
 	if (fp == nullptr) {
+		DEBUG_FILESYSTEM_MAC(("FAILED to open BIG Archive: %s", filename));
 		DEBUG_CRASH(("Could not open archive file %s for parsing", filename));
 		return nullptr;
 	}
@@ -226,6 +227,7 @@ Bool StdBIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString fi
 		ArchiveFile *archiveFile = openArchiveFile((*it).str());
 
 		if (archiveFile != nullptr) {
+			DEBUG_FILESYSTEM_MAC(("Loaded BIG Archive: %s", (*it).str()));
 			DEBUG_LOG(("StdBIGFileSystem::loadBigFilesFromDirectory - loading %s into the directory tree.", (*it).str()));
 			loadIntoDirectoryTree(archiveFile, overwrite);
 			m_archiveFileMap[(*it)] = archiveFile;

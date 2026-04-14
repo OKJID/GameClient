@@ -22,6 +22,7 @@
 #include "MetalCubeTexture8.h"
 #include "MetalVertexBuffer8.h"
 #include "MacOSDebugLog.h"
+#include "../Utils/MacDebug.h"
 #include "MetalTextureCapture.h"
 #include <cstdio>
 #include <cstring>
@@ -489,15 +490,14 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
     // runloop has a chance to flush the render tree!
     [CATransaction flush];
 
-    fprintf(stderr, "[MetalDevice8] Initialized: %gx%g (drawable: %gx%g, backingScale: %g, contentsScale: 1.0)\n",
+    DEBUG_RENDERING_MAC(("CreateDevice: m_Screen=%gx%g drawable=%gx%g backingScale=%g contentsScale=1.0",
             m_ScreenWidth, m_ScreenHeight, layer.drawableSize.width,
-            layer.drawableSize.height, scale);
+            layer.drawableSize.height, scale));
   } else {
     // Window not yet available — use fallback size
     layer.drawableSize = CGSizeMake(m_ScreenWidth, m_ScreenHeight);
-    fprintf(stderr,
-            "[MetalDevice8] WARNING: No window handle, using fallback %gx%g\n",
-            m_ScreenWidth, m_ScreenHeight);
+    DEBUG_RENDERING_MAC(("WARNING: CreateDevice no window handle, fallback %gx%g",
+            m_ScreenWidth, m_ScreenHeight));
   }
 
   // --- MSAA configuration ---
@@ -1238,6 +1238,25 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
   //        g_metalPresentCount, m_CurrentDrawable, m_CurrentCommandBuffer, m_CurrentEncoder, g_metalDrawCallsThisFrame);
   // fflush(stdout);
   g_metalDrawCallsThisFrame = 0;
+
+  if (g_metalPresentCount < 3 && m_CurrentDrawable) {
+    id<MTLTexture> tex = MTL_DRAWABLE.texture;
+    CGSize layerDS = MTL_LAYER.drawableSize;
+    CGFloat cs = MTL_LAYER.contentsScale;
+    NSWindow *win = (__bridge NSWindow *)m_HWND;
+    CGSize viewPt = win ? win.contentView.bounds.size : CGSizeMake(0,0);
+    CGFloat bsf = win ? win.backingScaleFactor : 0;
+    DEBUG_RENDERING_MAC(("Present#%d: drawableTex=%lux%lu layerDS=%.0fx%.0f "
+      "contentsScale=%.1f viewPt=%.0fx%.0f backingScale=%.1f "
+      "m_Screen=%.0fx%.0f viewport=%ux%u",
+      g_metalPresentCount,
+      tex ? (unsigned long)tex.width : 0, tex ? (unsigned long)tex.height : 0,
+      layerDS.width, layerDS.height, cs,
+      viewPt.width, viewPt.height, bsf,
+      m_ScreenWidth, m_ScreenHeight,
+      (unsigned)m_Viewport.Width, (unsigned)m_Viewport.Height));
+  }
+
   if (m_CurrentEncoder) {
     [MTL_ENCODER endEncoding];
     CLEAR_MTL(CurrentEncoder);
@@ -2046,10 +2065,12 @@ STDMETHODIMP MetalDevice8::GetTransform(D3DTRANSFORMSTATETYPE State,
 STDMETHODIMP MetalDevice8::SetViewport(const D3DVIEWPORT8 *pViewport) {
   if (!pViewport)
     return E_POINTER;
-//   printf("[DIAG] SetViewport x=%u y=%u w=%u h=%u minZ=%.3f maxZ=%.3f\n",
-//          pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height,
-//          pViewport->MinZ, pViewport->MaxZ);
-//   fflush(stdout);
+  static int s_vpLogCount = 0;
+  if (s_vpLogCount < 10) {
+    DEBUG_RENDERING_MAC(("SetViewport#%d: x=%u y=%u w=%u h=%u",
+           s_vpLogCount, pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height));
+    s_vpLogCount++;
+  }
   m_Viewport = *pViewport;
 
   if (m_CurrentEncoder) {
@@ -3333,8 +3354,8 @@ HRESULT MetalDevice8::GetDirect3D(IDirect3D8 **ppD3D8) {
 // ─────────────────────────────────────────────────────
 
 void MetalDevice8::updateScreenSize(int width, int height) {
-  fprintf(stderr, "[MetalDevice8] updateScreenSize: %gx%g -> %dx%d\n",
-          m_ScreenWidth, m_ScreenHeight, width, height);
+  DEBUG_RENDERING_MAC(("updateScreenSize: %gx%g -> %dx%d",
+          m_ScreenWidth, m_ScreenHeight, width, height));
 
   m_ScreenWidth = (float)width;
   m_ScreenHeight = (float)height;
@@ -3368,7 +3389,7 @@ void MetalDevice8::updateScreenSize(int width, int height) {
   m_DefaultDepthSurface = W3DNEW MetalSurface8(this, MetalSurface8::kDepth,
                                                (UINT)width, (UINT)height, D3DFMT_D24S8);
 
-  fprintf(stderr, "[MetalDevice8] Screen size updated to %dx%d\n", width, height);
+  DEBUG_RENDERING_MAC(("updateScreenSize: completed %dx%d", width, height));
 }
 
 // Extern C bridge — called from MacOSDisplayManager.mm
@@ -3376,7 +3397,7 @@ extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height) {
   if (g_theMetalDevice) {
     g_theMetalDevice->updateScreenSize(width, height);
   } else {
-    fprintf(stderr, "[MetalDevice8] WARNING: MacOS_UpdateMetalDeviceScreenSize called but g_theMetalDevice is null\n");
+    DEBUG_RENDERING_MAC(("WARNING: MacOS_UpdateMetalDeviceScreenSize called but g_theMetalDevice is null"));
   }
 }
 

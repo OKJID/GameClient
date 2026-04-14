@@ -173,6 +173,7 @@ void		FileSystem::reset()
 File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize, FileInstance instance )
 {
 	USE_PERF_TIMER(FileSystem)
+	DEBUG_FILESYSTEM_MAC(("openFile Request: %s", filename));
 	File *file = nullptr;
 
 	if ( TheLocalFileSystem != nullptr )

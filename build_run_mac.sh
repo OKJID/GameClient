@@ -127,7 +127,7 @@ killall -9 lldb 2>/dev/null
 
 sleep 1
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Generals/"
+export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
 
 # Metal frame rate control:
 # 60 = VSync (default)

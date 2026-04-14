@@ -3181,7 +3181,11 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 				phase = 25 * m_riverVOrigin + vertex.X * mapCoeff;
 				wave = (sin(phase) - 1.0f) * amplitude;
 
+#ifdef __APPLE__
+				vb->z = (vertex.Z + wave) + 0.02f;
+#else
 				vb->z = (vertex.Z + wave);
+#endif
 				vb->diffuse = customDiffuse;
 				vb->u1 = (vertex.X/waterFactor) + 0.02*cos(11*m_riverVOrigin)*wave;
 				vb->v1 = (vertex.Y/waterFactor) + 0.02*cos(5*m_riverVOrigin)*wave;
@@ -3224,7 +3228,11 @@ void WaterRenderObjClass::drawTrapezoidWater(Vector3 points[4])
 
 				vb->x=vertex.X;
 				vb->y=vertex.Y;
+#ifdef __APPLE__
+				vb->z=vertex.Z + 0.02f;
+#else
 				vb->z=vertex.Z;
+#endif
 
 				vb->diffuse= diffuse;
 				//Old slower version

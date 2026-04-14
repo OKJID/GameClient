@@ -49,6 +49,11 @@ bool NativeFileSystem::exists(const AsciiString& path) {
     return std::filesystem::exists(GetSafePath(path.str()), ec);
 }
 
+bool NativeFileSystem::exists(const char* path) {
+    if (!path) return false;
+    return NativeFileSystem::exists(std::string(path));
+}
+
 std::string NativeFileSystem::get_safe_path(const std::string& path) {
     return GetSafePath(path);
 }
@@ -122,6 +127,21 @@ void NativeFileSystem::remove_all(const std::string& path) {
 void NativeFileSystem::copy(const std::string& from, const std::string& to, std::filesystem::copy_options options) {
     std::error_code ec;
     std::filesystem::copy(GetSafePath(from), GetSafePath(to), options, ec);
+}
+
+int NativeFileSystem::rename(const std::string& old_path, const std::string& new_path) {
+    std::string safeOld = GetSafePath(old_path);
+    std::string safeNew = GetSafePath(new_path);
+    
+    // Automatically create parent directories on macOS if we are renaming to a new directory
+    std::error_code ec;
+    std::filesystem::path p(safeNew);
+    std::filesystem::path parent = p.parent_path();
+    if (!parent.empty() && !std::filesystem::exists(parent, ec)) {
+        std::filesystem::create_directories(parent, ec);
+    }
+    
+    return ::rename(safeOld.c_str(), safeNew.c_str());
 }
 
 std::uintmax_t NativeFileSystem::file_size(const std::string& path) {
