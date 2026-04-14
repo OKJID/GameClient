@@ -1,124 +1,148 @@
-# Файловая система macOS порта (C&C Generals Zero Hour)
+# macOS Port — File System
 
-## Windows-флоу (Reference)
+## Windows Flow (Reference)
 
-На Windows бинарник `generals.exe` лежит внутри папки Zero Hour. CWD при запуске = папка ZH.
+On Windows, the `generals.exe` binary lives inside the Zero Hour folder. CWD at launch = ZH folder.
 
 ```
 C:\EA Games\
 ├── Command and Conquer Generals Zero Hour\
-│   ├── generals.exe          ← CWD = здесь
-│   ├── *.big                 ← ZH big-файлы
+│   ├── generals.exe          ← CWD = here
+│   ├── *.big                 ← ZH big files
 │   └── Data/Scripts/SkirmishScripts.scb
 └── Command and Conquer Generals\          ← Registry InstallPath
-    ├── *.big                 ← Base big-файлы
+    ├── *.big                 ← Base big files
     └── Data/...
 ```
 
 `Win32BIGFileSystem::init()`:
 1. `loadBigFilesFromDirectory("", "*.big")` → CWD = ZH
-2. `GetStringFromGeneralsRegistry("", "InstallPath")` → путь к Base из реестра
+2. `GetStringFromGeneralsRegistry("", "InstallPath")` → path to Base from registry
 3. `loadBigFilesFromDirectory(installPath, "*.big")` → Base
 
-**Приоритет (первый загруженный побеждает):** `Loose CWD > BIG CWD > BIG Base`
+**Priority (first loaded wins):** `Loose CWD > BIG CWD > BIG Base`
 
-## macOS: зеркалирование Windows через `chdir()`
+## macOS: Mirroring Windows via `chdir()`
 
-На macOS бинарник находится внутри `.app` бандла или в директории сборки — **не** в папке с данными игры. Чтобы shared-код ядра (`StdBIGFileSystem::init`) работал идентично Windows без единого `#ifdef`, мы воссоздаём Windows-окружение на старте.
+On macOS the binary lives inside an `.app` bundle or the build directory — **not** in the game data folder. To make the shared engine code (`StdBIGFileSystem::init`) work identically to Windows without any `#ifdef`, the Windows environment is recreated at startup.
 
-### Переменная `GENERALS_INSTALL_PATH`
+### `GENERALS_INSTALL_PATH` Variable
 
 ```bash
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/Command and Conquer - Generals"
 ```
 
-Указывает на **рутовую** директорию, содержащую подпапки с режимами игры.
+Points to the **root** directory containing subdirectories for each game mode.
 
-### Папка пользователя (User Data / Replays / Cache)
+### User Data Folder (Replays, Maps, Cache)
 
-Пользовательские данные (кастомные карты, кэш `MapCache.ini`, реплеи, сохранения) хранятся в домашней директории пользователя в зависимости от ключа реестра `UserDataLeafName` (задается в `GlobalData::BuildUserDataPathFromRegistry()`).
-Метод `SHGetSpecialFolderPath` с флагом `CSIDL_PERSONAL` на macOS порте резолвится в корень домашней директории (`~/`).
-Пример пути:
-`~/Command and Conquer Generals Zero Hour Data/`
-Здесь в подпапке `Maps/` лежат скачанные карты и автоматически генерируемые кэши (`MapCache.ini`, `MapCacheGO.ini`).
-**Важно:** Как и внутри движка, при формировании этого пути в `GlobalData.cpp` генерируются строго виндовые слеши `\`, которые транслируются в `/` только перед вызовом нативных macOS API силами `MacOSLocalFileSystem`.
+User data (custom maps, `MapCache.ini` cache, replays, saves) is stored in the home directory. The path is derived from the `UserDataLeafName` registry key (set in `GlobalData::BuildUserDataPathFromRegistry()`).
+The `SHGetSpecialFolderPath` shim with `CSIDL_PERSONAL` flag resolves to the home directory root (`~/`) on macOS.
 
-### Структура данных
+Example path: `~/Command and Conquer Generals Zero Hour Data/`
+
+Custom maps go into the `Maps/` subfolder. Cache files (`MapCache.ini`, `MapCacheGO.ini`) are auto-generated there.
+
+> **Important:** The engine internally constructs this path with Windows-style backslashes `\`, which are translated to `/` only when reaching native macOS APIs through `MacOSLocalFileSystem` and the `fopen`/`CreateDirectory` interceptors.
+
+### Data Structure
 
 ```
 Command and Conquer - Generals/
-├── Command and Conquer Generals Zero Hour/   ← ZH (маркер: INIZH.big)
+├── Command and Conquer Generals Zero Hour/   ← ZH (marker: INIZH.big)
 │   ├── *.big
 │   └── Data/Scripts/SkirmishScripts.scb
-└── Command and Conquer Generals/             ← Base (маркер: INI.big, нет INIZH.big)
+└── Command and Conquer Generals/             ← Base (marker: INI.big, no INIZH.big)
     ├── *.big
     └── Data/...
 ```
 
-> [!IMPORTANT]
-> Имена подпапок **не хардкодятся**. Детектор сканирует содержимое и ищет маркеры.
+> Subdirectory names are NOT hardcoded. The detector scans contents and looks for markers.
 
-### Инициализация (MacOSGameEngine::init)
+### Initialization (MacOSGameEngine::init)
 
-До вызова `GameEngine::init()`:
+Before calling `GameEngine::init()`:
 
-1. Читается `GENERALS_INSTALL_PATH`
-2. `DetectGameModes(rootPath)` сканирует субдиректории:
-   - **ZH** = содержит `INIZH.big`
-   - **Base** = содержит `INI.big`, но НЕ `INIZH.big`
-3. `chdir(zhPath)` — теперь CWD = ZH, как на Windows
-4. `basePath` сохраняется для `registry.cpp`
+1. Read `GENERALS_INSTALL_PATH`
+2. `DetectGameModes(rootPath)` scans subdirectories:
+   - **ZH** = contains `INIZH.big`
+   - **Base** = contains `INI.big`, but NOT `INIZH.big`
+3. `chdir(zhPath)` — CWD is now ZH, identical to Windows
+4. `basePath` is saved for `registry.cpp`
 
-После этого `GameEngine::init()` → `StdBIGFileSystem::init()` работает **идентично Windows**:
+After this, `GameEngine::init()` → `StdBIGFileSystem::init()` works **identically to Windows**:
 - `loadBigFilesFromDirectory("", "*.big")` → CWD = ZH ✅
 - `GetStringFromGeneralsRegistry("", "InstallPath")` → `basePath` ✅
 - `loadBigFilesFromDirectory(basePath, "*.big")` → Base ✅
 
-## Общая архитектура
+## Architecture
 
-| Компонент | Класс | Назначение |
-|-----------|-------|------------|
-| `TheLocalFileSystem` | `MacOSLocalFileSystem` | Loose-файлы на диске + Slash Boundary + case-insensitive поиск |
-| `TheArchiveFileSystem` | `StdBIGFileSystem` | Файлы внутри `.big` архивов |
+| Component | Class | Purpose |
+|-----------|-------|---------|
+| `TheLocalFileSystem` | `MacOSLocalFileSystem` | Loose files on disk + slash normalization + case-insensitive lookup |
+| `TheArchiveFileSystem` | `StdBIGFileSystem` | Files inside `.big` archives |
 
-При вызове `TheFileSystem->openFile(path)`:
-1. Сначала ищется **loose-файл** через `TheLocalFileSystem->openFile`
-2. Если не найден — ищется в **`.big` архивах** через `TheArchiveFileSystem->openFile`
+When `TheFileSystem->openFile(path)` is called:
+1. First searches for a **loose file** via `TheLocalFileSystem->openFile`
+2. If not found — searches in **`.big` archives** via `TheArchiveFileSystem->openFile`
 
-> [!IMPORTANT]
-> Loose-файлы **всегда** имеют приоритет над `.big` архивами.
+> Loose files **always** take priority over `.big` archives.
 
-## Slash Boundary (Граница нормализации)
+## Slash Boundary (Normalization Layer)
 
-Движок SAGE жестко завязан на Windows-пути (`\` и case-insensitive). `MacOSLocalFileSystem` изолирует это от POSIX:
+The SAGE engine is hardcoded for Windows paths (`\` and case-insensitive). `MacOSLocalFileSystem` isolates this from POSIX:
 
-**Inbound (в OS):** Методы `openFile`, `doesFileExist`, `getFileInfo` пробрасывают путь через `resolveWithSearchPaths`:
+**Inbound (to OS):** Methods `openFile`, `doesFileExist`, `getFileInfo` pass paths through `resolveWithSearchPaths`:
 - `\` → `/`
-- Case-insensitive сопоставление через `strcasecmp`
+- Case-insensitive matching via `strcasecmp`
 
-**Outbound (в движок SAGE):** `getFileListInDirectory` конвертирует `/` → `\` в возвращаемых путях.
+**Outbound (to SAGE engine):** `getFileListInDirectory` converts `/` → `\` in returned paths.
 
-> [!WARNING]
-> Никаких `#ifdef __APPLE__` внутри `StdLocalFileSystem.cpp`, `MapUtil.cpp`, `INIMapCache.cpp`.
-> Shared-код должен работать так, будто он на Windows.
+> No `#ifdef __APPLE__` inside `StdLocalFileSystem.cpp`, `MapUtil.cpp`, or `INIMapCache.cpp`.
+> Shared code operates as if it were on Windows.
 
-## addSearchPath (macOS-специфика)
+## NativeFileSystem Facade
 
-`MacOSLocalFileSystem` имеет `addSearchPath` / `resolveWithSearchPaths` — этого нет в `Win32LocalFileSystem`. Нужно потому что:
-- На macOS файловая система может быть case-sensitive
-- Loose-файлы ищутся сначала в CWD, затем в search paths (ZH, Base)
+The engine sometimes bypasses the virtual file system and calls `fopen` or `CreateDirectory` directly with Windows-style backslash paths. On macOS, these calls fail silently or create files/directories with literal backslashes in their names.
 
-Регистрация search paths происходит в `MacOSLocalFileSystem::init()`.
+The platform header `Platform/MacOS/Include/windows.h` provides interceptors:
 
-### Приоритет loose-файлов
+```cpp
+// CreateDirectory interceptor — normalizes backslashes before mkdir
+inline BOOL MacOS_CreateDirectory(LPCSTR lpPathName, void*) {
+    std::string safePath(lpPathName);
+    std::replace(safePath.begin(), safePath.end(), '\\', '/');
+    return mkdir(safePath.c_str(), 0755) == 0 || errno == EEXIST;
+}
+#define CreateDirectory MacOS_CreateDirectory
 
-| # | Где ищет | Пример |
-|---|---------|--------|
-| 1 | CWD (= ZH после chdir) | `./Data/Scripts/foo.scb` |
+// fopen interceptor — normalizes backslashes before opening
+inline FILE* MacOS_fopen(const char* filename, const char* mode) {
+    std::string safePath(filename);
+    std::replace(safePath.begin(), safePath.end(), '\\', '/');
+    return fopen(safePath.c_str(), mode);
+}
+```
+
+This fixes `MapCache.ini` read/write, user data directory creation, and replay file operations without modifying any shared engine code.
+
+## addSearchPath (macOS-specific)
+
+`MacOSLocalFileSystem` has `addSearchPath` / `resolveWithSearchPaths` — absent in `Win32LocalFileSystem`. Required because:
+- macOS file systems can be case-sensitive
+- Loose files are searched first in CWD, then in search paths (ZH, Base)
+
+Search paths are registered in `MacOSLocalFileSystem::init()`.
+
+### Loose File Priority
+
+| # | Where | Example |
+|---|-------|---------|
+| 1 | CWD (= ZH after chdir) | `./Data/Scripts/foo.scb` |
 | 2 | ZH path (search path) | `.../Zero Hour/Data/Scripts/foo.scb` |
 | 3 | Base path (search path) | `.../Generals/Data/Scripts/foo.scb` |
 
-### Итоговый приоритет при `openFile`
+### Overall Priority for `openFile`
 
 ```
 Loose CWD > Loose ZH > Loose Base > BIG CWD > BIG Base
@@ -126,71 +150,64 @@ Loose CWD > Loose ZH > Loose Base > BIG CWD > BIG Base
 
 ## registry.cpp (`#ifdef __APPLE__`)
 
-На Windows `GetStringFromGeneralsRegistry("", "InstallPath")` возвращает путь к Base из реестра.
+On Windows, `GetStringFromGeneralsRegistry("", "InstallPath")` returns the Base path from the registry.
 
-На macOS `getStringFromRegistry` уже обёрнут `#ifdef __APPLE__`. Для ключа `InstallPath` возвращает `basePath`, обнаруженный детектором при старте.
+On macOS, `getStringFromRegistry` is wrapped with `#ifdef __APPLE__`. For the `InstallPath` key, it returns `basePath` discovered by the detector at startup.
 
-## Дуальность Core / Platform
+## Core / Platform Duality
 
-В проекте существуют **два** `StdLocalFileSystem`:
+Two `StdLocalFileSystem` implementations exist in the project:
 
-| Файл | Расположение |
-|------|-------------|
-| `Core/GameEngineDevice/.../StdLocalFileSystem.h/.cpp` | Core (базовый класс) |
-| `Platform/MacOS/.../MacOSLocalFileSystem.h/.mm` | Platform (macOS, наследует StdLocalFileSystem) |
+| File | Location |
+|------|----------|
+| `Core/GameEngineDevice/.../StdLocalFileSystem.h/.cpp` | Core (base class) |
+| `Platform/MacOS/.../MacOSLocalFileSystem.h/.mm` | Platform (inherits StdLocalFileSystem) |
 
-`MacOSGameEngine::createLocalFileSystem()` возвращает `NEW MacOSLocalFileSystem`.
+`MacOSGameEngine::createLocalFileSystem()` returns `NEW MacOSLocalFileSystem`.
 
-> [!WARNING]
-> Ранее factory возвращал `NEW StdLocalFileSystem` — это было ошибкой.
-> `MacOSLocalFileSystem` наследует `StdLocalFileSystem` и переопределяет все методы
-> с Slash Boundary и search path логикой.
+> `MacOSLocalFileSystem` inherits `StdLocalFileSystem` and overrides all methods
+> with slash normalization and search path logic.
 
-## Нечувствительность к регистру в .big архивах (ArchiveFileSystem)
+## Case-Insensitivity in .big Archives (ArchiveFileSystem)
 
-Windows-версия игры эмулирует case-insensitive подход, в то время как `std::multimap<AsciiString, ArchiveFile *>` (используемый для хранения дерева файлов) полагается на `AsciiString::operator<`, который является **строго регистрозависимым** (case-sensitive, использует `strcmp`).
+The `std::multimap<AsciiString, ArchiveFile*>` used for the virtual file tree relies on `AsciiString::operator<`, which is **strictly case-sensitive** (`strcmp`).
 
-Чтобы гарантировать Windows-совместимый поиск файлов внутри `.big` (крайне важно для `MapCache.ini`), реализован следующий механизм:
-1. При сканировании содержимого `.big` архивов внутри `ArchiveFileSystem::loadIntoDirectoryTree`, извлечённые имена файлов **принудительно переводятся в нижний регистр** (`lowerToken.toLower()`), прежде чем сохраняться в ключи словаря `m_files`.
-2. Удаление `.toLower()` на этом этапе критически ломает `find()` в Clang libc++, так как запросы часто приходят в другом регистре.
-3. Порядок загрузки (Shadowing): `.big` файлы основной игры (Base) и аддона (ZH) используют параметр `overwrite = FALSE`, что вставляет дублирующиеся ключи в конец. `StdBIGFileSystem` загружает папки ZH, а затем Base, обеспечивая правильный порядок кэширования для ресурсов движка.
-3. Отсутствие перевода в нижний регистр ломает базовый поиск (например, `doesFileExist("Maps\\MapCache.ini")`), что каскадно обрывает загрузку официальных карт.
+To guarantee Windows-compatible file lookup inside `.big` archives (critical for `MapCache.ini`):
+1. During `.big` scanning in `ArchiveFileSystem::loadIntoDirectoryTree`, extracted filenames are **forced to lowercase** (`lowerToken.toLower()`) before insertion into `m_files`
+2. Removing `.toLower()` at this step critically breaks `find()` in Clang libc++, since queries often arrive in different case
+3. Loading order (shadowing): ZH `.big` files are loaded first, then Base. The `overwrite = FALSE` parameter inserts duplicate keys at the end, preserving correct caching priority
 
-## Фильтрация дубликата INIZH.big
+## INIZH.big Duplicate Filtering
 
-В `loadBigFilesFromDirectory` пропускается `INIZH.big` из подпапки `Data/INI/`,
-потому что многие цифровые версии содержат дубликат, что приводит к конфликту CRC.
+In `loadBigFilesFromDirectory`, `INIZH.big` from the `Data/INI/` subdirectory is skipped because many digital distribution versions contain a duplicate, causing CRC conflicts.
 
-## Критические loose-файлы
+## Critical Loose Files
 
-Эти файлы **не запакованы** в `.big` и ищутся через CWD / search paths:
+These files are **not packed** into `.big` archives and are found via CWD / search paths:
 
-| Файл | Зачем |
-|------|-------|
-| `Data/Scripts/SkirmishScripts.scb` | AI скрипты для скирмиша (строительство, атаки) |
-| `Data/Scripts/MultiplayerScripts.scb` | Скрипты для мультиплеера |
-| `Data/INI/*.ini` | Конфигурация юнитов, оружия, зданий |
+| File | Purpose |
+|------|---------|
+| `Data/Scripts/SkirmishScripts.scb` | AI scripts for skirmish (building, attacks) |
+| `Data/Scripts/MultiplayerScripts.scb` | Multiplayer scripts |
+| `Data/INI/*.ini` | Unit, weapon, building configuration |
 
-> [!CAUTION]
-> Если `SkirmishScripts.scb` не найден, бот в скирмише **не строит и не атакует**.
+> **Caution:** If `SkirmishScripts.scb` is not found, the AI bot in skirmish **does not build or attack**.
 
-## Абстракция карт (VFS, UI и Network Transfer)
+## Map Abstraction (VFS, UI, and Network Transfer)
 
-Механизм загрузки карт (`.map`) в движке завязан на две независимые системы: парсер кэша (`INIMapCache.cpp`) и пользовательский интерфейс (`MapUtil.cpp` / GUI коды). 
+Map loading (`.map`) relies on two independent systems: the cache parser (`INIMapCache.cpp`) and the user interface (`MapUtil.cpp` / GUI codes).
 
-**1. Парсинг и флаг m_isOfficial (Network Transfer):**
-При парсинге (создании файлов `MapCache.ini` / `MapCacheGO.ini`):
-- `loadMapsFromDisk("Maps\\", TRUE)` сканирует виртуальный корень (loose файлы в папке игры + всё содержимое `.big` архивов). Этим картам жестко присваивается `m_isOfficial = true`.
-- `loadMapsFromDisk(UserPath, FALSE)` сканирует папку `~/Command and Conquer Generals Zero Hour Data/Maps/` (или `~/Command and Conquer Generals Data/Maps/` для базовой игры). Этим картам присваивается `m_isOfficial = false`.
+**1. Parsing and the m_isOfficial Flag (Network Transfer):**
+During parsing (`MapCache.ini` / `MapCacheGO.ini` creation):
+- `loadMapsFromDisk("Maps\\", TRUE)` scans the virtual root (loose files + `.big` contents). These maps get `m_isOfficial = true`.
+- `loadMapsFromDisk(UserPath, FALSE)` scans `~/Command and Conquer Generals Zero Hour Data/Maps/`. These maps get `m_isOfficial = false`.
 
-> **Критический факт:** Флаг `m_isOfficial` напрямую контролирует передачу карт в мультиплеере (см. `GUIUtil.cpp`: `willTransfer = !mapData->m_isOfficial;`). Если комьюнити-карта упакована в `.big` архив, она помечается как официальная и **никогда не будет передана** другому игроку при коннекте, что вызовет рассинхрон или ошибку подключения, если у клиента нет этого же мода.
+> The `m_isOfficial` flag directly controls map transfer in multiplayer (see `GUIUtil.cpp`: `willTransfer = !mapData->m_isOfficial;`). If a community map is packed into a `.big` archive, it is marked as official and **never transferred** to other players.
 
-**2. Отрисовка в UI (Игнорирование флага):**
-Списки интерфейса (вкладки Official и Custom в Skirmish/LAN/WOL) вообще не смотрят на поле `m_isOfficial` при фильтрации. Они используют исключительно префикс пути файла:
+**2. UI Rendering (Ignores the Flag):**
+The interface lists (Official/Custom tabs in Skirmish/LAN/WOL) do not use `m_isOfficial` for filtering. They use path prefix matching exclusively:
 ```cpp
 const Bool mapOk = mapName.startsWithNoCase(mapDir.str())
 ```
-- Вкладка Official выводит всё, что начинается с `"maps\\"`.
-- Вкладка Custom выводит всё, что начинается с пользовательского пути.
-
-Любая попытка переопределить эту логику (например, заставить UI читать `m_isOfficial` вместо путей) ломает встроенную математику SAGE Engine ListBox (`GadgetListBoxSetListLength`), приводя к багу со скроллом (прыжки на несколько позиций вниз), так как размер ползунка рассчитывается без учета отфильтрованных элементов.
+- Official tab shows everything starting with `"maps\\"`.
+- Custom tab shows everything starting with the user data path.

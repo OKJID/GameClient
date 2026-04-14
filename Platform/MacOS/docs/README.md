@@ -1,104 +1,115 @@
-# macOS Port — Документация
+# macOS Port — Documentation
 
-> **Command & Conquer: Generals — Zero Hour** на Apple Silicon (ARM64)
-> 
-> Ветка: `okji/feat/macos-port` | Репозиторий: GameClient (чистая реализация)
+> **Command & Conquer: Generals — Zero Hour** on Apple Silicon (ARM64)
+>
+> Branch: `okji/feat/macos-port` | Native Metal rendering backend
 
 https://github.com/user-attachments/assets/dd032fec-724d-4958-9ea0-d7bac97059ce
 
+## Documents
 
-## Документы
-
-| Документ | Описание |
+| Document | Description |
 |:---|:---|
-| **[Руководство по настройке](SETUP.md)** | Пререквизиты, сборка, запуск |
-| **[Руководство разработчика](DEVELOPMENT.md)** | Архитектура, правила, подводные камни |
-| **[Конвейер рендеринга](RENDERING.md)** | Metal backend, трансляция DX8->Metal, шейдеры |
-| **[Система сборки](BUILD_SYSTEM.md)** | CMake структура, зависимости, таргеты |
-| **[Аудит заглушек](STUBS_AUDIT.md)** | Статус реализации каждого компонента |
+| **[Setup Guide](SETUP.md)** | Prerequisites, building, running |
+| **[Developer Guide](DEVELOPMENT.md)** | Architecture, rules, pitfalls, debugging |
+| **[Rendering Pipeline](RENDERING.md)** | Metal backend, DX8→Metal translation, shaders |
+| **[File System](FILE_SYSTEM.md)** | VFS architecture, .big archives, path normalization |
+| **[Build System](BUILD_SYSTEM.md)** | CMake structure, dependencies, targets |
+| **[Implementation Status](IMPLEMENTATION_STATUS.md)** | Per-component implementation status |
 
-## Быстрый старт
+## Quick Start
 
 ```bash
-# Сборка + запуск (рекомендуется)
+# Development (Debug build + run with logging)
 sh build_run_mac.sh
-
-# С захватом скриншота через 15 секунд
-sh build_run_mac.sh --screenshot=15
-
-# Чистая пересборка
 sh build_run_mac.sh --clean
-
-# Запуск тестов Metal bridge
+sh build_run_mac.sh --screenshot=15
 sh build_run_mac.sh --test
+
+# Release (optimized build)
+sh build_mac.sh
+sh build_mac.sh --launcher            # + SwiftUI Launcher + dylib bundling
+sh build_mac.sh --launcher --clean    # clean + full distribution package
 ```
 
-## Текущий статус
+## Current Status
 
-| Метрика | Значение |
-|:---|:---|
-| **Сборка** | Собирается — `GeneralsOnlineZH.app` |
-| **Рантайм** | Стабилен — 496+ кадров без крашей |
-| **Game Loop** | Работает — GameMain -> GameEngine::update |
-| **Рендеринг** | Частично — геометрия и UI видны, текстуры не загружены (magenta), изображение зеркально |
-| **Аудио** | Заглушка (MacOSAudioManager) |
-| **Ввод** | MacOSKeyboard + MacOSMouse через NSEvent |
-| **Shell Map** | Загружается, но фон не виден (missing textures) |
+| Subsystem | Status | Details |
+|:---|:---|:---|
+| **Build** | ✅ Complete | `GeneralsOnlineZH.app` bundle (ARM64) |
+| **Rendering** | ✅ Complete | Full DX8→Metal pipeline: terrain, units, water, particles, UI, fog of war, MSAA |
+| **Input** | ✅ Complete | MacOSKeyboard + MacOSMouse via NSEvent |
+| **File System** | ✅ Complete | Dual-tier VFS: loose files + .big archives, case-insensitive lookup |
+| **Multiplayer** | ✅ Complete | Online play via Generals Online (P2P through GameNetworkingSockets) |
+| **CRC / Sync** | ✅ Complete | Deterministic math (fdlibm), cross-platform lockstep parity with Windows |
+| **Display** | ✅ Complete | Resolution switching, windowed mode, gamma ramp |
+| **Audio** | ✅ Complete | AVAudioEngine backend: 2D/3D playback, WAV loading, 64-source pool, listener positioning |
+| **Video** | ⚠️ Skipped | Intro/cutscene videos bypassed (Bink codec not ported) |
 
-## Архитектура
+## Architecture
 
-### Стратегия: Гибрид A+B (DX8Wrapper с Metal-реализацией)
+### Strategy: Hybrid A+B (DX8Wrapper with Metal implementation)
 
-Оставляем `dx8wrapper.h` с тем же именем класса `DX8Wrapper`, но:
-- `#ifndef __APPLE__` — оригинальная DX8-реализация (Windows)
-- `#ifdef __APPLE__` — Metal-реализация с **идентичным public API**
+The original `DX8Wrapper` class name and public API are preserved:
+- `#ifndef __APPLE__` — original DX8 implementation (Windows)
+- `#ifdef __APPLE__` — Metal implementation with **identical public API**
 
-Весь потребительский код (WW3D2, W3DDevice, ShaderManager) вызывает
-`DX8Wrapper::Begin_Scene()`, `DX8Wrapper::Draw_Triangles()` и т.д. —
-**ни один include, ни один вызов менять не нужно**.
+All consumer code (WW3D2, W3DDevice, ShaderManager) calls `DX8Wrapper::Begin_Scene()`,
+`DX8Wrapper::Draw_Triangles()`, etc. — **no includes or call sites need modification**.
 
-### Структура файлов
+### File Structure
 
 ```
 Platform/MacOS/
 ├── CMakeLists.txt                     # macOS cmake target
 ├── Build/
-│   ├── Logs/game.log                  # Лог игры (stdout перенаправлен)
-│   └── screenshot.py                  # Утилита скриншотов
-├── Include/                           # Compat-заголовки (d3d8, windows.h, etc.)
+│   ├── Logs/game.log                  # Game log (stdout redirected)
+│   └── screenshot.py                  # Screenshot utility
+├── Include/                           # Compat headers (d3d8, windows.h, etc.)
 ├── Source/
 │   ├── Main/
 │   │   ├── MacOSMain.mm              # Entry point (NSApplication + GameMain)
-│   │   ├── MacOSGameEngine.h/.mm     # GameEngine фабрика подсистем
-│   │   └── MacOSDebugLog.h           # DLOG_RFLOW макрос
+│   │   ├── MacOSGameEngine.h/.mm     # GameEngine subsystem factory
+│   │   └── MacOSDebugLog.h           # DLOG_RFLOW macro
 │   ├── Metal/
-│   │   ├── dx8wrapper_metal.mm       # DX8Wrapper Metal-реализация (~1700 строк)
-│   │   ├── MetalDevice8.h/.mm        # IDirect3DDevice8 -> Metal (~2900 строк)
-│   │   ├── MetalInterface8.h/.mm     # IDirect3D8 -> Metal
-│   │   ├── MetalTexture8.h/.mm       # IDirect3DTexture8 -> MTLTexture
-│   │   ├── MetalSurface8.h/.mm       # IDirect3DSurface8 -> staging buffer
-│   │   ├── MetalVertexBuffer8.h/.mm  # VB -> MTLBuffer
-│   │   ├── MetalIndexBuffer8.h/.mm   # IB -> MTLBuffer
-│   │   └── MacOSShaders.metal        # FFP эмуляция (vertex + fragment)
+│   │   ├── dx8wrapper_metal.mm       # DX8Wrapper Metal implementation (~1700 lines)
+│   │   ├── MetalDevice8.h/.mm        # IDirect3DDevice8 → Metal (~2900 lines)
+│   │   ├── MetalInterface8.h/.mm     # IDirect3D8 → Metal
+│   │   ├── MetalTexture8.h/.mm       # IDirect3DTexture8 → MTLTexture
+│   │   ├── MetalSurface8.h/.mm       # IDirect3DSurface8 → staging buffer
+│   │   ├── MetalVertexBuffer8.h/.mm  # VB → MTLBuffer
+│   │   ├── MetalIndexBuffer8.h/.mm   # IB → MTLBuffer
+│   │   ├── MacOSDisplayManager.h/.mm # Display mode enumeration
+│   │   └── MacOSShaders.metal        # FFP emulation (vertex + fragment)
 │   ├── Input/
-│   │   ├── MacOSKeyboard.h/.cpp      # NSEvent -> Keyboard
-│   │   └── MacOSMouse.h/.cpp         # NSEvent -> Mouse
+│   │   ├── MacOSKeyboard.h/.cpp      # NSEvent → Keyboard
+│   │   └── MacOSMouse.h/.cpp         # NSEvent → Mouse
 │   ├── Audio/
-│   │   └── MacOSAudioManager.h       # Stub AudioManager
-│   └── GeneralsOnlineStubs.cpp       # Стабы сетевых сервисов
-└── docs/                              # <- Вы здесь
+│   │   ├── MacOSAudioManager.h/.cpp      # AudioManager (AVAudioEngine, 64-source pool)
+│   │   └── AVAudioBridge.h/.mm           # C bridge → AVAudioEngine/AVAudioPlayerNode
+│   ├── FileSystem/
+│   │   └── MacOSLocalFileSystem.h/.mm # Path normalization + case-insensitive lookup
+│   └── GeneralsOnlineStubs.cpp       # Remaining network stubs (sentry)
+├── Launcher/                          # SwiftUI Launcher app
+│   ├── Sources/
+│   │   ├── LauncherApp.swift         # @main entry point
+│   │   └── MainView.swift            # Game path selector + launch button
+│   ├── assets/                        # background.png, dir_image.png
+│   ├── assemble_distribution.sh      # Full distribution pipeline
+│   └── outputs/                       # Final .zip artifact
+└── docs/                              # ← You are here
 ```
 
 ## Scope
 
-- **Только `GeneralsMD/`** (Zero Hour). `Generals/` (ванильные) НЕ поддерживается.
-- Тулзы (WorldBuilder и т.д.) НЕ собираются на macOS.
-- Сеть/мультиплеер — заглушки, не функциональны.
+- **Zero Hour only** (`GeneralsMD/`). Base Generals (`Generals/`) is not supported.
+- Tools (WorldBuilder, etc.) are not built on macOS.
+- Game data files (`.big`) must be supplied from a Windows installation.
 
-## Ключевые правила
+## Core Rules
 
-1. **Shared код** (`Core/`, `GeneralsMD/Code/`) — модифицировать только под `#ifdef __APPLE__`
-2. **Платформенный код** — свободно в `Platform/MacOS/`
-3. **Сборка и запуск** — всегда через `sh build_run_mac.sh`
-4. **Повторять Windows flow** — не костыли, а оттестированное флоу
-5. **GeneralsGameCode** — использовать только как справочник
+1. **Shared code** (`Core/`, `GeneralsMD/Code/`) — modify only under `#ifdef __APPLE__`
+2. **Platform code** — freely modify in `Platform/MacOS/`
+3. **Build and run** — always via `sh build_run_mac.sh`
+4. **Mirror the Windows flow** — no workarounds, replicate the tested Windows behavior
+5. **Attribution** — all shared code changes carry `// TheSuperHackers` comments per [CONTRIBUTING.md](../../../CONTRIBUTING.md)

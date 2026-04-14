@@ -1,29 +1,34 @@
-# macOS Port — Система сборки
+# macOS Port — Build System
 
 ---
 
-## Команды сборки
+## Build Commands
 
 ```bash
-# Рекомендуемый способ (скрипт):
+# Development (Debug + run):
 sh build_run_mac.sh              # configure + build + run
 sh build_run_mac.sh --clean      # clean + configure + build + run
 sh build_run_mac.sh --test       # build + run tests
 
-# Ручная сборка (не рекомендуется):
+# Release (optimized):
+sh build_mac.sh                  # release build only
+sh build_mac.sh --launcher       # release + Launcher + dylib bundling + .zip
+sh build_mac.sh --launcher --clean  # clean + full distribution package
+
+# Manual build (not recommended):
 cmake --preset macos
 cmake --build build/macos
 ```
 
 ---
 
-## Граф зависимостей
+## Dependency Graph
 
 ```
                     CMakeLists.txt (root)
                           │
   ┌───────────────────────┼───────────────────────────┐
-  │     ЗАВИСИМОСТИ       │                           │
+  │     DEPENDENCIES      │                           │
   │                       │                           │
   │  DX8 (APPLE) ─────────┼──► Platform/MacOS/Include │
   │    d3d8lib INTERFACE   │    d3d8_interfaces.h      │
@@ -36,7 +41,7 @@ cmake --build build/macos
   │  zlib (APPLE) ─────────┼──► System zlib            │
   │                       │                           │
   ├───────────────────────┼───────────────────────────┤
-  │     ТАРГЕТЫ           │                           │
+  │     TARGETS           │                           │
   │                       │                           │
   │  macos_platform ───────┼──► Platform/MacOS/        │
   │    STATIC library      │    MetalDevice8, MacOSMain│
@@ -53,33 +58,53 @@ cmake --build build/macos
 
 ---
 
-## Ключевые CMake таргеты
+## Key CMake Targets
 
-| Таргет | Тип | Выход | Описание |
+| Target | Type | Output | Description |
 |:---|:---|:---|:---|
-| `macos_platform` | STATIC | `libmacos_platform.a` | Весь macOS-специфичный код |
-| `GeneralsOnlineZH` | EXECUTABLE | `.app` bundle | Zero Hour |
+| `macos_platform` | STATIC | `libmacos_platform.a` | All macOS-specific code |
+| `GeneralsOnlineZH` | EXECUTABLE | `.app` bundle | Zero Hour application |
 | `z_gameengine` | STATIC | `libz_gameengine.a` | ZH engine library |
 | `z_gameenginedevice` | STATIC | `libz_gameenginedevice.a` | ZH device library |
-| `metal_bridge_tests` | EXECUTABLE | `Tests/metal_bridge_tests` | Unit-тесты Metal bridge |
+| `metal_bridge_tests` | EXECUTABLE | `Tests/metal_bridge_tests` | Metal bridge unit tests |
+| `GeneralsLauncher` | SwiftUI (swiftc) | Inside `.app` bundle | Game data folder picker + launcher (compiled by `assemble_distribution.sh`, not CMake) |
 
 ---
 
 ## macOS Framework Dependencies
 
-| Framework | Назначение |
+| Framework | Purpose |
 |:---|:---|
-| `Metal` | GPU рендеринг |
-| `MetalKit` | Metal утилиты |
-| `AppKit` | Управление окнами, события |
+| `Metal` | GPU rendering |
+| `MetalKit` | Metal utilities |
+| `AppKit` | Window management, events |
 | `QuartzCore` | `CAMetalLayer` |
-| `CoreGraphics` | Gamma ramp |
+| `CoreGraphics` | Gamma ramp (`CGSetDisplayTransferByTable`) |
+| `AVFoundation` | Audio (planned, not yet linked) |
 
 ---
 
-## Preset конфигурация
+## Vendor Libraries
 
-`CMakePresets.json` определяет пресет `macos`:
+| Library | Linking | Purpose |
+|:---|:---|:---|
+| `libcurl` | Dynamic (`.dylib`) | HTTP/WebSocket for Generals Online |
+| `GameNetworkingSockets` | Dynamic (`.dylib`) | P2P networking (Valve) |
+| `libsodium` | Dynamic (`.dylib`) | Cryptography (GNS dependency) |
+| `protobuf` | Dynamic (`.dylib`) | Serialization (GNS dependency) |
+| `OpenSSL` | Dynamic (`.dylib`) | TLS (GNS dependency) |
+| `nlohmann/json` | Header-only | JSON parsing |
+| `stb_image_write` | Header-only | Screenshot capture |
+| `miniupnpc` | Source | UPnP port forwarding |
+
+> **Note:** Dynamic libraries must be bundled into `GeneralsOnlineZH.app/Contents/Frameworks/`
+> for distribution. Use `dylibbundler` or equivalent to rewrite `@rpath` references.
+
+---
+
+## Preset Configuration
+
+`CMakePresets.json` defines the `macos` preset:
 
 ```json
 {
@@ -95,10 +120,11 @@ cmake --build build/macos
 
 ---
 
-## Переменные окружения
+## Environment Variables
 
-| Переменная | Описание | Default |
+| Variable | Description | Default |
 |:---|:---|:---|
-| `GENERALS_INSTALL_PATH` | Путь к установке игры | (обязательная) |
-| `GENERALS_FPS_LIMIT` | Лимит FPS | 60 |
+| `GENERALS_INSTALL_PATH` | Root path to game installation | (required) |
+| `GENERALS_FPS_LIMIT` | FPS cap | 60 |
 | `GENERALS_MSAA` | MSAA sample count | 1 (off) |
+| `GENERALS_MAC_DEBUG` | Enable `DEBUG_INFO_MAC` logging | 0 (off) |

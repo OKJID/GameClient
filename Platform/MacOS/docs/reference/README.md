@@ -45,6 +45,6 @@ To avoid duplication, each topic has a **single source of truth**:
 | Metal rendering pipeline | **RENDERING.md** | `docs/RENDERING.md` |
 | Architecture, gotchas, rules | **DEVELOPMENT.md** | `docs/DEVELOPMENT.md` |
 | Bug history & milestones | **CHANGELOG.md** | `docs/CHANGELOG.md` |
-| Stub audit | **STUBS_AUDIT.md** | `docs/STUBS_AUDIT.md` |
+| Implementation status | **IMPLEMENTATION_STATUS.md** | `docs/IMPLEMENTATION_STATUS.md` |
 | DX8→Metal impl plan | **DX8_METAL_BACKEND.md** | `docs/reference/dx8_metal_specs/` |
 | Original engine architecture | **architecture/*.md** | `docs/reference/architecture/` |

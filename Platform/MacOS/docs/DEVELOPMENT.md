@@ -1,201 +1,272 @@
-# macOS Port — Руководство разработчика
+# macOS Port — Developer Guide
 
 ---
 
-## Золотые правила
+## Core Rules
 
-1. **Shared код** (`Core/`, `GeneralsMD/Code/`) — модифицировать только под `#ifdef __APPLE__`. Не `#ifdef _WIN32`
-2. **Платформенный код** — свободно в `Platform/MacOS/`
-3. **Повторять Windows flow** — не костыли, а оттестированное поведение Windows
-4. **GeneralsGameCode** (`/Users/okji/dev/games/GeneralsGameCode/`) — **только справочник**, не копировать напрямую
-5. **Сборка и запуск** — всегда через `sh build_run_mac.sh`
-6. **Логирование** — `printf` + `fflush(stdout)`. НЕ `fprintf(stderr)` (stdout перенаправляется в game.log)
-7. **DLOG_RFLOW(level, fmt, ...)** — для категоризированных логов Metal backend
-8. **Все костыли** помечать `TODO(PS_PATH):` с описанием
-9. **Scope** — только `GeneralsMD/` (Zero Hour). `Generals/` НЕ поддерживается
+1. **Shared code** (`Core/`, `GeneralsMD/Code/`) — modify only under `#ifdef __APPLE__`, never `#ifdef _WIN32`
+2. **Platform code** — freely modify in `Platform/MacOS/`
+3. **Mirror the Windows flow** — replicate tested Windows behavior, not workarounds
+4. **Build and run** — always via `sh build_run_mac.sh`
+5. **Logging** — `printf` + `fflush(stdout)`. Never `fprintf(stderr)` (stdout is redirected to game.log)
+6. **DLOG_RFLOW(level, fmt, ...)** — categorized logs for Metal backend
+7. **Mark workarounds** with `TODO(PS_PATH):` and a description
+8. **Scope** — Zero Hour only (`GeneralsMD/`). Base Generals is not supported
+9. **Attribution** — all shared code changes carry `// TheSuperHackers @keyword` comments
 
 ---
 
-## Архитектура
+## Architecture
 
-### Стратегия: Гибрид A+B
+### Strategy: Hybrid A+B
 
-`DX8Wrapper` остаётся с тем же именем и API:
-- `#ifndef __APPLE__` → оригинальная DX8-реализация (Windows)  
-- `#ifdef __APPLE__` → Metal-реализация в `dx8wrapper_metal.mm`
+`DX8Wrapper` retains its original class name and API:
+- `#ifndef __APPLE__` → original DX8 implementation (Windows)
+- `#ifdef __APPLE__` → Metal implementation in `dx8wrapper_metal.mm`
 
-Весь WW3D2 код (152 файла) — **без изменений**.
+All WW3D2 consumer code (152 files) remains **unmodified**.
 
-### Компоненты
+### Components
 
-| Подсистема | Файлы | Назначение |
+| Subsystem | Files | Purpose |
 |:---|:---|:---|
-| **Metal Backend** | `Source/Metal/MetalDevice8.mm` (~2900 строк) + 5 пар .h/.mm | DX8 → Metal мост |
-| **DX8Wrapper Metal** | `Source/Metal/dx8wrapper_metal.mm` (~1700 строк) | Статический класс с кэшированием |
-| **Entry Point** | `Source/Main/MacOSMain.mm` | NSApplication, GameMain, CreateGameEngine |
-| **Game Engine** | `Source/Main/MacOSGameEngine.mm` | Фабрика подсистем (W3DGameLogic, StdFileSystem, etc.) |
-| **Input** | `Source/Input/MacOSKeyboard.cpp`, `MacOSMouse.cpp` | NSEvent → game input |
-| **Audio** | `Source/Audio/MacOSAudioManager.h` | Stub AudioManager |
-| **Shaders** | `Source/Metal/MacOSShaders.metal` | FFP эмуляция |
-| **Compat Headers** | `Include/windows.h`, `d3d8*.h`, etc. | Заглушки Win32/D3D типов |
+| **Metal Backend** | `MetalDevice8.mm` (~2900 lines) + 5 .h/.mm pairs | DX8 → Metal bridge |
+| **DX8Wrapper Metal** | `dx8wrapper_metal.mm` (~1700 lines) | Static class with render state cache |
+| **Entry Point** | `MacOSMain.mm` | NSApplication, GameMain, CreateGameEngine |
+| **Game Engine** | `MacOSGameEngine.mm` | Subsystem factory |
+| **Input** | `MacOSKeyboard.cpp`, `MacOSMouse.cpp` | NSEvent → game input |
+| **Audio** | `MacOSAudioManager.cpp` + `AVAudioBridge.mm` | AVAudioEngine backend (2D/3D, 64-source pool) |
+| **File System** | `MacOSLocalFileSystem.mm` | Path normalization + case-insensitive lookup |
+| **Display** | `MacOSDisplayManager.mm` | Resolution enumeration and switching |
+| **Shaders** | `MacOSShaders.metal` | FFP emulation (vertex + fragment) |
+| **Compat Headers** | `Include/windows.h`, `d3d8*.h`, etc. | Win32/D3D type stubs + path interceptors |
 
-### GameEngine фабрика
+### GameEngine Factory
 
 ```cpp
 class MacOSGameEngine : public GameEngine {
-    GameLogic*          createGameLogic()         → W3DGameLogic
-    GameClient*         createGameClient()        → W3DGameClient
-    ModuleFactory*      createModuleFactory()     → W3DModuleFactory
-    LocalFileSystem*    createLocalFileSystem()   → StdLocalFileSystem   // ← не Win32
-    ArchiveFileSystem*  createArchiveFileSystem()  → StdBIGFileSystem     // ← не Win32
-    AudioManager*       createAudioManager()      → MacOSAudioManager    // ← stub
-    WebBrowser*         createWebBrowser()         → nullptr
-    // Остальное — идентично Win32GameEngine
+    GameLogic*         createGameLogic()         → W3DGameLogic
+    GameClient*        createGameClient()        → W3DGameClient
+    ModuleFactory*     createModuleFactory()     → W3DModuleFactory
+    LocalFileSystem*   createLocalFileSystem()   → MacOSLocalFileSystem
+    ArchiveFileSystem* createArchiveFileSystem() → StdBIGFileSystem
+    AudioManager*      createAudioManager()      → MacOSAudioManager  // AVAudioEngine
+    Network*           createNetwork()           → NetworkInterface::createNetwork
+    WebBrowser*        createWebBrowser()        → nullptr
 };
 ```
 
 ---
 
-## Подводные камни (Gotchas)
+## Pitfalls
 
 ### 1. DX8Wrapper: Deferred State Application
-`Set_Transform(WORLD/VIEW)` НЕ вызывает `D3DDevice->SetTransform` сразу. Матрицы сохраняются в `render_state.world/view` и применяются в `Apply_Render_State_Changes()` перед каждым `Draw()`.
 
-**Критично:** Если функция типа `Set_World_Identity()` пустая заглушка → `render_state.world` остаётся нулевой → чёрный экран.
+`Set_Transform(WORLD/VIEW)` does NOT call `D3DDevice->SetTransform` immediately. Matrices are stored in `render_state.world/view` and applied in `Apply_Render_State_Changes()` before each `Draw()`.
 
-### 2. D3D→Metal матрицы
-D3D row-major `memcpy` в Metal column-major `float4x4` = транспонирование. Шейдер: `P * V * W * pos` = эквивалент D3D `pos * W * V * P`.
+**Critical:** If a function like `Set_World_Identity()` is an empty stub, `render_state.world` remains zeroed → black screen.
+
+### 2. D3D → Metal Matrix Convention
+
+D3D stores matrices in row-major order. `memcpy` into Metal `float4x4` (column-major) effectively **transposes** the matrix. The shader uses `P * V * W * pos`, which is equivalent to D3D's `pos * W * V * P`.
 
 ### 3. NSApplication + dispatch_async
-`[NSApp run]` запускает event loop. `dispatch_async(main_queue)` ставит game loop в очередь. Game loop блокирует main queue (бесконечный цикл). `serviceWindowsOS()` вручную качает события через `[NSApp nextEventMatchingMask:]`. `[CATransaction flush]` нужен для обновления окна.
 
-### 4. Файловая система сканирует CWD
-Игра запускается из корня исходного кода. `StdLocalFileSystem` сканирует `.` = тысячи файлов. Нужно исправить рабочую директорию.
+`[NSApp run]` starts the event loop. `dispatch_async(main_queue)` enqueues the game loop. The game loop blocks the main queue (infinite loop). `serviceWindowsOS()` manually pumps events via `[NSApp nextEventMatchingMask:]`. `[CATransaction flush]` is required for window updates.
+
+### 4. File System Scans CWD
+
+The game launches from the source code root. `StdLocalFileSystem` scans `.` = thousands of files. The working directory must be set to the ZH data folder via `chdir()` in `MacOSGameEngine::init()`.
 
 ### 5. FVF Stride vs Offset
-`GetPSO` использует stride от вызывающего кода, а НЕ вычисляет из FVF. C++ структуры могут иметь padding.
+
+`GetPSO` uses stride from the calling code, NOT computed from FVF flags. C++ structs may have padding that differs from the sum of FVF attribute sizes.
+
+### 6. Half-Pixel Offset (DX8 vs Metal)
+
+DX8 requires a -0.5px geometry bias for pixel-perfect 2D texel sampling. Metal handles pixel centers correctly at +0.5. The bias is disabled on macOS via `#ifndef __APPLE__` in `render2d.cpp` to prevent shearing artifacts in UI and fonts.
 
 ---
 
-## Сборка и запуск
+## 64-bit Compatibility Fixes
+
+### Struct Padding (LP64 Data Model)
+
+On macOS (LP64), `long` is 8 bytes and `void*` is 8 bytes, unlike Windows ILP32 where both are 4 bytes. Several binary file parsers relied on exact struct sizes matching file format headers:
+
+| File Format | Struct | Problem | Fix |
+|:---|:---|:---|:---|
+| DDS | `LegacyDDSURFACEDESC2` | `void* Surface` → 132 bytes instead of 124 | Replace with `unsigned int` under `#ifdef __APPLE__` |
+| TGA | `TGA2Footer`, `TGA2Extension` | `long` offsets → 34 bytes instead of 26 | Replace with `int` under `#ifdef __APPLE__` |
+
+### Enum Bitmask Undefined Behavior
+
+The death/veterancy system uses `1 << enumValue` bitmask mapping. When `enumValue == 0` (DEATH_NORMAL, LEVEL_REGULAR), the bitmask is `1 << 0 = 1`, which maps correctly on 32-bit but causes UB on 64-bit due to sign extension in `BitFlags<>` template. Fixed with explicit bitmask tables in `Damage.h` and `GameCommon.h`.
+
+### Drawable Lifetime
+
+`Drawable::drawUIText` could access parent `Object` or `Owner` pointers after the parent was destroyed during the same frame. Fixed with null checks guarded by `#ifdef __APPLE__`.
+
+---
+
+## Multiplayer Architecture
+
+### Deterministic Math (Cross-Platform Lockstep)
+
+The game uses lockstep networking — all clients compute game logic in parallel. Any floating-point divergence causes a desync.
+
+**Problem:** Windows x86 uses 80-bit FPU (`fsin`, `fcos` asm), macOS ARM uses 32-bit NEON/SSE via `sinf()`/`cosf()`. Results differ at the least significant bit.
+
+**Solution:** All trigonometric functions in `WWMath` are replaced with Sun's `fdlibm` (Freely Distributable LIBM) — a pure C implementation that produces bit-identical IEEE 754 results on all platforms.
+
+| Function | Old (Windows) | Old (macOS) | New (both) |
+|:---|:---|:---|:---|
+| Sin, Cos | x87 `fsin`/`fcos` asm | `sinf()`/`cosf()` | `fdlibm_sin()`/`fdlibm_cos()` |
+| Sqrt | x87 `fsqrt` asm | `sqrt()` | `fdlibm_sqrt()` |
+| Acos, Asin, Atan, Atan2 | system libm | system libm | `fdlibm_*()` |
+| Inv_Sqrt | asm Newton-Raphson | `1.0f/sqrt()` | Portable Quake `0x5f3759df` hack |
+| Fast_Sin, Fast_Cos | LUT tables | LUT tables | Unchanged (already deterministic) |
+
+### CRC Verification
+
+The engine computes CRC checksums every `NET_CRC_INTERVAL` frames (100 in release, 1 in debug). Each player's CRC is compared — any mismatch triggers a desync error.
+
+The macOS client reports its executable CRC via a server-side version manifest that provides Windows-compatible CRC values, ensuring the P2P handshake succeeds.
+
+### Online Services (Generals Online)
+
+~85% of the NGMP (Next-Gen Multiplayer) code is pure C++/STL/libcurl and works cross-platform without changes. Platform-specific replacements:
+
+| Win32 API | macOS Replacement | Location |
+|:---|:---|:---|
+| `ShellExecuteA("open", url)` | `system("open <url>")` | Auth, Init |
+| `CryptProtectData/Unprotect` | File-based storage | Auth |
+| `GetModuleFileName` | `_NSGetExecutablePath` | Init |
+| `LoadLibraryA/GetProcAddress` | `dlopen/dlsym` | Steam init |
+
+---
+
+## Map System
+
+### Map Discovery Chain
+
+1. `MapCache::updateCache` checks for `Maps\\MapCache.ini` via `TheFileSystem`
+2. If found (inside `.big` archives), all official maps are loaded from cache — no disk scan
+3. Custom maps are scanned from `~/Command and Conquer Generals Zero Hour Data/Maps/`
+4. The `m_isOfficial` flag controls P2P map transfer: official maps are never transferred
+
+### Lobby Map Resolution (Generals Online)
+
+The server sends a raw map name. The client resolves it:
+1. **Official maps**: prepends `maps\` prefix
+2. **Custom maps**: searches `TheMapCache` by filename (`strcasecmp`) → returns full VFS path
+3. **Not found**: raw path remains, `has_map=false` is reported to the server
+
+### Accept Button Logic
+
+The `hasMap()` value on each lobby slot is determined by the **server** (via polling), not the local cache. The server receives `has_map` from the client's `UpdateCurrentLobby_HasMap()`, which calls `findMap()`. If the map path is malformed (missing prefix, wrong slashes), the chain fails and Accept remains disabled.
+
+---
+
+## Build and Run
 
 ```bash
-sh build_run_mac.sh                  # сборка + запуск
-sh build_run_mac.sh --clean          # полная пересборка
-sh build_run_mac.sh --screenshot=N   # скриншот через N секунд
-sh build_run_mac.sh --test           # тесты Metal bridge
-sh build_run_mac.sh --lldb           # запуск под дебаггером
+sh build_run_mac.sh                  # build + run
+sh build_run_mac.sh --clean          # full clean rebuild
+sh build_run_mac.sh --screenshot=N   # screenshot after N seconds
+sh build_run_mac.sh --test           # Metal bridge tests
+sh build_run_mac.sh --lldb           # run under debugger
 ```
 
-### Файлы логов
+### Log Files
 
-| Файл | Что пишет | Как активировать |
+| File | Content | Activation |
 |:---|:---|:---|
-| `Platform/MacOS/Build/Logs/game.log` | stdout игры (`printf`, `DEBUG_INFO_MAC`) | Всегда (stdout → pipe) |
-| `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log` | `NetworkLog()` — сетевой трафик, HTTP, ICE, mesh | Всегда (⚠ путь с backslash — см. ниже) |
-| `CRCLogs/DebugFrame_*.txt` | Покадровый CRC dump | `--saveDebugCRCPerFrame ./CRCLogs` |
-| `Platform/MacOS/Build/Logs/screenshot_game_window.png` | Скриншот | `--screenshot=N` |
+| `Platform/MacOS/Build/Logs/game.log` | Game stdout (`printf`, `DEBUG_INFO_MAC`) | Always (stdout → pipe) |
+| `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log` | `NetworkLog()` — HTTP, ICE, mesh | Always (⚠ backslash in filename) |
+| `CRCLogs/DebugFrame_*.txt` | Per-frame CRC dump | `--saveDebugCRCPerFrame ./CRCLogs` |
+| `Platform/MacOS/Build/Logs/screenshot_game_window.png` | Screenshot | `--screenshot=N` |
 
 > **⚠ GeneralsOnline.log — backslash path quirk:**
-> `NetworkLog` формирует путь через `std::format("{}\\GeneralsOnlineData\\GeneralsOnline.log", UserData)`.
-> На macOS `\` не является разделителем папок — файл создаётся с **литеральным backslash в имени**.
-> Путь:  
-> `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log`
+> `NetworkLog` constructs the path with Windows-style backslashes.
+> On macOS, `\` is not a path separator — the file is created with **literal backslashes in its name**.
+> Path: `~/Command and Conquer Generals Zero Hour Data/\GeneralsOnlineData\GeneralsOnline.log`
 >
-> Для чтения в терминале:
+> To read in terminal:
 > ```bash
 > cat ~/Command\ and\ Conquer\ Generals\ Zero\ Hour\ Data/\\GeneralsOnlineData\\GeneralsOnline.log
 > ```
 
 ---
 
-## DEBUG_INFO_MAC — Система диагностики
+## DEBUG_INFO_MAC — Diagnostic System
 
-### Активация
+### Activation
 
 ```bash
 export GENERALS_MAC_DEBUG=1
 ```
 
-Макрос `DEBUG_INFO_MAC((fmt, ...))` определён в `Core/GameEngine/Include/Common/Debug.h`.
-На macOS: `printf("[DEBUG_INFO_MAC] " fmt "\n"); fflush(stdout)` → попадает в `game.log`.
-На не-Apple: `((void)0)` — no-op. **Не нужен `#ifdef __APPLE__`.**
+The `DEBUG_INFO_MAC((fmt, ...))` macro is defined in `Core/GameEngine/Include/Common/Debug.h`.
+On macOS: `printf("[DEBUG_INFO_MAC] " fmt "\n"); fflush(stdout)` → goes to `game.log`.
+On non-Apple: `((void)0)` — no-op. **No `#ifdef __APPLE__` needed at call sites.**
 
-### Теги по подсистемам
+### Tags by Subsystem
 
-#### Сетевое лобби и map transfer
+#### Network Lobby and Map Transfer
 
-| Тег | Файл | Что логирует |
+| Tag | File | What it logs |
 |:---|:---|:---|
-| `[ROOM_DATA]` | `OnlineServices_LobbyInterface.cpp` | Map path correction, member parsing (uid/hasMap/slot), ignoring updates during gameplay, SyncWithLobby calls |
-| `[SYNC_LOBBY]` | `NGMPGame.cpp` | Map resolution: OFFICIAL / CUSTOM / FALLBACK с путями |
-| `[SLOT_SYNC]` | `NGMPGame.cpp` | Каждый слот при синхронизации (uid/hasMap/name), `m_inProgress` блок, AI слоты |
-| `[GAME_START]` | `WOLGameSetupMenu.cpp` | Все слоты `myGame` vs `TheNGMPGame` ДО и ПОСЛЕ `*TheNGMPGame = *myGame` (адреса объектов) |
-| `[START_GAME]` | `NGMPGame.cpp` | Вход в `startGame()`, `m_inProgress`, `m_inGame`, все human-слоты |
-| `[LAUNCH]` | `NGMPGame.cpp` | Все слоты перед `DoAnyMapTransfers`, результат, `findMap` путь/результат, BAIL |
-| `[MAP_XFER]` | `FileTransfer.cpp` | Каждый слот в mask-loop (isHuman/hasMap), итоговый mask |
+| `[ROOM_DATA]` | `OnlineServices_LobbyInterface.cpp` | Map path correction, member parsing, SyncWithLobby calls |
+| `[SYNC_LOBBY]` | `NGMPGame.cpp` | Map resolution: OFFICIAL / CUSTOM / FALLBACK with paths |
+| `[SLOT_SYNC]` | `NGMPGame.cpp` | Each slot during sync (uid/hasMap/name) |
+| `[GAME_START]` | `WOLGameSetupMenu.cpp` | All slots before/after `*TheNGMPGame = *myGame` |
+| `[START_GAME]` | `NGMPGame.cpp` | Entry into `startGame()`, all human slots |
+| `[LAUNCH]` | `NGMPGame.cpp` | All slots before `DoAnyMapTransfers`, result, BAIL |
+| `[MAP_XFER]` | `FileTransfer.cpp` | Each slot in mask-loop, final mask |
 
 #### CRC / Out-of-Sync
 
-| Тег | Файл | Что логирует |
+| Tag | File | What it logs |
 |:---|:---|:---|
-| `[CRC_CHECK]` | `GameLogic.cpp` | Validator CRC, каждый player CRC, MISMATCH/ok, missing CRCs |
+| `[CRC_CHECK]` | `GameLogic.cpp` | Validator CRC, each player CRC, MISMATCH/ok |
 
-#### Рендеринг
+#### Rendering
 
-| Тег | Файл | Что логирует |
+| Tag | File | What it logs |
 |:---|:---|:---|
-| `[DIAG]` | Metal backend | Present, BeginScene, DrawCalls, матрицы, viewport, TSS, readback |
-
-### Пример вывода в game.log
-
-```
-[DEBUG_INFO_MAC] [ROOM_DATA] parsed member slot[1]: uid=52117 name='dima ok' hasMap=0 state=5
-[DEBUG_INFO_MAC] [SYNC_LOBBY] Map resolved as CUSTOM: 'data/maps/! 1v1 cxn/! 1v1 cxn.map'
-[DEBUG_INFO_MAC] [SLOT_SYNC] slot[1] uid=52117 hasMap=0 name='dima ok'
-[DEBUG_INFO_MAC] [GAME_START] === Before copy: myGame slots ===
-[DEBUG_INFO_MAC] [GAME_START] myGame slot[1]: state=5 isHuman=1 hasMap=0
-[DEBUG_INFO_MAC] [GAME_START] === After copy: TheNGMPGame slots ===
-[DEBUG_INFO_MAC] [GAME_START] TheNGMPGame slot[1]: state=5 isHuman=1 hasMap=???  <-- key moment
-[DEBUG_INFO_MAC] [MAP_XFER] slot[1]: isHuman=1 hasMap=??? 
-[DEBUG_INFO_MAC] [MAP_XFER] mask=0x??? map='...'
-[DEBUG_INFO_MAC] [CRC_CHECK] frame=100 validating CRCs
-[DEBUG_INFO_MAC] [CRC_CHECK] validator player[0] CRC=0x1A2B3C4D (numCRCs=2 numPlayers=2)
-[DEBUG_INFO_MAC] [CRC_CHECK] player[1] CRC=0x1A2B3C4D vs validator=0x1A2B3C4D ok
-```
+| `[DIAG]` | Metal backend | Present, BeginScene, DrawCalls, matrices, viewport, TSS |
 
 ---
 
-## CRC Debug (покадровый)
+## Per-Frame CRC Debug
 
-Подключается через CLI флаг в `build_run_mac.sh`:
+Enabled via CLI flag in `build_run_mac.sh`:
 ```
 -saveDebugCRCPerFrame /path/to/CRCLogs
 ```
 
-Генерирует `DebugFrame_NNNN.txt` для каждого фрейма с полным state dump.
-`NET_CRC_INTERVAL` = 100 (release) / 1 (debug) — интервал сверки CRC между клиентами.
+Generates `DebugFrame_NNNN.txt` for each frame with full state dump.
+`NET_CRC_INTERVAL` = 100 (release) / 1 (debug) — CRC comparison interval between clients.
 
 ---
 
-## NetworkLog — Сетевые логи
+## NetworkLog
 
-`NetworkLog(ELogVerbosity, fmt, ...)` определён в `NGMP_Helpers.cpp`.
-Пишет в `GeneralsOnline.log` (см. quirk выше).
+`NetworkLog(ELogVerbosity, fmt, ...)` is defined in `NGMP_Helpers.cpp`.
+Writes to `GeneralsOnline.log` (see backslash quirk above).
 
-### Уровни
+### Verbosity Levels
 
-| Уровень | Когда пишет |
+| Level | When |
 |:---|:---|
-| `LOG_RELEASE` | Всегда (ошибки, drop пакетов, disconnect) |
-| `LOG_DEBUG` | Только если `Debug_VerboseLogging()` = true |
+| `LOG_RELEASE` | Always (errors, packet drops, disconnects) |
+| `LOG_DEBUG` | Only when `Debug_VerboseLogging()` is true |
 
-### Что покрывает
+### Coverage
 
-- HTTP запросы/ответы к `api.playgenerals.online`
-- ICE/P2P mesh — подключение, disconnect, signaling
-- Game packet recv/send — размеры, drop reasons, buffer overflow
+- HTTP requests/responses to `api.playgenerals.online`
+- ICE/P2P mesh — connect, disconnect, signaling
+- Game packet send/recv — sizes, drop reasons, buffer overflow
 - Lobby sync polling
 - `[PRESEED]` — latency seeding
-
-**Не удалять логи** — нужны для дальнейшей отладки.
