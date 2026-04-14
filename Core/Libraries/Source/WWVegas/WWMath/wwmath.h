@@ -91,10 +91,10 @@ class WWMath
 {
 public:
 
-// Initialization and Shutdown.  Other math sub-systems which require initialization and
-// shutdown processing will be handled in these functions
-static void			Init();
-static void			Shutdown();
+	// Initialization and Shutdown.  Other math sub-systems which require initialization and
+	// shutdown processing will be handled in these functions
+	static void			Init();
+	static void			Shutdown();
 
 	// These are meant to be a collection of small math utility functions to be optimized at some point.
 	static WWINLINE float Fabs(float val)
@@ -142,7 +142,7 @@ static void			Shutdown();
 	static WWINLINE bool			Fast_Is_Float_Positive(const float& val);
 	static WWINLINE bool			Is_Power_Of_2(const unsigned int val);
 
-static float		Random_Float();
+	static float		Random_Float();
 
 	static WWINLINE float		Random_Float(float min, float max);
 	static WWINLINE float		Clamp(float val, float min = 0.0f, float max = 1.0f);
@@ -155,8 +155,15 @@ static float		Random_Float();
 
 	static WWINLINE int			Float_As_Int(const float f) { return *((int*)&f); }
 
-	static WWINLINE float		Lerp(float a, float b, float lerp);
-	static WWINLINE double		Lerp(double a, double b, float lerp);
+	// Linearly interpolates between a and b using parameter t in [0, 1].
+	// t = 0 returns a, t = 1 returns b, values in between return a proportionate blend.
+	static WWINLINE float		Lerp(float a, float b, float t);
+	static WWINLINE double	Lerp(double a, double b, float t);
+
+	// Computes the interpolation parameter t such that v = Lerp(a, b, t).
+	// Returns where v lies between a and b as a ratio, typically in [0, 1].
+	static WWINLINE float		Inverse_Lerp(float a, float b, float v);
+	static WWINLINE double	Inverse_Lerp(double a, double b, float v);
 
 	static WWINLINE long			Float_To_Long(double f);
 
@@ -258,16 +265,25 @@ WWINLINE float WWMath::Max(float a, float b)
 	return b;
 }
 
-WWINLINE float WWMath::Lerp(float a, float b, float lerp)
+WWINLINE float WWMath::Lerp(float a, float b, float t)
 {
-	return (a + (b - a) * lerp);
+	return (a + (b - a) * t);
 }
 
-WWINLINE double WWMath::Lerp(double a, double b, float lerp)
+WWINLINE double WWMath::Lerp(double a, double b, float t)
 {
-	return (a + (b - a) * lerp);
+	return (a + (b - a) * t);
 }
 
+WWINLINE float WWMath::Inverse_Lerp(float a, float b, float v)
+{
+	return (v - a) / (b - a);
+}
+
+WWINLINE double WWMath::Inverse_Lerp(double a, double b, float v)
+{
+	return (v - a) / (b - a);
+}
 
 WWINLINE bool WWMath::Is_Valid_Float(float x)
 {
@@ -607,18 +623,18 @@ WWINLINE float WWMath::Inv_Sqrt(float a)
 		shr		eax, 1; firs approx in eax = R0
 		mov		DWORD PTR[esp - 8], eax
 
-		fld		DWORD PTR[esp - 8]; r
-		fmul	st, st; r* r
-		fld		DWORD PTR[esp - 8]; r
+		fld		DWORD PTR[esp - 8];r
+		fmul	st, st;r* r
+		fld		DWORD PTR[esp - 8];r
 		fxch	st(1)
-		fmul	DWORD PTR[a]; a; r* r* y0
-		fld		DWORD PTR[esp - 12]; load 1.5
+		fmul	DWORD PTR[a];a;r* r* y0
+		fld		DWORD PTR[esp - 12];load 1.5
 		fld		st(0)
-		fsub	st, st(2); r1 = 1.5 - y1
-		; x1 = st(3)
-		; y1 = st(2)
-		; 1.5 = st(1)
-		; r1 = st(0)
+		fsub	st, st(2);r1 = 1.5 - y1
+		;x1 = st(3)
+		;y1 = st(2)
+		;1.5 = st(1)
+		;r1 = st(0)
 
 		fld		st(1)
 		fxch	st(1)
@@ -626,18 +642,18 @@ WWINLINE float WWMath::Inv_Sqrt(float a)
 		fmul	st(3), st; y2 = y1 * r1 * r1
 		fmulp	st(4), st; x2 = x1 * r1
 		fsub	st, st(2); r2 = 1.5 - y2
-		; x2 = st(3)
-		; y2 = st(2)
-		; 1.5 = st(1)
-		; r2 = st(0)
+		;x2 = st(3)
+		;y2 = st(2)
+		;1.5 = st(1)
+		;r2 = st(0)
 
-		fmul	st(2), st; y3 = y2 * r2*...
-		fmul	st(3), st; x3 = x2 * r2
-		fmulp	st(2), st; y3 = y2 * r2 * r2
+		fmul	st(2), st;y3 = y2 * r2*...
+		fmul	st(3), st;x3 = x2 * r2
+		fmulp	st(2), st;y3 = y2 * r2 * r2
 		fxch	st(1)
-		fsubp	st(1), st; r3 = 1.5 - y3
-		; x3 = st(1)
-		; r3 = st(0)
+		fsubp	st(1), st;r3 = 1.5 - y3
+		;x3 = st(1)
+		;r3 = st(0)
 		fmulp	st(1), st
 
 		fstp retval

@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
+#include <ctime>
 #include <mutex>
 #include <string>
 #include <locale>
@@ -85,6 +86,16 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
 	}
 
+	auto const rawNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	struct tm localNow = {};
+#ifdef __APPLE__
+	localtime_r(&rawNow, &localNow);
+#else
+	localtime_s(&localNow, &rawNow);
+#endif
+	char timebuf[32];
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &localNow);
+
 	char buffer[8192];
 	va_list args;
 	va_start(args, fmt);
@@ -92,17 +103,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	buffer[8192 - 1] = 0;
 	va_end(args);
 
-#ifdef _WIN32
-	auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
-	std::string strLogBuffer = std::format("[{:%Y-%m-%d %T}] {}", time, buffer);
-#else
-    auto in_time_t_log = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    char timeBuffer[64];
-    std::strftime(timeBuffer, sizeof(timeBuffer), "%Y-%m-%d %H:%M:%S", std::localtime(&in_time_t_log));
-    char fullLog[8400];
-    snprintf(fullLog, sizeof(fullLog), "[%s] %s", timeBuffer, buffer);
-    std::string strLogBuffer = fullLog;
-#endif
+	std::string strLogBuffer = std::format("[{}] {}", timebuf, buffer);
 
 	// TODO_NGMP: Keep open and flush regularly
 	std::ofstream logFile;
@@ -139,8 +140,8 @@ std::string Base64Encode(const std::vector<uint8_t>& data)
 
 		encoded += base64_chars[(triple >> 18) & 0x3F];
 		encoded += base64_chars[(triple >> 12) & 0x3F];
-		encoded += (i > data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
-		encoded += (i > data.size()) ? '=' : base64_chars[triple & 0x3F];
+		encoded += (i >= data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
+		encoded += (i >= data.size())     ? '=' : base64_chars[triple & 0x3F];
 	}
 
 	return encoded;

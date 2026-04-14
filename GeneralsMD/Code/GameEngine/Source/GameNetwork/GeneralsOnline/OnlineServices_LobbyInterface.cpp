@@ -705,7 +705,11 @@ void NGMP_OnlineServices_LobbyInterface::Tick()
 	// TODO_NGMP: Do we still need this safety measure?
 	if (IsInLobby())
 	{
+#ifdef __APPLE__
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 		if ((currTime - m_lastForceRefresh) > 5000)
 		{
 			//UpdateRoomDataCache();
@@ -767,6 +771,9 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 		}
 		else
 		{
+			if (TheNGMPGame == nullptr)
+				return;
+
 			GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
 
 			if (pLocalSlot != nullptr)
@@ -877,6 +884,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								lobbyEntry.map_path = std::format("{}\\{}", strUserMapDir.str(), lobbyEntry.map_path.c_str());
 							}
 						}
+
 						DEBUG_INFO_MAC(("[ROOM_DATA] map_official=%d corrected_path='%s' current_map='%s'", lobbyEntry.map_official, lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()));
 
 						// did the map change? cache that we need to reset and transmit our ready state
@@ -1104,6 +1112,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			// convert
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
+					if (NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>() == nullptr)
+						return;
+
 					// reset trying to join
 					ResetLobbyTryingToJoin();
 
@@ -1345,6 +1356,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					{
 						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+						if (pAuthInterface == nullptr || pLobbyInterface == nullptr)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] CreateLobby callback: required interface is null, aborting");
+							return;
+						}
 
 						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();

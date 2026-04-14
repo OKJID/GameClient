@@ -346,6 +346,18 @@ void GameLogic::destroyAllObjectsImmediate()
 		destroyObject(obj);
 	}
 
+	// Bulk-clear the sleepy update heap before processing the destroy list.
+	// During mass object destruction, the object destructor chain (e.g. setTeam -> onCapture ->
+	// setWakeFrame) can trigger rebalanceSleepyUpdate for still-live objects while the heap is
+	// in an intermediate state, causing a crash inside rebalanceChildSleepyUpdate.
+	// Clearing up front sets all module indices to -1 so that any setWakeFrame calls from
+	// destructor chains safely no-op, and processDestroyList skips per-element heap removal.
+	for (std::vector<UpdateModulePtr>::iterator it = m_sleepyUpdates.begin(); it != m_sleepyUpdates.end(); ++it)
+	{
+		(*it)->friend_setIndexInLogic(-1);
+	}
+	m_sleepyUpdates.clear();
+
 	// process the destroy list immediately
 	processDestroyList();
 	DEBUG_ASSERTCRASH(m_objList == NULL, ("destroyAllObjectsImmediate: Object list not cleared"));
@@ -3899,12 +3911,12 @@ void GameLogic::update()
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
-	Bool generateForMP = (isMPGameOrReplay && (m_frame % TheGameInfo->getCRCInterval()) == 0);
+	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
 #ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame % 100 == 0)) ||
-		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
+		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
-	Bool generateForSolo = isSoloGameOrReplay && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
+	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
 #endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)

@@ -198,10 +198,10 @@ WindowMsgHandledType GadgetPushButtonInput( GameWindow *window,
 					BitIsSet( window->winGetStatus(), WIN_STATUS_CHECK_LIKE ) == FALSE )
 			{
 
+				BitClear( instData->m_state, WIN_STATE_SELECTED );
+
 				TheWindowManager->winSendSystemMsg( instData->getOwner(), GBM_SELECTED,
 																						(WindowMsgData)window, mData1 );
-
-				BitClear( instData->m_state, WIN_STATE_SELECTED );
 
 			}
 			else

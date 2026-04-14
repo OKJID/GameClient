@@ -187,9 +187,7 @@ HTTPRequest* HTTPManager::PlatformCreateRequest(EHTTPVerb httpVerb, EIPProtocolV
 	return pNewRequest;
 }
 
-#ifdef __APPLE__
 std::atomic<bool> HTTPManager::m_bCACertBad = false;
-#endif
 
 HTTPManager::~HTTPManager()
 {

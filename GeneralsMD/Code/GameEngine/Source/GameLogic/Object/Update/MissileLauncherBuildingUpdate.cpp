@@ -214,6 +214,11 @@ Bool MissileLauncherBuildingUpdate::initiateIntentToDoSpecialPower( const Specia
 	}
 #endif
 
+	if (m_specialPowerModule == nullptr)
+	{
+		return FALSE;
+	}
+
 	if( m_specialPowerModule->getSpecialPowerTemplate() != specialPowerTemplate )
 	{
 		return FALSE;

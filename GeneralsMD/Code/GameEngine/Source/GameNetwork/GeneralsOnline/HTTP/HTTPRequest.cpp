@@ -150,8 +150,40 @@ bool HTTPRequest::InvokeDelayAction()
 
 void HTTPRequest::Threaded_SetComplete(CURLcode result)
 {
+	if (result == CURLE_SSL_CACERT_BADFILE || result == CURLE_PEER_FAILED_VERIFICATION)
+	{
+		HTTPManager::SetCACertStoreBad();
+	}
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
+
+	if (result == CURLE_OK)
+	{
+		HTTPManager* pHTTPManager = static_cast<HTTPManager*>(NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager());
+		if (pHTTPManager != nullptr)
+		{
+            if (pHTTPManager->GetProtocolInUse() == EIPProtocolVersion::DONT_CARE)
+			{
+                char* ip = nullptr;
+                curl_easy_getinfo(m_pCURL, CURLINFO_PRIMARY_IP, &ip);
+
+                if (ip)
+                {
+                    std::string addr(ip);
+                    if (addr.find(':') != std::string::npos)
+                    {
+						pHTTPManager->SetProtocolInUse(EIPProtocolVersion::FORCE_IPV6);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] We are connected to GO services using IPv6");
+                    }
+                    else
+                    {
+						pHTTPManager->SetProtocolInUse(EIPProtocolVersion::FORCE_IPV4);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] We are connected to GO services using IPv4");
+                    }
+                }
+			}
+		}
+	}
 
 	m_bIsComplete = true;
 
@@ -305,8 +337,34 @@ void HTTPRequest::PlatformStartRequest()
 #else
         curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
 
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+		// TODO_NGMP: We should move to libcurl backed by SChannel so we don't need to do this
+		// Check if cacert.pem exists
+
+		if (HTTPManager::IsCACertStoreBad())
+		{
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		}
+		else
+		{
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+		}
+
+       
 #endif
 #endif
 

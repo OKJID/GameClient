@@ -119,7 +119,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	}
 	else // fallback
 	{
-		setMap(rawMapPath.c_str());
+		setMap(lobby.map_path.c_str());
 		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map FALLBACK (NOT FOUND): raw='%s' official='%s' custom='%s'", rawMapPath.c_str(), asciiMapOfficial.str(), asciiMapCustom.str()));
 	}
 
@@ -330,15 +330,14 @@ Int NGMPGame::getLocalSlotNum(void) const
 
 void NGMPGame::startGame(Int gameID)
 {
+	DEBUG_ASSERTCRASH(m_inGame, ("Starting a game while not in game"));
+	DEBUG_LOG(("NGMPGame::startGame - game id = %d\n", gameID));
 	DEBUG_INFO_MAC(("[START_GAME] startGame() called. m_inProgress=%d m_inGame=%d", m_inProgress, m_inGame));
 	for (Int si = 0; si < MAX_SLOTS; ++si)
 	{
-		const GameSlot* ss = getConstSlot(si);
-		if (ss && ss->isHuman())
-			DEBUG_INFO_MAC(("[START_GAME] slot[%d]: isHuman=%d hasMap=%d state=%d", si, ss->isHuman(), ss->hasMap(), (int)ss->getState()));
+		const NGMPGameSlot* ss = getGameSpySlot(si);
+		DEBUG_INFO_MAC(("[START_GAME] slot[%d]: isHuman=%d hasMap=%d state=%d", si, ss->isHuman(), ss->hasMap(), (int)ss->getState()));
 	}
-	DEBUG_ASSERTCRASH(m_inGame, ("Starting a game while not in game"));
-	DEBUG_LOG(("NGMPGame::startGame - game id = %d\n", gameID));
 	//DEBUG_ASSERTCRASH(m_transport == NULL, ("m_transport is not NULL when it should be"));
 	//DEBUG_ASSERTCRASH(TheNAT == NULL, ("TheNAT is not NULL when it should be"));
 
@@ -514,8 +513,8 @@ void NGMPGame::launchGame(void)
 	DEBUG_INFO_MAC(("[LAUNCH] localSlot=%d amIHost=%d map='%s' contentsMask=%d", getLocalSlotNum(), amIHost(), getMap().str(), getMapContentsMask()));
 	for (Int diag_i = 0; diag_i < MAX_SLOTS; ++diag_i)
 	{
-		const GameSlot* diag_s = getConstSlot(diag_i);
-		if (diag_s)
+		const NGMPGameSlot* diag_s = getGameSpySlot(diag_i);
+		if (diag_s->isHuman() || diag_s->getState() != SLOT_OPEN)
 			DEBUG_INFO_MAC(("[LAUNCH] slot[%d]: state=%d isHuman=%d hasMap=%d", diag_i, (int)diag_s->getState(), diag_s->isHuman(), diag_s->hasMap()));
 	}
 
@@ -526,6 +525,7 @@ void NGMPGame::launchGame(void)
 	TheMapCache->updateCache();
 	const MapMetaData* foundMap = TheMapCache->findMap(getMap());
 	DEBUG_INFO_MAC(("[LAUNCH] findMap('%s') = %s", getMap().str(), foundMap ? "FOUND" : "NOT FOUND"));
+
 	if (!filesOk || foundMap == NULL)
 	{
 		DEBUG_INFO_MAC(("[LAUNCH] BAIL: filesOk=%d foundMap=%p", filesOk, (void*)foundMap));

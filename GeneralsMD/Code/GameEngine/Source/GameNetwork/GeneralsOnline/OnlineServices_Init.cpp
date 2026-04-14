@@ -538,6 +538,8 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 					m_vecFilesDownloaded.push_back(strDownloadPath);
 
 					std::string strPatchDir = GetPatcherDirectoryPath();
+					if (strPatchDir.empty())
+						return;
 
 					// Extract the filename with extension from strDownloadPath  
 					std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
@@ -1126,6 +1128,8 @@ void NGMP_OnlineServicesManager::ShutdownSentry()
 
 std::string NGMP_OnlineServicesManager::GetPatcherDirectoryPath()
 {
+	if (!TheGlobalData)
+		return {};
 	std::string strPatcherDirPath = std::format("{}/GeneralsOnlineData/Update/", TheGlobalData->getPath_UserData().str());
 	return strPatcherDirPath;
 }

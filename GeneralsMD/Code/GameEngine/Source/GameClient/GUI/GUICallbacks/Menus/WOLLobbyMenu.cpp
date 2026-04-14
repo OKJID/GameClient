@@ -131,7 +131,7 @@ static Int	initialGadgetDelay = 2;
 static Bool justEntered = FALSE;
 
 static int64_t s_lobbyLastChatTimeMs = 0;
-static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 8000; // how long to wait before we allow sending the next message
+static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 3000; // how long to wait before we allow sending the next message
 
 static bool LobbyChatSlowmodeAllowsSend()
 {
@@ -360,7 +360,8 @@ static void playerTooltip(GameWindow *window,
 							UnicodeString tooltip = UnicodeString::TheEmptyString;
 							if (roomMember->user_id == pAuthInterface->GetUserID())
 							{
-								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());							}
+								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
+							}
 							else
 							{
 								// not us
@@ -386,16 +387,17 @@ static void playerTooltip(GameWindow *window,
 							}
 
 							// ELO data
-                            UnicodeString tmp;
-                            tmp.format(L"\n\nElo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
-                            tooltip.concat(tmp);
-
-
+							UnicodeString tmp;
+							tmp.format(L"\n\nElo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
+							tooltip.concat(tmp);
 							Int rankPoints = CalculateRank(stats);
 							Int rank = 0;
 							Int i = 0;
-							while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
-								++i;
+							if (TheRankPointValues != nullptr)
+							{
+								while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
+									++i;
+							}
 							rank = i;
 
 							// determine favorite side
@@ -556,9 +558,12 @@ static void playerTooltip(GameWindow *window,
 		tooltip.concat(playerInfo);
 	}
 
+	if (!TheRankPointValues)
+		return;
+
 	Int rank = 0;
 	Int i = 0;
-	while( info->m_rankPoints >= TheRankPointValues->m_ranks[i + 1])
+	while (i + 1 < MAX_RANKS && info->m_rankPoints >= TheRankPointValues->m_ranks[i + 1])
 		++i;
 	rank = i;
 	AsciiString sideName = "GUI:RandomSide";
@@ -620,12 +625,12 @@ static_assert(ARRAY_SIZE(rankNames) == MAX_RANKS, "Incorrect array size");
 
 const Image* LookupSmallRankImage(Int side, Int rankPoints)
 {
-	if (rankPoints == 0)
+	if (rankPoints == 0 || !TheRankPointValues)
 		return nullptr;
 
 	Int rank = 0;
 	Int i = 0;
-	while( rankPoints >= TheRankPointValues->m_ranks[i + 1])
+	while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 		++i;
 	rank = i;
 
@@ -850,9 +855,12 @@ void PopulateLobbyPlayerListbox()
 					//if (bSuccess)
 					{
 						Int currentRank = 0;
+						if (!TheRankPointValues)
+							continue;
+
 						Int rankPoints = CalculateRank(stats);
 						Int i = 0;
-						while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+						while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 							++i;
 						currentRank = i;
 

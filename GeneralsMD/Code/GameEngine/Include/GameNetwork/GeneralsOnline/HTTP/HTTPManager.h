@@ -38,7 +38,8 @@ public:
 
 	void Tick();
 
-#ifdef __APPLE__
+
+
 	static void SetCACertStoreBad()
 	{
 		m_bCACertBad.store(true);
@@ -58,7 +59,7 @@ public:
     {
         return m_sProtocolInUse.load();
     }
-#endif
+
 
 	void AddHandleToMulti(CURL* pNewHandle);
 	void RemoveHandleFromMulti(CURL* pHandleToRemove);
@@ -84,11 +85,9 @@ private:
 private:
 	CURLM* m_pCurl = nullptr;
 
-#ifdef __APPLE__
 	std::atomic<EIPProtocolVersion> m_sProtocolInUse = EIPProtocolVersion::DONT_CARE;
 
 	static std::atomic<bool> m_bCACertBad;
-#endif
 
 	bool m_bProxyEnabled = false;
 	std::string m_strProxyAddr;

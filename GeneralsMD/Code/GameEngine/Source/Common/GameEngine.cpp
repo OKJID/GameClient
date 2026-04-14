@@ -121,6 +121,9 @@ void TearDownGeneralsOnline()
 {
 	g_bTearDownGeneralsOnlineRequested = true;
 
+	if (NGMP_OnlineServicesManager::GetInstance() == nullptr)
+		return;
+
 	EGOTearDownReason teardownReason = NGMP_OnlineServicesManager::GetInstance()->GetTeardownReason();
 
 	if (teardownReason != EGOTearDownReason::USER_REQUESTED_SILENT)
