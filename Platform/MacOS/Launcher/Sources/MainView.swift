@@ -108,6 +108,7 @@ struct WindowAccessor: NSViewRepresentable {
 
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
+
     
     private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
     private let darkPanel = Color.black.opacity(0.85)
@@ -129,6 +130,8 @@ struct MainView: View {
                     Spacer()
                 }
                 .padding(30)
+                
+                _buildFooter()
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .edgesIgnoringSafeArea(.all)
@@ -138,6 +141,72 @@ struct MainView: View {
             set: { _ in viewModel.alertMessage = nil }
         )) { alert in
             Alert(title: Text("Launch Error"), message: Text(alert.message), dismissButton: .default(Text("OK")))
+        }
+    }
+    
+    private func _buildFooter() -> some View {
+        VStack {
+            Spacer()
+            HStack(spacing: 12) {
+                if let imgPath = Bundle.main.path(forResource: "author_logo", ofType: "png"),
+                   let nsImg = NSImage(contentsOfFile: imgPath) {
+                    Image(nsImage: nsImg)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 42, height: 42)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.3), lineWidth: 1))
+                        .shadow(color: .black, radius: 2)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Ported by OKJI (Okladnoj)")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(Color.white.opacity(0.85))
+                        .shadow(color: .black, radius: 1, x: 1, y: 1)
+                    
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            if let url = URL(string: "https://okladnoj-bio.web.app/") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Text("Website")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(neonBlue)
+                                .underline()
+                                .shadow(color: .black, radius: 1)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .onHover { inside in
+                            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                        }
+                        
+                        Text("|")
+                            .foregroundColor(.white.opacity(0.5))
+                            .font(.system(size: 11))
+                        
+                        Button(action: {
+                            if let url = URL(string: "https://t.me/GeneralsOnlineMacOS") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Text("Telegram")
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(neonBlue)
+                                .underline()
+                                .shadow(color: .black, radius: 1)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .onHover { inside in
+                            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                        }
+                    }
+                }
+                Spacer()
+            }
+            .padding(.horizontal, 25)
+            .padding(.bottom, 25)
         }
     }
     
