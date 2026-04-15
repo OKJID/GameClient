@@ -78,6 +78,19 @@ set(WWMATH_SRC
     wwmath.cpp
     wwmath.h
     wwmathids.h
+
+    fdlibm/fdlibm_det.h
+    fdlibm/fdlibm.h
+    fdlibm/fdlibm_det.c
+    fdlibm/e_acos.c
+    fdlibm/e_asin.c
+    fdlibm/e_atan2.c
+    fdlibm/e_rem_pio2.c
+    fdlibm/e_sqrt.c
+    fdlibm/k_cos.c
+    fdlibm/k_rem_pio2.c
+    fdlibm/k_sin.c
+    fdlibm/k_tan.c
 )
 
 add_library(core_wwmath STATIC)
