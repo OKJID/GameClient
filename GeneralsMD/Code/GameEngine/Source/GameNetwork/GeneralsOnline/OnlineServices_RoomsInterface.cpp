@@ -133,10 +133,18 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		}
 
 		char szHeaderBuffer[8192] = { 0 };
+#ifdef __APPLE__
+		snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+#else
 		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+#endif
 		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
 
+#ifdef __APPLE__
+		snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "is-reconnect: %s", bIsReconnect ? "true": "false");
+#else
         sprintf_s(szHeaderBuffer, "is-reconnect: %s", bIsReconnect ? "true": "false");
+#endif
 		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_HTTPHEADER, m_pHeaders);
@@ -652,7 +660,11 @@ void WebSocket::Tick()
 					return;
 				}
 				m_vecWSPartialBuffer.resize(m_vecWSPartialBuffer.size() + rlen);
-				memcpy_s(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, rlen, bufferThisRecv, rlen);
+#ifdef __APPLE__
+					memcpy(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, bufferThisRecv, rlen);
+#else
+					memcpy_s(m_vecWSPartialBuffer.data() + m_vecWSPartialBuffer.size() - rlen, rlen, bufferThisRecv, rlen);
+#endif
 
 				if (meta->flags & CURLWS_CONT)
 				{
