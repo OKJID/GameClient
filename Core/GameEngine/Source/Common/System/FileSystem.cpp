@@ -173,6 +173,7 @@ void		FileSystem::reset()
 File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize, FileInstance instance )
 {
 	USE_PERF_TIMER(FileSystem)
+	DEBUG_FILESYSTEM_MAC(("openFile Request: %s", filename));
 	File *file = nullptr;
 
 	if ( TheLocalFileSystem != nullptr )
@@ -362,6 +363,11 @@ Bool FileSystem::isPathInDirectory(const AsciiString& testPath, const AsciiStrin
 	const char* pathSep = "/";
 #endif
 
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Normalizer forced to '\' for internal engine Windows compatibility, so pathSep must align.
+	pathSep = "\\";
+#endif
+
 	if (!basePathNormalized.endsWith(pathSep))
 	{
 		basePathNormalized.concat(pathSep);
@@ -370,7 +376,12 @@ Bool FileSystem::isPathInDirectory(const AsciiString& testPath, const AsciiStrin
 #ifdef _WIN32
 	if (!testPathNormalized.startsWithNoCase(basePathNormalized))
 #else
+#ifdef __APPLE__
+	// TheSuperHackers @fix macOS: Replay paths from engine map cache are often mixed case, match Windows behavior
+	if (!testPathNormalized.startsWithNoCase(basePathNormalized))
+#else
 	if (!testPathNormalized.startsWith(basePathNormalized))
+#endif
 #endif
 	{
 		return false;

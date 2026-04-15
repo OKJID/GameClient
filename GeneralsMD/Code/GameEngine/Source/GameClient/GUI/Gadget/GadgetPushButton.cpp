@@ -213,13 +213,13 @@ WindowMsgHandledType GadgetPushButtonInput( GameWindow *window,
 					BitIsSet( window->winGetStatus(), WIN_STATUS_CHECK_LIKE ) == FALSE )
 			{
 
+				BitClear( instData->m_state, WIN_STATE_SELECTED );
+
 				if (!buttonTriggersOnMouseDown(window)) {
 					// If it didn't trigger on mouse down, trigger on the mouse up. jba  [8/6/2003]
 					TheWindowManager->winSendSystemMsg( instData->getOwner(), GBM_SELECTED,
 																							(WindowMsgData)window, mData1 );
 				}
-
-				BitClear( instData->m_state, WIN_STATE_SELECTED );
 
 			}
 			else

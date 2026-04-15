@@ -293,7 +293,7 @@ static void gameTooltip(GameWindow* window,
 		return;
 	}
 
-	Int gameID = (Int)GadgetListBoxGetItemData(window, row, 0);
+	Int gameID = (Int)(size_t)GadgetListBoxGetItemData(window, row, 0);
 #if defined(GENERALS_ONLINE)
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
@@ -814,10 +814,12 @@ struct GameSortStruct
 static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 {
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
+#ifndef __APPLE__
 	if (lobbyInfo.exe_crc != TheGlobalData->m_exeCRC || lobbyInfo.ini_crc != TheGlobalData->m_iniCRC)
 	{
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
+#endif
 #if defined(GENERALS_ONLINE)
 	// Buddy lobby highlight:
 	if (theBuddyGames && theBuddyGames->count(lobbyInfo.lobbyID))
@@ -840,7 +842,19 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	}
 
 	UnicodeString gameName;
+#ifdef __APPLE__
+	std::wstring wRoomName = from_utf8(lobbyInfo.name);
+	for (size_t i = 0; i < wRoomName.length(); ++i) {
+		gameName.concat((WideChar)wRoomName[i]);
+	}
+	gameName.concat(L" (");
+	for (size_t i = 0; i < strOwnerName.length(); ++i) {
+		gameName.concat((WideChar)strOwnerName[i]);
+	}
+	gameName.concat(L")");
+#else
 	gameName.format(L"%s (%s)", from_utf8(lobbyInfo.name).c_str(), strOwnerName.c_str());
+#endif
 
 	int numPlayers = lobbyInfo.current_players;
 	int maxPlayers = lobbyInfo.max_players;
@@ -895,7 +909,7 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		gameColor = GameMakeColor(191, 198, 201, 255);
 	}
 	Int index = GadgetListBoxAddEntryText(win, gameName, gameColor, -1, COLUMN_NAME);
-	GadgetListBoxSetItemData(win, (void*)gameID, index);
+	GadgetListBoxSetItemData(win, (void*)(size_t)gameID, index);
 
 	UnicodeString s;
 
@@ -914,7 +928,15 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 			if (slashPos)
 				start = slashPos + 1;
 
+#ifdef __APPLE__
+			mapName.clear();
+			std::wstring wStart = from_utf8(start);
+			for (size_t i = 0; i < wStart.length(); ++i) {
+				mapName.concat((WideChar)wStart[i]);
+			}
+#else
 			mapName.format(L"%s", from_utf8(start).c_str());
+#endif
 		}
 		GadgetListBoxAddEntryText(win, mapName, gameColor, index, COLUMN_MAP);
 
@@ -1188,7 +1210,7 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 	GadgetListBoxGetSelected(win, &selectedIndex);
 	if (selectedIndex != -1)
 	{
-		selectedID = (Int)GadgetListBoxGetItemData(win, selectedIndex);
+		selectedID = (Int)(size_t)GadgetListBoxGetItemData(win, selectedIndex);
 	}
 	int prevPos = GadgetListBoxGetTopVisibleEntry(win);
 
@@ -1299,7 +1321,7 @@ void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
 //		return;
 //	}
 //
-//	Int selectedID = (Int)GadgetListBoxGetItemData(mainWin, selected);
+//	Int selectedID = (Int)(size_t)GadgetListBoxGetItemData(mainWin, selected);
 //	if (selectedID < 0)
 //	{
 //		return;
@@ -1405,7 +1427,7 @@ int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHei
 		return 0;
 
 	// We rely on listbox item data storing lobbyID, like RefreshGameListBox uses
-	Int lobbyID = (Int)GadgetListBoxGetItemData(window, rowIndex);
+	Int lobbyID = (Int)(size_t)GadgetListBoxGetItemData(window, rowIndex);
 	if (lobbyID == 0)
 		return 0;
 
@@ -1471,7 +1493,7 @@ void playerTemplateComboBoxTooltip(GameWindow *wndComboBox, WinInstanceData *ins
 {
 	Int index = 0;
 	GadgetComboBoxGetSelectedPos(wndComboBox, &index);
-	Int templateNum = (Int)GadgetComboBoxGetItemData(wndComboBox, index);
+	Int templateNum = (Int)(size_t)GadgetComboBoxGetItemData(wndComboBox, index);
 	UnicodeString ustringTooltip;
 	if (templateNum == -1)
 	{
@@ -1502,7 +1524,7 @@ void playerTemplateListBoxTooltip(GameWindow *wndListBox, WinInstanceData *instD
 	if (row == -1 || col == -1)
 		return;
 
-	Int templateNum = (Int)GadgetListBoxGetItemData(wndListBox, row, col);
+	Int templateNum = (Int)(size_t)GadgetListBoxGetItemData(wndListBox, row, col);
 	UnicodeString ustringTooltip;
 	if (templateNum == -1)
 	{

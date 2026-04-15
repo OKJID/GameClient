@@ -18,8 +18,11 @@
 
 #include "PreRTS.h"
 #include "Common/FrameRateLimit.h"
+#include <chrono>
+#include <thread>
 
 
+#ifdef _WIN32
 FrameRateLimit::FrameRateLimit()
 {
 	LARGE_INTEGER freq;
@@ -56,6 +59,38 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 	m_start = tick.QuadPart;
 	return (Real)elapsedSeconds;
 }
+#else
+FrameRateLimit::FrameRateLimit()
+{
+	m_start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+	m_freq = std::chrono::high_resolution_clock::period::den / std::chrono::high_resolution_clock::period::num;
+}
+
+Real FrameRateLimit::wait(UnsignedInt maxFps)
+{
+	auto now = std::chrono::high_resolution_clock::now();
+	double elapsedSeconds = static_cast<double>(now.time_since_epoch().count() - m_start) / m_freq;
+	const double targetSeconds = 1.0 / maxFps;
+	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; 
+
+	if (sleepSeconds > 0.0)
+	{
+		// Sleep for millisecond
+		std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(sleepSeconds * 1000)));
+	}
+
+	// Busy wait for remaining time
+	do
+	{
+		now = std::chrono::high_resolution_clock::now();
+		elapsedSeconds = static_cast<double>(now.time_since_epoch().count() - m_start) / m_freq;
+	}
+	while (elapsedSeconds < targetSeconds);
+
+	m_start = now.time_since_epoch().count();
+	return (Real)elapsedSeconds;
+}
+#endif
 
 
 const UnsignedInt RenderFpsPreset::s_fpsValues[] = {

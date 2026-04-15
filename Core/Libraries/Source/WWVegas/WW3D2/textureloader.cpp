@@ -670,6 +670,11 @@ void TextureLoader::Request_Thumbnail(TextureBaseClass *tc)
 void TextureLoader::Request_Background_Loading(TextureBaseClass *tc)
 {
 	WWPROFILE(("TextureLoader::Request_Background_Loading()"));
+#ifdef __APPLE__
+	// printf("[DIAG] Request_Background_Loading: tex=%p name='%s' initialized=%d\n",
+	//        tc, "(tex)", tc->Is_Initialized());
+	// fflush(stdout);
+#endif
 	// Grab the foreground lock. This prevents the foreground thread
 	// from retiring any tasks related to this texture. It also
 	// serializes calls to Request_Background_Loading from other
@@ -701,6 +706,11 @@ void TextureLoader::Request_Background_Loading(TextureBaseClass *tc)
 void TextureLoader::Request_Foreground_Loading(TextureBaseClass *tc)
 {
 	WWPROFILE(("TextureLoader::Request_Foreground_Loading()"));
+#ifdef __APPLE__
+	// printf("[DIAG] Request_Foreground_Loading: tex=%p name='%s'\n",
+	//        tc, "(tex)");
+	// fflush(stdout);
+#endif
 	// Grab the foreground lock. This prevents the foreground thread
 	// from retiring the load tasks for this texture. It also
 	// serializes calls to Request_Foreground_Loading from other
@@ -928,6 +938,10 @@ void TextureLoader::Begin_Load_And_Queue(TextureLoadTaskClass *task)
 	// should only be called from the DX8 thread.
 	WWASSERT(Is_DX8_Thread());
 
+#ifdef __APPLE__
+	printf("[DIAG] Begin_Load_And_Queue: task=%p\n", task);
+	fflush(stdout);
+#endif
 	if (task->Begin_Load()) {
 		// add to front of background queue. This means the
 		// background load thread will service tasks in LIFO
@@ -1190,6 +1204,15 @@ bool TextureLoadTaskClass::Begin_Load()
 		loaded = Begin_Uncompressed_Load();
 	}
 
+#ifdef __APPLE__
+	if (!loaded) {
+		StringClass path = Texture->Get_Full_Path();
+		printf("[DIAG] Begin_Load FAILED: path='%s' compressionAllowed=%d\n",
+		       path.Peek_Buffer(), Texture->Is_Compression_Allowed());
+		fflush(stdout);
+	}
+#endif
+
 	// if not loaded, abort.
 	if (!loaded) {
 		return false;
@@ -1276,6 +1299,11 @@ void TextureLoadTaskClass::Apply_Missing_Texture()
 	WWASSERT(TextureLoader::Is_DX8_Thread());
 	WWASSERT(!D3DTexture);
 
+#ifdef __APPLE__
+	printf("[DIAG] Apply_Missing_Texture: tex=%p name='%s'\n",
+	       Texture, Texture ? "(tex)" : "null");
+	fflush(stdout);
+#endif
 	D3DTexture = MissingTexture::_Get_Missing_Texture();
 	Apply(true);
 }

@@ -1,4 +1,4 @@
-﻿/*
+/*
 **	Command & Conquer Generals Zero Hour(tm)
 **	Copyright 2025 Electronic Arts Inc.
 **
@@ -565,7 +565,7 @@ WindowMsgHandledType PopupHostGameSystem( GameWindow *window, UnsignedInt msg, W
 				{
 					if (pos >= 0)
 					{
-						Int ladderID = (Int)GadgetComboBoxGetItemData(control, pos);
+						Int ladderID = (Int)(uintptr_t)GadgetComboBoxGetItemData(control, pos);
 						if (ladderID < 0)
 						{
 							// "Choose a ladder" selected - open overlay

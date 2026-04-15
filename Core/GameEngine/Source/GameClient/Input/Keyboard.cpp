@@ -59,6 +59,13 @@ void Keyboard::createStreamMessages()
 	while( key->key != KEY_NONE )
 	{
 
+		// Skip keys suppressed by updateKeys() (e.g. OS-level repeat duplicates)
+		if( key->status == KeyboardIO::STATUS_USED )
+		{
+			key++;
+			continue;
+		}
+
 		// add message to stream
 		if( BitIsSet( key->state, KEY_STATE_DOWN ) )
 		{
@@ -138,13 +145,26 @@ void Keyboard::updateKeys()
 		/** @todo -- if we don't have focus, we could destroy all the keys retrieved
 		here so that we don't process anything */
 
-		m_keyStatus[ m_keys[ index ].key ].state = m_keys[ index ].state;
-		m_keyStatus[ m_keys[ index ].key ].status = m_keys[ index ].status;
-
-		// Update key down time for new key presses
-		if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) )
+		// GO_CHANGE:
+		// Suppress OS-level key repeat events: DirectInput buffers every OS repeat as a
+		// fresh DOWN, which would fire multiple deletions per physical keypress. Discard
+		// any DOWN event for a key already tracked as down and let checkKeyRepeat() handle
+		// the repeat at its controlled rate.
+		if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) &&
+		    BitIsSet( m_keyStatus[ m_keys[ index ].key ].state, KEY_STATE_DOWN ) )
 		{
-			m_keyStatus[ m_keys[ index ].key ].keyDownTimeMsec = m_keys[ index ].keyDownTimeMsec;
+			m_keys[ index ].status = KeyboardIO::STATUS_USED;
+		}
+		else
+		{
+			m_keyStatus[ m_keys[ index ].key ].state = m_keys[ index ].state;
+			m_keyStatus[ m_keys[ index ].key ].status = m_keys[ index ].status;
+
+			// Update key down time for new key presses
+			if( BitIsSet( m_keys[ index ].state, KEY_STATE_DOWN ) )
+			{
+				m_keyStatus[ m_keys[ index ].key ].keyDownTimeMsec = m_keys[ index ].keyDownTimeMsec;
+			}
 		}
 
 		// prevent ALT-TAB from causing a TAB event
@@ -244,7 +264,7 @@ Bool Keyboard::checkKeyRepeat()
 					m_keyStatus[ index ].keyDownTimeMsec = now;
 
 				// Set repeated key so it will repeat again after the interval
-				m_keyStatus[ key ].keyDownTimeMsec = now - (Keyboard::KEY_REPEAT_DELAY_MSEC + Keyboard::KEY_REPEAT_INTERVAL_MSEC);
+				m_keyStatus[ key ].keyDownTimeMsec = now - (Keyboard::KEY_REPEAT_DELAY_MSEC - Keyboard::KEY_REPEAT_INTERVAL_MSEC);
 
 				retVal = TRUE;
 				break;  // exit for key
@@ -339,9 +359,13 @@ void Keyboard::initKeyNames()
 
 	_set_keyname_(L' ',		L' ',		L'\0',	KEY_SPACE  );
 
+#ifdef __APPLE__
+	Int low = 0x0409; // Default to US layout on MAC OS
+#else
 	HKL kLayout = GetKeyboardLayout(0);
 
 	Int low = (UnsignedInt)kLayout & 0xFFFF;
+#endif
 	LanguageID currentLanguage = OurLanguage;
 	if(low == 0x040c
 		 || low == 0x080c

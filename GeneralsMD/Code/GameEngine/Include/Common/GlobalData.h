@@ -580,8 +580,14 @@ public:
   const AsciiString &getPath_UserData() const { return m_userDataDir; }
 
 private:
-
+	AsciiString BuildUserDataPathFromRegistry();
+	
 	static UnsignedInt generateExeCRC();
+	
+public:
+	static UnsignedInt generateExeCRCForMac(long exeCRC);
+	
+private:
 
 	static const FieldParse s_GlobalDataFieldParseTable[];
 

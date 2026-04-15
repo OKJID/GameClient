@@ -7,10 +7,14 @@ target_compile_definitions(core_wwcommon INTERFACE
 )
 
 target_link_libraries(core_wwcommon INTERFACE
-    d3d8lib
-    milesstub
     stlport
 )
+if(NOT APPLE)
+    target_link_libraries(core_wwcommon INTERFACE
+        d3d8lib
+        milesstub
+    )
+endif()
 
 target_include_directories(core_wwcommon INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -24,9 +28,13 @@ target_include_directories(core_wwcommon INTERFACE
 )
 
 add_subdirectory(WW3D2)
-add_subdirectory(WWAudio)
+if(NOT APPLE)
+    add_subdirectory(WWAudio)
+endif()
 add_subdirectory(WWDebug)
-add_subdirectory(WWDownload)
+if(NOT APPLE)
+    add_subdirectory(WWDownload)
+endif()
 add_subdirectory(WWLib)
 add_subdirectory(WWMath)
 add_subdirectory(WWSaveLoad)

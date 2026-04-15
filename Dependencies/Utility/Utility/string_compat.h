@@ -24,12 +24,15 @@ typedef const char* LPCSTR;
 typedef char* LPSTR;
 
 // String functions
+#ifndef _STRLWR_DEFINED
+#define _STRLWR_DEFINED
 inline char *_strlwr(char *str) {
   for (int i = 0; str[i] != '\0'; i++) {
     str[i] = tolower(str[i]);
   }
   return str;
 }
+#endif
 
 #define strlwr _strlwr
 #define stricmp strcasecmp

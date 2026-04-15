@@ -2073,7 +2073,7 @@ void W3DVolumetricShadow::updateMeshVolume(Int meshIndex, Int lightIndex, const 
 		// system change, not the translations
 		//
 		Real det;
-		D3DXMatrixInverse((D3DXMATRIX*)&worldToObject, &det, (D3DXMATRIX*)&objectToWorld);
+		Matrix4x4::Inverse(&worldToObject, &det, &objectToWorld);
 
 		// find out light position in object space
 		Matrix4x4::Transform_Vector(worldToObject, lightPosWorld, &lightPosObject);

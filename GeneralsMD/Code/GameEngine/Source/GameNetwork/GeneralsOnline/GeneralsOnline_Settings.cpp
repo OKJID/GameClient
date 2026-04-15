@@ -2,6 +2,7 @@
 #include "../json.hpp"
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
+#include "Common/System/NativeFileSystem.h"
 
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
@@ -68,22 +69,24 @@ void GenOnlineSettings::Load(void)
 	std::string strSettingsFilePathLegacy = std::format("{}/{}", GameDir, SETTINGS_FILENAME_LEGACY);
 
 	// create directories we need
-	if (!std::filesystem::exists(strSettingsFileDir))
+	if (!NativeFileSystem::exists(strSettingsFileDir))
 	{
-		std::filesystem::create_directory(strSettingsFileDir);
+		NativeFileSystem::create_directory(strSettingsFileDir);
 	}
 
+#ifndef __APPLE__
 	// NGMP_NOTE: Prior to 6/23, we used the game dir for settings, this code migrates any legacy settings file to the new location (game user data dir)
-	if (std::filesystem::exists(strSettingsFilePathLegacy))
+	if (NativeFileSystem::exists(strSettingsFilePathLegacy))
 	{
-		std::filesystem::copy(strSettingsFilePathLegacy, strSettingsFilePath, std::filesystem::copy_options::overwrite_existing);
-		std::filesystem::remove(strSettingsFilePathLegacy);
+		NativeFileSystem::copy(strSettingsFilePathLegacy, strSettingsFilePath, std::filesystem::copy_options::overwrite_existing);
+		NativeFileSystem::remove(strSettingsFilePathLegacy);
 	}
+#endif
 
 	bool bApplyDefaults = false;
 
 	std::vector<uint8_t> vecBytes;
-	FILE* file = fopen(strSettingsFilePath.c_str(), "rb");
+	FILE* file = NativeFileSystem::fopen(strSettingsFilePath, "rb");
 	if (file)
 	{
 		fseek(file, 0, SEEK_END);
@@ -165,9 +168,9 @@ void GenOnlineSettings::Load(void)
                    int httpVersion = networkSettings[SETTINGS_KEY_NETWORK_HTTP_VERSION];
 
 				   // clamp
-				   if (httpVersion < 0 || httpVersion > HTTP_VERSION_3_0)
+				   if (httpVersion < 0 || httpVersion > GEN_HTTP_VERSION_3_0)
 				   {
-					   m_Network_HTTPVersion = EHTTPVersion::HTTP_VERSION_AUTO;
+					   m_Network_HTTPVersion = EHTTPVersion::GEN_HTTP_VERSION_AUTO;
 				   }
 				   else
 				   {
@@ -339,7 +342,7 @@ void GenOnlineSettings::Save()
 	std::string strData = root.dump(1);
 
 	std::string strSettingsFilePath = std::format("{}/GeneralsOnlineData/{}", TheGlobalData->getPath_UserData().str(), SETTINGS_FILENAME);
-	FILE* file = fopen(strSettingsFilePath.c_str(), "wb");
+	FILE* file = NativeFileSystem::fopen(strSettingsFilePath, "wb");
 	if (file)
 	{
 		fwrite(strData.data(), 1, strData.size(), file);

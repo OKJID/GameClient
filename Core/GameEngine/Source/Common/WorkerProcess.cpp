@@ -65,6 +65,7 @@ static PFN_SetInformationJobObject SetInformationJobObject = (PFN_SetInformation
 static PFN_AssignProcessToJobObject AssignProcessToJobObject = (PFN_AssignProcessToJobObject)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "AssignProcessToJobObject");
 #endif
 
+#ifndef __APPLE__
 WorkerProcess::WorkerProcess()
 {
 	m_processHandle = nullptr;
@@ -228,4 +229,30 @@ void WorkerProcess::kill()
 	m_stdOutput.clear();
 	m_isDone = false;
 }
+#else
+// MAC OS STUBS
+
+WorkerProcess::WorkerProcess()
+{
+	m_processHandle = nullptr;
+	m_readHandle = nullptr;
+	m_jobHandle = nullptr;
+	m_exitcode = 0;
+	m_isDone = false;
+}
+
+bool WorkerProcess::startProcess(UnicodeString command)
+{
+	m_isDone = true;
+	return false;
+}
+
+bool WorkerProcess::isRunning() const { return false; }
+bool WorkerProcess::isDone() const { return m_isDone; }
+DWORD WorkerProcess::getExitCode() const { return m_exitcode; }
+AsciiString WorkerProcess::getStdOutput() const { return m_stdOutput; }
+bool WorkerProcess::fetchStdOutput() { return true; }
+void WorkerProcess::update() { m_isDone = true; }
+void WorkerProcess::kill() { m_isDone = false; }
+#endif
 

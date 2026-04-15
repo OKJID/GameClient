@@ -51,6 +51,12 @@
 // USER INCLUDES //////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#else
+#include "windows.h"
+#endif
 
 #include "Common/AudioAffect.h"
 #include "Common/AudioEventRTS.h"
@@ -461,7 +467,7 @@ void ScoreScreenUpdate( WindowLayout * layout, void *userData)
 	// TODO_NGMP: Find a better way of doing this... before the user exists
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr && g_bNeedToTakeDoneEOGScreenshot)
 	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		if (currTime - g_TimeEnterState >= 1000)
 		{
 			g_bNeedToTakeDoneEOGScreenshot = false;
@@ -707,7 +713,7 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 				if( controlID == TheNameKeyGenerator->nameToKey(name))
 				{
 					Bool notBuddy = TRUE;
-					Int playerID = (Int)GadgetButtonGetData(TheWindowManager->winGetWindowFromId(nullptr,controlID));
+					Int playerID = (Int)(uintptr_t)GadgetButtonGetData(TheWindowManager->winGetWindowFromId(nullptr,controlID));
 											// request to add a buddy
 					BuddyInfoMap *buddies = TheGameSpyInfo->getBuddyMap();
 					BuddyInfoMap::iterator bIt;
@@ -1248,7 +1254,7 @@ void initInternetMultiPlayer(void)
 #endif
 
 	g_bNeedToTakeDoneEOGScreenshot = true;
-	g_TimeEnterState = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	g_TimeEnterState = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 	if (!TheGameSpyBuddyMessageQueue)
 		return;

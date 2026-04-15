@@ -34,6 +34,7 @@
 #include "Common/XferDeepCRC.h"
 #include "Common/crc.h"
 #include "Common/Snapshot.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Utility/endian_compat.h"
 
 //-------------------------------------------------------------------------------------------------
@@ -218,7 +219,7 @@ void XferDeepCRC::open( AsciiString identifier )
 	Xfer::open( identifier );
 
 	// open the file
-	m_fileFP = fopen( identifier.str(), "w+b" );
+	m_fileFP = NativeFileSystem::fopen( identifier, "w+b" );
 	if( m_fileFP == nullptr )
 	{
 

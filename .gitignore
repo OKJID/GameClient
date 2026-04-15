@@ -65,4 +65,13 @@ build.ninja
 
 ## Python
 __pycache__/
-*.pyc
+
+CRCLogs/
+
+# Large Game Assets
+Data/*.big
+
+# Heavy Logs & Media
+Platform/MacOS/Build/Logs/
+*.gif
+

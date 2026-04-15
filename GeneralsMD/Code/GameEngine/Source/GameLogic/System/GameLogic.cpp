@@ -22,6 +22,7 @@
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
+// TheSuperHackers @build Okladnoj 11/04/2026 Add Win32 isolation for FPU control functions.
 // FILE: GameLogic.cpp ////////////////////////////////////////////////////////////////////////////
 // GameLogic class implementation
 // Author: Michael S. Booth, October 2000
@@ -207,6 +208,7 @@ void setFPMode()
 	  // anything as long as it is consistent, really, but this
 	  // is in the (vain?) hope of any slight speed boost.
 	  //
+#ifdef _WIN32
 	_fpreset();
 
 	UnsignedInt curVal = _statusfp();
@@ -216,6 +218,7 @@ void setFPMode()
 	newVal = (newVal & ~_MCW_PC) | (_PC_24 & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
+#endif
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -342,6 +345,18 @@ void GameLogic::destroyAllObjectsImmediate()
 		nextObj = obj->getNextObject();
 		destroyObject(obj);
 	}
+
+	// Bulk-clear the sleepy update heap before processing the destroy list.
+	// During mass object destruction, the object destructor chain (e.g. setTeam -> onCapture ->
+	// setWakeFrame) can trigger rebalanceSleepyUpdate for still-live objects while the heap is
+	// in an intermediate state, causing a crash inside rebalanceChildSleepyUpdate.
+	// Clearing up front sets all module indices to -1 so that any setWakeFrame calls from
+	// destructor chains safely no-op, and processDestroyList skips per-element heap removal.
+	for (std::vector<UpdateModulePtr>::iterator it = m_sleepyUpdates.begin(); it != m_sleepyUpdates.end(); ++it)
+	{
+		(*it)->friend_setIndexInLogic(-1);
+	}
+	m_sleepyUpdates.clear();
 
 	// process the destroy list immediately
 	processDestroyList();
@@ -2697,6 +2712,7 @@ void GameLogic::processCommandList(CommandList* list)
 	{
 		Bool sawCRCMismatch = FALSE;
 		Int numPlayers = 0;
+		DEBUG_INFO_MAC(("[CRC_CHECK] frame=%d validating CRCs", m_frame));
 		DEBUG_ASSERTCRASH(TheNetwork, ("No Network!"));
 		if (TheNetwork)
 		{
@@ -2709,6 +2725,12 @@ void GameLogic::processCommandList(CommandList* list)
 			if (m_cachedCRCs.size() < numPlayers)
 			{
 				DEBUG_CRASH(("Not enough CRCs!"));
+				for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+				{
+					DEBUG_INFO_MAC(("[CRC_CHECK_DUMP] We HAVE CRC from playerIndex=%d CRC=0x%08X", crcIt->first, crcIt->second));
+				}
+				DEBUG_INFO_MAC(("[CRC_CHECK_DUMP] Our local generated CRC=0x%08X", getCRC()));
+				DEBUG_INFO_MAC(("[CRC_CHECK] NOT ENOUGH CRCs: have=%zu expected=%d", m_cachedCRCs.size(), numPlayers));
 				sawCRCMismatch = TRUE;
 			}
 			else
@@ -2716,11 +2738,11 @@ void GameLogic::processCommandList(CommandList* list)
 				//DEBUG_LOG(("Comparing %d CRCs on frame %d", m_cachedCRCs.size(), m_frame));
 				std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin();
 				Int validatorCRC = crcIt->second;
-				//DEBUG_LOG(("Validator CRC from player %d is %8.8X", crcIt->first, validatorCRC));
+				DEBUG_INFO_MAC(("[CRC_CHECK] validator player[%d] CRC=0x%08X (numCRCs=%zu numPlayers=%d)", crcIt->first, validatorCRC, m_cachedCRCs.size(), numPlayers));
 				while (++crcIt != m_cachedCRCs.end())
 				{
 					Int validatedCRC = crcIt->second;
-					//DEBUG_LOG(("CRC to validate is from player %d: %8.8X", crcIt->first, validatedCRC));
+					DEBUG_INFO_MAC(("[CRC_CHECK] player[%d] CRC=0x%08X vs validator=0x%08X %s", crcIt->first, validatedCRC, validatorCRC, (validatorCRC != validatedCRC) ? "MISMATCH!" : "ok"));
 					if (validatorCRC != validatedCRC)
 					{
 						DEBUG_CRASH(("CRC mismatch!"));
@@ -3889,12 +3911,12 @@ void GameLogic::update()
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
 	Bool isMPGameOrReplay = (TheRecorder && TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
 	Bool isSoloGameOrReplay = (TheRecorder && !TheRecorder->isMultiplayer() && getGameMode() != GAME_SHELL && getGameMode() != GAME_NONE);
-	Bool generateForMP = (isMPGameOrReplay && (m_frame % TheGameInfo->getCRCInterval()) == 0);
+	Bool generateForMP = (isMPGameOrReplay && TheGameInfo->getCRCInterval() > 0 && (m_frame % TheGameInfo->getCRCInterval()) == 0);
 #ifdef DEBUG_CRC
 	Bool generateForSolo = isSoloGameOrReplay && ((m_frame && (m_frame % 100 == 0)) ||
-		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && ((m_frame % REPLAY_CRC_INTERVAL) == 0)));
+		(getFrame() >= TheCRCFirstFrameToLog && getFrame() < TheCRCLastFrameToLog && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0)));
 #else
-	Bool generateForSolo = isSoloGameOrReplay && ((m_frame % REPLAY_CRC_INTERVAL) == 0);
+	Bool generateForSolo = isSoloGameOrReplay && (REPLAY_CRC_INTERVAL > 0 && (m_frame % REPLAY_CRC_INTERVAL) == 0);
 #endif // DEBUG_CRC
 
 	if (generateForSolo || generateForMP)

@@ -20,6 +20,8 @@
 #include "Common/StatsUploader.h"
 #include "Common/AsciiString.h"
 
+#ifndef __APPLE__
+
 #include <windows.h>
 #include <wininet.h>
 #include <stdio.h>
@@ -31,7 +33,6 @@ void UploadStatsToServer(const AsciiString& url, const void *data, unsigned int 
 	if (url.isEmpty() || data == nullptr || dataLen == 0)
 		return;
 
-	// Parse URL components
 	char hostBuf[256];
 	char pathBuf[1024];
 	URL_COMPONENTSA uc;
@@ -80,7 +81,6 @@ void UploadStatsToServer(const AsciiString& url, const void *data, unsigned int 
 		return;
 	}
 
-	// Build headers
 	char headers[512];
 	sprintf(headers, "Content-Type: application/gzip\r\nX-Game-Seed: %u\r\n", seed);
 
@@ -102,3 +102,13 @@ void UploadStatsToServer(const AsciiString& url, const void *data, unsigned int 
 	InternetCloseHandle(hConnect);
 	InternetCloseHandle(hInternet);
 }
+
+#else // __APPLE__
+
+// TODO(PS_PATH): Implement stats upload via NSURLSession or libcurl
+void UploadStatsToServer(const AsciiString& url, const void *data, unsigned int dataLen, unsigned int seed)
+{
+	(void)url; (void)data; (void)dataLen; (void)seed;
+}
+
+#endif // __APPLE__

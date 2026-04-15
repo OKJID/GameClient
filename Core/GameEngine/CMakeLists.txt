@@ -553,7 +553,7 @@ set(GAMEENGINE_SRC
     Include/GameNetwork/RankPointValue.h
     Include/GameNetwork/Transport.h
     Include/GameNetwork/udp.h
-    Include/GameNetwork/User.h
+#    Include/GameNetwork/User.h
     Include/GameNetwork/WOLBrowser/FEBDispatch.h
     Include/GameNetwork/WOLBrowser/WebBrowser.h
 #    Include/Precompiled/PreRTS.h
@@ -679,6 +679,7 @@ set(GAMEENGINE_SRC
 #    Source/Common/System/Upgrade.cpp
     Source/Common/System/Xfer.cpp
     Source/Common/System/XferCRC.cpp
+    Source/Common/System/NativeFileSystem.cpp
     Source/Common/System/XferLoad.cpp
     Source/Common/System/XferSave.cpp
 #    Source/Common/TerrainTypes.cpp
@@ -1143,7 +1144,7 @@ set(GAMEENGINE_SRC
     Source/GameNetwork/Transport.cpp
     Source/GameNetwork/udp.cpp
     Source/GameNetwork/User.cpp
-    Source/GameNetwork/WOLBrowser/WebBrowser.cpp
+    # Source/GameNetwork/WOLBrowser/WebBrowser.cpp
 #    Source/Precompiled/PreRTS.cpp
 )
 
@@ -1191,10 +1192,15 @@ target_link_libraries(corei_gameengine_public INTERFACE
     core_compression
     core_browserdispatch
     #core_wwvegas
-    d3d8lib
     gamespy::gamespy
     stlport
 )
+
+if(NOT APPLE)
+    target_link_libraries(corei_gameengine_public INTERFACE
+        d3d8lib
+    )
+endif()
 
 # ReactOS ATL for MinGW-w64 only (MSVC uses native ATL)
 if(MINGW)

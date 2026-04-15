@@ -1126,7 +1126,14 @@ void checkQR2Queries( PEER peer, SOCKET sock )
 {
 	static char indata[INBUF_LEN];
 	struct sockaddr_in saddr;
+#ifdef __APPLE__
+	socklen_t saddrlen = sizeof(struct sockaddr_in);
+#else
 	int saddrlen = sizeof(struct sockaddr_in);
+#endif
+#ifndef SOCKET_ERROR
+#define SOCKET_ERROR (-1)
+#endif
 	fd_set set;
 	struct timeval timeout = {0,0};
 	int error;
@@ -1154,7 +1161,9 @@ static UnsignedInt localIP = 0;
 void PeerThreadClass::Thread_Function()
 {
 	try {
+#ifndef __APPLE__
 	_set_se_translator( DumpExceptionInfo ); // Hook that allows stack trace.
+#endif
 
 	PEER peer;
 

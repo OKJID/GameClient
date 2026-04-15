@@ -714,6 +714,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 #endif
 
 	AsciiString realFileName = msg->getRealFilename();
+	DEBUG_INFO_MAC(("[XFER_RECV] processFile: portable='%s' real='%s' bytes=%d", msg->getPortableFilename().str(), realFileName.str(), msg->getFileLength()));
 	if (realFileName.isEmpty())
 	{
 		// TheSuperHackers @security slurmlord 18/06/2025 As the file name/path from the NetFileCommandMsg failed to normalize,
@@ -721,6 +722,7 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		// by simply returning and let the transfer time out.
 		DEBUG_LOG(("Got a file name transferred that failed to normalize: '%s'!", msg->getPortableFilename().str()));
 		return;
+		DEBUG_INFO_MAC(("[XFER_RECV] REJECTED: normalize failed, portable='%s'", msg->getPortableFilename().str()));
 	}
 
 	// TheSuperHackers @security bobtista 06/11/2025 Validate file extension to prevent arbitrary file types
@@ -769,11 +771,13 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		fp->close();
 		fp = nullptr;
 		DEBUG_LOG(("Wrote %d bytes to file %s!", len, realFileName.str()));
+		DEBUG_INFO_MAC(("[XFER_RECV] SUCCESS: wrote %d bytes to '%s'", len, realFileName.str()));
 
 	}
 	else
 	{
 		DEBUG_LOG(("Cannot open file!"));
+		DEBUG_INFO_MAC(("[XFER_RECV] FAILED: cannot open '%s' for write", realFileName.str()));
 	}
 
 	DEBUG_LOG(("ConnectionManager::processFile() - sending a NetFileProgressCommandMsg"));
@@ -1244,6 +1248,7 @@ void ConnectionManager::update(Bool isInGame) {
 			if (m_connections[i]->isQuitting() && m_connections[i]->isQueueEmpty())
 			{
 				DEBUG_LOG(("ConnectionManager::update - deleting connection for slot %d", i));
+DEBUG_INFO_MAC(("[NET_CONN] deleting connection slot=%d frame=%d", i, TheGameLogic->getFrame()));
 				deleteInstance(m_connections[i]);
 				m_connections[i] = nullptr;
 			}
@@ -1252,6 +1257,7 @@ void ConnectionManager::update(Bool isInGame) {
 		if ((m_frameData[i] != nullptr) && (m_frameData[i]->getIsQuitting() == TRUE)) {
 			if (m_frameData[i]->getQuitFrame() == TheGameLogic->getFrame()) {
 				DEBUG_LOG(("ConnectionManager::update - deleting frame data for slot %d on quitting frame %d", i, m_frameData[i]->getQuitFrame()));
+DEBUG_INFO_MAC(("[NET_CONN] deleting frameData slot=%d quitFrame=%d curFrame=%d", i, m_frameData[i]->getQuitFrame(), TheGameLogic->getFrame()));
 				deleteInstance(m_frameData[i]);
 				m_frameData[i] = nullptr;
 			}
@@ -1951,6 +1957,7 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 	// Need to do the deletion of the slot's connection and frame data here.
 	PlayerLeaveCode retval = PLAYERLEAVECODE_CLIENT;
 	DEBUG_LOG(("ConnectionManager::disconnectPlayer - disconnecting slot %d on frame %d", slot, TheGameLogic->getFrame()));
+	DEBUG_INFO_MAC(("[NET_DISCONNECT] disconnectPlayer slot=%d frame=%d", slot, TheGameLogic->getFrame()));
 
 	if ((slot < 0) || (slot >= MAX_SLOTS)) {
 		return PLAYERLEAVECODE_UNKNOWN;
@@ -2508,7 +2515,11 @@ Int ConnectionManager::getFileTransferProgress(Int playerID, AsciiString path)
 	{
 		//DEBUG_LOG(("ConnectionManager::getFileTransferProgress(%s): looking at existing transfer of '%s'",
 		//	path.str(), commandIt->second.str()));
+#ifdef __APPLE__
+		if (commandIt->second.compareNoCase(path) == 0)
+#else
 		if (commandIt->second == path)
+#endif
 		{
 			return s_fileProgressMap[playerID][commandIt->first];
 		}

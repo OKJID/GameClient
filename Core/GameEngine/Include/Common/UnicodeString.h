@@ -46,6 +46,9 @@
 #pragma once
 
 #include <stdarg.h>
+#ifdef __APPLE__
+#include <wchar.h>
+#endif
 #include "Lib/BaseType.h"
 #include "Common/Debug.h"
 #include "Common/Errors.h"

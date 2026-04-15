@@ -1,0 +1,30 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "macOS: Run build_run_mac.sh (Console)",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "sh build_run_mac.sh",
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "macOS: Visual Debug C&C Generals",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH",
+            "args": [
+                "-win"
+            ],
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                { "name": "GENERALS_INSTALL_PATH", "value": "/Users/okji/dev/games/Command and Conquer - Generals/" },
+                { "name": "GENERALS_FPS_LIMIT", "value": "60" },
+                { "name": "GENERALS_MAC_DEBUG", "value": "1" }
+            ],
+            "MIMode": "lldb",
+            "preLaunchTask": "macOS: CMake Compile Only",
+            "externalConsole": false
+        }
+    ]
+}

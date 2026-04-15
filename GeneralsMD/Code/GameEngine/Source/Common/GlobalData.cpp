@@ -46,6 +46,7 @@
 #include "Common/FileSystem.h"
 #include "Common/GameAudio.h"
 #include "Common/INI.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/Registry.h"
 #include "Common/OptionPreferences.h"
 #include "Common/version.h"
@@ -58,6 +59,10 @@
 #include "GameClient/TerrainVisual.h"
 
 #include "GameNetwork/FirewallHelper.h"
+
+#ifdef __APPLE__
+extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h);
+#endif
 
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 GlobalData* TheWritableGlobalData = nullptr;				///< The global data singleton
@@ -1049,32 +1054,40 @@ GlobalData::GlobalData()
 
 	m_keyboardCameraRotateSpeed = 0.1f;
 
-  // Set user data directory based on registry settings instead of INI parameters. This allows us to
-  // localize the leaf name.
-  char temp[_MAX_PATH + 1];
-  if (::SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true))
-  {
-    AsciiString myDocumentsDirectory = temp;
-
-    if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() -1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
-
-    AsciiString leafName;
-
-    if ( !GetStringFromRegistry( "", "UserDataLeafName", leafName ) )
+#if defined(USE_MAULLER_ONEDRIVE_FIX)
+	// Set user data directory based on registry settings instead of INI parameters.
+	// This allows us to localize the leaf name.
+	m_userDataDir = BuildUserDataPathFromRegistry();
+	CreateDirectory(m_userDataDir.str(), nullptr);
+#else
+    // Set user data directory based on registry settings instead of INI parameters. This allows us to
+// localize the leaf name.
+    char temp[_MAX_PATH + 1];
+    if (::SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true))
     {
-      // Use something, anything
-      // [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
-      leafName = "Command and Conquer Generals Zero Hour Data";
+        AsciiString myDocumentsDirectory = temp;
+
+        if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
+            myDocumentsDirectory.concat('\\');
+
+        AsciiString leafName;
+
+        if (!GetStringFromRegistry("", "UserDataLeafName", leafName))
+        {
+            // Use something, anything
+            // [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
+            leafName = "Command and Conquer Generals Zero Hour Data";
+        }
+
+        myDocumentsDirectory.concat(leafName);
+        if (myDocumentsDirectory.getCharAt(myDocumentsDirectory.getLength() - 1) != '\\')
+            myDocumentsDirectory.concat('\\');
+
+        CreateDirectory(myDocumentsDirectory.str(), nullptr);
+        m_userDataDir = myDocumentsDirectory;
     }
 
-    myDocumentsDirectory.concat( leafName );
-    if (myDocumentsDirectory.getCharAt( myDocumentsDirectory.getLength() - 1) != '\\')
-      myDocumentsDirectory.concat( '\\' );
-
-    CreateDirectory(myDocumentsDirectory.str(), nullptr);
-    m_userDataDir = myDocumentsDirectory;
-  }
+#endif
 
 	//-allAdvice feature
 	//m_allAdvice = FALSE;
@@ -1259,6 +1272,24 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	Int xres,yres;
 	optionPref.getResolution(&xres, &yres);
 
+#ifdef __APPLE__
+	// TheSuperHackers @feature macOS: Adaptive startup resolution.
+	// When no "Resolution" key exists in Options.ini, getResolution returns
+	// the default 800x600. On macOS we replace this with 90% of the main
+	// screen dimensions for a sensible first-time user experience.
+	{
+		OptionPreferences::const_iterator it = optionPref.find("Resolution");
+		if (it == optionPref.end()) {
+			int adaptW = xres, adaptH = yres;
+			MacOS_GetAdaptiveResolution(&adaptW, &adaptH);
+			if (adaptW > 0 && adaptH > 0) {
+				xres = adaptW;
+				yres = adaptH;
+			}
+		}
+	}
+#endif
+
 	TheWritableGlobalData->m_xResolution = xres;
 	TheWritableGlobalData->m_yResolution = yres;
 }
@@ -1271,6 +1302,16 @@ void GlobalData::parseCustomDefinition()
 		m_viewportHeightScale = 1.0f;
 	}
 }
+
+long tempExeCRC = 2339762132;
+
+
+UnsignedInt GlobalData::generateExeCRCForMac(long exeCRC)
+{
+	tempExeCRC = exeCRC;
+	return generateExeCRC();
+}
+
 
 UnsignedInt GlobalData::generateExeCRC()
 {
@@ -1292,6 +1333,9 @@ UnsignedInt GlobalData::generateExeCRC()
 	DEBUG_LOG(("Fake EXE CRC is 0x%8.8X", exeCRC.get()));
 
 #else
+#if defined(__APPLE__)
+	exeCRC.set(tempExeCRC);
+#else
 	{
 		Char buffer[ _MAX_PATH ];
 		GetModuleFileName( nullptr, buffer, sizeof( buffer ) );
@@ -1311,6 +1355,7 @@ UnsignedInt GlobalData::generateExeCRC()
 			DEBUG_CRASH(("Executable file has failed to open"));
 		}
 	}
+#endif
 #endif
 
 	UnsignedInt version = 0;
@@ -1344,6 +1389,76 @@ UnsignedInt GlobalData::generateExeCRC()
 	}
 
 	DEBUG_LOG(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
+	DEBUG_INFO_MAC(("EXE+Version(%d.%d)+SCB CRC is 0x%8.8X", version >> 16, version & 0xffff, exeCRC.get()));
 
 	return exeCRC.get();
+}
+
+AsciiString GlobalData::BuildUserDataPathFromRegistry()
+{
+	AsciiString myDocumentsDirectory;
+
+#ifndef __APPLE__
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+	// VC6 lacks FOLDERID_Documents and KF_FLAG_DEFAULT
+	const GUID FOLDERID_Documents = { 0xFDD39AD0, 0x238F, 0x46AF, 0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7 };
+	const DWORD KF_FLAG_DEFAULT = 0;
+#endif
+
+	typedef HRESULT(WINAPI* PFN_SHGetKnownFolderPath)(const GUID& rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
+
+
+	HMODULE shell32module = GetModuleHandleA("shell32.dll");
+	PFN_SHGetKnownFolderPath pSHGetKnownFolderPath = nullptr;
+
+	// TheSuperHackers @bugfix Mauller 20/03/2026 Fix the handling of folder redirection
+	// OneDrive and Group Policy folder redirection is better supported by SHGetKnownFolderPath()
+	// SHGetKnownFolderPath() is only supported in windows Vista onwards so we check for it being available
+	if (shell32module) {
+		pSHGetKnownFolderPath = (PFN_SHGetKnownFolderPath)GetProcAddress(shell32module, "SHGetKnownFolderPath");
+	}
+
+	if (pSHGetKnownFolderPath) {
+		PWSTR pszPath = nullptr;
+		HRESULT hr = pSHGetKnownFolderPath(FOLDERID_Documents, KF_FLAG_DEFAULT, nullptr, &pszPath);
+
+		if (SUCCEEDED(hr) && pszPath) {
+			myDocumentsDirectory.translate(pszPath);
+			CoTaskMemFree(pszPath);
+		}
+	}
+	else {
+		char temp[_MAX_PATH + 1];
+		if (SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
+			myDocumentsDirectory = temp;
+		}
+	}
+#else
+	char temp[_MAX_PATH + 1];
+	if (SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
+		myDocumentsDirectory = temp;
+	}
+#endif
+
+	if (!myDocumentsDirectory.isEmpty()) {
+		myDocumentsDirectory = NativeFileSystem::get_engine_path(myDocumentsDirectory.str()).c_str();
+
+		// Now build the full path string
+		if (!myDocumentsDirectory.endsWith("\\"))
+			myDocumentsDirectory.concat('\\');
+
+		AsciiString leafName;
+		if (!GetStringFromRegistry("", "UserDataLeafName", leafName))
+		{
+			// Use something, anything
+			// [MH] had to remove this, otherwise mapcache build step won't run... DEBUG_CRASH( ( "Could not find registry key UserDataLeafName; defaulting to \"Command and Conquer Generals Zero Hour Data\" " ) );
+			leafName = "Command and Conquer Generals Zero Hour Data";
+		}
+
+		myDocumentsDirectory.concat(leafName);
+		if (!myDocumentsDirectory.endsWith("\\"))
+			myDocumentsDirectory.concat('\\');
+	}
+
+	return myDocumentsDirectory;
 }

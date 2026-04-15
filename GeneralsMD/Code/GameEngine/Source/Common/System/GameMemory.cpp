@@ -59,6 +59,42 @@
 	#include "Common/StackDump.h"
 #endif
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#include <malloc/malloc.h>
+#include <string.h>
+
+static uintptr_t gExeStart = 0;
+static uintptr_t gExeEnd = 0;
+static bool gInitializingBounds = false;
+
+static inline bool isCallerAppleSystem() {
+    if (__builtin_expect(gExeStart == 0, 0)) {
+        if (gInitializingBounds) return true; // Fallback to native malloc to prevent recursion
+        gInitializingBounds = true;
+        
+        Dl_info info;
+        if (dladdr((void*)isCallerAppleSystem, &info) && info.dli_fbase != nullptr) {
+            gExeStart = (uintptr_t)info.dli_fbase;
+            gExeEnd = gExeStart + 0x0FFFFFFF; // 256MB conservative bound for the executable
+        } else {
+            gExeStart = 1;
+            gExeEnd = 1;
+        }
+        gInitializingBounds = false;
+    }
+    
+    uintptr_t retAddr = (uintptr_t)__builtin_return_address(0);
+    // If inside our 256MB executable bounds, it's game code
+    if (retAddr >= gExeStart && retAddr < gExeEnd) {
+        return false;
+    }
+    
+    // Otherwise, it's Apple Frameworks, AudioToolbox, or libc++
+    return true;
+}
+#endif
+
 #ifdef MEMORYPOOL_DEBUG
 DECLARE_PERF_TIMER(MemoryPoolDebugging)
 DECLARE_PERF_TIMER(MemoryPoolInitFilling)
@@ -235,7 +271,13 @@ static void* sysAllocateDoNotZero(Int numBytes)
 {
 	void* p = ::GlobalAlloc(GMEM_FIXED, numBytes);
 	if (!p)
+	{
+#ifdef __APPLE__
+		printf("!!! sysAllocateDoNotZero FAILED: numBytes=%d (0x%x)\n", numBytes, (unsigned)numBytes);
+		fflush(stdout);
+#endif
 		throw ERROR_OUT_OF_MEMORY;
+	}
 #ifdef MEMORYPOOL_DEBUG
 	{
 		USE_PERF_TIMER(MemoryPoolDebugging)
@@ -1652,6 +1694,11 @@ void* MemoryPool::allocateBlockDoNotZeroImplementation(DECLARE_LITERALSTRING_ARG
 	{
 		if (m_overflowAllocationCount == 0)
 		{
+#ifdef __APPLE__
+			printf("!!! MemoryPool '%s' OOM: cannot grow (overflow=0, initAlloc=%d, blockSize=%d)\n",
+				m_poolName, m_initialAllocationCount, m_allocationSize);
+			fflush(stdout);
+#endif
 			throw ERROR_OUT_OF_MEMORY;	// this pool is not allowed to grow
 		}
 		else
@@ -2287,6 +2334,13 @@ void DynamicMemoryAllocator::freeBytes(void* pBlockPtr)
 	if (!pBlockPtr)
 		return;
 
+#ifdef __APPLE__
+	if (malloc_size(pBlockPtr) > 0) {
+		free(pBlockPtr);
+		return;
+	}
+#endif
+
 	ScopedCriticalSection scopedCriticalSection(TheDmaCriticalSection);
 
 #ifdef MEMORYPOOL_CHECK_BLOCK_OWNERSHIP
@@ -2669,6 +2723,11 @@ MemoryPool *MemoryPoolFactory::createMemoryPool(const char *poolName, Int alloca
 
 	if (initialAllocationCount <= 0 || overflowAllocationCount < 0)
 	{
+#ifdef __APPLE__
+		printf("!!! createMemoryPool '%s' FAILED: initAlloc=%d, overflow=%d, allocSize=%d\n",
+			poolName, initialAllocationCount, overflowAllocationCount, allocationSize);
+		fflush(stdout);
+#endif
 		DEBUG_CRASH(("illegal pool size: %d %d",initialAllocationCount,overflowAllocationCount));
 		throw ERROR_OUT_OF_MEMORY;
 	}
@@ -3272,6 +3331,13 @@ void STLSpecialAlloc::deallocate(void* __p, size_t)
 */
 void *operator new(size_t size)
 {
+#ifdef __APPLE__
+	if (isCallerAppleSystem()) {
+		if (size == 0) size = 1;
+		return malloc(size);
+	}
+#endif
+
 	++theLinkTester;
 	preMainInitMemoryManager();
 	DEBUG_ASSERTCRASH(TheDynamicMemoryAllocator != nullptr, ("must init memory manager before calling global operator new"));
@@ -3284,6 +3350,13 @@ void *operator new(size_t size)
 */
 void *operator new[](size_t size)
 {
+#ifdef __APPLE__
+	if (isCallerAppleSystem()) {
+		if (size == 0) size = 1;
+		return malloc(size);
+	}
+#endif
+
 	++theLinkTester;
 	preMainInitMemoryManager();
 	DEBUG_ASSERTCRASH(TheDynamicMemoryAllocator != nullptr, ("must init memory manager before calling global operator new"));

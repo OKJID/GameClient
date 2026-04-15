@@ -104,7 +104,7 @@ public:
 
 	void UpdateCountdownLastCheckTime()
 	{
-		m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	}
 
 	int GetTotalCountdownDuration()

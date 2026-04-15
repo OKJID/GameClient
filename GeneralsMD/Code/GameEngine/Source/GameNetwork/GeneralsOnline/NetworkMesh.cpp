@@ -1,8 +1,11 @@
 #include "GameNetwork/GeneralsOnline/NetworkMesh.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "Common/Debug.h"
 
+#ifdef _WIN32
 #include <ws2ipdef.h>
+#endif
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameLogic/GameLogic.h"
@@ -22,9 +25,13 @@ static std::atomic<bool> g_bNetworkMeshDestroying = false;
 // Called when a connection undergoes a state transition
 void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t* pInfo)
 {
+	DEBUG_INFO_MAC(("[P2P] OnSteamNetConnectionStatusChanged: state=%d conn=%u desc='%s'",
+		pInfo->m_info.m_eState, pInfo->m_hConn, pInfo->m_info.m_szConnectionDescription));
+
 	// Early exit if NetworkMesh is being destroyed to prevent use-after-free
 	if (g_bNetworkMeshDestroying.load())
 	{
+		DEBUG_INFO_MAC(("[P2P] Ignoring callback - mesh is being destroyed"));
 		return;
 	}
 
@@ -54,11 +61,17 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 		//return;
 	}
 
+	DEBUG_INFO_MAC(("[P2P] connectionID resolved to %lld", connectionID));
+
 	// What's the state of the connection?
 	switch (pInfo->m_info.m_eState)
 	{
 	case k_ESteamNetworkingConnectionState_ClosedByPeer:
 	case k_ESteamNetworkingConnectionState_ProblemDetectedLocally:
+
+		DEBUG_INFO_MAC(("[P2P] DISCONNECT/ERROR: state=%d reason=%d desc='%s' debug='%s'",
+			pInfo->m_info.m_eState, pInfo->m_info.m_eEndReason,
+			pInfo->m_info.m_szConnectionDescription, pInfo->m_info.m_szEndDebug));
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] %s, reason %d: %s\n",
 			pInfo->m_info.m_szConnectionDescription,
@@ -167,11 +180,18 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 
 	case k_ESteamNetworkingConnectionState_Connecting:
 
+		DEBUG_INFO_MAC(("[P2P] CONNECTING: listenSock=%u infoListenSock=%u meshListenSock=%u",
+			pMesh->GetListenSocketHandle(), pInfo->m_info.m_hListenSocket, pMesh->GetListenSocketHandle()));
+
 		// Is this a connection we initiated, or one that we are receiving?
 		if (pMesh->GetListenSocketHandle() != k_HSteamListenSocket_Invalid && pInfo->m_info.m_hListenSocket == pMesh->GetListenSocketHandle())
 		{
 			// Somebody's knocking
 			// Note that we assume we will only ever receive a single connection
+
+			DEBUG_INFO_MAC(("[P2P] INCOMING connection from '%s' (remote identity='%s')",
+				pInfo->m_info.m_szConnectionDescription,
+				pInfo->m_info.m_identityRemote.GetGenericString() ? pInfo->m_info.m_identityRemote.GetGenericString() : "(null)"));
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Considering Accepting\n", pInfo->m_info.m_szConnectionDescription);
 
@@ -225,8 +245,10 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 
 				if (bPlayerIsInLobby)
 				{
+					DEBUG_INFO_MAC(("[P2P] ACCEPTING incoming connection from '%s'", pInfo->m_info.m_szConnectionDescription));
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] Accepting - Player is in lobby\n", pInfo->m_info.m_szConnectionDescription);
-					SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
+					EResult acceptResult = SteamNetworkingSockets()->AcceptConnection(pInfo->m_hConn);
+					DEBUG_INFO_MAC(("[P2P] AcceptConnection result=%d", (int)acceptResult));
 				}
 				else
 				{
@@ -266,6 +288,7 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 	case k_ESteamNetworkingConnectionState_FindingRoute:
 		// P2P connections will spend a brief time here where they swap addresses
 		// and try to find a route.
+		DEBUG_INFO_MAC(("[P2P] FINDING_ROUTE: conn=%u connectionID=%lld", pInfo->m_hConn, connectionID));
 		if (connectionID != -1 && pInfo != nullptr)
 		{
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] finding route\n", pInfo->m_info.m_szConnectionDescription);
@@ -280,6 +303,9 @@ void OnSteamNetConnectionStatusChanged(SteamNetConnectionStatusChangedCallback_t
 #if _DEBUG
 		//assert(pInfo->m_hConn == pPlayerConnection->m_hSteamConnection); // We don't initiate or accept any other connections, so this should be out own connection
 #endif
+
+		DEBUG_INFO_MAC(("[P2P] CONNECTED! conn=%u connectionID=%lld flags=0x%x desc='%s'",
+			pInfo->m_hConn, connectionID, pInfo->m_info.m_nFlags, pInfo->m_info.m_szConnectionDescription));
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING][%s] connected\n", pInfo->m_info.m_szConnectionDescription);
 
@@ -352,8 +378,10 @@ class CSignalingClient : public ISignalingClient
 			(void)info;
 			(void)hConn;
 
+			DEBUG_INFO_MAC(("[P2P] SendSignal: conn=%u target=%lld size=%d bytes", hConn, m_targetUserID, cbMsg));
+
 			std::vector<uint8_t> vecPayload(cbMsg);
-			memcpy_s(vecPayload.data(), vecPayload.size(), pMsg, cbMsg);
+			memcpy(vecPayload.data(), pMsg, cbMsg);
 
 			m_pOwner->Send(m_targetUserID, vecPayload);
 			return true;
@@ -484,6 +512,7 @@ public:
 			// Now dispatch any buffered signals
 			if (!pendingSignals.empty())
 			{
+				DEBUG_INFO_MAC(("[P2P] Processing %zu pending signals", pendingSignals.size()));
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] PROCESS SIGNAL!");
 				while (!pendingSignals.empty())
 				{
@@ -492,6 +521,8 @@ public:
 					// Get the next signal
 					std::vector<uint8_t> signalData = pendingSignals.front();
 					pendingSignals.pop();
+
+					DEBUG_INFO_MAC(("[P2P] ReceivedP2PCustomSignal: %d bytes", (int)signalData.size()));
 
 					// Setup a context object that can respond if this signal is a connection request.
 					struct Context : ISteamNetworkingSignalingRecvContext
@@ -546,7 +577,8 @@ public:
 					// To process this call, SteamnetworkingSockets will need take its own internal lock.
 					// That lock may be held by another thread that is asking you to send a signal!  So
 					// be warned that deadlocks are a possibility here.
-					m_pSteamNetworkingSockets->ReceivedP2PCustomSignal(signalData.data(), (int)signalData.size(), &context);
+					bool bSignalResult = m_pSteamNetworkingSockets->ReceivedP2PCustomSignal(signalData.data(), (int)signalData.size(), &context);
+					DEBUG_INFO_MAC(("[P2P] ReceivedP2PCustomSignal result=%d", bSignalResult));
 				}
 			}
 		}
@@ -564,7 +596,7 @@ public:
 
 NetworkMesh::NetworkMesh()
 {
-	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, k_ESteamNetworkingSocketsDebugOutputType_Error);
+	DEBUG_INFO_MAC(("[P2P] NetworkMesh::NetworkMesh() - BEGIN"));
 
 	// try a shutdown
 	GameNetworkingSockets_Kill();
@@ -572,6 +604,7 @@ NetworkMesh::NetworkMesh()
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
 	if (pOnlineServicesMgr == nullptr)
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: pOnlineServicesMgr is null"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "pOnlineServicesMgr is invalid");
 		return;
 	}
@@ -579,6 +612,7 @@ NetworkMesh::NetworkMesh()
 	NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 	if (pAuthInterface == nullptr)
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: pAuthInterface is null"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "pAuthInterface is invalid");
 		return;
 	}
@@ -586,34 +620,51 @@ NetworkMesh::NetworkMesh()
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: pLobbyInterface is null"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "pLobbyInterface is invalid");
 		return;
 	}
 
 
 	int64_t localUserID = pAuthInterface->GetUserID();
+	DEBUG_INFO_MAC(("[P2P] Local userID=%lld", localUserID));
 
 	SteamNetworkingIdentity identityLocal;
 	identityLocal.Clear();
 	std::string localUserIDStr = std::to_string(localUserID);
 	identityLocal.SetGenericString(localUserIDStr.c_str());
+	DEBUG_INFO_MAC(("[P2P] Identity set to GenericString='%s' isInvalid=%d", localUserIDStr.c_str(), identityLocal.IsInvalid()));
 
 	if (identityLocal.IsInvalid())
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: identity is invalid"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "SteamNetworkingIdentity is invalid");
 		return;
 	}
 
 	// initialize Steam Sockets
 	SteamDatagramErrMsg errMsg;
+	DEBUG_INFO_MAC(("[P2P] Calling GameNetworkingSockets_Init..."));
 	if (!GameNetworkingSockets_Init(&identityLocal, errMsg))
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: GameNetworkingSockets_Init FAILED: %s", errMsg));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "GameNetworkingSockets_Init failed.  %s", errMsg);
 		return;
 	}
+	DEBUG_INFO_MAC(("[P2P] GameNetworkingSockets_Init succeeded"));
 
-	// TODO_STEAM: Dont hardcode, get everything from service
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53,stun:stun.playgenerals.online:3478,stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302");
+	if (SteamNetworkingUtils() != nullptr)
+	{
+		DEBUG_INFO_MAC(("[P2P] SteamNetworkingUtils() available, configuring STUN/TURN..."));
+#ifdef __APPLE__
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, k_ESteamNetworkingSocketsDebugOutputType_Verbose);
+#else
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, k_ESteamNetworkingSocketsDebugOutputType_Error);
+#endif
+
+		// TODO_STEAM: Dont hardcode, get everything from service
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_STUN_ServerList, "stun:stun.playgenerals.online:53,stun:stun.playgenerals.online:3478,stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302");
+	}
 
 	// comma seperated setting lists
 	const char* turnList = "turn:turn.playgenerals.online:53?transport=udp,turn:turn.playgenerals.online:3478?transport=udp";
@@ -630,59 +681,84 @@ NetworkMesh::NetworkMesh()
 	m_strTurnUsernameString = std::format("{},{}", m_strTurnUsername.c_str(), m_strTurnUsername.c_str());
 	m_strTurnTokenString = std::format("{},{}", m_strTurnToken.c_str(), m_strTurnToken.c_str());
 
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
-	SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
-
 	ServiceConfig& serviceConf = pOnlineServicesMgr->GetServiceConfig();
 
-	// Allow sharing of any kind of ICE address.
-	if (g_bForceRelay || serviceConf.relay_all_traffic)
+	if (SteamNetworkingUtils() != nullptr)
 	{
-		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay);
+		DEBUG_INFO_MAC(("[P2P] Configuring TURN: servers='%s' user='%s'", turnList, m_strTurnUsernameString.c_str()));
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_ServerList, turnList);
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_UserList, m_strTurnUsernameString.c_str());
+		SteamNetworkingUtils()->SetGlobalConfigValueString(k_ESteamNetworkingConfig_P2P_TURN_PassList, m_strTurnTokenString.c_str());
+
+		// Allow sharing of any kind of ICE address.
+		if (g_bForceRelay || serviceConf.relay_all_traffic)
+		{
+			DEBUG_INFO_MAC(("[P2P] ICE mode: RELAY ONLY (forceRelay=%d, relay_all=%d)", g_bForceRelay, serviceConf.relay_all_traffic));
+			SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_Relay);
+		}
+		else
+		{
+			DEBUG_INFO_MAC(("[P2P] ICE mode: ALL"));
+			SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
+		}
 	}
 	else
 	{
-		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_P2P_Transport_ICE_Enable, k_nSteamNetworkingConfig_P2P_Transport_ICE_Enable_All);
+		DEBUG_INFO_MAC(("[P2P] WARNING: SteamNetworkingUtils() is NULL! STUN/TURN/ICE NOT configured!"));
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "WARNING: SteamNetworkingUtils() returned nullptr on Mac. Relaying and ICE configuration skipped.");
 	}
 
 	m_hListenSock = k_HSteamListenSocket_Invalid;
 	
 	// create signalling service
+	DEBUG_INFO_MAC(("[P2P] Creating CSignalingClient..."));
 	m_pSignaling = new CSignalingClient(SteamNetworkingSockets());
 	if (m_pSignaling == nullptr)
 	{
+		DEBUG_INFO_MAC(("[P2P] ABORT: CSignalingClient creation FAILED"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "CreateTrivialSignalingClient failed.  %s", errMsg);
 		return;
 	}
-
-	SteamNetworkingUtils()->SetGlobalCallback_SteamNetConnectionStatusChanged(OnSteamNetConnectionStatusChanged);
+	DEBUG_INFO_MAC(("[P2P] CSignalingClient created OK"));
 
 	ESteamNetworkingSocketsDebugOutputType logType =
 #if defined(_DEBUG)
 		ESteamNetworkingSocketsDebugOutputType::k_ESteamNetworkingSocketsDebugOutputType_Debug
 #else
 		NGMP_OnlineServicesManager::Settings.Debug_VerboseLogging() ? ESteamNetworkingSocketsDebugOutputType::k_ESteamNetworkingSocketsDebugOutputType_Debug : ESteamNetworkingSocketsDebugOutputType::k_ESteamNetworkingSocketsDebugOutputType_Msg
-#endif;
+#endif
 		;
 
-	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, logType);
-	SteamNetworkingUtils()->SetDebugOutputFunction(logType, [](ESteamNetworkingSocketsDebugOutputType nType, const char* pszMsg)
-		{
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING LOGFUNC] %s", pszMsg);
-		});
+	if (SteamNetworkingUtils() != nullptr)
+	{
+		SteamNetworkingUtils()->SetGlobalCallback_SteamNetConnectionStatusChanged(OnSteamNetConnectionStatusChanged);
+
+		SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, logType);
+		SteamNetworkingUtils()->SetDebugOutputFunction(logType, [](ESteamNetworkingSocketsDebugOutputType nType, const char* pszMsg)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM NETWORKING LOGFUNC] %s", pszMsg);
+			});
+	}
 
 	int localPort = 0;
 
 	// create sockets
+	DEBUG_INFO_MAC(("[P2P] Creating ListenSocketP2P with SymmetricConnect on localPort=%d", localPort));
 	SteamNetworkingConfigValue_t opt;
 	opt.SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1); // << Note we set symmetric mode on the listen socket
 	m_hListenSock = SteamNetworkingSockets()->CreateListenSocketP2P(localPort, 1, &opt);
 
 	if (m_hListenSock == k_HSteamListenSocket_Invalid)
 	{
+		DEBUG_INFO_MAC(("[P2P] FAIL: CreateListenSocketP2P returned INVALID"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "CreateListenSocketP2P failed. Sock was invalid");
 	}
+	else
+	{
+		DEBUG_INFO_MAC(("[P2P] ListenSocketP2P created OK, handle=%u", m_hListenSock));
+	}
+
+	DEBUG_INFO_MAC(("[P2P] NetworkMesh::NetworkMesh() - END"));
 }
 
 
@@ -765,10 +841,13 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 
 void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
 {
+	DEBUG_INFO_MAC(("[P2P] StartConnectionSignalling: remoteUserID=%lld preferredPort=%d", remoteUserID, preferredPort));
+
 	// if we already have a connection to this use, drop it, having a single-direction connection will break signalling
 	auto it = m_mapConnections.find(remoteUserID);
 	if (it != m_mapConnections.end())
 	{
+		DEBUG_INFO_MAC(("[P2P] Existing connection found for user %lld, dropping it", remoteUserID));
 		if (it->second.m_hSteamConnection != k_HSteamNetConnection_Invalid)
 		{
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Closing connection %lld, new connection is being negotiated", remoteUserID);
@@ -832,6 +911,10 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 	SteamNetworkingConfigValue_t opt;
 	opt.SetInt32(k_ESteamNetworkingConfig_SymmetricConnect, 1);
 	vecOpts.push_back(opt);
+
+	DEBUG_INFO_MAC(("[P2P] ConnectP2P: remote='%s' virtualPortRemote=%d localPort=%d symmetric=1 opts=%zu",
+		SteamNetworkingIdentityRender(identityRemote).c_str(), g_nVirtualPortRemote, g_nLocalPort, vecOpts.size()));
+
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "Connecting to '%s' in symmetric mode, virtual port %d, from local virtual port %d.\n",
 		SteamNetworkingIdentityRender(identityRemote).c_str(), g_nVirtualPortRemote, g_nLocalPort);
 
@@ -841,26 +924,30 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 
 	if (pConnSignaling == nullptr)
 	{
-		// TODO_STEAM: Handle this better
+		DEBUG_INFO_MAC(("[P2P] ABORT: CreateSignalingForConnection FAILED: %s", errMsg));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Could not create signalling object, error was %s", errMsg);
 		return;
 	}
+	DEBUG_INFO_MAC(("[P2P] Signaling object created, calling ConnectP2PCustomSignaling..."));
 
 	// make a steam connection obj
 	HSteamNetConnection hSteamConnection = SteamNetworkingSockets()->ConnectP2PCustomSignaling(pConnSignaling, &identityRemote, g_nVirtualPortRemote, (int)vecOpts.size(), vecOpts.data());
 
 	if (hSteamConnection == k_HSteamNetConnection_Invalid)
 	{
-		// TODO_STEAM: Handle this better
+		DEBUG_INFO_MAC(("[P2P] FAIL: ConnectP2PCustomSignaling returned INVALID"));
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "NetworkMesh::ConnectToSingleUser - Steam network connection obj was k_HSteamNetConnection_Invalid");
 		return;
 	}
+
+	DEBUG_INFO_MAC(("[P2P] ConnectP2PCustomSignaling OK: handle=%u for remoteUser=%lld", hSteamConnection, remoteUserID));
 
 	// create a local user type
 	m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
 
 	// add attempt
 	++m_mapConnections[remoteUserID].m_SignallingAttempts;
+	DEBUG_INFO_MAC(("[P2P] Connection created, attempt #%d", m_mapConnections[remoteUserID].m_SignallingAttempts));
 }
 
 
@@ -1125,6 +1212,9 @@ int PlayerConnection::Recv(SteamNetworkingMessage_t** pMsg)
 
 std::string PlayerConnection::GetStats()
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		return "(disconnected)";
+
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetDetailedConnectionStatus(m_hSteamConnection, szBuf, 2048);
 
@@ -1135,10 +1225,22 @@ std::string PlayerConnection::GetStats()
 
 std::string PlayerConnection::GetConnectionType()
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+		return "(disconnected)";
+
+#ifdef __APPLE__
+	SteamNetConnectionInfo_t info;
+	if (SteamNetworkingSockets()->GetConnectionInfo(m_hSteamConnection, &info))
+	{
+		return std::string(info.m_szConnectionDescription);
+	}
+	return "(unknown)";
+#else
 	char szBuf[2048] = { 0 };
 	int ret = SteamNetworkingSockets()->GetConnectionType(m_hSteamConnection, szBuf, 2048);
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[STEAM] PlayerConnection::GetConnectionType returned %d", ret);
 	return std::string(szBuf);
+#endif
 }
 
 void PlayerConnection::UpdateState(EConnectionState newState, NetworkMesh* pOwningMesh)
@@ -1187,16 +1289,28 @@ void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh,
 		m_State = EConnectionState::CONNECTION_DISCONNECTED;
 	}
 
+	// Save values we need after the callback: the callback can erase this
+	// PlayerConnection from the mesh's map (UAF), so we must not access
+	// member variables after UpdateState fires the external callback.
+	const HSteamNetConnection savedHandle = m_hSteamConnection;
+	const int64_t savedUserID = m_userID;
+
+	// Invalidate the handle before firing the callback so any re-entrant
+	// query sees the connection as already gone.
+	m_hSteamConnection = k_HSteamNetConnection_Invalid;
+
 	// Dont update backend until we're actually done
 	if (!bIsRetrying)
 	{
-		UpdateState(m_State, pOwningMesh);
+		UpdateState(m_State, pOwningMesh);  // may erase *this from the map
 	}
 
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", m_hSteamConnection, m_userID);
-	SteamNetworkingSockets()->SetConnectionName(m_hSteamConnection, std::format("Steam Connection User{}", m_userID).c_str());
-
-	m_hSteamConnection = k_HSteamNetConnection_Invalid; // invalidate connection handle
+	// Use saved stack values — do NOT touch any member after this point.
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", savedHandle, savedUserID);
+	if (SteamNetworkingSockets())
+	{
+		SteamNetworkingSockets()->SetConnectionName(savedHandle, std::format("Steam Connection User{}", savedUserID).c_str());
+	}
 }
 
 int PlayerConnection::GetLatency()

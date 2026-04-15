@@ -8,11 +8,16 @@
 #include <chrono>
 #include <random>
 #include <windows.h>
+#ifdef _WIN32
 #include <wincred.h>
+#endif
 #include "GameNetwork/GameSpyOverlay.h"
 #include "../json.hpp"
+#include "Common/System/NativeFileSystem.h"
 
+#ifdef _WIN32
 #pragma comment(lib, "Crypt32.lib")
+#endif
 
 #if defined(USE_TEST_ENV)
 #define CREDENTIALS_FILENAME "credentials_env_test.json"
@@ -225,7 +230,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 	else
 	{
 		m_bWaitingLogin = true;
-		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 		m_strCode = GenerateGamecode();
 
@@ -251,7 +256,14 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 			});
 
 #if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
+#ifdef __APPLE__
+		{
+			std::string openCmd = std::format("open '{}'", strURI.c_str());
+			system(openCmd.c_str());
+		}
+#else
 		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 #endif
 			
 
@@ -279,7 +291,7 @@ void NGMP_OnlineServices_AuthInterface::DoReAuth()
 
 	// do normal login flow, token is bad or expired etc
 	m_bWaitingLogin = true;
-	m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	m_strCode = GenerateGamecode();
 
 #if defined(USE_TEST_ENV)
@@ -289,7 +301,14 @@ void NGMP_OnlineServices_AuthInterface::DoReAuth()
 #endif
 
 #if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
+#ifdef __APPLE__
+	{
+		std::string openCmd = std::format("open '{}'", strURI.c_str());
+		system(openCmd.c_str());
+	}
+#else
 	ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
 #endif
 }
 
@@ -298,11 +317,11 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	if (m_bWaitingLogin)
 	{
 		const int64_t timeBetweenChecks = 1000;
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 		if (currTime - m_lastCheckCode >= timeBetweenChecks)
 		{
-			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 			// check again
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("CheckLogin");
@@ -410,9 +429,9 @@ void NGMP_OnlineServices_AuthInterface::LogoutOfMyAccount()
 	// delete local credentials cache
 	std::string strCredentialsCachePath = GetCredentialsFilePath();
 
-	if (std::filesystem::exists(strCredentialsCachePath))
+	if (NativeFileSystem::exists(strCredentialsCachePath))
 	{
-		std::filesystem::remove(strCredentialsCachePath);
+		NativeFileSystem::remove(strCredentialsCachePath);
 	}
 }
 
@@ -428,10 +447,10 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshTok
 
 	std::string strData = root.dump(1);
 
-	FILE* file = fopen(GetCredentialsFilePath().c_str(), "wb");
+	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "wb");
 	if (file)
 	{
-#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS)
+#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS) && defined(_WIN32)
 		DATA_BLOB inputBlob;
 		DATA_BLOB outputBlob;
 
@@ -461,7 +480,7 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 	return false;
 #endif
 	std::vector<uint8_t> vecBytes;
-	FILE* file = fopen(GetCredentialsFilePath().c_str(), "rb");
+	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "rb");
 	if (file)
 	{
 		fseek(file, 0, SEEK_END);
@@ -479,7 +498,7 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 	if (!vecBytes.empty())
 	{
 		// needs decrypt first
-#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS)
+#if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS) && defined(_WIN32)
 		DATA_BLOB encryptedBlob;
 		encryptedBlob.pbData = const_cast<BYTE*>(vecBytes.data());
 		encryptedBlob.cbData = static_cast<DWORD>(vecBytes.size());

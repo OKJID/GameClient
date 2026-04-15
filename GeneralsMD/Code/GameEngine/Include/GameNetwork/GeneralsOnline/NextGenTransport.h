@@ -5,7 +5,7 @@
 #include "GameNetwork/udp.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/Transport.h"
-#include "../NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 
 #include "GameNetwork/GeneralsOnline/Vendor/ValveNetworkingSockets/steam/isteamnetworkingmessages.h"
 

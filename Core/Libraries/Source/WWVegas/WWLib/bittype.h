@@ -37,6 +37,21 @@
 
 #pragma once
 
+#ifdef __APPLE__
+#include <stdint.h>
+#endif
+
+#ifdef __APPLE__
+typedef unsigned char	uint8;
+typedef unsigned short	uint16;
+typedef unsigned int	uint32;
+typedef unsigned int    uint;
+
+typedef signed char		sint8;
+typedef signed short		sint16;
+typedef signed int		sint32;
+typedef signed int      sint;
+#else
 typedef unsigned char	uint8;
 typedef unsigned short	uint16;
 typedef unsigned long	uint32;
@@ -46,18 +61,36 @@ typedef signed char		sint8;
 typedef signed short		sint16;
 typedef signed long		sint32;
 typedef signed int      sint;
+#endif
 
 typedef float				float32;
 typedef double				float64;
 
+#ifndef DWORD_DEFINED
+#define DWORD_DEFINED
+#ifdef __APPLE__
+typedef uint32_t        DWORD;
+#else
 typedef unsigned long   DWORD;
+#endif
+#endif
 typedef unsigned short	WORD;
 typedef unsigned char   BYTE;
+#ifndef BOOL_DEFINED
+#define BOOL_DEFINED
 typedef int             BOOL;
+#endif
 typedef unsigned short	USHORT;
 typedef const char *		LPCSTR;
 typedef unsigned int    UINT;
+#ifndef ULONG_DEFINED
+#define ULONG_DEFINED
+#ifdef __APPLE__
+typedef uint32_t        ULONG;
+#else
 typedef unsigned long   ULONG;
+#endif
+#endif
 
 #if defined(_MSC_VER) && _MSC_VER < 1300
 #ifndef _WCHAR_T_DEFINED

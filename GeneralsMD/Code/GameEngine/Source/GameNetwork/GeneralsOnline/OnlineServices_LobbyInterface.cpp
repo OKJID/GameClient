@@ -24,7 +24,15 @@ UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyDisplayName()
 
 	if (IsInLobby())
 	{
+#ifdef __APPLE__
+		std::wstring wstr = from_utf8(m_CurrentLobby.name);
+		for (size_t i = 0; i < wstr.length(); ++i)
+		{
+			strDisplayName.concat((WideChar)wstr[i]);
+		}
+#else
 		strDisplayName = UnicodeString(from_utf8(m_CurrentLobby.name).c_str());
+#endif
 	}
 
 	return strDisplayName;
@@ -36,7 +44,15 @@ UnicodeString NGMP_OnlineServices_LobbyInterface::GetCurrentLobbyMapDisplayName(
 
 	if (IsInLobby())
 	{
+#ifdef __APPLE__
+		std::wstring wstr = from_utf8(m_CurrentLobby.map_name);
+		for (size_t i = 0; i < wstr.length(); ++i)
+		{
+			strDisplayName.concat((WideChar)wstr[i]);
+		}
+#else
 		strDisplayName.format(L"%hs", m_CurrentLobby.map_name.c_str());
+#endif
 	}
 
 	return strDisplayName;
@@ -158,7 +174,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_StartingCash(Unsigne
 void NGMP_OnlineServices_LobbyInterface::UpdateCurrentLobby_HasMap()
 {
 	// do we have the map?
-	bool bHasMap = TheMapCache->findMap(AsciiString(m_CurrentLobby.map_path.c_str()));
+	bool bHasMap = TheMapCache->findMap(TheNGMPGame->getMap());
 
 	std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("Lobby"), m_CurrentLobby.lobbyID);
 	std::map<std::string, std::string> mapHeaders;
@@ -558,6 +574,8 @@ void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> 
 				lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
 				lobbyEntryIter["Region"].get_to(lobbyEntry.region);
 
+				DEBUG_INFO_MAC(("LOBBY_PARSE: id=%lld, name='%s', map='%s'", (long long)lobbyEntry.lobbyID, lobbyEntry.name.c_str(), lobbyEntry.map_name.c_str()));
+
 				// attach latency
 				if (latencyIndex < vecLatencies.size())
 				{
@@ -687,7 +705,11 @@ void NGMP_OnlineServices_LobbyInterface::Tick()
 	// TODO_NGMP: Do we still need this safety measure?
 	if (IsInLobby())
 	{
+#ifdef __APPLE__
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
 		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 		if ((currTime - m_lastForceRefresh) > 5000)
 		{
 			//UpdateRoomDataCache();
@@ -749,6 +771,9 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 		}
 		else
 		{
+			if (TheNGMPGame == nullptr)
+				return;
+
 			GameSlot* pLocalSlot = TheNGMPGame->getSlot(TheNGMPGame->getLocalSlotNum());
 
 			if (pLocalSlot != nullptr)
@@ -840,16 +865,27 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							const char* mapFileName = strrchr(lobbyEntry.map_path.c_str(), '\\');
 							mapFileName = mapFileName != nullptr ? mapFileName + 1 : lobbyEntry.map_path.c_str();
 
+							bool bFoundInCache = false;
 							for (std::map<AsciiString, MapMetaData>::iterator it = TheMapCache->begin(); it != TheMapCache->end(); ++it)
 							{
 								const char* cacheFileName = strrchr(it->first.str(), '\\');
 								if (cacheFileName && _stricmp(cacheFileName + 1, mapFileName) == 0)
 								{
 									lobbyEntry.map_path = it->first.str();
+									bFoundInCache = true;
 									break;
 								}
 							}
+
+							if (!bFoundInCache)
+							{
+								AsciiString strUserMapDir = TheMapCache->getUserMapDir(true);
+								strUserMapDir.toLower();
+								lobbyEntry.map_path = std::format("{}\\{}", strUserMapDir.str(), lobbyEntry.map_path.c_str());
+							}
 						}
+
+						DEBUG_INFO_MAC(("[ROOM_DATA] map_official=%d corrected_path='%s' current_map='%s'", lobbyEntry.map_official, lobbyEntry.map_path.c_str(), TheNGMPGame->getMap().str()));
 
 						// did the map change? cache that we need to reset and transmit our ready state
 						bool bNeedsHasMapUpdate = false;
@@ -860,9 +896,14 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 
 						// dont let the service be authoritative during gameplay over play list, the game host handles connections at this point
 						// we do care about everything else up until members list though, because we need things like matchID which is determined as the game transitions to in progress
+#ifdef __APPLE__
+						if (TheNGMPGame->isGameInProgress() && !TheGameLogic->IsLoadScreenActive() && !m_CurrentLobby.members.empty())
+#else
 						if (TheNGMPGame->isGameInProgress() && !TheGameLogic->IsLoadScreenActive())
+#endif
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "Ignoring lobby members update request during gameplay.");
+							DEBUG_INFO_MAC(("[ROOM_DATA] IGNORING members: inProgress=%d loadScreen=%d membersEmpty=%d", TheNGMPGame->isGameInProgress(), TheGameLogic->IsLoadScreenActive(), (int)m_CurrentLobby.members.empty()));
 
 							// retain the old members list
 							lobbyEntry.members = m_CurrentLobby.members;
@@ -909,6 +950,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								memberEntryIter["Region"].get_to(memberEntry.region);
 
 								lobbyEntry.members.push_back(memberEntry);
+								DEBUG_INFO_MAC(("[ROOM_DATA] parsed member slot[%d]: uid=%lld name='%s' hasMap=%d state=%d", memberEntry.m_SlotIndex, memberEntry.user_id, memberEntry.display_name.c_str(), memberEntry.has_map, memberEntry.m_SlotState));
 
 								// TODO_NGMP: Much more robust system here
 								// TODO_NGMP: If we lose connection to someone in the mesh, who is STILL in otehrs mesh, we need to disconnect or retry
@@ -983,6 +1025,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 							// inform game instance too
 							if (TheNGMPGame != nullptr)
 							{
+								DEBUG_INFO_MAC(("[ROOM_DATA] Calling SyncWithLobby + UpdateSlotsFromCurrentLobby. inProgress=%d", TheNGMPGame->isGameInProgress()));
 								TheNGMPGame->SyncWithLobby(m_CurrentLobby);
 								TheNGMPGame->UpdateSlotsFromCurrentLobby();
 
@@ -1069,6 +1112,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			// convert
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPUTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
+					if (NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>() == nullptr)
+						return;
+
 					// reset trying to join
 					ResetLobbyTryingToJoin();
 
@@ -1310,6 +1356,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 					{
 						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+
+						if (pAuthInterface == nullptr || pLobbyInterface == nullptr)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] CreateLobby callback: required interface is null, aborting");
+							return;
+						}
 
 						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						CreateLobbyResponse resp = jsonObject.get<CreateLobbyResponse>();

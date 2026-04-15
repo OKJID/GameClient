@@ -39,8 +39,13 @@ static void drawFramerateBar();
 #include <windows.h>
 #include <io.h>
 #include <time.h>
+#ifdef __APPLE__
+#include <chrono>
+#define CAPTURE_TO_TARGA 1
+#endif
 
 // USER INCLUDES //////////////////////////////////////////////////////////////
+#include "GameClient/Keyboard.h"
 #include "Common/FramePacer.h"
 #include "Common/ThingFactory.h"
 #include "Common/GlobalData.h"
@@ -365,15 +370,23 @@ W3DAssetManager* W3DDisplay::m_assetManager = nullptr;
 inline Int64 getPerformanceCounter()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceCounter((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#endif
 }
 
 inline Int64 getPerformanceCounterFrequency()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceFrequency((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return 1000000;
+#endif
 }
 
 // W3DDisplay::W3DDisplay =====================================================
@@ -460,7 +473,9 @@ W3DDisplay::~W3DDisplay()
 		WW3D::Shutdown();
 	WWMath::Shutdown();
 	if (!TheGlobalData->m_headless)
+#ifndef __APPLE__
 		DX8WebBrowser::Shutdown();
+#endif
 	delete TheW3DFileSystem;
 	TheW3DFileSystem = nullptr;
 
@@ -632,6 +647,11 @@ void W3DDisplay::init()
 	}
 	// Override the W3D File system
 	TheW3DFileSystem = NEW W3DFileSystem;
+#ifdef __APPLE__
+	printf("[DIAG] W3DDisplay::init: TheW3DFileSystem=%p _TheFileFactory=%p\n",
+	       TheW3DFileSystem, _TheFileFactory);
+	fflush(stdout);
+#endif
 
 	// init the Westwood math library
 	WWMath::Init();
@@ -833,7 +853,9 @@ void W3DDisplay::init()
 			m_nativeDebugDisplay->setFontWidth(9);
 		}
 
+#ifndef __APPLE__
 		DX8WebBrowser::Initialize();
+#endif
 	}
 
 	// we're now online
@@ -1673,14 +1695,20 @@ void W3DDisplay::draw()
 	//USE_PERF_TIMER(W3DDisplay_draw)
 
 	extern HWND ApplicationHWnd;
+#ifndef __APPLE__
 	if (ApplicationHWnd && ::IsIconic(ApplicationHWnd)) {
 		return;
 	}
+#endif
 
 	if (TheGlobalData->m_headless)
 		return;
 
 	updateAverageFPS();
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	TheGameLODManager->updateGraphicsQualityState(m_averageFPS);
+#else
 	if (TheGlobalData->m_enableDynamicLOD && TheGameLogic->getShowDynamicLOD())
 	{
 		DynamicGameLODLevel lod = TheGameLODManager->findDynamicLODLevel(m_averageFPS);
@@ -1690,7 +1718,7 @@ void W3DDisplay::draw()
 	{	//if dynamic LOD is turned off, force highest LOD
 		TheGameLODManager->setDynamicLODLevel(DYNAMIC_GAME_LOD_VERY_HIGH);
 	}
-
+#endif
 	if (TheGlobalData->m_terrainLOD == TERRAIN_LOD_AUTOMATIC && TheTerrainRenderObject)
 	{
 		calculateTerrainLOD();
@@ -2060,6 +2088,11 @@ void W3DDisplay::createLightPulse(const Coord3D* pos, const RGBColor* color,
 	if (innerRadius + attenuationWidth < 2.0 * PATHFIND_CELL_SIZE_F + 1.0f) {
 		return; // it basically won't make any visual difference.  jba.
 	}
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	if (TheGameLODManager && TheGameLODManager->isQualityReduced())
+		return;
+#endif
+
 	W3DDynamicLight* theDynamicLight = m_3DScene->getADynamicLight();
 	// turn it on.
 	theDynamicLight->setEnabled(true);
@@ -2930,6 +2963,7 @@ void W3DDisplay::setShroudLevel(Int x, Int y, CellShroudStatus setting)
 }
 
 //=============================================================================
+#ifndef __APPLE__
 ///Utility function to dump data into a .BMP file
 static void CreateBMPFile(LPTSTR pszFile, char* image, Int width, Int height)
 {
@@ -3005,6 +3039,8 @@ static void CreateBMPFile(LPTSTR pszFile, char* image, Int width, Int height)
 	// Free memory.
 	LocalFree((HLOCAL)pbmi);
 }
+
+#endif // __APPLE__
 
 ///Save Screen Capture to a file
 void W3DDisplay::takeScreenShot()
@@ -3364,3 +3400,66 @@ static void drawFramerateBar()
 	TheDisplay->drawFillRect(1, 1, width, 15, colorToUse);
 	prevTime = now;
 }
+
+// TheSuperHackers @feature macOS: Bridge function for applying resolution changes.
+// Called from MacOSMain.mm (windowDidEndLiveResize:) when the user finishes
+// dragging the window edge. Mirrors the OptionsMenu Accept flow at lines 828-853
+// of OptionsMenu.cpp: setDisplayMode + GlobalData + subsystem notifications + layout rebuild.
+// CRITICAL: UI layout rebuild is gated by isShellActive() to prevent crashes
+// during gameplay. During in-game, only the lightweight Metal+viewport update
+// happens via setDisplayMode(). This matches the old port's proven approach.
+#ifdef __APPLE__
+#include "GameClient/Shell.h"
+#include "GameClient/InGameUI.h"
+#include "GameClient/HeaderTemplate.h"
+#include "Common/OptionPreferences.h"
+
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
+	if (!TheDisplay) return;
+
+	int bitDepth = TheDisplay->getBitDepth();
+	Bool windowed = TheDisplay->getWindowed();
+
+	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, windowed);
+	fflush(stdout);
+
+	if (!TheDisplay->setDisplayMode(w, h, bitDepth, windowed)) {
+		printf("[MacOS] ApplyDisplayResolution: setDisplayMode FAILED, aborting\n");
+		fflush(stdout);
+		return;
+	}
+
+	TheWritableGlobalData->m_xResolution = w;
+	TheWritableGlobalData->m_yResolution = h;
+
+	if (TheHeaderTemplateManager) {
+		TheHeaderTemplateManager->onResolutionChanged();
+	}
+	if (TheMouse) {
+		TheMouse->onResolutionChanged();
+	}
+
+	// Only recreate UI layouts when in the main menu shell, NOT during gameplay.
+	// During gameplay, setDisplayMode already updates the 3D viewport,
+	// TacticalView, Render2DClass, and Display width/height.
+	// Calling recreateWindowLayouts during gameplay crashes because windows
+	// are mid-update and resources are actively in use.
+	if (TheShell && TheShell->isShellActive()) {
+		TheShell->recreateWindowLayouts();
+		if (TheInGameUI) {
+			TheInGameUI->recreateControlBar();
+			TheInGameUI->refreshCustomUiResources();
+		}
+	}
+
+	OptionPreferences pref;
+	AsciiString resStr;
+	resStr.format("%d %d", w, h);
+	pref["Resolution"] = resStr;
+	pref.write();
+
+	printf("[MacOS] ApplyDisplayResolution: completed %dx%d (shell=%s)\n",
+	       w, h, (TheShell && TheShell->isShellActive()) ? "active" : "inactive");
+	fflush(stdout);
+}
+#endif // __APPLE__

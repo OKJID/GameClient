@@ -71,6 +71,7 @@ GameSpyGameSlot::GameSpyGameSlot()
 ** Function definitions for the MIB-II entry points.
 */
 
+#ifndef __APPLE__
 BOOL (__stdcall *SnmpExtensionInitPtr)(IN DWORD dwUpTimeReference, OUT HANDLE *phSubagentTrapEvent, OUT AsnObjectIdentifier *pFirstSupportedRegion);
 BOOL (__stdcall *SnmpExtensionQueryPtr)(IN BYTE bPduType, IN OUT RFC1157VarBindList *pVarBindList, OUT AsnInteger32 *pErrorStatus, OUT AsnInteger32 *pErrorIndex);
 LPVOID (__stdcall *SnmpUtilMemAllocPtr)(IN DWORD bytes);
@@ -83,6 +84,7 @@ typedef struct tConnInfoStruct {
 	unsigned long RemoteIP;
 	unsigned short RemotePort;
 } ConnInfoStruct;
+#endif
 
 /***********************************************************************************************
  * Get_Local_Chat_Connection_Address -- Which address are we using to talk to the chat server? *
@@ -100,6 +102,9 @@ typedef struct tConnInfoStruct {
  *=============================================================================================*/
 Bool GetLocalChatConnectionAddress(AsciiString serverName, UnsignedShort serverPort, UnsignedInt& localIP)
 {
+#ifdef __APPLE__
+	return false;
+#else
 	//return false;
 	/*
 	** Local defines.
@@ -431,6 +436,7 @@ Bool GetLocalChatConnectionAddress(AsciiString serverName, UnsignedShort serverP
 	FreeLibrary(snmpapi_dll);
 	FreeLibrary(mib_ii_dll);
 	return(found);
+#endif
 }
 
 // GameSpyGameSlot ----------------------------------------

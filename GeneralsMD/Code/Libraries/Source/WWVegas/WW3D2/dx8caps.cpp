@@ -37,6 +37,7 @@
  * Functions:                                                                                  *
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
+#ifndef __APPLE__
 #include "always.h"
 #include "dx8caps.h"
 #include "dx8wrapper.h"
@@ -1168,4 +1169,127 @@ void DX8Caps::Vendor_Specific_Hacks(const D3DADAPTER_IDENTIFIER8& adapter_id)
 		SupportDot3 = false;
 	}
 }
+
+#else // __APPLE__
+
+#include "always.h"
+#include "dx8caps.h"
+#include "formconv.h"
+
+static StringClass CapsWorkString;
+
+DX8Caps::DX8Caps(
+	IDirect3D8* direct3d,
+	IDirect3DDevice8* D3DDevice,
+	WW3DFormat display_format,
+	const D3DADAPTER_IDENTIFIER8& adapter_id)
+	:
+	Direct3D(direct3d),
+	MaxDisplayWidth(0),
+	MaxDisplayHeight(0)
+{
+	memset(&Caps, 0, sizeof(Caps));
+	Caps.MaxSimultaneousTextures = 8;
+	Caps.MaxTextureWidth = 4096;
+	Caps.MaxTextureHeight = 4096;
+	Caps.MaxTextureBlendStages = 8;
+	Caps.MaxPointSize = 256.0f;
+	Caps.RasterCaps = D3DPRASTERCAPS_ZBIAS | D3DPRASTERCAPS_FOGRANGE;
+	Caps.Caps2 = D3DCAPS2_FULLSCREENGAMMA;
+	Caps.TextureOpCaps = 0xFFFFFFFF;
+	Caps.TextureCaps = D3DPTEXTURECAPS_CUBEMAP;
+	Caps.TextureFilterCaps = D3DPTFILTERCAPS_MAGFANISOTROPIC | D3DPTFILTERCAPS_MINFANISOTROPIC;
+	Caps.DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
+
+	SupportTnL = true;
+	SupportDXTC = true;
+	supportGamma = true;
+	SupportNPatches = false;
+	SupportBumpEnvmap = true;
+	SupportBumpEnvmapLuminance = true;
+	SupportZBias = true;
+	SupportAnisotropicFiltering = true;
+	SupportModAlphaAddClr = true;
+	SupportDot3 = true;
+	SupportPointSprites = true;
+	SupportCubemaps = true;
+	CanDoMultiPass = true;
+	IsFogAllowed = true;
+	MaxTexturesPerPass = 8;
+	VertexShaderVersion = 0;
+	PixelShaderVersion = 0;
+	MaxSimultaneousTextures = 8;
+	DeviceId = 0;
+	DriverBuildVersion = 0;
+	DriverVersionStatus = DRIVER_STATUS_GOOD;
+	VendorId = VENDOR_UNKNOWN;
+
+	for (unsigned i = 0; i < WW3D_FORMAT_COUNT; ++i) {
+		SupportTextureFormat[i] = true;
+		SupportRenderToTextureFormat[i] = true;
+	}
+	SupportTextureFormat[WW3D_FORMAT_UNKNOWN] = false;
+	SupportRenderToTextureFormat[WW3D_FORMAT_UNKNOWN] = false;
+
+	for (unsigned i = 0; i < WW3D_ZFORMAT_COUNT; ++i) {
+		SupportDepthStencilFormat[i] = true;
+	}
+	SupportDepthStencilFormat[WW3D_ZFORMAT_UNKNOWN] = false;
+}
+
+DX8Caps::DX8Caps(
+	IDirect3D8* direct3d,
+	const D3DCAPS8& caps,
+	WW3DFormat display_format,
+	const D3DADAPTER_IDENTIFIER8& adapter_id)
+	:
+	Direct3D(direct3d),
+	Caps(caps),
+	MaxDisplayWidth(0),
+	MaxDisplayHeight(0)
+{
+	SupportTnL = true;
+	CanDoMultiPass = true;
+	IsFogAllowed = true;
+	SupportDXTC = true;
+	supportGamma = true;
+	SupportNPatches = false;
+	SupportBumpEnvmap = true;
+	SupportBumpEnvmapLuminance = true;
+	SupportZBias = true;
+	SupportAnisotropicFiltering = true;
+	SupportModAlphaAddClr = true;
+	SupportDot3 = true;
+	SupportPointSprites = true;
+	SupportCubemaps = true;
+	MaxTexturesPerPass = 8;
+	VertexShaderVersion = 0;
+	PixelShaderVersion = 0;
+	MaxSimultaneousTextures = 8;
+	DeviceId = 0;
+	DriverBuildVersion = 0;
+	DriverVersionStatus = DRIVER_STATUS_GOOD;
+	VendorId = VENDOR_UNKNOWN;
+
+	for (unsigned i = 0; i < WW3D_FORMAT_COUNT; ++i) {
+		SupportTextureFormat[i] = true;
+		SupportRenderToTextureFormat[i] = true;
+	}
+	for (unsigned i = 0; i < WW3D_ZFORMAT_COUNT; ++i) {
+		SupportDepthStencilFormat[i] = true;
+	}
+}
+
+void DX8Caps::Shutdown()
+{
+	CapsWorkString.Release_Resources();
+}
+
+bool DX8Caps::Is_Valid_Display_Format(int, int, WW3DFormat)
+{
+	return true;
+}
+
+#endif // !__APPLE__
+
 

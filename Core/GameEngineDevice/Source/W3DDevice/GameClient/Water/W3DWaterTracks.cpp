@@ -1085,6 +1085,7 @@ extern HWND ApplicationHWnd;
 //Have to make it so seamless merge of segments at final position.
 void TestWaterUpdate()
 {
+#ifndef __APPLE__
 	static Int doInit=1;
 	static WaterTracksObj *track=nullptr,*track2=nullptr;
 	static Int trackEditMode=0;
@@ -1306,4 +1307,5 @@ void TestWaterUpdate()
 //			OutputDebugString (buffer);
 		}
 	}
+#endif
 }

@@ -31,6 +31,12 @@
 #include <windows.h>
 #endif
 
+#ifdef __APPLE__
+#include <pthread.h>
+#include <unistd.h>
+#include <sched.h>
+#endif
+
 ThreadClass::ThreadClass(const char *thread_name, ExceptionHandlerType exception_handler) : handle(0), running(false), thread_priority(0)
 {
 	if (thread_name) {
@@ -88,45 +94,73 @@ void __cdecl ThreadClass::Internal_Thread_Function(void* params)
 void ThreadClass::Execute()
 {
 	WWASSERT(!handle);	// Only one thread at a time!
-	#ifdef _UNIX
+#ifdef __APPLE__
+	pthread_t thread;
+	int ret = pthread_create(&thread, nullptr, [](void* params) -> void* {
+		Internal_Thread_Function(params);
+		return nullptr;
+	}, this);
+	if (ret == 0) {
+		handle = (unsigned long)thread;
+		pthread_detach(thread);
+		printf("[ThreadClass] Started thread '%s' handle=%lu\n", ThreadName, handle);
+		fflush(stdout);
+	} else {
+		printf("[ThreadClass] FAILED to start thread '%s' error=%d\n", ThreadName, ret);
+		fflush(stdout);
+	}
+#elif defined(_UNIX)
 		// assert(0);
 		return;
-	#else
+#else
 		handle=_beginthread(&Internal_Thread_Function,0,this);
 		SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
 		WWDEBUG_SAY(("ThreadClass::Execute: Started thread %s, thread ID is %X", ThreadName, handle));
-	#endif
+#endif
 }
 
 void ThreadClass::Set_Priority(int priority)
 {
-	#ifdef _UNIX
-		// assert(0);
-		return;
-	#else
-		thread_priority=priority;
-		if (handle) SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
-	#endif
+#ifdef __APPLE__
+	thread_priority = priority;
+	// pthread doesn't support simple priority adjustment like Win32;
+	// thread runs at default priority. Game perf is acceptable.
+#elif defined(_UNIX)
+	return;
+#else
+	thread_priority=priority;
+	if (handle) SetThreadPriority((HANDLE)handle,THREAD_PRIORITY_NORMAL+thread_priority);
+#endif
 }
 
 void ThreadClass::Stop(unsigned ms)
 {
-	#ifdef _UNIX
-		// assert(0);
-		return;
-	#else
-		running=false;
-		unsigned time=TIMEGETTIME();
-		while (handle) {
-			if ((TIMEGETTIME()-time)>ms) {
-				int res=TerminateThread((HANDLE)handle,0);
-				res;	// just to silence compiler warnings
-				WWASSERT(res);	// Thread still not killed!
-				handle=0;
-			}
-			Sleep(0);
+#ifdef __APPLE__
+	running = false;
+	unsigned time = TIMEGETTIME();
+	while (handle) {
+		if ((TIMEGETTIME() - time) > ms) {
+			// pthread_cancel is dangerous; just force-clear handle
+			// The thread checks 'running' flag and will exit naturally
+			handle = 0;
 		}
-	#endif
+		usleep(1000); // 1ms
+	}
+#elif defined(_UNIX)
+	return;
+#else
+	running=false;
+	unsigned time=TIMEGETTIME();
+	while (handle) {
+		if ((TIMEGETTIME()-time)>ms) {
+			int res=TerminateThread((HANDLE)handle,0);
+			res;	// just to silence compiler warnings
+			WWASSERT(res);	// Thread still not killed!
+			handle=0;
+		}
+		Sleep(0);
+	}
+#endif
 }
 
 void ThreadClass::Sleep_Ms(unsigned ms)
@@ -140,23 +174,29 @@ HANDLE test_event = ::CreateEvent (nullptr, FALSE, FALSE, "");
 
 void ThreadClass::Switch_Thread()
 {
-	#ifdef _UNIX
-		return;
-	#else
-		//	::SwitchToThread ();
-		::WaitForSingleObject (test_event, 1);
-		//	Sleep(1);	// Note! Parameter can not be 0 (or the thread switch doesn't occur)
-	#endif
+#ifdef __APPLE__
+	sched_yield();
+#elif defined(_UNIX)
+	return;
+#else
+	//	::SwitchToThread ();
+	::WaitForSingleObject (test_event, 1);
+	//	Sleep(1);	// Note! Parameter can not be 0 (or the thread switch doesn't occur)
+#endif
 }
 
 // Return calling thread's unique thread id
 unsigned ThreadClass::_Get_Current_Thread_ID()
 {
-	#ifdef _UNIX
-		return 0;
-	#else
-		return GetCurrentThreadId();
-	#endif
+#ifdef __APPLE__
+	uint64_t tid;
+	pthread_threadid_np(nullptr, &tid);
+	return (unsigned)tid;
+#elif defined(_UNIX)
+	return 0;
+#else
+	return GetCurrentThreadId();
+#endif
 }
 
 bool ThreadClass::Is_Running()

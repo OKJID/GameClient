@@ -38,6 +38,7 @@
 
 
 #include "lightenvironment.h"
+#include <stdio.h>
 #include "matrix3d.h"
 #include "camera.h"
 #include "light.h"
@@ -54,8 +55,9 @@ const float DIFFUSE_TO_AMBIENT_FRACTION = 1.0f;
 */
 // TheSuperHackers @fix xezon 13/03/2025 Set integer type as per the original.
 // TODO: Investigate if it should be a float.
-static int _LightingLODCutoff			= 0.5f;
-static int _LightingLODCutoff2			= 0.5f * 0.5f;
+// OKJID: It MUST be a float. If it is an int, it truncates 0.5f to 0, which breaks `Diffuse.Length2() > _LightingLODCutoff2`.
+static float _LightingLODCutoff			= 0.5f;
+static float _LightingLODCutoff2			= 0.5f * 0.5f;
 
 
 /************************************************************************************************
@@ -249,6 +251,7 @@ void LightEnvironmentClass::Add_Light(const LightClass & light)
 	// Jani: Don't accept lights that are almost black
 	Vector3 diff;
 	light.Get_Diffuse(&diff);
+
 	if (diff[0]<0.05f && diff[1]<0.05f && diff[2]<0.05f) {
 		return;
 	}
@@ -271,6 +274,7 @@ void LightEnvironmentClass::Add_Light(const LightClass & light)
 	/*
 	** If not rejected, add the directional component to the active lights
 	*/
+
 	if (new_light.DiffuseRejected == false || new_light.m_point) {
 
 		// Insert the light into the sorted list of InputLights if it's contribution is greater than the any of the current number of lights

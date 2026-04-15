@@ -28,7 +28,26 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#ifndef __APPLE__
 #include <winsock.h>	// This one has to be here. Prevents collisions with winsock2.h
+#else
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <errno.h>
+#define WSAGetLastError() (errno)
+#define WSAEWOULDBLOCK EWOULDBLOCK
+#define WSAEINVAL EINVAL
+#define WSAEALREADY EALREADY
+#define WSAEISCONN EISCONN
+#ifndef SOCKET_ERROR
+#define SOCKET_ERROR (-1)
+#endif
+#define closesocket close
+#define HOSTENT struct hostent
+#endif
 
 #include "GameNetwork/GameSpy/GameResultsThread.h"
 #include "mutex.h"
@@ -207,14 +226,18 @@ Bool GameResultsQueue::areGameResultsBeingSent()
 void GameResultsThreadClass::Thread_Function()
 {
 	try {
+#ifndef __APPLE__
 	_set_se_translator( DumpExceptionInfo ); // Hook that allows stack trace.
+#endif
 	GameResultsRequest req;
 
+#ifndef __APPLE__
 	WSADATA wsaData;
 
 	// Fire up winsock (prob already done, but doesn't matter)
 	WORD wVersionRequested = MAKEWORD(1, 1);
 	WSAStartup( wVersionRequested, &wsaData );
+#endif
 
 	while ( running )
 	{
@@ -264,7 +287,9 @@ void GameResultsThreadClass::Thread_Function()
 		Switch_Thread();
 	}
 
+#ifndef __APPLE__
 	WSACleanup();
+#endif
 	} catch ( ... ) {
 		DEBUG_CRASH(("Exception in results thread!"));
 	}

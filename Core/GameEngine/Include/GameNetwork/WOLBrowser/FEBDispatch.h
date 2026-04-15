@@ -34,6 +34,8 @@
 #include "Utility/comsupp_compat.h" 
 #endif
 
+#ifndef __APPLE__
+
 #include <atlbase.h>
 extern CComModule _Module;
 #include <atlcom.h>
@@ -106,3 +108,17 @@ public:
 private:
 	ITypeInfo *m_ptinfo;
 };
+
+#else // __APPLE__
+
+// Empty placeholder for macOS (WOL Browser is not supported without Win32 COM)
+template <class T, class C, const int *I>
+class FEBDispatch : public C
+{
+public:
+	FEBDispatch() {}
+	virtual ~FEBDispatch() {}
+};
+
+#endif // __APPLE__
+

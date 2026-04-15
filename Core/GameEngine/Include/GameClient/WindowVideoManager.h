@@ -148,8 +148,8 @@ private:
 	{
 	size_t operator()(ConstGameWindowPtr p) const
 	{
-		std::hash<UnsignedInt> hasher;
-		return hasher((UnsignedInt)p);
+		std::hash<size_t> hasher;
+		return hasher((size_t)p);
 	}
 	};
 

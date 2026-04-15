@@ -160,7 +160,13 @@ Bool LanguageFilter::readWord(File *file1, WideChar *buf) {
 
 	WideChar c;
 
+#ifdef __APPLE__
+	uint16_t rawChar;
+	val = file1->read(&rawChar, 2);
+	c = static_cast<WideChar>(rawChar);
+#else
 	val = file1->read(&c, sizeof(WideChar));
+#endif
 	if ((val == -1) || (val == 0)) {
 		buf[index] = 0;
 		return FALSE;
@@ -169,10 +175,19 @@ Bool LanguageFilter::readWord(File *file1, WideChar *buf) {
 
 	while (buf[index] != L' ') {
 		++index;
+#ifdef __APPLE__
+		val = file1->read(&rawChar, 2);
+		if ((val == -1) || (val == 0)) {
+			c = WEOF;
+		} else {
+			c = static_cast<WideChar>(rawChar);
+		}
+#else
 		val = file1->read(&c, sizeof(WideChar));
 		if ((val == -1) || (val == 0)) {
 			c = WEOF;
 		}
+#endif
 
 		if ((c == WEOF) || (c == L' ')) {
 			buf[index] = 0;

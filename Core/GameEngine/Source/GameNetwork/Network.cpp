@@ -62,6 +62,10 @@ Int NET_CRC_INTERVAL = 100;
 
 // DEFINES ////////////////////////////////////////////////////////////////////
 
+#ifdef __APPLE__
+#include <chrono>
+#endif
+
 #define RESEND_INTERVAL 1
 
 // PRIVATE TYPES //////////////////////////////////////////////////////////////
@@ -353,7 +357,11 @@ void Network::init()
 
 	m_localStatus = NETLOCALSTATUS_PREGAME;
 
+#ifdef __APPLE__
+	m_perfCountFreq = std::chrono::high_resolution_clock::period::den / std::chrono::high_resolution_clock::period::num;
+#else
 	QueryPerformanceFrequency((LARGE_INTEGER*)&m_perfCountFreq);
+#endif
 	m_nextFrameTime = 0;
 	m_sawCRCMismatch = FALSE;
 	m_checkCRCsThisFrame = FALSE;
@@ -550,6 +558,7 @@ Bool Network::processCommand(GameMessage* msg)
 #else
 			if (TheGameLogic->getFrame() == 1) {
 #endif
+				DEBUG_INFO_MAC(("[NET_STATE] PREGAME -> INGAME frame=%d", TheGameLogic->getFrame()));
 				m_localStatus = NETLOCALSTATUS_INGAME;
 				NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(0); // clear out frame 0 since we skipped it
 				deleteInstance(netcmdlist);
@@ -592,6 +601,7 @@ Bool Network::processCommand(GameMessage* msg)
 		m_conMgr->processFrameTick(executionFrame + 1); // since we send it for executionFrame+1, we need to process both ticks
 		m_lastFrameCompleted = executionFrame;
 		DEBUG_LOG(("Network::processCommand - player leaving on frame %d", executionFrame));
+		DEBUG_INFO_MAC(("[NET_STATE] INGAME -> LEAVING frame=%d", TheGameLogic->getFrame()));
 		m_localStatus = NETLOCALSTATUS_LEAVING;
 		return TRUE;
 	}
@@ -786,7 +796,11 @@ void Network::update()
 	}
 	else {
 		__int64 curTime;
+#ifdef __APPLE__
+		curTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+#else
 		QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
+#endif
 		m_isStalling = curTime >= m_nextFrameTime;
 	}
 }
@@ -814,7 +828,8 @@ void Network::endOfGameCheck() {
 		if (m_conMgr->canILeave()) {
 			m_conMgr->disconnectLocalPlayer();
 			TheGameLogic->exitGame();
-			m_localStatus = NETLOCALSTATUS_POSTGAME;
+			DEBUG_INFO_MAC(("[NET_STATE] -> POSTGAME frame=%d", TheGameLogic->getFrame()));
+				m_localStatus = NETLOCALSTATUS_POSTGAME;
 
 			DEBUG_LOG(("Network::endOfGameCheck - about to show the shell"));
 		}
@@ -828,7 +843,11 @@ void Network::endOfGameCheck() {
 
 Bool Network::timeForNewFrame() {
 	__int64 curTime;
+#ifdef __APPLE__
+	curTime = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+#else
 	QueryPerformanceCounter((LARGE_INTEGER*)&curTime);
+#endif
 	__int64 frameDelay = m_perfCountFreq / m_frameRate;
 
 	/*
@@ -1012,6 +1031,7 @@ void Network::quitGame() {
 #endif
 
 	TheGameLogic->exitGame();
+	DEBUG_INFO_MAC(("[NET_STATE] -> POSTGAME frame=%d", TheGameLogic->getFrame()));
 	m_localStatus = NETLOCALSTATUS_POSTGAME;
 	DEBUG_LOG(("Network::quitGame - quitting game..."));
 }

@@ -434,6 +434,7 @@ static void initLabelVersion()
 //-------------------------------------------------------------------------------------------------
 void MainMenuInit( WindowLayout *layout, void *userData )
 {
+	printf("DEBUG: MainMenuInit called! Unblocking movie flag.\n"); fflush(stdout);
 	TheWritableGlobalData->m_breakTheMovie = FALSE;
 
 	TheShell->showShellMap(TRUE);

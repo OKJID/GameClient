@@ -39,7 +39,7 @@
 //#define ENABLE_TIME_AND_MEMORY_LOG
 #include "wwstring.h"
 
-#ifdef _UNIX
+#if defined(_UNIX) && !defined(__APPLE__)
 typedef signed long long __int64;
 typedef signed long long _int64;
 #endif

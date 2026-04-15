@@ -80,3 +80,49 @@ endif()
 if(MINGW AND COMMAND add_debug_strip_target)
     add_debug_strip_target(z_generals)
 endif()
+
+if(APPLE)
+    set_target_properties(z_generals PROPERTIES
+        WIN32_EXECUTABLE FALSE
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.playgenerals.online"
+        MACOSX_BUNDLE_BUNDLE_NAME "GeneralsOnlineZH"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.4.0"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/Platform/MacOS/Info.plist.in"
+    )
+
+    # Remove Windows-only link libraries, add macOS frameworks
+    set_property(TARGET z_generals PROPERTY LINK_LIBRARIES)
+    target_link_libraries(z_generals PRIVATE
+        z_gameengine
+        z_gameenginedevice
+        zi_always
+        "-framework Metal"
+        "-framework MetalKit"
+        "-framework AppKit"
+        "-framework QuartzCore"
+        "-framework CoreGraphics"
+        "-framework IOKit"
+    )
+
+    # Replace WinMain with macOS entry point
+    get_target_property(_sources z_generals SOURCES)
+    list(REMOVE_ITEM _sources WinMain.cpp WinMain.h)
+    set_property(TARGET z_generals PROPERTY SOURCES ${_sources})
+
+    target_sources(z_generals PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/Main/MacOSMain.mm
+        ${CMAKE_BINARY_DIR}/Platform/MacOS/default.metallib
+    )
+
+    set_source_files_properties(${CMAKE_BINARY_DIR}/Platform/MacOS/default.metallib PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
+    # d3d8.h proxies and Win32 stubs
+    target_include_directories(z_generals BEFORE PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Include
+    )
+
+    target_link_libraries(z_generals PRIVATE macos_platform)
+    add_dependencies(z_generals metal_shaders)
+endif()

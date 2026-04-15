@@ -33,6 +33,7 @@
 #include "Common/DataChunk.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
+#include "Common/System/NativeFileSystem.h"
 
 // If verbose, lots of debug logging.
 #define not_VERBOSE
@@ -236,7 +237,7 @@ m_pOut(pOut)
 {
 	AsciiString tmpFileName = TheGlobalData->getPath_UserData();
 	tmpFileName.concat(TEMP_FILENAME);
-	m_tmp_file = ::fopen( tmpFileName.str(), "wb" );
+	m_tmp_file = NativeFileSystem::fopen( tmpFileName.str(), "wb" );
 	m_chunkStack = nullptr;
 }
 
@@ -251,7 +252,7 @@ DataChunkOutput::~DataChunkOutput()
 	AsciiString tmpFileName = TheGlobalData->getPath_UserData();
 	tmpFileName.concat(TEMP_FILENAME);
 
- 	m_tmp_file = ::fopen( tmpFileName.str(), "rb" );
+ 	m_tmp_file = NativeFileSystem::fopen( tmpFileName.str(), "rb" );
 	::fseek(m_tmp_file, 0, SEEK_SET);
 
 	// append the temp m_tmp_file m_contents
@@ -970,8 +971,22 @@ UnicodeString DataChunkInput::readUnicodeString()
 	UnicodeString theString;
 	if (len>0) {
 		WideChar *str = theString.getBufferForRead(len);
+		
+#ifdef __APPLE__
+		UnsignedShort *tempBuffer = NEW UnsignedShort[len];
+		m_file->read((char*)tempBuffer, len * sizeof(UnsignedShort));
+		decrementDataLeft(len * sizeof(UnsignedShort));
+		
+		for (int i = 0; i < len; ++i) {
+			str[i] = (WideChar)tempBuffer[i];
+		}
+		
+		delete[] tempBuffer;
+#else
 		m_file->read( (char*)str, len*sizeof(WideChar) );
 		decrementDataLeft( len*sizeof(WideChar) );
+#endif
+		
 		// add null delimiter to string.  Note that getBufferForRead allocates space for terminating null.
 		str[len] = '\000';
 	}

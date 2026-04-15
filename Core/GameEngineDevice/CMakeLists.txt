@@ -206,6 +206,27 @@ if(NOT IS_VS6_BUILD)
     )
 endif()
 
+if(APPLE)
+    list(REMOVE_ITEM GAMEENGINEDEVICE_SRC
+        Include/MilesAudioDevice/MilesAudioManager.h
+        Include/VideoDevice/Bink/BinkVideoPlayer.h
+        Include/Win32Device/Common/Win32BIGFile.h
+        Include/Win32Device/Common/Win32BIGFileSystem.h
+        Include/Win32Device/Common/Win32LocalFile.h
+        Include/Win32Device/Common/Win32LocalFileSystem.h
+        Include/Win32Device/GameClient/Win32DIKeyboard.h
+        Include/Win32Device/GameClient/Win32Mouse.h
+        Source/MilesAudioDevice/MilesAudioManager.cpp
+        Source/VideoDevice/Bink/BinkVideoPlayer.cpp
+        Source/Win32Device/Common/Win32BIGFile.cpp
+        Source/Win32Device/Common/Win32BIGFileSystem.cpp
+        Source/Win32Device/Common/Win32LocalFile.cpp
+        Source/Win32Device/Common/Win32LocalFileSystem.cpp
+        Source/Win32Device/GameClient/Win32DIKeyboard.cpp
+        Source/Win32Device/GameClient/Win32Mouse.cpp
+    )
+endif()
+
 add_library(corei_gameenginedevice_private INTERFACE)
 add_library(corei_gameenginedevice_public INTERFACE)
 
@@ -220,12 +241,18 @@ target_link_libraries(corei_gameenginedevice_private INTERFACE
     corei_main
 )
 
-target_link_libraries(corei_gameenginedevice_public INTERFACE
-    binkstub
-    corei_gameengine_public
-    d3d8lib
-    milesstub
-)
+if(NOT APPLE)
+    target_link_libraries(corei_gameenginedevice_public INTERFACE
+        binkstub
+        corei_gameengine_public
+        d3d8lib
+        milesstub
+    )
+else()
+    target_link_libraries(corei_gameenginedevice_public INTERFACE
+        corei_gameengine_public
+    )
+endif()
 
 if(RTS_BUILD_OPTION_FFMPEG)
     find_package(FFMPEG REQUIRED)

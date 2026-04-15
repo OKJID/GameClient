@@ -716,6 +716,10 @@ static PoolSizeRec sizes[] =
 	{ "ThumbnailManagerClass", 32, 32},
 	{ "SmudgeSet", 32, 32},
 	{ "Smudge", 128, 32},
+#ifdef __APPLE__
+	{ "MetalSurface8", 128, 32 },
+	{ "MetalTexture8", 1200, 256 },
+#endif
 	{ 0, 0, 0 }
 };
 

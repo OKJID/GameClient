@@ -74,6 +74,8 @@
 #include "Common/MiniDumper.h"
 #endif
 
+#include "Common/System/NativeFileSystem.h"
+
 // Horrible reference, but we really, really need to know if we are windowed.
 extern bool DX8Wrapper_IsWindowed;
 extern HWND ApplicationHWnd;
@@ -406,21 +408,19 @@ void DebugInit(int flags)
 		}
 		strlcat(theLogFileName, ".txt", ARRAY_SIZE(theLogFileNamePrev));
 
-		remove(theLogFileNamePrev);
-		if (rename(theLogFileName, theLogFileNamePrev) != 0)
+		NativeFileSystem::remove(theLogFileNamePrev);
+		if (NativeFileSystem::rename(theLogFileName, theLogFileNamePrev) != 0)
 		{
 #ifdef DEBUG_LOGGING
 			DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", theLogFileName, theLogFileNamePrev);
 #endif
-			if (remove(theLogFileName) != 0)
+			if (NativeFileSystem::exists(theLogFileName))
 			{
-#ifdef DEBUG_LOGGING
-				DebugLog("Warning: Failed to remove file '%s'", theLogFileName);
-#endif
+				NativeFileSystem::remove(theLogFileName);
 			}
 		}
 
-		theLogFile = fopen(theLogFileName, "w");
+		theLogFile = NativeFileSystem::fopen(theLogFileName, "w");
 		if (theLogFile != nullptr)
 		{
 			DebugLog("Log %s opened: %s", theLogFileName, getCurrentTimeString());
@@ -753,11 +753,13 @@ void ReleaseCrash(const char *reason)
 {
 	/// do additional reporting on the crash, if possible
 
+#ifndef __APPLE__
 	if (!DX8Wrapper_IsWindowed) {
 		if (ApplicationHWnd) {
 			ShowWindow(ApplicationHWnd, SW_HIDE);
 		}
 	}
+#endif
 
 	TriggerMiniDump();
 
@@ -773,21 +775,19 @@ void ReleaseCrash(const char *reason)
 	strlcpy(curbuf, TheGlobalData->getPath_UserData().str(), ARRAY_SIZE(curbuf));
 	strlcat(curbuf, RELEASECRASH_FILE_NAME, ARRAY_SIZE(curbuf));
 
- 	remove(prevbuf);
-	if (rename(curbuf, prevbuf) != 0)
+ 	NativeFileSystem::remove(prevbuf);
+	if (NativeFileSystem::rename(curbuf, prevbuf) != 0)
 	{
 #ifdef DEBUG_LOGGING
 		DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", curbuf, prevbuf);
 #endif
-		if (remove(curbuf) != 0)
+		if (NativeFileSystem::exists(curbuf))
 		{
-#ifdef DEBUG_LOGGING
-			DebugLog("Warning: Failed to remove file '%s'", curbuf);
-#endif
+			NativeFileSystem::remove(curbuf);
 		}
 	}
 
-	theReleaseCrashLogFile = fopen(curbuf, "w");
+	theReleaseCrashLogFile = NativeFileSystem::fopen(curbuf, "w");
 	if (theReleaseCrashLogFile)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %s\n", getCurrentTimeString(), reason);
@@ -803,6 +803,7 @@ void ReleaseCrash(const char *reason)
 		theReleaseCrashLogFile = nullptr;
 	}
 
+#ifndef __APPLE__
 	if (!DX8Wrapper_IsWindowed) {
 		if (ApplicationHWnd) {
 			ShowWindow(ApplicationHWnd, SW_HIDE);
@@ -810,20 +811,16 @@ void ReleaseCrash(const char *reason)
 	}
 
 #if defined(RTS_DEBUG)
-	/* static */ char buff[8192]; // not so static so we can be threadsafe
+	/* static */ char buff[8192];  // not so static so we can be threadsafe
 	snprintf(buff, 8192, "Sorry, a serious error occurred. (%s)", reason);
 	::MessageBox(nullptr, buff, "Technical Difficulties...", MB_OK|MB_SYSTEMMODAL|MB_ICONERROR);
 #else
-// crash error messaged changed 3/6/03 BGC
-//	::MessageBox(nullptr, "Sorry, a serious error occurred.", "Technical Difficulties...", MB_OK|MB_TASKMODAL|MB_ICONERROR);
-//	::MessageBox(nullptr, "You have encountered a serious error.  Serious errors can be caused by many things including viruses, overheated hardware and hardware that does not meet the minimum specifications for the game. Please visit the forums at www.generals.ea.com for suggested courses of action or consult your manual for Technical Support contact information.", "Technical Difficulties...", MB_OK|MB_TASKMODAL|MB_ICONERROR);
-
-// crash error message changed again 8/22/03 M Lorenzen... made this message box modal to the system so it will appear on top of any task-modal windows, splash-screen, etc.
   ::MessageBox(nullptr, "You have encountered a serious error.  Serious errors can be caused by many things including viruses, overheated hardware and hardware that does not meet the minimum specifications for the game. Please visit the forums at www.generals.ea.com for suggested courses of action or consult your manual for Technical Support contact information.",
    "Technical Difficulties...",
    MB_OK|MB_SYSTEMMODAL|MB_ICONERROR);
-
-
+#endif
+#else
+	printf("ReleaseCrash: %s\n", reason);
 #endif
 
 	_exit(1);
@@ -845,6 +842,7 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 
 	/// do additional reporting on the crash, if possible
 
+#ifndef __APPLE__
 	if (!DX8Wrapper_IsWindowed) {
 		if (ApplicationHWnd) {
 			ShowWindow(ApplicationHWnd, SW_HIDE);
@@ -866,6 +864,11 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 		::SetWindowPos(ApplicationHWnd, HWND_NOTOPMOST, 0, 0, 0, 0,SWP_NOSIZE |SWP_NOMOVE);
 		::MessageBoxA(nullptr, mesgA.str(), promptA.str(), MB_OK|MB_TASKMODAL|MB_ICONERROR);
 	}
+#else
+	AsciiString mesgA;
+	mesgA.translate(mesg);
+	printf("ReleaseCrashLocalized: %s\n", mesgA.str());
+#endif
 
 	char prevbuf[ _MAX_PATH ];
 	char curbuf[ _MAX_PATH ];
@@ -875,21 +878,19 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 	strlcpy(curbuf, TheGlobalData->getPath_UserData().str(), ARRAY_SIZE(curbuf));
 	strlcat(curbuf, RELEASECRASH_FILE_NAME, ARRAY_SIZE(curbuf));
 
- 	remove(prevbuf);
-	if (rename(curbuf, prevbuf) != 0)
+ 	NativeFileSystem::remove(prevbuf);
+	if (NativeFileSystem::rename(curbuf, prevbuf) != 0)
 	{
 #ifdef DEBUG_LOGGING
 		DebugLog("Warning: Could not rename buffer file '%s' to '%s'. Will remove instead", curbuf, prevbuf);
 #endif
-		if (remove(curbuf) != 0)
+		if (NativeFileSystem::exists(curbuf))
 		{
-#ifdef DEBUG_LOGGING
-			DebugLog("Warning: Failed to remove file '%s'", curbuf);
-#endif
+			NativeFileSystem::remove(curbuf);
 		}
 	}
 
-	theReleaseCrashLogFile = fopen(curbuf, "w");
+	theReleaseCrashLogFile = NativeFileSystem::fopen(curbuf, "w");
 	if (theReleaseCrashLogFile)
 	{
 		fprintf(theReleaseCrashLogFile, "Release Crash at %s; Reason %ls\n", getCurrentTimeString(), mesg.str());

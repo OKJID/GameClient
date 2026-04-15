@@ -37,7 +37,7 @@
 #include "GameNetwork/NetworkDefs.h"
 #include "GameLogic/Module/UpdateModule.h"	// needed for DIRECT_UPDATEMODULE_ACCESS
 
-#include "../NextGenMP_defines.h"
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 
 /*
 	At one time, we distinguished between sleepy and nonsleepy

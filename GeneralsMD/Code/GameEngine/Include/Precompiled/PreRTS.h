@@ -39,6 +39,8 @@ class STLSpecialAlloc;
 // different .cpp files, so I bit the bullet and included it here.
 // PLEASE DO NOT ABUSE WINDOWS OR IT WILL BE REMOVED ENTIRELY. :-)
 //--------------------------------------------------------------------------------- System Includes
+#ifndef __APPLE__
+
 #define WIN32_LEAN_AND_MEAN
 // TheSuperHackers @build JohnsterID 05/01/2026 Add ATL compatibility for MinGW-w64 builds
 #if defined(__GNUC__) && defined(_WIN32)
@@ -88,6 +90,25 @@ class STLSpecialAlloc;
 #endif
 
 #include <dinput.h>
+
+#else // __APPLE__
+
+#include <assert.h>
+#include <ctype.h>
+#include <float.h>
+#include <limits.h>
+#include <math.h>
+#include <memory.h>
+#include <stdarg.h>
+#include <stddef.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <wchar.h>
+#include <windows.h>
+
+#endif // __APPLE__
 
 //------------------------------------------------------------------------------------ STL Includes
 // srj sez: no, include STLTypesdefs below, instead, thanks

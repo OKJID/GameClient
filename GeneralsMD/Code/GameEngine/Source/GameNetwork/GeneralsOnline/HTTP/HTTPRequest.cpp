@@ -127,7 +127,7 @@ void HTTPRequest::InvokeCallbackIfComplete()
 #if defined(ARTIFICIAL_DELAY_HTTP_REQUESTS)
 void HTTPRequest::SetWaitingDelay(CURLcode result)
 {
-	m_timeRequestComplete = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+	m_timeRequestComplete = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	m_pendingCURLCode = result;
 }
 
@@ -135,7 +135,7 @@ bool HTTPRequest::InvokeDelayAction()
 {
 	if (m_timeRequestComplete != -1)
 	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 		if (currTime - m_timeRequestComplete > 2000)
 		{
 			Threaded_SetComplete(m_pendingCURLCode);
@@ -150,8 +150,40 @@ bool HTTPRequest::InvokeDelayAction()
 
 void HTTPRequest::Threaded_SetComplete(CURLcode result)
 {
+	if (result == CURLE_SSL_CACERT_BADFILE || result == CURLE_PEER_FAILED_VERIFICATION)
+	{
+		HTTPManager::SetCACertStoreBad();
+	}
 	// store response code
 	curl_easy_getinfo(m_pCURL, CURLINFO_RESPONSE_CODE, &m_responseCode);
+
+	if (result == CURLE_OK)
+	{
+		HTTPManager* pHTTPManager = static_cast<HTTPManager*>(NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager());
+		if (pHTTPManager != nullptr)
+		{
+            if (pHTTPManager->GetProtocolInUse() == EIPProtocolVersion::DONT_CARE)
+			{
+                char* ip = nullptr;
+                curl_easy_getinfo(m_pCURL, CURLINFO_PRIMARY_IP, &ip);
+
+                if (ip)
+                {
+                    std::string addr(ip);
+                    if (addr.find(':') != std::string::npos)
+                    {
+						pHTTPManager->SetProtocolInUse(EIPProtocolVersion::FORCE_IPV6);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] We are connected to GO services using IPv6");
+                    }
+                    else
+                    {
+						pHTTPManager->SetProtocolInUse(EIPProtocolVersion::FORCE_IPV4);
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTP] We are connected to GO services using IPv4");
+                    }
+                }
+			}
+		}
+	}
 
 	m_bIsComplete = true;
 
@@ -278,10 +310,62 @@ void HTTPRequest::PlatformStartRequest()
 		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
 		curl_easy_setopt(m_pCURL, CURLOPT_VERBOSE, 1);
 #else
+#ifdef __APPLE__
+		if (HTTPManager::IsCACertStoreBad())
+		{
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		}
+		else
+		{
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+		}
+#else
         curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
 
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
-		curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+		// TODO_NGMP: We should move to libcurl backed by SChannel so we don't need to do this
+		// Check if cacert.pem exists
+
+		if (HTTPManager::IsCACertStoreBad())
+		{
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+            curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+		}
+		else
+		{
+            std::ifstream certFile("cacert.pem");
+            if (certFile.good())
+            {
+                certFile.close();
+                curl_easy_setopt(m_pCURL, CURLOPT_CAINFO, "cacert.pem");
+
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 1L);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 2L);
+            }
+            else
+            {
+				HTTPManager::SetCACertStoreBad();
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYPEER, 0);
+                curl_easy_setopt(m_pCURL, CURLOPT_SSL_VERIFYHOST, 0);
+            }
+		}
+
+       
+#endif
 #endif
 
 		pHTTPManager->AddHandleToMulti(m_pCURL);

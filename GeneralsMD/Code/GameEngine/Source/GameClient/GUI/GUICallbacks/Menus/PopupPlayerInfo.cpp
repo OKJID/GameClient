@@ -327,8 +327,8 @@ void BattleHonorTooltip(GameWindow *window,
 		return;
 	}
 
-	Int battleHonor = (Int)GadgetListBoxGetItemData( window, row, col );
-	Int extraValue = (Int)GadgetListBoxGetItemData( window, row - 1, col );
+	Int battleHonor = (Int)(uintptr_t)GadgetListBoxGetItemData( window, row, col );
+	Int extraValue = (Int)(uintptr_t)GadgetListBoxGetItemData( window, row - 1, col );
 	if (battleHonor == 0)
 	{
 		//DEBUG_CRASH(("No Battle Honor in listbox row %d, col %d!", row, col));
@@ -878,10 +878,13 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 				return;
 			}
 
+			if (!TheRankPointValues)
+				return;
+
 			Int currentRank = 0;
 			Int rankPoints = CalculateRank(stats);
 			Int i = 0;
-			while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+			while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 				++i;
 			currentRank = i;
 

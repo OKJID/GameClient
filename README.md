@@ -37,7 +37,7 @@ Here's an overview of our current focus and future plans
 - **Modernizing the Codebase**: Transitioning to modern C++ standards and refactoring old code.
 - **Critical Bug Fixes**: Fixing game-breaking issues (e.g., fullscreen crash).
 - **Minor Bug Fixes**: Addressing minor bugs (e.g., UI issues, graphical glitches).
-- **Cross-Platform Support**: Adding support for more platforms (e.g., Linux, macOS).
+- **Cross-Platform Support**: Expanding to more platforms. macOS (Apple Silicon) is fully supported with a native Metal rendering backend. Linux support is in progress.
 - **Engine Improvements**: Enhancing the game engine to improve performance and stability.
 - **Client-Side Features**: Enhancing the game's client with features such as an improved replay viewer and UI updates.
 - **Multiplayer Improvements**: Implementing a new game server and an upgraded matchmaking lobby.
@@ -61,7 +61,7 @@ report bugs, and contribute to the project!
 
 ## Building the Game Yourself
 
-We provide support for building the project on Windows and Linux. For detailed build instructions, check the
+We provide support for building the project on Windows, Linux, and macOS. For detailed build instructions, check the
 [Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki/build_guides), which includes guides for VS6, VS2022,
 Docker, CLion, and links to forks supporting additional versions.
 
@@ -77,6 +77,17 @@ cmake --build build/win32 --config Release
 ```bash
 ./scripts/docker-build.sh              # Build using Docker
 ./scripts/docker-install.sh --detect # Install to your game
+```
+
+**macOS (Apple Silicon)**
+
+The macOS port runs natively on Apple Silicon (ARM64) with a Metal rendering backend.
+For full setup instructions, prerequisites, and technical documentation, see the
+[macOS Port Documentation](Platform/MacOS/docs/README.md).
+
+```bash
+sh build_run_mac.sh          # Build and run
+sh build_run_mac.sh --clean  # Clean rebuild
 ```
 
 ### Dependency management

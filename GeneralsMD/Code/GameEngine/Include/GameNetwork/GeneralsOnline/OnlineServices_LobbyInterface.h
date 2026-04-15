@@ -46,22 +46,22 @@ struct LobbyEntry
 {
 	int64_t lobbyID = -1;
 
-	int64_t owner;
+	int64_t owner = -1;
 	std::string name;
 	std::string map_name;
 	std::string map_path;
-	bool map_official;
-	int current_players;
-	int max_players;
-	bool vanilla_teams;
-	uint32_t starting_cash;
-	bool limit_superweapons;
-	bool track_stats;
-	bool allow_observers;
-	uint16_t max_cam_height;
+	bool map_official = false;
+	int current_players = 0;
+	int max_players = 0;
+	bool vanilla_teams = false;
+	uint32_t starting_cash = 0;
+	bool limit_superweapons = false;
+	bool track_stats = false;
+	bool allow_observers = false;
+	uint16_t max_cam_height = 0;
 
-	uint32_t exe_crc;
-	uint32_t ini_crc;
+	uint32_t exe_crc = 0;
+	uint32_t ini_crc = 0;
 
 	uint64_t match_id = 0;
 
@@ -69,13 +69,13 @@ struct LobbyEntry
 
 	int rng_seed = -1;
 
-	bool passworded;
+	bool passworded = false;
 	std::string password;
 
 	std::vector<LobbyMemberEntry> members;
 
 	std::string region;
-	int latency;
+	int latency = 0;
 };
 
 enum class EJoinLobbyResult
@@ -401,7 +401,7 @@ public:
 
 	void StartAutoReadyCountdown()
 	{
-		m_timeStartAutoReadyCountdown = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		m_timeStartAutoReadyCountdown = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	}
 
 	void ClearAutoReadyCountdown()

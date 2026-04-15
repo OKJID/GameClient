@@ -127,7 +127,7 @@ enum CallbackType
 
 void callbackWrapper( GPConnection *con, void *arg, void *param )
 {
-	CallbackType info = (CallbackType)(Int)param;
+	CallbackType info = (CallbackType)(size_t)param;
 	BuddyThreadClass *thread = MESSAGE_QUEUE->getThread() ? MESSAGE_QUEUE->getThread() : nullptr /*(TheGameSpyBuddyMessageQueue)?TheGameSpyBuddyMessageQueue->getThread():nullptr*/;
 	if (!thread)
 		return;
@@ -260,7 +260,9 @@ GPProfile GameSpyBuddyMessageQueue::getLocalProfileID()
 void BuddyThreadClass::Thread_Function()
 {
 	try {
+#ifndef __APPLE__
 	_set_se_translator( DumpExceptionInfo ); // Hook that allows stack trace.
+#endif
 	GPConnection gpCon;
 	GPConnection *con = &gpCon;
 #if RTS_GENERALS

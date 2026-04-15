@@ -59,15 +59,21 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 		Bool sentFile = FALSE;
 		if (TheGameInfo->amIHost())
 		{
+			DEBUG_LOG(("[XFER_HOST] Announcing file '%s' to mask=0x%x", filename.str(), mask));
+			DEBUG_INFO_MAC(("[XFER_HOST] Announcing file '%s' to mask=0x%x", filename.str(), mask));
 			Sleep(500);
 			fileCommandID = TheNetwork->sendFileAnnounce(filename, mask);
+			DEBUG_LOG(("[XFER_HOST] sendFileAnnounce returned commandID=%d", fileCommandID));
 		}
 		else
 		{
+			DEBUG_LOG(("[XFER_CLIENT] Waiting to receive file '%s'", filename.str()));
+			DEBUG_INFO_MAC(("[XFER_CLIENT] Waiting to receive file '%s'", filename.str()));
 			sentFile = TRUE;
 		}
 
 		DEBUG_LOG(("Starting file transfer loop"));
+		DEBUG_INFO_MAC(("[XFER_FLOW] Starting file transfer loop for '%s', initial mask=0x%x", filename.str(), mask));
 
 		while (!fileTransferDone)
 		{
@@ -85,6 +91,8 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 				if (TheGameInfo->getConstSlot(i)->isHuman() && !TheGameInfo->getConstSlot(i)->hasMap())
 				{
 					Int slotTransferPercent = TheNetwork->getFileTransferProgress(i, filename);
+					DEBUG_INFO_MAC(("[XFER_FLOW] Loop iter: Checked slot %d (isHuman=1, hasMap=0). getFileTransferProgress returned %d", i, slotTransferPercent));
+
 					fileTransferPercent = min(fileTransferPercent, slotTransferPercent);
 
 					if (slotTransferPercent == 0)
@@ -95,6 +103,9 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 						ls->processProgress(i, slotTransferPercent, "MapTransfer:Done");
 				}
 			}
+			
+			DEBUG_INFO_MAC(("[XFER_FLOW] After slot aggregation, fileTransferPercent = %d", fileTransferPercent));
+
 			if (fileTransferPercent < 100)
 			{
 				fileTransferDone = FALSE;
@@ -106,6 +117,7 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 			else
 			{
 				DEBUG_LOG(("File transfer is 100%%!"));
+				DEBUG_INFO_MAC(("[XFER_FLOW] File transfer evaluated to 100%%!"));
 				ls->processProgress(0, fileTransferPercent, "MapTransfer:Done");
 			}
 
@@ -113,6 +125,7 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 			if (now > startTime + timeoutPeriod) // bail if we don't finish in a reasonable amount of time
 			{
 				DEBUG_LOG(("Timing out file transfer"));
+				DEBUG_INFO_MAC(("[XFER_FLOW] Timing out file transfer after %u ms", now - startTime));
 				break;
 			}
 			else
@@ -125,6 +138,8 @@ static Bool doFileTransfer( AsciiString filename, MapTransferLoadScreen *ls, Int
 
 		if (!fileTransferDone)
 		{
+			DEBUG_LOG(("[XFER] TIMEOUT file='%s'", filename.str()));
+			DEBUG_INFO_MAC(("[XFER_FLOW] Transfer failed/timed out for file='%s'", filename.str()));
 			return FALSE;
 		}
 	}
@@ -253,7 +268,9 @@ Bool DoAnyMapTransfers(GameInfo *game)
 			DEBUG_LOG(("Adding player %d to transfer mask", i));
 			mask |= (1<<i);
 		}
+		DEBUG_INFO_MAC(("[MAP_XFER] slot[%d]: isHuman=%d hasMap=%d", i, TheGameInfo->getConstSlot(i)->isHuman(), TheGameInfo->getConstSlot(i)->hasMap()));
 	}
+	DEBUG_INFO_MAC(("[MAP_XFER] mask=0x%x map='%s'", mask, game->getMap().str()));
 	if (!mask)
 		return TRUE;
 
@@ -261,6 +278,9 @@ Bool DoAnyMapTransfers(GameInfo *game)
 	MapTransferLoadScreen *ls = NEW MapTransferLoadScreen;
 	ls->init(TheGameInfo);
 	Bool ok = TRUE;
+	DEBUG_LOG(("[XFER] DoAnyMapTransfers: contentsMask=0x%x amIHost=%d map='%s'", game->getMapContentsMask(), game->amIHost(), game->getMap().str()));
+	DEBUG_INFO_MAC(("[XFER_FLOW] DoAnyMapTransfers: Init complete! Building transfers. contentsMask=0x%x amIHost=%d map='%s'", game->getMapContentsMask(), game->amIHost(), game->getMap().str()));
+	
 	if (TheGameInfo->getMapContentsMask() & 2)
 		ok = doFileTransfer(GetPreviewFromMap(game->getMap()), ls, mask);
 	if (ok && TheGameInfo->getMapContentsMask() & 4)
@@ -273,8 +293,15 @@ Bool DoAnyMapTransfers(GameInfo *game)
 		ok = doFileTransfer(GetAssetUsageFromMap(game->getMap()), ls, mask);
 	if (ok && TheGameInfo->getMapContentsMask() & 64)
 		ok = doFileTransfer(GetReadmeFromMap(game->getMap()), ls, mask);
+		
+	DEBUG_INFO_MAC(("[XFER_FLOW] DoAnyMapTransfers: Main map execution check. ok=%d", ok));
 	if (ok)
+	{
+		DEBUG_INFO_MAC(("[XFER_FLOW] Entering doFileTransfer for Main Map: '%s'", game->getMap().str()));
 		ok = doFileTransfer(game->getMap(), ls, mask);
+		DEBUG_INFO_MAC(("[XFER_FLOW] Finished doFileTransfer for Main Map. Result: %d", ok));
+	}
+		
 	delete ls;
 	ls = nullptr;
 	if (!ok)

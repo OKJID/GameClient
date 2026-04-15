@@ -109,6 +109,7 @@ static AsciiString realAsStr(Real val)
 //-----------------------------------------------------------------------------
 // UserPreferences Class
 //-----------------------------------------------------------------------------
+#include "Common/System/NativeFileSystem.h"
 
 UserPreferences::UserPreferences()
 {
@@ -127,7 +128,7 @@ Bool UserPreferences::load(AsciiString fname)
 	m_filename = TheGlobalData->getPath_UserData();
 	m_filename.concat(fname);
 
-	FILE *fp = fopen(m_filename.str(), "r");
+	FILE *fp = NativeFileSystem::fopen(m_filename, "r");
 	if (fp)
 	{
 		char buf[LINE_LEN];
@@ -159,7 +160,7 @@ Bool UserPreferences::write()
 	if (m_filename.isEmpty())
 		return false;
 
-	FILE *fp = fopen(m_filename.str(), "w");
+	FILE *fp = NativeFileSystem::fopen(m_filename, "w");
 	if (fp)
 	{
 		PreferenceMap::const_iterator it = begin();
@@ -451,9 +452,9 @@ CustomMatchPreferences::CustomMatchPreferences()
 	AsciiString prefsDirectory = TheGlobalData->getPath_UserData();
 	prefsDirectory.concat("GeneralsOnlineData");
 
-	if (!std::filesystem::exists(prefsDirectory.str()))
+	if (!NativeFileSystem::exists(prefsDirectory))
 	{
-		std::filesystem::create_directory(prefsDirectory.str());
+		NativeFileSystem::create_directory(prefsDirectory);
 	}
 #else
 	Int localProfile = TheGameSpyInfo->getLocalProfileID();

@@ -22,6 +22,7 @@
 //																																						//
 ////////////////////////////////////////////////////////////////////////////////
 
+// TheSuperHackers @build Okladnoj 11/04/2026 Fix uintptr_t casts for 64-bit macOS compliance.
 // AIStates.cpp
 // Implementation of AI behavior states
 // Author: Michael S. Booth, January 2002
@@ -1237,7 +1238,7 @@ Bool outOfWeaponRangePosition( State *thisState, void* userData )
  */
 static Bool cannotPossiblyAttackObject( State *thisState, void* userData )
 {
-	AbleToAttackType attackType = (AbleToAttackType)(UnsignedInt)userData;
+	AbleToAttackType attackType = (AbleToAttackType)(uintptr_t)userData;
 	Object *obj = thisState->getMachineOwner();
 	Object *victim = thisState->getMachineGoalObject();
 

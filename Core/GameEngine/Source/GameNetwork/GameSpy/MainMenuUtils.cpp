@@ -154,6 +154,15 @@ static Bool hasWriteAccess(bool bFileAccessOnly = false)
 
 	remove(filename);
 
+#ifdef __APPLE__
+	int handle = open( filename, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	if (handle == -1)
+	{
+		return false;
+	}
+
+	close(handle);
+#else
 	int handle = _open( filename, _O_CREAT | _O_RDWR, _S_IREAD | _S_IWRITE);
 	if (handle == -1)
 	{
@@ -161,9 +170,7 @@ static Bool hasWriteAccess(bool bFileAccessOnly = false)
 	}
 
 	_close(handle);
-	remove(filename);
-
-	// NGMP: We don't care about registry anymore... just disk access
+#endif
 	if (!bFileAccessOnly)
 	{
 		unsigned int val;
@@ -324,7 +331,7 @@ static void queuePatch(Bool mandatory, AsciiString downloadURL)
 static GHTTPBool motdCallback( GHTTPRequest request, GHTTPResult result,
 															char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(size_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -359,7 +366,7 @@ static GHTTPBool motdCallback( GHTTPRequest request, GHTTPResult result,
 static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 																char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(size_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -421,7 +428,7 @@ static GHTTPBool configCallback( GHTTPRequest request, GHTTPResult result,
 static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 																		char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(size_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -505,7 +512,7 @@ static GHTTPBool configHeadCallback( GHTTPRequest request, GHTTPResult result,
 
 static GHTTPBool gamePatchCheckCallback( GHTTPRequest request, GHTTPResult result, char * buffer, GHTTPByteCount bufferLen, void * param )
 {
-	Int run = (Int)param;
+	Int run = (Int)(size_t)param;
 	if (run != timeThroughOnline)
 	{
 		DEBUG_CRASH(("Old callback being called!"));
@@ -753,6 +760,12 @@ DWORD WINAPI asyncGethostbynameThreadFunc( void * szName )
 
 int asyncGethostbyname(char * szName)
 {
+#ifdef __APPLE__
+	// Dummy synchronous resolution or just fake it for Mac
+	HOSTENT *he = gethostbyname( (const char *)szName );
+	s_asyncDNSLookupInProgress = FALSE;
+	return (he) ? LOOKUP_SUCCEEDED : LOOKUP_FAILED;
+#else
 	static int            stat = 0;
 	static unsigned long  threadid;
 
@@ -781,6 +794,7 @@ int asyncGethostbyname(char * szName)
 	}
 
 	return( LOOKUP_INPROGRESS );
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -798,35 +812,44 @@ void HTTPThinkWrapper()
 		Int ret = asyncGethostbyname(hostname);
 		switch(ret)
 		{
-		case LOOKUP_FAILED:
-			cantConnectBeforeOnline = TRUE;
-			startOnline();
-			break;
-		case LOOKUP_SUCCEEDED:
-			reallyStartPatchCheck();
-			break;
+			case LOOKUP_SUCCEEDED:
+			case LOOKUP_FAILED:
+				// if we failed, we'll try to connect normally and let the connection fail
+				DEBUG_LOG(("Async DNS lookup finished. result = %d", ret));
+				reallyStartPatchCheck();
+				break;
+			case LOOKUP_INPROGRESS:
+				break;
+			default:
+				DEBUG_CRASH(("Unknown status return from async DNS lookup"));
 		}
+
+		return;
 	}
 
-	if (isHttpOk)
+	// Wait, do nothing if HTTP is broken
+	if (!isHttpOk)
+		return;
+
+#ifdef _WIN32
+	__try
 	{
-		try
-		{
-			ghttpThink();
-		}
-		catch (...)
-		{
-			isHttpOk = FALSE; // we can't abort the login, since we might be done with the
-												// required checks and are fetching extras.  If it is a required
-												// check, we'll time out normally.
-		}
+#endif
+		ghttpThink();
+#ifdef _WIN32
 	}
+	__except(1)
+	{
+		isHttpOk = FALSE;
+	}
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-void StopAsyncDNSCheck()
+void KillAsyncDNSThread()
 {
+#ifndef __APPLE__
 	if (s_asyncDNSThreadHandle)
 	{
 #ifdef DEBUG_CRASHING
@@ -836,6 +859,7 @@ void StopAsyncDNSCheck()
 		DEBUG_ASSERTCRASH(res, ("Could not terminate the Async DNS Lookup thread!"));	// Thread still not killed!
 	}
 	s_asyncDNSThreadHandle = nullptr;
+#endif
 	s_asyncDNSLookupInProgress = FALSE;
 }
 
@@ -849,6 +873,7 @@ void StartPatchCheck()
     timeThroughOnline++;
     checksLeftBeforeOnline = 0;
 
+#ifndef __APPLE__
     SYSTEM_INFO SystemInfo;
     GetSystemInfo(&SystemInfo);
 
@@ -861,6 +886,7 @@ void StartPatchCheck()
 
 		return;
 	}
+#endif
 
 	// GENERALS ONLINE
 	NGMP_OnlineServicesManager::CreateInstance();

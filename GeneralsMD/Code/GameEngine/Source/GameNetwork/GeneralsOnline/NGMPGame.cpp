@@ -66,9 +66,30 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	// map
 	// correct if custom (game needs full path, this is done in vanilla for CM only, and not QM, but our QM has custom maps, so just do it here for safety)
 
-	AsciiString asciiMapOfficial(lobby.map_path.c_str());
-	std::string correctedMapPath = std::format("{}{}", TheGlobalData->getPath_UserData().str(), lobby.map_path.c_str());
-	AsciiString asciiMapCustom(correctedMapPath.c_str());
+	std::string rawMapPath = lobby.map_path;
+	
+	// Normalize any forward slashes from the lobby network API to Windows backslashes
+	// because the entire engine internally expects Windows-style paths.
+	for (auto& ch : rawMapPath)
+	{
+		if (ch == '/')
+			ch = '\\';
+	}
+
+	AsciiString rawAscii(rawMapPath.c_str());
+	AsciiString asciiMapOfficial(rawAscii);
+	AsciiString asciiMapCustom;
+
+	// Only prepend the UserData path if it doesn't already start with it (avoids duplication on local host)
+	if (rawAscii.startsWithNoCase(TheGlobalData->getPath_UserData()))
+	{
+		asciiMapCustom = rawAscii;
+	}
+	else
+	{
+		std::string correctedMapPath = std::format("{}{}", TheGlobalData->getPath_UserData().str(), rawMapPath.c_str());
+		asciiMapCustom = correctedMapPath.c_str();
+	}
 	//TheNGMPGame->setMap(asciiMap);
 	asciiMapOfficial.toLower();
 	asciiMapCustom.toLower();
@@ -85,6 +106,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 		TheNGMPGame->setMapSize(itOfficial->second.m_filesize);
 
 		setMap(asciiMapOfficial);
+		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map resolved as OFFICIAL: '%s'", asciiMapOfficial.str()));
 	}
 	else if (itCustom != TheMapCache->end())
 	{
@@ -93,10 +115,12 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 		TheNGMPGame->setMapSize(itCustom->second.m_filesize);
 
 		setMap(asciiMapCustom);
+		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map resolved as CUSTOM: '%s'", asciiMapCustom.str()));
 	}
 	else // fallback
 	{
 		setMap(lobby.map_path.c_str());
+		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map FALLBACK (NOT FOUND): raw='%s' official='%s' custom='%s'", rawMapPath.c_str(), asciiMapOfficial.str(), asciiMapCustom.str()));
 	}
 
 	// superweapon
@@ -136,6 +160,7 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 	// NOTE: In progress means game has started, in-game just means in the lobby/fronend...
 	if (m_inProgress)
 	{
+		DEBUG_INFO_MAC(("[SLOT_SYNC] UpdateSlotsFromCurrentLobby BLOCKED by m_inProgress=true"));
 		return;
 	}
 
@@ -166,7 +191,19 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 		{
 			bool bIsAI = (pLobbyMember.m_SlotState == SlotState::SLOT_EASY_AI || pLobbyMember.m_SlotState == SlotState::SLOT_MED_AI|| pLobbyMember.m_SlotState == SlotState::SLOT_BRUTAL_AI);
 
+			if (pLobbyMember.m_SlotIndex >= MAX_SLOTS)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: bad slot index %u for user %lld, skipping", pLobbyMember.m_SlotIndex, pLobbyMember.user_id);
+				continue;
+			}
+
 			NGMPGameSlot* slot = (NGMPGameSlot*)getSlot(pLobbyMember.m_SlotIndex);
+
+			if (slot == nullptr)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] UpdateSlotsFromCurrentLobby: getSlot(%u) returned null, skipping", pLobbyMember.m_SlotIndex);
+				continue;
+			}
 
 			// NOTE: Internally generals uses 'local ip' to detect which user is local... we dont have an IP, so just use player index for ip
 			slot->setState((SlotState)pLobbyMember.m_SlotState, UnicodeString(from_utf8(pLobbyMember.display_name).c_str()), pLobbyMember.m_SlotIndex);
@@ -190,6 +227,7 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 
 				// has map?
 				slot->setMapAvailability(pLobbyMember.has_map);
+				DEBUG_INFO_MAC(("[SLOT_SYNC] slot[%d] uid=%lld hasMap=%d name='%s'", i, pLobbyMember.user_id, pLobbyMember.has_map, pLobbyMember.display_name.c_str()));
 
 				// store EOS ID
 				slot->m_userID = pLobbyMember.user_id;
@@ -199,6 +237,7 @@ void NGMPGame::UpdateSlotsFromCurrentLobby()
 				slot->setAccept();
 				slot->setMapAvailability(true);
 				slot->m_userID = -1;
+				DEBUG_INFO_MAC(("[SLOT_SYNC] slot[%d] AI, hasMap forced to true", i));
 			}
 		}
 		else
@@ -293,6 +332,12 @@ void NGMPGame::startGame(Int gameID)
 {
 	DEBUG_ASSERTCRASH(m_inGame, ("Starting a game while not in game"));
 	DEBUG_LOG(("NGMPGame::startGame - game id = %d\n", gameID));
+	DEBUG_INFO_MAC(("[START_GAME] startGame() called. m_inProgress=%d m_inGame=%d", m_inProgress, m_inGame));
+	for (Int si = 0; si < MAX_SLOTS; ++si)
+	{
+		const NGMPGameSlot* ss = getGameSpySlot(si);
+		DEBUG_INFO_MAC(("[START_GAME] slot[%d]: isHuman=%d hasMap=%d state=%d", si, ss->isHuman(), ss->hasMap(), (int)ss->getState()));
+	}
 	//DEBUG_ASSERTCRASH(m_transport == NULL, ("m_transport is not NULL when it should be"));
 	//DEBUG_ASSERTCRASH(TheNAT == NULL, ("TheNAT is not NULL when it should be"));
 
@@ -464,12 +509,26 @@ void NGMPGame::launchGame(void)
 		TheGameLogic->clearGameData();
 	}
 
+	DEBUG_INFO_MAC(("[LAUNCH] === Pre-DoAnyMapTransfers dump ==="));
+	DEBUG_INFO_MAC(("[LAUNCH] localSlot=%d amIHost=%d map='%s' contentsMask=%d", getLocalSlotNum(), amIHost(), getMap().str(), getMapContentsMask()));
+	for (Int diag_i = 0; diag_i < MAX_SLOTS; ++diag_i)
+	{
+		const NGMPGameSlot* diag_s = getGameSpySlot(diag_i);
+		if (diag_s->isHuman() || diag_s->getState() != SLOT_OPEN)
+			DEBUG_INFO_MAC(("[LAUNCH] slot[%d]: state=%d isHuman=%d hasMap=%d", diag_i, (int)diag_s->getState(), diag_s->isHuman(), diag_s->hasMap()));
+	}
+
 	Bool filesOk = DoAnyMapTransfers(this);
+	DEBUG_INFO_MAC(("[LAUNCH] DoAnyMapTransfers=%d", filesOk));
 
 	// see if we really have the map.  if not, back out.
 	TheMapCache->updateCache();
-	if (!filesOk || TheMapCache->findMap(getMap()) == NULL)
+	const MapMetaData* foundMap = TheMapCache->findMap(getMap());
+	DEBUG_INFO_MAC(("[LAUNCH] findMap('%s') = %s", getMap().str(), foundMap ? "FOUND" : "NOT FOUND"));
+
+	if (!filesOk || foundMap == NULL)
 	{
+		DEBUG_INFO_MAC(("[LAUNCH] BAIL: filesOk=%d foundMap=%p", filesOk, (void*)foundMap));
 		DEBUG_LOG(("After transfer, we didn't really have the map.  Bailing...\n"));
 		if (TheNetwork != NULL) {
 			delete TheNetwork;
@@ -555,8 +614,13 @@ void NGMPGame::reset(void)
 void NGMPGame::StartCountdown()
 {
 	m_bCountdownStarted = true;
+#ifdef __APPLE__
+	m_countdownStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
 	m_countdownStartTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 	m_countdownLastCheckTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
 	std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
 	if (pWS != nullptr)

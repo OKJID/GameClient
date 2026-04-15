@@ -811,7 +811,7 @@ void CommandSet::parseCommandButton( INI* ini, void *instance, void *store, cons
 
 	// get the index to store the command at, and the command array itself
 	const CommandButton **buttonArray = (const CommandButton **)store;
-	Int buttonIndex = (Int)userData;
+	Int buttonIndex = (Int)(intptr_t)userData;
 
 	// sanity
 	DEBUG_ASSERTCRASH( buttonIndex < MAX_COMMANDS_PER_SET, ("parseCommandButton: button index '%d' out of range",
@@ -3779,5 +3779,5 @@ void ControlBar::setFullViewportHeight()
 
 void ControlBar::setScaledViewportHeight()
 {
-	TheTacticalView->setHeight(TheDisplay->getHeight() * TheGlobalData->m_viewportHeightScale);
+	TheTacticalView->setHeight(TheDisplay->getHeight());
 }

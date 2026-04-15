@@ -633,7 +633,7 @@ void LANAPI::OnPlayerList( LANPlayer *playerList )
 		GadgetListBoxGetSelected(listboxPlayers, &selectedIndex);
 
 		if (selectedIndex != -1 )
-			selectedIP = (UnsignedInt) GadgetListBoxGetItemData(listboxPlayers, selectedIndex, 0);
+			selectedIP = (UnsignedInt)(size_t) GadgetListBoxGetItemData(listboxPlayers, selectedIndex, 0);
 
 		GadgetListBoxReset(listboxPlayers);
 
@@ -641,7 +641,7 @@ void LANAPI::OnPlayerList( LANPlayer *playerList )
 		while (player)
 		{
 			Int addedIndex = GadgetListBoxAddEntryText(listboxPlayers, player->getName(), playerColor, -1, -1);
-			GadgetListBoxSetItemData(listboxPlayers, (void *)player->getIP(),addedIndex, 0 );
+			GadgetListBoxSetItemData(listboxPlayers, (void *)(size_t)player->getIP(),addedIndex, 0 );
 
 			if (selectedIP == player->getIP())
 				indexToSelect = addedIndex;

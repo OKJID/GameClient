@@ -524,7 +524,11 @@ size_t NetPacketGameCommandData::getSize(const NetCommandMsg &msg)
 			size += arg->getArgCount() * sizeof(UnsignedInt);
 			break;
 		case ARGUMENTDATATYPE_WIDECHAR:
+#ifdef __APPLE__
+			size += arg->getArgCount() * sizeof(UnsignedShort);
+#else
 			size += arg->getArgCount() * sizeof(WideChar);
+#endif
 			break;
 		}
 		arg = arg->getNext();
@@ -593,7 +597,11 @@ size_t NetPacketGameCommandData::copyBytes(UnsignedByte *buffer, const NetComman
 			size += network::writePrimitive(buffer + size, arg.timestamp);
 			break;
 		case ARGUMENTDATATYPE_WIDECHAR:
+#ifdef __APPLE__
+			size += network::writePrimitive(buffer + size, (UnsignedShort)arg.wChar);
+#else
 			size += network::writePrimitive(buffer + size, arg.wChar);
+#endif
 			break;
 		}
 	}

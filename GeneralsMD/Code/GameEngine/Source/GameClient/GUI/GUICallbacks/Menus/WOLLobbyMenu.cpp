@@ -131,14 +131,14 @@ static Int	initialGadgetDelay = 2;
 static Bool justEntered = FALSE;
 
 static int64_t s_lobbyLastChatTimeMs = 0;
-static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 8000; // how long to wait before we allow sending the next message
+static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 3000; // how long to wait before we allow sending the next message
 
 static bool LobbyChatSlowmodeAllowsSend()
 {
 	using namespace std::chrono;
 
 	int64_t nowMs =
-		duration_cast<milliseconds>(utc_clock::now().time_since_epoch()).count();
+		duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 
 	if (nowMs < s_lobbyLastChatTimeMs)
 	{
@@ -340,7 +340,7 @@ static void playerTooltip(GameWindow *window,
 	NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
 	if (pRoomsInterface != nullptr && pAuthInterface != nullptr && pStatsInterface != nullptr && pSocialInterface != nullptr)
 	{
-		int profileID = (int)GadgetListBoxGetItemData(listboxLobbyPlayers, row, 0);
+		int profileID = (int)(uintptr_t)GadgetListBoxGetItemData(listboxLobbyPlayers, row, 0);
 		NetworkRoomMember* roomMember = pRoomsInterface->GetRoomMemberFromID(profileID);
 
 		// TODO_NGMP: This is an async call, we should block future popups until it returns to avoid weirdness
@@ -360,7 +360,8 @@ static void playerTooltip(GameWindow *window,
 							UnicodeString tooltip = UnicodeString::TheEmptyString;
 							if (roomMember->user_id == pAuthInterface->GetUserID())
 							{
-								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());							}
+								tooltip.format(TheGameText->fetch("TOOLTIP:LocalPlayer"), uName.str());
+							}
 							else
 							{
 								// not us
@@ -386,16 +387,17 @@ static void playerTooltip(GameWindow *window,
 							}
 
 							// ELO data
-                            UnicodeString tmp;
-                            tmp.format(L"\n\nElo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
-                            tooltip.concat(tmp);
-
-
+							UnicodeString tmp;
+							tmp.format(L"\n\nElo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
+							tooltip.concat(tmp);
 							Int rankPoints = CalculateRank(stats);
 							Int rank = 0;
 							Int i = 0;
-							while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
-								++i;
+							if (TheRankPointValues != nullptr)
+							{
+								while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
+									++i;
+							}
 							rank = i;
 
 							// determine favorite side
@@ -556,9 +558,12 @@ static void playerTooltip(GameWindow *window,
 		tooltip.concat(playerInfo);
 	}
 
+	if (!TheRankPointValues)
+		return;
+
 	Int rank = 0;
 	Int i = 0;
-	while( info->m_rankPoints >= TheRankPointValues->m_ranks[i + 1])
+	while (i + 1 < MAX_RANKS && info->m_rankPoints >= TheRankPointValues->m_ranks[i + 1])
 		++i;
 	rank = i;
 	AsciiString sideName = "GUI:RandomSide";
@@ -620,12 +625,12 @@ static_assert(ARRAY_SIZE(rankNames) == MAX_RANKS, "Incorrect array size");
 
 const Image* LookupSmallRankImage(Int side, Int rankPoints)
 {
-	if (rankPoints == 0)
+	if (rankPoints == 0 || !TheRankPointValues)
 		return nullptr;
 
 	Int rank = 0;
 	Int i = 0;
-	while( rankPoints >= TheRankPointValues->m_ranks[i + 1])
+	while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 		++i;
 	rank = i;
 
@@ -771,7 +776,7 @@ void PopulateLobbyPlayerListbox()
                     }
                     ++numSelected;
 
-                    int profileID = (int)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndices[i], 0);
+                    int profileID = (int)(uintptr_t)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndices[i], 0);
                     selectedUserIDs.insert(profileID);
                 }
 
@@ -850,9 +855,12 @@ void PopulateLobbyPlayerListbox()
 					//if (bSuccess)
 					{
 						Int currentRank = 0;
+						if (!TheRankPointValues)
+							continue;
+
 						Int rankPoints = CalculateRank(stats);
 						Int i = 0;
-						while (rankPoints >= TheRankPointValues->m_ranks[i + 1])
+						while (i + 1 < MAX_RANKS && rankPoints >= TheRankPointValues->m_ranks[i + 1])
 							++i;
 						currentRank = i;
 
@@ -2321,7 +2329,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 
 						PeerRequest req;
 						req.peerRequestType = PeerRequest::PEERREQUEST_GETEXTENDEDSTAGINGROOMINFO;
-						req.stagingRoom.id = (Int)GadgetListBoxGetItemData(control, rowSelected, 0);
+						req.stagingRoom.id = (Int)(uintptr_t)GadgetListBoxGetItemData(control, rowSelected, 0);
 
 						if (lastID != req.stagingRoom.id || now > lastFrame + 60)
 						{
@@ -2395,7 +2403,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					GadgetListBoxGetSelected(GetGameListBox(), &selected);
 					if (selected >= 0)
 					{
-						Int selectedID = (Int)GadgetListBoxGetItemData(GetGameListBox(), selected);
+						Int selectedID = (Int)(uintptr_t)GadgetListBoxGetItemData(GetGameListBox(), selected);
 						if (selectedID >= 0)
 						{
 							auto Lobby = pLobbyInterface->GetLobbyFromID(selectedID);
@@ -2406,6 +2414,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 							}
 
 							// CRC Check
+#ifndef __APPLE__
 							if (Lobby.exe_crc != TheGlobalData->m_exeCRC || Lobby.ini_crc != TheGlobalData->m_iniCRC)
 							{
 								if (TheGlobalData->m_iniCRC != VANILLA_INI_CRC)
@@ -2422,6 +2431,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 								}
 								break;
 							}
+#endif
 
 							// TODO_NGMP: Enforce this on the host too, vanilla game did not...
 
@@ -2456,7 +2466,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					GadgetListBoxGetSelected(GetGameListBox(), &selected);
 					if (selected >= 0)
 					{
-						Int selectedID = (Int)GadgetListBoxGetItemData(GetGameListBox(), selected);
+						Int selectedID = (Int)(uintptr_t)GadgetListBoxGetItemData(GetGameListBox(), selected);
 						if (selectedID > 0)
 						{
 							StagingRoomMap *srm = TheGameSpyInfo->getStagingRoomList();
@@ -2585,7 +2595,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					if (rowSelected >= 0)
 					{
 						Int groupID;
-						groupID = (Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, rowSelected);
+						groupID = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, rowSelected);
 						//DEBUG_LOG(("ItemData was %d, current Group Room is %d", groupID, TheGameSpyInfo->getCurrentGroupRoom()));
 // did it change?
 						if (groupID != pRoomsInterface->GetCurrentRoomID())
@@ -2643,7 +2653,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					Int pos = -1;
 					GadgetComboBoxGetSelectedPos(comboLobbyGroupRooms, &pos);
 					if (pos >= 0)
-						theLobbyFilter = (LobbyGameModeFilter)(Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
+						theLobbyFilter = (LobbyGameModeFilter)(Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
 					RefreshGameListBoxes();
 				}
 			}
@@ -2699,7 +2709,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					if (pRoomsInterface != nullptr && pAuthInterface != nullptr && pStatsInterface != nullptr && pSocialInterface != nullptr)
 					{
 
-						int profileID = (int)GadgetListBoxGetItemData(listboxLobbyPlayers, rc->pos, 0);
+						int profileID = (int)(uintptr_t)GadgetListBoxGetItemData(listboxLobbyPlayers, rc->pos, 0);
 						NetworkRoomMember* roomMember = pRoomsInterface->GetRoomMemberFromID(profileID);
 
 						if (rc->pos >= 0)
@@ -2766,7 +2776,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 									break;
 								}
 
-								Int selectedID = (Int)GadgetListBoxGetItemData(control, rc->pos);
+								Int selectedID = (Int)(uintptr_t)GadgetListBoxGetItemData(control, rc->pos);
 								if (selectedID > 0)
 								{
 									StagingRoomMap* srm = TheGameSpyInfo->getStagingRoomList();
@@ -2877,7 +2887,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 						break;
 					}
 
-					Int selectedID = (Int)GadgetListBoxGetItemData(control, rc->pos);
+					Int selectedID = (Int)(uintptr_t)GadgetListBoxGetItemData(control, rc->pos);
 					if (selectedID > 0)
 					{
 						StagingRoomMap *srm = TheGameSpyInfo->getStagingRoomList();

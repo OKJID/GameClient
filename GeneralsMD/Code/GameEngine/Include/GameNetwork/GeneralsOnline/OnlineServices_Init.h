@@ -459,6 +459,7 @@ public:
 	}
 
 	void StartVersionCheck(std::function<void(bool bSuccess, bool bNeedsUpdate)> fnCallback);
+	void FetchMacParityCRC(std::function<void(long)> fnCallback);
 
 	std::shared_ptr<WebSocket> Internal_GetWebSocket() const { return m_pWebSocket; }
 	HTTPManager* GetHTTPManager() const { return m_pHTTPManager; }

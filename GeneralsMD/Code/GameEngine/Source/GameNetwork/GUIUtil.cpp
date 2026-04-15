@@ -74,7 +74,12 @@ void EnableAcceptControls(Bool Enabled, GameInfo *myGame, GameWindow *comboPlaye
 	Bool isObserver = myGame->getConstSlot(slotNum)->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER;
 
 	if( !myGame->amIHost() && (buttonStart != nullptr) )
-		buttonStart->winEnable(Enabled);
+	{
+		// Bool canAccept = Enabled && myGame->getConstSlot(slotNum)->hasMap();
+		Bool canAccept = Enabled ;
+		DEBUG_INFO_MAC(("[ACCEPT_BTN] canAccept=%d Enabled=%d hasMap=%d slot=%d", canAccept, Enabled, myGame->getConstSlot(slotNum)->hasMap(), slotNum));
+		buttonStart->winEnable(canAccept);
+	}
 	if(comboColor[slotNum])
 	{
 		if (isObserver)
@@ -418,6 +423,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 	{
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
+	DEBUG_INFO_MAC(("[SLOT_LIST] willTransfer=%d mapInCache=%d map='%s'", willTransfer, mapData != nullptr, myGame->getMap().str()));
 
 	if (myGame)
 	{
@@ -440,15 +446,10 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				}
 				else
 				{
-					if (slot->hasMap()) {
-						EnableAcceptControls(TRUE, myGame, comboPlayer, comboColor, comboPlayerTemplate,
-							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
-					}
-					else
-					{
-						EnableAcceptControls(willTransfer, myGame, comboPlayer, comboColor, comboPlayerTemplate,
-							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
-					}
+					Bool shouldEnableUI = slot->hasMap() || willTransfer;
+					DEBUG_INFO_MAC(("[SLOT_LIST] shouldEnableUI=%d hasMap=%d willTransfer=%d isAccepted=%d", shouldEnableUI, slot->hasMap(), willTransfer, slot->isAccepted()));
+					EnableAcceptControls(shouldEnableUI, myGame, comboPlayer, comboColor, comboPlayerTemplate,
+						comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
 				}
 
 			}
@@ -513,7 +514,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				max = GadgetComboBoxGetLength(comboColor[i]);
 				for (idx=0; idx<max; ++idx)
 				{
-					Int color = (Int)GadgetComboBoxGetItemData(comboColor[i], idx);
+					Int color = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboColor[i], idx);
 					if (color == slot->getColor())
 					{
 						GadgetComboBoxSetSelectedPos(comboColor[i], idx, TRUE);
@@ -526,7 +527,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				max = GadgetComboBoxGetLength(comboTeam[i]);
 				for (idx=0; idx<max; ++idx)
 				{
-					Int team = (Int)GadgetComboBoxGetItemData(comboTeam[i], idx);
+					Int team = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboTeam[i], idx);
 					if (team == slot->getTeamNumber())
 					{
 						GadgetComboBoxSetSelectedPos(comboTeam[i], idx, TRUE);
@@ -539,7 +540,7 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				max = GadgetComboBoxGetLength(comboPlayerTemplate[i]);
 				for (idx=0; idx<max; ++idx)
 				{
-					Int playerTemplate = (Int)GadgetComboBoxGetItemData(comboPlayerTemplate[i], idx);
+					Int playerTemplate = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboPlayerTemplate[i], idx);
 					if (playerTemplate == slot->getPlayerTemplate())
 					{
 						GadgetComboBoxSetSelectedPos(comboPlayerTemplate[i], idx, TRUE);

@@ -1,5 +1,6 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include <chrono>
+#include <ctime>
 #include <mutex>
 #include <string>
 #include <locale>
@@ -21,7 +22,12 @@ std::string to_utf8(const std::wstring& wstr)
 std::wstring from_utf8(const std::string& utf8_str)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	return converter.from_bytes(utf8_str);
+	std::wstring result = converter.from_bytes(utf8_str);
+	DEBUG_INFO_MAC(("from_utf8 input='%s' (len %zu) -> output wlen=%zu", utf8_str.c_str(), utf8_str.length(), result.length()));
+	if (result.length() > 0) {
+		DEBUG_INFO_MAC(("from_utf8 first char: 0x%X", (unsigned int)result[0]));
+	}
+	return result;
 }
 
 void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
@@ -80,7 +86,15 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
 	}
 
-	auto const time = std::chrono::current_zone()->to_local(std::chrono::system_clock::now());
+	auto const rawNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+	struct tm localNow = {};
+#ifdef __APPLE__
+	localtime_r(&rawNow, &localNow);
+#else
+	localtime_s(&localNow, &rawNow);
+#endif
+	char timebuf[32];
+	strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", &localNow);
 
 	char buffer[8192];
 	va_list args;
@@ -89,7 +103,7 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	buffer[8192 - 1] = 0;
 	va_end(args);
 
-	std::string strLogBuffer = std::format("[{:%Y-%m-%d %T}] {}", time, buffer);
+	std::string strLogBuffer = std::format("[{}] {}", timebuf, buffer);
 
 	// TODO_NGMP: Keep open and flush regularly
 	std::ofstream logFile;
@@ -126,8 +140,8 @@ std::string Base64Encode(const std::vector<uint8_t>& data)
 
 		encoded += base64_chars[(triple >> 18) & 0x3F];
 		encoded += base64_chars[(triple >> 12) & 0x3F];
-		encoded += (i > data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
-		encoded += (i > data.size()) ? '=' : base64_chars[triple & 0x3F];
+		encoded += (i >= data.size() + 1) ? '=' : base64_chars[(triple >> 6) & 0x3F];
+		encoded += (i >= data.size())     ? '=' : base64_chars[triple & 0x3F];
 	}
 
 	return encoded;

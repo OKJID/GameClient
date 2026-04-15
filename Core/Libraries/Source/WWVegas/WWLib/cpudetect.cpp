@@ -158,8 +158,13 @@ static unsigned Calculate_Processor_Speed(sint64& ticks_per_second)
 
 void CPUDetectClass::Init_Processor_Speed()
 {
+	printf("DEBUG: Init_Processor_Speed called\n"); fflush(stdout);
 	if (!Has_RDTSC_Instruction()) {
+#ifndef __APPLE__
 		ProcessorSpeed=0;
+#else
+		ProcessorSpeed=3000;
+#endif
 		return;
 	}
 
@@ -891,6 +896,9 @@ void CPUDetectClass::Init_Processor_Features()
 	}
 }
 
+#ifdef __APPLE__
+extern "C" unsigned long long MacOS_GetTotalPhysicalMemory();
+#endif
 void CPUDetectClass::Init_Memory()
 {
 #ifdef WIN32
@@ -917,9 +925,20 @@ void CPUDetectClass::Init_Memory()
    TotalVirtualMemory      = mem.ullTotalVirtual;
    AvailableVirtualMemory  = mem.ullAvailVirtual;
 #endif // defined(_MSC_VER) && _MSC_VER < 1300
+#else // Match for #ifdef WIN32 at start of Init_Memory
 
-#else
+#ifndef __APPLE__
 #warning FIX Init_Memory()
+#else
+	unsigned long long physical_memory = MacOS_GetTotalPhysicalMemory();
+	TotalPhysicalMemory     = physical_memory;
+	AvailablePhysicalMemory = physical_memory; // Approximation
+	TotalPageMemory         = physical_memory;
+	AvailablePageMemory     = physical_memory;
+	TotalVirtualMemory      = physical_memory;
+	AvailableVirtualMemory  = physical_memory;
+#endif // __APPLE__
+
 #endif // WIN32
 }
 
@@ -1132,11 +1151,10 @@ static class CPUDetectInitClass
 public:
 	CPUDetectInitClass()
 	{
+		printf("DEBUG: CPUDetectInitClass starting\n"); fflush(stdout);
 		CPUDetectClass::Init_CPUID_Instruction();
-		// We pretty much need CPUID, but let's not crash if it doesn't exist.
-		// Every processor our games run should have CPUID so it would be extremely unlikely for it not to be present.
-		// One can never be sure about the clones though...
 		if (CPUDetectClass::Has_CPUID_Instruction()) {
+			printf("DEBUG: Has_CPUID_Instruction is TRUE\n"); fflush(stdout);
 			CPUDetectClass::Init_Processor_Manufacturer();
 			CPUDetectClass::Init_Processor_Family();
 			CPUDetectClass::Init_Processor_String();

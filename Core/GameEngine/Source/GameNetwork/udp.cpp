@@ -122,7 +122,11 @@ UDP::UDP()
 UDP::~UDP()
 {
 	if (fd)
+#ifdef __APPLE__
+		close(fd);
+#else
 		closesocket(fd);
+#endif
 }
 
 Int UDP::Bind(const char *Host,UnsignedShort port)
@@ -177,7 +181,11 @@ Int UDP::Bind(UnsignedInt IP,UnsignedShort Port)
     return(status);
   }
 
+#ifdef __APPLE__
+  socklen_t namelen=sizeof(addr);
+#else
   int namelen=sizeof(addr);
+#endif
   getsockname(fd, (struct sockaddr *)&addr, &namelen);
 
   myIP=ntohl(addr.sin_addr.s_addr);
@@ -262,7 +270,11 @@ Int UDP::Write(const unsigned char *msg,UnsignedInt len,UnsignedInt IP,UnsignedS
 Int UDP::Read(unsigned char *msg,UnsignedInt len,sockaddr_in *from)
 {
   Int retval;
+#ifdef __APPLE__
+  socklen_t    alen=sizeof(sockaddr_in);
+#else
   int    alen=sizeof(sockaddr_in);
+#endif
 
   if (from!=nullptr)
   {
@@ -373,8 +385,10 @@ UDP::sockStat UDP::GetStatus()
       return ALREADY;
     case EAGAIN:
       return AGAIN;
+#if EAGAIN != EWOULDBLOCK
     case EWOULDBLOCK:
       return WOULDBLOCK;
+#endif
     case EBADF:
       return BADF;
     default:
@@ -505,7 +519,12 @@ Int UDP::SetOutputBuffer(UnsignedInt bytes)
 
 int UDP::GetInputBuffer()
 {
-   int retval,arg=0,len=sizeof(int);
+   int retval,arg=0;
+#ifdef __APPLE__
+   socklen_t len=sizeof(int);
+#else
+   int len=sizeof(int);
+#endif
 
    retval=getsockopt(fd,SOL_SOCKET,SO_RCVBUF,
      (char *)&arg,&len);
@@ -515,7 +534,12 @@ int UDP::GetInputBuffer()
 
 int UDP::GetOutputBuffer()
 {
-   int retval,arg=0,len=sizeof(int);
+   int retval,arg=0;
+#ifdef __APPLE__
+   socklen_t len=sizeof(int);
+#else
+   int len=sizeof(int);
+#endif
 
    retval=getsockopt(fd,SOL_SOCKET,SO_SNDBUF,
      (char *)&arg,&len);

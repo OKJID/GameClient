@@ -913,7 +913,8 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 
 	if (m_file == nullptr)
 	{
-		DEBUG_LOG(("Can't open %s (%s)", filepath.str(), header.filename.str()));
+		printf("[OKJI_DEBUG] readReplayHeader: Can't open %s (%s)\n", filepath.str(), header.filename.str());
+		fflush(stdout);
 		return FALSE;
 	}
 
@@ -921,7 +922,8 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 	char genrep[sizeof(s_genrep) - 1] = {0};
 	m_file->read( &genrep, sizeof(s_genrep) - 1 );
 	if ( strncmp(genrep, s_genrep, sizeof(s_genrep) - 1 ) != 0 ) {
-		DEBUG_LOG(("RecorderClass::readReplayHeader - replay file did not have GENREP at the start."));
+		printf("[OKJI_DEBUG] readReplayHeader: GENREP missing for %s\n", filepath.str());
+		fflush(stdout);
 		m_file->close();
 		m_file = nullptr;
 		return FALSE;
@@ -958,12 +960,16 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 
 	// Read in the GameInfo
 	header.gameOptions = readAsciiString();
+	
+	printf("[OKJI_DEBUG] readReplayHeader: Read GameOptions = %s\n", header.gameOptions.str());
+	fflush(stdout);
 	m_gameInfo.reset();
 	m_gameInfo.enterGame();
 	DEBUG_LOG(("RecorderClass::readReplayHeader - GameInfo = %s", header.gameOptions.str()));
 	if (!ParseAsciiStringToGameInfo(&m_gameInfo, header.gameOptions))
 	{
-		DEBUG_LOG(("RecorderClass::readReplayHeader - replay file did not have a valid GameInfo string."));
+		printf("[OKJI_DEBUG] readReplayHeader: Invalid GameInfo string %s\n", header.gameOptions.str());
+		fflush(stdout);
 		m_file->close();
 		m_file = nullptr;
 		return FALSE;
@@ -974,7 +980,8 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 	header.localPlayerIndex = atoi(playerIndex.str());
 	if (header.localPlayerIndex < -1 || header.localPlayerIndex >= MAX_SLOTS)
 	{
-		DEBUG_LOG(("RecorderClass::readReplayHeader - invalid local slot number."));
+		printf("[OKJI_DEBUG] readReplayHeader: Invalid local slot number %d\n", header.localPlayerIndex);
+		fflush(stdout);
 		m_gameInfo.endGame();
 		m_gameInfo.reset();
 		m_file->close();
@@ -995,6 +1002,8 @@ Bool RecorderClass::readReplayHeader(ReplayHeader& header)
 		m_file = nullptr;
 	}
 
+	printf("[OKJI_DEBUG] readReplayHeader: SUCCESSFULLY READ %s\n", filepath.str());
+	fflush(stdout);
 	return TRUE;
 }
 
@@ -1629,7 +1638,13 @@ void RecorderClass::readArgument(GameMessageArgumentDataType type, GameMessage *
 		}
 		case ARGUMENTDATATYPE_WIDECHAR: {
 			WideChar theid;
+#ifdef __APPLE__
+			UnsignedShort c16 = 0;
+			m_file->read(&c16, sizeof(UnsignedShort));
+			theid = (WideChar)c16;
+#else
 			m_file->read(&theid, sizeof(theid));
+#endif
 			msg->appendWideCharArgument(theid);
 #ifdef DEBUG_LOGGING
 			if (m_doingAnalysis)

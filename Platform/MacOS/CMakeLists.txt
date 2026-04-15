@@ -1,0 +1,216 @@
+# Platform/MacOS — Metal backend, Cocoa integration, platform stubs
+# This library provides the macOS platform layer that replaces Win32Device components.
+
+# ── Metal rendering backend (DX8 → Metal) ──
+set(METAL_SRC
+    Source/Metal/MetalDevice8.mm
+    Source/Metal/MetalInterface8.mm
+    Source/Metal/MetalSurface8.mm
+    Source/Metal/MetalTexture8.mm
+    Source/Metal/MetalCubeTexture8.mm
+    Source/Metal/MetalVertexBuffer8.mm
+    Source/Metal/MetalIndexBuffer8.mm
+    Source/Metal/dx8wrapper_metal.mm
+    Source/Metal/MacOSDisplayManager.mm
+    Source/Metal/MetalBridgeMappings.h
+    Source/Metal/MetalDevice8.h
+    Source/Metal/MetalFormatConvert.h
+    Source/Metal/MetalInterface8.h
+    Source/Metal/MetalIndexBuffer8.h
+    Source/Metal/MetalSurface8.h
+    Source/Metal/MetalTexture8.h
+    Source/Metal/MetalTextureCapture.h
+    Source/Metal/MetalVertexBuffer8.h
+)
+
+# ── Main application (game engine, entry handled by GeneralsMD/Code/Main) ──
+set(MAIN_SRC
+    Source/Main/MacOSGameEngine.mm
+    Source/Main/MacOSGameEngine.h
+)
+
+# ── Audio ──
+set(AUDIO_SRC
+    Source/Audio/MacOSAudioManager.cpp
+    Source/Audio/MacOSAudioManager.h
+    Source/Audio/AVAudioBridge.mm
+    Source/Audio/AVAudioBridge.h
+)
+
+# ── Input ──
+set(INPUT_SRC
+    Source/Input/MacOSKeyboard.mm
+    Source/Input/MacOSKeyboard.h
+    Source/Input/MacOSMouse.mm
+    Source/Input/MacOSMouse.h
+    Source/Input/MacOSGameClientFactory.cpp
+)
+
+# ── System ──
+set(SYSTEM_SRC
+    Source/System/MacOSLocalFileSystem.mm
+    Source/System/MacOSLocalFileSystem.h
+)
+
+# ── Stubs ──
+set(STUBS_SRC
+    Source/GeneralsOnlineStubs.cpp
+)
+
+# ── Cross-Platform Sync Flags (Windows Retail Match) ──
+# "Generals Online" Windows players use the original 2003 binary (retail behavior = 1)
+# but the launcher injects memory patches (like fixing the network packet size to 1104).
+# Because our codebase uses GENERALS_ONLINE, it defaults to setting ALL retail flags to 0.
+# To prevent desyncs and packet drops, we MUST force retail gameplay behaviors to 1,
+# and only set the networking flag to 0 (which matches the launcher's memory patch).
+# We inject these into the parent scope so Core and GameEngine receive them.
+set(MAC_SYNC_FLAGS " -DRETAIL_COMPATIBLE_NETWORKING=0 -DRETAIL_COMPATIBLE_CRC=1 -DRETAIL_COMPATIBLE_XFER_SAVE=1 -DRETAIL_COMPATIBLE_PATHFINDING=1 -DRETAIL_COMPATIBLE_PATHFINDING_ALLOCATION=1 -DRETAIL_COMPATIBLE_AIGROUP=1 -DRETAIL_COMPATIBLE_CIRCLE_FILL_ALGORITHM=1")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
+
+# ── Combine all sources ──
+add_library(macos_platform STATIC
+    ${METAL_SRC}
+    ${MAIN_SRC}
+    ${AUDIO_SRC}
+    ${INPUT_SRC}
+    ${SYSTEM_SRC}
+    ${STUBS_SRC}
+)
+
+# ── Include directories ──
+target_include_directories(macos_platform PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Input
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/System
+)
+
+target_include_directories(macos_platform PRIVATE
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWLib
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWDebug
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWMath
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWSaveLoad
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WW3D2
+    ${CMAKE_SOURCE_DIR}/Core/Libraries/Source/WWVegas/WWAudio
+    ${CMAKE_SOURCE_DIR}/Core/GameEngineDevice/Include
+    ${CMAKE_SOURCE_DIR}/Core/GameEngine/Include
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngine/Include/Precompiled
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngine/Include
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngineDevice/Include
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/Libraries/Source/WWVegas
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/Libraries/Source/WWVegas/WW3D2
+    ${CMAKE_SOURCE_DIR}/GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline
+)
+
+# ── macOS frameworks ──
+find_library(METAL_FRAMEWORK Metal REQUIRED)
+find_library(METALKIT_FRAMEWORK MetalKit REQUIRED)
+find_library(QUARTZCORE_FRAMEWORK QuartzCore REQUIRED)
+find_library(COCOA_FRAMEWORK Cocoa REQUIRED)
+find_library(APPKIT_FRAMEWORK AppKit REQUIRED)
+find_library(IOKIT_FRAMEWORK IOKit REQUIRED)
+find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox REQUIRED)
+find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
+find_library(CORETEXT_FRAMEWORK CoreText REQUIRED)
+find_library(COREGRAPHICS_FRAMEWORK CoreGraphics REQUIRED)
+
+target_link_libraries(macos_platform PUBLIC
+    ${METAL_FRAMEWORK}
+    ${METALKIT_FRAMEWORK}
+    ${QUARTZCORE_FRAMEWORK}
+    ${COCOA_FRAMEWORK}
+    ${APPKIT_FRAMEWORK}
+    ${IOKIT_FRAMEWORK}
+    ${AUDIOTOOLBOX_FRAMEWORK}
+    ${AVFOUNDATION_FRAMEWORK}
+    ${CORETEXT_FRAMEWORK}
+    ${COREGRAPHICS_FRAMEWORK}
+)
+
+# ── Project dependencies ──
+target_link_libraries(macos_platform PUBLIC
+    core_config
+    corei_always
+    corei_gameengine_include
+    resources
+)
+
+target_link_libraries(macos_platform PRIVATE
+    zi_always
+    zi_gameengine_include
+)
+
+# ── Compile Metal shaders ──
+execute_process(
+    COMMAND xcrun -sdk macosx metal --version
+    RESULT_VARIABLE METAL_CHECK_RESULT
+    OUTPUT_QUIET ERROR_QUIET
+)
+if(NOT METAL_CHECK_RESULT EQUAL 0)
+    message(STATUS "Metal Toolchain not found — downloading automatically...")
+    execute_process(
+        COMMAND xcodebuild -downloadComponent MetalToolchain
+        RESULT_VARIABLE METAL_DL_RESULT
+    )
+    if(NOT METAL_DL_RESULT EQUAL 0)
+        message(FATAL_ERROR "Failed to download Metal Toolchain. Please run manually:\n  xcodebuild -downloadComponent MetalToolchain")
+    endif()
+    message(STATUS "Metal Toolchain installed successfully")
+endif()
+
+set(METAL_SHADER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal/MacOSShaders.metal)
+set(METAL_AIR_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/MacOSShaders.air)
+set(METAL_LIB_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/default.metallib)
+
+add_custom_command(
+    OUTPUT ${METAL_AIR_OUTPUT}
+    COMMAND xcrun -sdk macosx metal -c ${METAL_SHADER_SOURCE} -o ${METAL_AIR_OUTPUT}
+    DEPENDS ${METAL_SHADER_SOURCE}
+    COMMENT "Compiling Metal shaders"
+)
+
+add_custom_command(
+    OUTPUT ${METAL_LIB_OUTPUT}
+    COMMAND xcrun -sdk macosx metallib ${METAL_AIR_OUTPUT} -o ${METAL_LIB_OUTPUT}
+    DEPENDS ${METAL_AIR_OUTPUT}
+    COMMENT "Linking Metal shader library"
+)
+
+add_custom_target(metal_shaders ALL DEPENDS ${METAL_LIB_OUTPUT})
+add_dependencies(macos_platform metal_shaders)
+
+# ── ObjC++ settings ──
+target_compile_options(macos_platform PRIVATE
+    $<$<COMPILE_LANGUAGE:OBJCXX>:-fobjc-arc>
+    "$<$<COMPILE_LANGUAGE:OBJCXX>:-include;${CMAKE_CURRENT_SOURCE_DIR}/Include/metal_prefix.h>"
+)
+
+target_precompile_headers(macos_platform PRIVATE
+    [["Utility/CppMacros.h"]]
+)
+
+# Disable PCH for ObjC++ files — PCH is compiled as C++ which conflicts with .mm
+set_source_files_properties(
+    Source/Metal/MetalDevice8.mm
+    Source/Metal/MetalInterface8.mm
+    Source/Metal/MetalSurface8.mm
+    Source/Metal/MetalTexture8.mm
+    Source/Metal/MetalCubeTexture8.mm
+    Source/Metal/MetalVertexBuffer8.mm
+    Source/Metal/MetalIndexBuffer8.mm
+    Source/Metal/dx8wrapper_metal.mm
+    Source/Metal/MacOSDisplayManager.mm
+    Source/Main/MacOSGameEngine.mm
+    Source/Main/MacOSMain.mm
+    Source/Input/MacOSKeyboard.mm
+    Source/Input/MacOSMouse.mm
+    Source/System/MacOSLocalFileSystem.mm
+    Source/Audio/AVAudioBridge.mm
+    PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON
+        LANGUAGE OBJCXX
+)

@@ -1,0 +1,56 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "macOS: Release Build + Launcher",
+            "type": "shell",
+            "command": "sh build_mac.sh --launcher",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "macOS: Clean Release Build + Launcher",
+            "type": "shell",
+            "command": "sh build_mac.sh --clean --launcher",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "macOS: Debug Build + Run",
+            "type": "shell",
+            "command": "sh build_run_mac.sh",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "macOS: Clean Debug Build + Run",
+            "type": "shell",
+            "command": "sh build_run_mac.sh --clean",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "new"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "macOS: CMake Compile Only",
+            "type": "shell",
+            "command": "cmake --build build/macos",
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}

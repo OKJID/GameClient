@@ -166,7 +166,9 @@ void ArchiveFileSystem::loadIntoDirectoryTree(ArchiveFile *archiveFile, Bool ove
 			fileIt = dirInfo->m_files.end();
 		}
 
-		dirInfo->m_files.insert(fileIt, std::make_pair(token, archiveFile));
+		AsciiString lowerToken = token;
+		lowerToken.toLower();
+		dirInfo->m_files.insert(fileIt, std::make_pair(lowerToken, archiveFile));
 
 #if defined(DEBUG_LOGGING) && ENABLE_FILESYSTEM_LOGGING
 		{
@@ -277,11 +279,16 @@ ArchiveFileSystem::ArchivedDirectoryInfoResult ArchiveFileSystem::getArchivedDir
 		}
 		else
 		{
+			// fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - FAILED to find segment '%s' in path '%s'\n", token.str(), directory);
 			// the directory doesn't exist
 			result.dirInfo = nullptr;
 			result.lastToken = AsciiString::TheEmptyString;
 			return result;
 		}
+	}
+
+	if (dirInfo) {
+		// fprintf(stderr, "ArchiveFileSystem::getArchivedDirectoryInfo - found path for '%s', lastToken='%s', filesCount=%d\n", directory, token.str(), (int)dirInfo->m_files.size());
 	}
 
 	result.dirInfo = dirInfo;

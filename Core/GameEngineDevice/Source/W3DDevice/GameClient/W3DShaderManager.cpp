@@ -72,6 +72,7 @@
 #include "Common/GameLOD.h"
 #include "d3dx8tex.h"
 #include "dx8caps.h"
+#include "d3dx8math.h"
 
 
 // Turn this on to turn off pixel shaders. jba[4/3/2003]
@@ -1616,7 +1617,7 @@ void TerrainShader2Stage::updateNoise1(D3DXMATRIX *destMatrix,D3DXMATRIX *curVie
 
 	D3DXMATRIX offset;
 	D3DXMatrixTranslation(&offset, m_xOffset, m_yOffset,0);
-	*destMatrix *= offset;
+	*destMatrix = *destMatrix * offset;
 }
 
 void TerrainShader2Stage::updateNoise2(D3DXMATRIX *destMatrix,D3DXMATRIX *curViewInverse, Bool doUpdate)
@@ -3039,7 +3040,11 @@ HRESULT W3DShaderManager::LoadAndCreateD3DShader(const char* strFilePath, const 
 		TheFileSystem->getFileInfo(AsciiString(strFilePath), &fileInfo);
 		DWORD dwFileSize = fileInfo.sizeLow;
 
+#ifdef __APPLE__
+		const DWORD* pShader = (DWORD*)calloc(dwFileSize, 1);
+#else
 		const DWORD* pShader = (DWORD*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, dwFileSize);
+#endif
 		if (!pShader)
 		{
 			OutputDebugString( "Failed to allocate memory to load shader\n " );
@@ -3060,7 +3065,11 @@ HRESULT W3DShaderManager::LoadAndCreateD3DShader(const char* strFilePath, const 
 			hr = DX8Wrapper::_Get_D3D_Device8()->CreatePixelShader(pShader, pHandle);
 		}
 
+#ifdef __APPLE__
+		free((void*)pShader);
+#else
 		HeapFree(GetProcessHeap(), 0, (void*)pShader);
+#endif
 
 		if (FAILED(hr))
 		{
@@ -3161,6 +3170,9 @@ void add(float *sum,float *addend)
 /**Returns seconds needed to run the test*/
 Real W3DShaderManager::GetCPUBenchTime()
 {
+#ifdef __APPLE__
+	return 0.0;
+#else
 	float ztot, yran, ymult, ymod, x, y, z, pi, prod;
     long int low, ixran, itot, j, iprod;
 
@@ -3195,6 +3207,7 @@ Real W3DShaderManager::GetCPUBenchTime()
 
 	QueryPerformanceCounter((LARGE_INTEGER *)&endTime64);
 	return ((double)(endTime64-startTime64)/(double)(freq64));
+#endif
 }
 
 

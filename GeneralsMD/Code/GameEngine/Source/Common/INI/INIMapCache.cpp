@@ -192,13 +192,20 @@ void INI::parseMapCacheDefinition( INI* ini )
 		it++;
 	}
 
-	if(TheMapCache && !md.m_displayName.isEmpty())
+	if(TheMapCache)
 	{
 		AsciiString lowerName = name;
 		lowerName.toLower();
-		md.m_fileName = lowerName;
-//		DEBUG_LOG(("INI::parseMapCacheDefinition - adding %s to map cache", lowerName.str()));
-		(*TheMapCache)[lowerName] = md;
+
+		if (!md.m_displayName.isEmpty())
+		{
+			md.m_fileName = lowerName;
+			(*TheMapCache)[lowerName] = md;
+		}
+		else
+		{
+			printf("!!! INIMapCache REJECTED %s due to empty displayName! nameLookupTag=%s\n", lowerName.str(), md.m_nameLookupTag.str()); fflush(stdout);
+		}
 	}
 }
 

@@ -1,7 +1,9 @@
 #pragma once
 
 #include "NGMP_include.h"
+#ifdef _WIN32
 #include <ws2ipdef.h>
+#endif
 #include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
 
 class NetRoom_ChatMessagePacket;
