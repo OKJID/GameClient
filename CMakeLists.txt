@@ -69,6 +69,7 @@ endif()
 
 include(cmake/config.cmake)
 include(cmake/gamespy.cmake)
+include(cmake/fdlibm.cmake)
 include(cmake/lzhl.cmake)
 include(cmake/curl.cmake)
 include(cmake/gns.cmake)
