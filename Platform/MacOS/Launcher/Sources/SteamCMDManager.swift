@@ -10,12 +10,14 @@ enum SteamCMDState: Equatable {
     case waitingSteamGuard
     case downloading(progress: String)
     case validating
+    case downloadingPatch(progress: Double)
+    case unpackingPatch
     case completed
     case failed(String)
 
     var isRunning: Bool {
         switch self {
-        case .downloadingSteamCMD, .authenticating, .downloading, .validating:
+        case .downloadingSteamCMD, .authenticating, .downloading, .validating, .downloadingPatch, .unpackingPatch:
             return true
         default:
             return false
@@ -31,6 +33,8 @@ enum SteamCMDState: Equatable {
         case .waitingSteamGuard: return "STEAM GUARD CODE REQUIRED"
         case .downloading(let progress): return "DOWNLOADING ASSETS... \(progress)"
         case .validating: return "VALIDATING FILES..."
+        case .downloadingPatch(let progress): return String(format: "DOWNLOADING PATCH... %.0f%%", progress * 100)
+        case .unpackingPatch: return "UNPACKING PATCH..."
         case .completed: return "ASSETS READY"
         case .failed(let msg): return "ERROR: \(msg)"
         }
@@ -49,6 +53,7 @@ class SteamCMDManager: ObservableObject {
 
     private var process: Process?
     private var inputPipe: Pipe?
+    private var downloadObservation: NSKeyValueObservation?
 
     var supportDir: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -99,6 +104,26 @@ class SteamCMDManager: ObservableObject {
             appendLog("[✓] Moved ZH_Generals/ alongside Assets/\n")
         } catch {
             appendLog("[!] Failed to move ZH_Generals: \(error.localizedDescription)\n")
+        }
+    }
+
+    private func cleanEAPatchFiles() {
+        let filesToRemove = ["PatchData.big", "PatchINI.big", "PatchWindow.big", "PatchZH.big"]
+        let fm = FileManager.default
+        
+        for file in filesToRemove {
+            let path = assetsDir.appendingPathComponent(file)
+            if fm.fileExists(atPath: path.path) {
+                try? fm.removeItem(at: path)
+                appendLog("[*] Removed EA modern patch file: \(file)\n")
+            }
+            
+            // Also check root just in case
+            let rootPath = installDir.appendingPathComponent(file)
+            if fm.fileExists(atPath: rootPath.path) {
+                try? fm.removeItem(at: rootPath)
+                appendLog("[*] Removed EA modern patch file from root: \(file)\n")
+            }
         }
     }
 
@@ -265,9 +290,13 @@ class SteamCMDManager: ObservableObject {
                 self.inputPipe = nil
 
                 if proc.terminationStatus == 0 {
-                    self.appendLog("\n[✓] Download completed successfully!\n")
+                    self.appendLog("\n[✓] Vanilla download completed successfully!\n")
                     self.reorganizeAssets()
-                    self.state = .completed
+                    self.cleanEAPatchFiles()
+                    self.downloadCommunityPatch()
+                } else if proc.terminationStatus == 42 {
+                    self.appendLog("\n[*] SteamCMD updated itself. Restarting process...\n")
+                    self.runSteamCMD(username: username, password: password)
                 } else if case .failed = self.state {
                     // already set
                 } else {
@@ -331,6 +360,88 @@ class SteamCMDManager: ObservableObject {
         DispatchQueue.main.async {
             self.state = .failed(message)
             self.appendLog("\n[✗] \(message)\n")
+        }
+    }
+
+    // MARK: - Community Patch
+
+    private func downloadCommunityPatch() {
+        DispatchQueue.main.async {
+            self.state = .downloadingPatch(progress: 0.0)
+            self.appendLog("\n[⭳] Downloading Community Patch & Maps...\n")
+        }
+
+        // Hardcoded URL pointing to your new public GitHub repo
+        guard let patchURL = URL(string: "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip") else {
+            fail("Invalid patch URL.")
+            return
+        }
+
+        let task = URLSession.shared.downloadTask(with: patchURL) { [weak self] localURL, response, error in
+            guard let self = self else { return }
+
+            if let error = error {
+                self.fail("Failed to download patch: \(error.localizedDescription)")
+                return
+            }
+
+            guard let localURL = localURL else {
+                self.fail("Patch download failed: No file URL returned.")
+                return
+            }
+
+            // Move the downloaded temp file so it doesn't get automatically deleted
+            let tempZipURL = self.installDir.appendingPathComponent("temp_patch.zip")
+            let fm = FileManager.default
+            try? fm.removeItem(at: tempZipURL)
+            do {
+                try fm.moveItem(at: localURL, to: tempZipURL)
+                DispatchQueue.main.async {
+                    self.downloadObservation?.invalidate()
+                    self.downloadObservation = nil
+                    self.applyPatch(from: tempZipURL)
+                }
+            } catch {
+                self.fail("Failed to prepare patch file: \(error.localizedDescription)")
+            }
+        }
+        
+        downloadObservation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
+            let fraction = progress.fractionCompleted
+            DispatchQueue.main.async {
+                self?.state = .downloadingPatch(progress: fraction)
+            }
+        }
+        
+        task.resume()
+    }
+
+    private func applyPatch(from zipURL: URL) {
+        state = .unpackingPatch
+        appendLog("[*] Unpacking patch...\n")
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        // -o: overwrite without prompting. -d: extract to installDir (where Assets/ is)
+        process.arguments = ["-o", zipURL.path, "-d", installDir.path]
+
+        process.terminationHandler = { [weak self] proc in
+            DispatchQueue.main.async {
+                try? FileManager.default.removeItem(at: zipURL) // Clean up zip
+                
+                if proc.terminationStatus == 0 {
+                    self?.appendLog("[✓] Community Patch successfully applied!\n")
+                    self?.state = .completed
+                } else {
+                    self?.fail("Failed to unpack patch (unzip exited with code \(proc.terminationStatus))")
+                }
+            }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            fail("Failed to execute unzip: \(error.localizedDescription)")
         }
     }
 }

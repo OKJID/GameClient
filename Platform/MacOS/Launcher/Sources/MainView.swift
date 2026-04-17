@@ -455,7 +455,7 @@ struct MainView: View {
     private func _statusColor() -> Color {
         switch viewModel.steamCMD.state {
         case .idle, .waitingForCredentials: return .gray
-        case .downloadingSteamCMD, .authenticating, .downloading, .validating, .waitingSteamGuard: return .orange
+        case .downloadingSteamCMD, .authenticating, .downloading, .validating, .waitingSteamGuard, .downloadingPatch, .unpackingPatch: return .orange
         case .completed: return neonGreen
         case .failed: return .red
         }
