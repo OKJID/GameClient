@@ -156,8 +156,8 @@ cd "$OUTPUTS_DIR" || exit
 zip -rq "$ZIP_NAME" "$README_NAME"
 cd ..
 
-echo "💿 [7/7] Creating DMG installer image..."
-sh build_dmg.sh
+# echo "💿 [7/7] Creating DMG installer image..."
+# sh build_dmg.sh
 
 echo "✅ Distribution package successfully created in: $OUTPUTS_DIR"
 ls -lah "$OUTPUTS_DIR"
