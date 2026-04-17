@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Security
 
 enum SteamCMDState: Equatable {
     case idle
@@ -40,6 +41,9 @@ class SteamCMDManager: ObservableObject {
     @Published var state: SteamCMDState = .idle
     @Published var consoleLog: String = ""
     @Published var steamGuardCode: String = ""
+    @Published var showPurchaseAlert: Bool = false
+
+    var lastUsername: String = ""
 
     static let appID = "2732960"
 
@@ -53,10 +57,13 @@ class SteamCMDManager: ObservableObject {
 
     var steamCMDDir: URL { supportDir.appendingPathComponent("steamcmd") }
     var steamCMDBinary: URL { steamCMDDir.appendingPathComponent("steamcmd") }
-    var assetsDir: URL {
+    var installDir: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return docs.appendingPathComponent("Generals Online").appendingPathComponent("Assets")
+        return docs.appendingPathComponent("Generals Online")
     }
+
+    var assetsDir: URL { installDir.appendingPathComponent("Assets") }
+    var baseGameDir: URL { installDir.appendingPathComponent("ZH_Generals") }
 
     var isSteamCMDInstalled: Bool {
         FileManager.default.fileExists(atPath: steamCMDBinary.path)
@@ -64,30 +71,39 @@ class SteamCMDManager: ObservableObject {
 
     var areAssetsValid: Bool {
         let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(at: assetsDir, includingPropertiesForKeys: [.isDirectoryKey], options: .skipsHiddenFiles) else {
-            return false
+        let zhFiles = (try? fm.contentsOfDirectory(atPath: assetsDir.path)) ?? []
+        let baseFiles = (try? fm.contentsOfDirectory(atPath: baseGameDir.path)) ?? []
+
+        let hasZH = zhFiles.contains { $0.lowercased() == "inizh.big" }
+        let hasBase = baseFiles.contains { $0.lowercased() == "ini.big" }
+
+        return hasZH && hasBase
+    }
+
+    private func reorganizeAssets() {
+        let fm = FileManager.default
+        let source = assetsDir.appendingPathComponent("ZH_Generals")
+        let destination = baseGameDir
+
+        guard fm.fileExists(atPath: source.path) else {
+            appendLog("[*] ZH_Generals already in correct location\n")
+            return
         }
 
-        var hasZH = false
-        var hasBase = false
-
-        for itemURL in items {
-            guard let isDir = try? itemURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory, isDir else { continue }
-            guard let subItems = try? fm.contentsOfDirectory(atPath: itemURL.path) else { continue }
-
-            let containsZH = subItems.contains { $0.lowercased() == "inizh.big" }
-            let containsBase = subItems.contains { $0.lowercased() == "ini.big" }
-
-            if containsZH { hasZH = true }
-            else if containsBase { hasBase = true }
-
-            if hasZH && hasBase { return true }
+        if fm.fileExists(atPath: destination.path) {
+            try? fm.removeItem(at: destination)
         }
 
-        return false
+        do {
+            try fm.moveItem(at: source, to: destination)
+            appendLog("[✓] Moved ZH_Generals/ alongside Assets/\n")
+        } catch {
+            appendLog("[!] Failed to move ZH_Generals: \(error.localizedDescription)\n")
+        }
     }
 
     func appendLog(_ text: String) {
+        print(text, terminator: "")
         DispatchQueue.main.async {
             self.consoleLog += text
         }
@@ -97,6 +113,7 @@ class SteamCMDManager: ObservableObject {
         guard !state.isRunning else { return }
 
         consoleLog = ""
+        lastUsername = username
 
         if !isSteamCMDInstalled {
             installSteamCMD { [weak self] success in
@@ -208,8 +225,8 @@ class SteamCMDManager: ObservableObject {
 
         task.arguments = [
             "+@sSteamCmdForcePlatformType", "windows",
-            "+login", username, password,
             "+force_install_dir", assetsDir.path,
+            "+login", username, password,
             "+app_update", Self.appID, "validate",
             "+quit"
         ]
@@ -249,6 +266,7 @@ class SteamCMDManager: ObservableObject {
 
                 if proc.terminationStatus == 0 {
                     self.appendLog("\n[✓] Download completed successfully!\n")
+                    self.reorganizeAssets()
                     self.state = .completed
                 } else if case .failed = self.state {
                     // already set
@@ -265,6 +283,8 @@ class SteamCMDManager: ObservableObject {
         }
     }
 
+    static let storeURL = "https://store.steampowered.com/app/2732960"
+
     private func processOutput(_ text: String) {
         appendLog(text)
 
@@ -272,6 +292,12 @@ class SteamCMDManager: ObservableObject {
 
         if lower.contains("steam guard") || lower.contains("two-factor") || lower.contains("enter the current code") {
             DispatchQueue.main.async { self.state = .waitingSteamGuard }
+            return
+        }
+
+        if lower.contains("no subscription") || lower.contains("no license") {
+            fail("Game not owned — purchase required")
+            DispatchQueue.main.async { self.showPurchaseAlert = true }
             return
         }
 
@@ -306,5 +332,67 @@ class SteamCMDManager: ObservableObject {
             self.state = .failed(message)
             self.appendLog("\n[✗] \(message)\n")
         }
+    }
+}
+
+// MARK: - Keychain
+
+struct KeychainHelper {
+    private static let service = "com.generals-online.launcher"
+
+    static func save(account: String, password: String) {
+        guard let data = password.data(using: .utf8) else { return }
+
+        delete(account: account)
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecValueData as String: data
+        ]
+
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    static func load(account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func delete(account: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        SecItemDelete(query as CFDictionary)
+    }
+
+    static func savedUsername() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecReturnAttributes as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        guard status == errSecSuccess, let attrs = result as? [String: Any] else { return nil }
+        return attrs[kSecAttrAccount as String] as? String
     }
 }

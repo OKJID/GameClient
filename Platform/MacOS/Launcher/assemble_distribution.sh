@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Assemble the final macOS distribution package (.zip + .dmg)
+# Requires a successful CMake build of the game first.
+#
+# Run standalone (from Platform/MacOS/Launcher/):
+#   sh assemble_distribution.sh
+#
+# Or via the root build script:
+#   sh build_mac.sh --launcher            # build + assemble
+#   sh build_mac.sh --launcher --clean    # clean build + assemble
+#
+# Prerequisites:
+#   - dylibbundler  (brew install dylibbundler)
+#   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
+
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
 CMAKE_APP_DIR="../../../build/macos/GeneralsMD/GeneralsOnlineZH.app"
@@ -143,41 +157,7 @@ zip -rq "$ZIP_NAME" "$README_NAME"
 cd ..
 
 echo "💿 [7/7] Creating DMG installer image..."
-DMG_OUTPUT="$OUTPUTS_DIR/$DMG_NAME"
-rm -f "$DMG_OUTPUT"
-
-if command -v create-dmg &>/dev/null; then
-    create-dmg \
-        --volname "Generals Online" \
-        --volicon "Generals.png" \
-        --background "assets/dmg_background.png" \
-        --window-pos 200 120 \
-        --window-size 660 400 \
-        --icon-size 80 \
-        --icon "$FINAL_APP_NAME.app" 170 190 \
-        --app-drop-link 490 190 \
-        --hide-extension "$FINAL_APP_NAME.app" \
-        --no-internet-enable \
-        "$DMG_OUTPUT" \
-        "$DIST_DIR/"
-else
-    echo "⚠️  create-dmg not found, falling back to basic hdiutil (install with: brew install create-dmg)"
-    DMG_STAGING="build/dmg_staging"
-    rm -rf "$DMG_STAGING"
-    mkdir -p "$DMG_STAGING"
-    cp -R "$FINAL_APP_DIR" "$DMG_STAGING/"
-    ln -s /Applications "$DMG_STAGING/Applications"
-    cp "$OUTPUTS_DIR/$README_NAME" "$DMG_STAGING/"
-
-    hdiutil create \
-        -volname "Generals Online" \
-        -srcfolder "$DMG_STAGING" \
-        -ov \
-        -format UDZO \
-        "$DMG_OUTPUT"
-
-    rm -rf "$DMG_STAGING"
-fi
+sh build_dmg.sh
 
 echo "✅ Distribution package successfully created in: $OUTPUTS_DIR"
 ls -lah "$OUTPUTS_DIR"

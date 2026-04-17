@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import Combine
 
 // MARK: - View Model
 
@@ -13,11 +14,27 @@ class LauncherViewModel: ObservableObject {
     @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? ""
     @Published var isLaunching: Bool = false
     @Published var alertMessage: String? = nil
-
     @Published var steamUsername: String = ""
     @Published var steamPassword: String = ""
 
     var steamCMD = SteamCMDManager()
+    private var cancellable: AnyCancellable?
+
+    init() {
+        cancellable = steamCMD.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }
+
+        if let username = KeychainHelper.savedUsername() {
+            steamUsername = username
+            steamPassword = KeychainHelper.load(account: username) ?? ""
+        }
+    }
+
+    func saveCredentials() {
+        guard !steamUsername.isEmpty, !steamPassword.isEmpty else { return }
+        KeychainHelper.save(account: steamUsername, password: steamPassword)
+    }
 
     var isPathValid: Bool {
         guard !installPath.isEmpty else { return false }
@@ -33,7 +50,7 @@ class LauncherViewModel: ObservableObject {
 
     var effectiveInstallPath: String {
         switch activeTab {
-        case .steam: return steamCMD.assetsDir.path
+        case .steam: return steamCMD.installDir.path
         case .local: return installPath
         }
     }
@@ -183,6 +200,18 @@ struct MainView: View {
             set: { _ in viewModel.alertMessage = nil }
         )) { alert in
             Alert(title: Text("Launch Error"), message: Text(alert.message), dismissButton: .default(Text("OK")))
+        }
+        .alert(isPresented: $viewModel.steamCMD.showPurchaseAlert) {
+            Alert(
+                title: Text("Game Not Found"),
+                message: Text("The account \"\(viewModel.steamCMD.lastUsername)\" does not own Command & Conquer™ Generals — Zero Hour.\n\nPurchase the game on Steam, then press \"Download Assets\" again."),
+                primaryButton: .default(Text("Open Steam Store")) {
+                    if let url = URL(string: SteamCMDManager.storeURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                },
+                secondaryButton: .cancel(Text("Close"))
+            )
         }
     }
 
@@ -344,6 +373,7 @@ struct MainView: View {
             && !viewModel.steamCMD.state.isRunning
 
         Button(action: {
+            viewModel.saveCredentials()
             viewModel.steamCMD.startDownload(
                 username: viewModel.steamUsername,
                 password: viewModel.steamPassword
