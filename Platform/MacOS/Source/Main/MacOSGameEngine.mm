@@ -74,7 +74,8 @@ static bool DetectGameModes(const std::string& rootPath, std::string& outZH, std
 
 		if (hasINIZH && outZH.empty()) {
 			outZH = subdir;
-		} else if (hasINI && !hasINIZH && outBase.empty()) {
+		}
+		if (hasINI && outBase.empty()) {
 			outBase = subdir;
 		}
 	}

@@ -125,7 +125,7 @@ class LauncherViewModel: ObservableObject {
             guard let subItems = try? fm.contentsOfDirectory(atPath: itemURL.path) else { continue }
 
             if subItems.contains(where: { $0.lowercased() == "inizh.big" }) { hasZH = true }
-            else if subItems.contains(where: { $0.lowercased() == "ini.big" }) { hasBase = true }
+            if subItems.contains(where: { $0.lowercased() == "ini.big" }) { hasBase = true }
 
             if hasZH && hasBase { return true }
         }
