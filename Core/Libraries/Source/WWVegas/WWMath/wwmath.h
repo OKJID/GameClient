@@ -39,7 +39,7 @@
 #include "always.h"
 #include <math.h>
 #include <float.h>
-#include "fdlibm_det.h"
+#include "gmath.h"
 #include <assert.h>
 
 #ifdef RETAIL_COMPATIBLE_CRC
@@ -131,16 +131,16 @@ public:
 
 
 #ifdef USE_DETERMINISTIC_MATH
-	static WWINLINE float		Atan(float x) { return static_cast<float>(fdlibm_atan(x)); }
-	static WWINLINE float		Atan2(float y, float x) { return static_cast<float>(fdlibm_atan2(y, x)); }
-	static WWINLINE float		Tan(float x) { return static_cast<float>(fdlibm_tan(x)); }
-	static WWINLINE float		Sinh(float x) { return static_cast<float>(fdlibm_sinh(x)); }
-	static WWINLINE float		Cosh(float x) { return static_cast<float>(fdlibm_cosh(x)); }
-	static WWINLINE float		Tanh(float x) { return static_cast<float>(fdlibm_tanh(x)); }
-	static WWINLINE float		Exp(float x) { return static_cast<float>(fdlibm_exp(x)); }
-	static WWINLINE float		Log(float x) { return static_cast<float>(fdlibm_log(x)); }
-	static WWINLINE float		Log10(float x) { return static_cast<float>(fdlibm_log10(x)); }
-	static WWINLINE float		Pow(float x, float y) { return static_cast<float>(fdlibm_pow(x, y)); }
+	static WWINLINE float		Atan(float x) { return gm_atanf(x); }
+	static WWINLINE float		Atan2(float y, float x) { return gm_atan2f(y, x); }
+	static WWINLINE float		Tan(float x) { return gm_tanf(x); }	
+	static WWINLINE float		Sinh(float x) { return gm_sinhf(x); }
+	static WWINLINE float		Cosh(float x) { return gm_coshf(x); }
+	static WWINLINE float		Tanh(float x) { return gm_tanhf(x); }
+	static WWINLINE float		Exp(float x) { return gm_expf(x); }
+	static WWINLINE float		Log(float x) { return gm_logf(x); }
+	static WWINLINE float		Log10(float x) { return gm_log10f(x); }
+	static WWINLINE float		Pow(float x, float y) { return gm_powf(x, y); }
 #else
 	static WWINLINE float		Atan(float x) { return static_cast<float>(atan(x)); }
 	static WWINLINE float		Atan2(float y, float x) { return static_cast<float>(atan2(y, x)); }
@@ -342,13 +342,13 @@ WWINLINE long WWMath::Float_To_Long(double f)
 }
 
 // ----------------------------------------------------------------------------
-// Cos (deterministic, fdlibm)
+// Cos (deterministic, GameMath)
 // ----------------------------------------------------------------------------
 
 #ifdef USE_DETERMINISTIC_MATH
 WWINLINE float WWMath::Cos(float val)
 {
-	return (float)fdlibm_cos((double)val);
+	return gm_cosf(val);
 }
 #else
 #if defined(_MSC_VER) && defined(_M_IX86)
@@ -371,13 +371,13 @@ WWINLINE float WWMath::Cos(float val)
 #endif
 
 // ----------------------------------------------------------------------------
-// Sin (deterministic, fdlibm)
+// Sin (deterministic, GameMath)
 // ----------------------------------------------------------------------------
 
 #ifdef USE_DETERMINISTIC_MATH
 WWINLINE float WWMath::Sin(float val)
 {
-	return (float)fdlibm_sin((double)val);
+	return gm_sinf(val);
 }
 #else
 #if defined(_MSC_VER) && defined(_M_IX86)
@@ -530,7 +530,7 @@ WWINLINE float WWMath::Fast_Acos(float val)
 #ifdef USE_DETERMINISTIC_MATH
 WWINLINE float WWMath::Acos(float val)
 {
-	return (float)fdlibm_acos((double)val);
+	return gm_acosf(val);
 }
 #else
 WWINLINE float WWMath::Acos(float val)
@@ -574,7 +574,7 @@ WWINLINE float WWMath::Fast_Asin(float val)
 #ifdef USE_DETERMINISTIC_MATH
 WWINLINE float WWMath::Asin(float val)
 {
-	return (float)fdlibm_asin((double)val);
+	return gm_asinf(val);
 }
 #else
 WWINLINE float WWMath::Asin(float val)
@@ -590,7 +590,7 @@ WWINLINE float WWMath::Asin(float val)
 #ifdef USE_DETERMINISTIC_MATH
 WWINLINE float WWMath::Sqrt(float val)
 {
-	return (float)sqrt((double)val);
+	return gm_sqrtf(val);
 }
 #else
 #if defined(_MSC_VER) && defined(_M_IX86)
@@ -639,7 +639,7 @@ WWINLINE int WWMath::Float_To_Int_Floor(const float& f)
 }
 
 /// ----------------------------------------------------------------------------
-// Inverse square root (deterministic, portable Quake III style + fdlibm)
+// Inverse square root (deterministic, portable Quake III style + GameMath)
 // ----------------------------------------------------------------------------
 
 #ifdef USE_DETERMINISTIC_MATH
