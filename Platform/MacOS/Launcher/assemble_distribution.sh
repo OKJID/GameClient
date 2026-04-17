@@ -7,6 +7,7 @@ DIST_DIR="build/dist"
 OUTPUTS_DIR="outputs"
 FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
 ZIP_NAME="Generals_Online_Mac_Alpha.zip"
+DMG_NAME="Generals_Online_Mac_Alpha.dmg"
 README_NAME="README_INSTALL.md"
 
 echo "=========================================="
@@ -35,7 +36,7 @@ FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 GAME_BINARY="$MACOS_DIR/GeneralsOnlineZH"
 GNS_SEARCH_PATH="../../../build/macos/bin"
 
-echo "📦 [1/6] Bundling third-party dynamic libraries..."
+echo "📦 [1/7] Bundling third-party dynamic libraries..."
 export PATH="/opt/homebrew/bin:$PATH"
 
 if ! command -v dylibbundler &>/dev/null; then
@@ -54,7 +55,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "🔒 [2/6] Cleaning RPATHs and re-signing..."
+echo "🔒 [2/7] Cleaning RPATHs and re-signing..."
 EXISTING_RPATHS=$(otool -l "$GAME_BINARY" | grep -A 2 LC_RPATH | awk '/path / {print $2}')
 for rp in $EXISTING_RPATHS; do
     while install_name_tool -delete_rpath "$rp" "$GAME_BINARY" 2>/dev/null; do true; done
@@ -63,8 +64,9 @@ install_name_tool -add_rpath "@executable_path/../Frameworks/" "$GAME_BINARY"
 
 codesign --force --deep -s - "$FINAL_APP_DIR"
 
-echo "🔨 [3/6] Compiling Swift Launcher into the package..."
+echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc Sources/LauncherApp.swift Sources/MainView.swift \
+       Sources/SteamCMDManager.swift Sources/AboutWindow.swift \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
        -target arm64-apple-macosx11.0
 
@@ -73,7 +75,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "🎨 [4/6] Injecting Launcher UI assets and patching..."
+echo "🎨 [4/7] Injecting Launcher UI assets and patching..."
 cp assets/background.png "$RESOURCES_DIR/background.png" 2>/dev/null || true
 cp assets/dir_image.png "$RESOURCES_DIR/dir_image.png" 2>/dev/null || true
 cp assets/author_logo.png "$RESOURCES_DIR/author_logo.png" 2>/dev/null || true
@@ -85,7 +87,7 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$PLIST_FILE" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon.png" "$PLIST_FILE"
 
-echo "📝 [5/6] Generating README instruction..."
+echo "📝 [5/7] Generating README instruction..."
 cat << 'EOF' > "$OUTPUTS_DIR/$README_NAME"
 # Command and Conquer Generals – Mac OS Port 🍏
 
@@ -129,7 +131,7 @@ When the Launcher opens, you **MUST** select the parent folder of your Windows v
 Have a great game, General! 🫡
 EOF
 
-echo "🗜️ [6/6] Creating final deployment ZIP..."
+echo "🗜️ [6/7] Creating final deployment ZIP..."
 # Идем в dist, чтобы в архиве корневым элементом была сама app, без папок build/dist
 cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"
@@ -138,10 +140,47 @@ cd ../..
 # Идем в outputs и добавляем ридми внутрь готового зипа
 cd "$OUTPUTS_DIR" || exit
 zip -rq "$ZIP_NAME" "$README_NAME"
+cd ..
+
+echo "💿 [7/7] Creating DMG installer image..."
+DMG_OUTPUT="$OUTPUTS_DIR/$DMG_NAME"
+rm -f "$DMG_OUTPUT"
+
+if command -v create-dmg &>/dev/null; then
+    create-dmg \
+        --volname "Generals Online" \
+        --volicon "Generals.png" \
+        --background "assets/dmg_background.png" \
+        --window-pos 200 120 \
+        --window-size 660 400 \
+        --icon-size 80 \
+        --icon "$FINAL_APP_NAME.app" 170 190 \
+        --app-drop-link 490 190 \
+        --hide-extension "$FINAL_APP_NAME.app" \
+        --no-internet-enable \
+        "$DMG_OUTPUT" \
+        "$DIST_DIR/"
+else
+    echo "⚠️  create-dmg not found, falling back to basic hdiutil (install with: brew install create-dmg)"
+    DMG_STAGING="build/dmg_staging"
+    rm -rf "$DMG_STAGING"
+    mkdir -p "$DMG_STAGING"
+    cp -R "$FINAL_APP_DIR" "$DMG_STAGING/"
+    ln -s /Applications "$DMG_STAGING/Applications"
+    cp "$OUTPUTS_DIR/$README_NAME" "$DMG_STAGING/"
+
+    hdiutil create \
+        -volname "Generals Online" \
+        -srcfolder "$DMG_STAGING" \
+        -ov \
+        -format UDZO \
+        "$DMG_OUTPUT"
+
+    rm -rf "$DMG_STAGING"
+fi
 
 echo "✅ Distribution package successfully created in: $OUTPUTS_DIR"
-ls -lah
-cd ..
+ls -lah "$OUTPUTS_DIR"
 
 # Удаляем build_launcher.sh раз мы все объединили
 rm -f build_launcher.sh 2>/dev/null || true
