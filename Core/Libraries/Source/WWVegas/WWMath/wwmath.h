@@ -134,10 +134,24 @@ public:
 	static WWINLINE float		Atan(float x) { return static_cast<float>(fdlibm_atan(x)); }
 	static WWINLINE float		Atan2(float y, float x) { return static_cast<float>(fdlibm_atan2(y, x)); }
 	static WWINLINE float		Tan(float x) { return static_cast<float>(fdlibm_tan(x)); }
+	static WWINLINE float		Sinh(float x) { return static_cast<float>(fdlibm_sinh(x)); }
+	static WWINLINE float		Cosh(float x) { return static_cast<float>(fdlibm_cosh(x)); }
+	static WWINLINE float		Tanh(float x) { return static_cast<float>(fdlibm_tanh(x)); }
+	static WWINLINE float		Exp(float x) { return static_cast<float>(fdlibm_exp(x)); }
+	static WWINLINE float		Log(float x) { return static_cast<float>(fdlibm_log(x)); }
+	static WWINLINE float		Log10(float x) { return static_cast<float>(fdlibm_log10(x)); }
+	static WWINLINE float		Pow(float x, float y) { return static_cast<float>(fdlibm_pow(x, y)); }
 #else
 	static WWINLINE float		Atan(float x) { return static_cast<float>(atan(x)); }
 	static WWINLINE float		Atan2(float y, float x) { return static_cast<float>(atan2(y, x)); }
 	static WWINLINE float		Tan(float x) { return static_cast<float>(tan(x)); }
+	static WWINLINE float		Sinh(float x) { return static_cast<float>(sinh(x)); }
+	static WWINLINE float		Cosh(float x) { return static_cast<float>(cosh(x)); }
+	static WWINLINE float		Tanh(float x) { return static_cast<float>(tanh(x)); }
+	static WWINLINE float		Exp(float x) { return static_cast<float>(exp(x)); }
+	static WWINLINE float		Log(float x) { return static_cast<float>(log(x)); }
+	static WWINLINE float		Log10(float x) { return static_cast<float>(log10(x)); }
+	static WWINLINE float		Pow(float x, float y) { return static_cast<float>(pow(x, y)); }
 #endif
 	static WWINLINE float		Sign(float val);
 	static WWINLINE float		Ceil(float val) { return ceilf(val); }

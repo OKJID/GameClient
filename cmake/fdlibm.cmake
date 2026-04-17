@@ -1,7 +1,7 @@
 FetchContent_Declare(
     fdlibm
     GIT_REPOSITORY https://github.com/Okladnoj/fdlibm-deterministic.git
-    GIT_TAG        df11e4e
+    GIT_TAG        02d7d2c
 )
 
 FetchContent_MakeAvailable(fdlibm)
