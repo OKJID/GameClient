@@ -631,6 +631,11 @@ Render2DSentenceClass::Record_Sentence_Chunk ()
 void
 Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExtents)
 {
+#ifdef __APPLE__
+	if (text == nullptr) {
+		return;
+	}
+#endif
 	if (!justCalcExtents)
 	{
 		//
@@ -991,6 +996,11 @@ void	Render2DSentenceClass::Build_Sentence_Centered (const WCHAR *text, int *hkX
 ////////////////////////////////////////////////////////////////////////////////////
 Vector2	Render2DSentenceClass::Build_Sentence_Not_Centered (const WCHAR *text, int *hkX, int *hkY, bool justCalcExtents)
 {
+#ifdef __APPLE__
+	if (text == nullptr) {
+		return Vector2(0.0f, 0.0f);
+	}
+#endif
 	Vector2 cursor = Cursor;
 	int textureStartX = TextureStartX;
 	float maxX = 0;

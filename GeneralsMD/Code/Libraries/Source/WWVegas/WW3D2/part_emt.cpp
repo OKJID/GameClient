@@ -144,8 +144,13 @@ ParticleEmitterClass::ParticleEmitterClass(const ParticleEmitterClass & src) :
 	ParticlesLeft(src.ParticlesLeft),
 	MaxParticles(src.MaxParticles),
 	IsComplete(false),
+#ifdef __APPLE__
+	NameString(src.NameString ? ::_strdup (src.NameString) : nullptr),
+	UserString(src.UserString ? ::_strdup (src.UserString) : nullptr),
+#else
 	NameString(::_strdup (src.NameString)),
 	UserString(::_strdup (src.UserString)),
+#endif
 	RemoveOnComplete(src.RemoveOnComplete),
 	IsInScene(false),
 	GroupID(0),
