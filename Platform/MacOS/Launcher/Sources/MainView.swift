@@ -43,7 +43,7 @@ class LauncherViewModel: ObservableObject {
 
     var canLaunch: Bool {
         switch activeTab {
-        case .steam: return steamCMD.areAssetsValid
+        case .steam: return steamCMD.areAssetsValid && !steamCMD.state.isRunning
         case .local: return isPathValid
         }
     }
@@ -615,10 +615,22 @@ struct MainView: View {
                 HStack(spacing: 8) {
                     _buildFooterLink(title: "Website", url: "https://okladnoj-bio.web.app/")
                     Text("|").foregroundColor(.white.opacity(0.3)).font(.system(size: 10))
-                    _buildFooterLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOS")
+                    _buildFooterLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
                 }
             }
             Spacer()
+
+            Button(action: {
+                AboutWindowController.show()
+            }) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 18))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .onHover { inside in
+                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+            }
         }
         .padding(.horizontal, 20)
     }

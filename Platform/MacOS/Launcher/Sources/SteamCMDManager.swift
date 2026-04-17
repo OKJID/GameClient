@@ -80,7 +80,7 @@ class SteamCMDManager: ObservableObject {
         let baseFiles = (try? fm.contentsOfDirectory(atPath: baseGameDir.path)) ?? []
 
         let hasZH = zhFiles.contains { $0.lowercased() == "inizh.big" }
-        let hasBase = baseFiles.contains { $0.lowercased() == "ini.big" }
+        let hasBase = baseFiles.contains { $0.lowercased() == "ini.big" } || zhFiles.contains { $0.lowercased() == "ini.big" }
 
         return hasZH && hasBase
     }
