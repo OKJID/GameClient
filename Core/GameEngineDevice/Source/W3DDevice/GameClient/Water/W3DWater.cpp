@@ -1001,6 +1001,7 @@ Int WaterRenderObjClass::init(Real waterLevel, Real dx, Real dy, SceneClass *par
 
 	m_parentScene=parentScene;
 	m_waterType = type;
+	DEBUG_RENDER_CORE_MAC(("W3DWater::init waterType=%d (0=TRANSLUCENT,1=FB_REFL,2=PVSHADER,3=GRIDMESH)", (int)type));
 
 	/// Hack for now
 	//m_waterType = WATER_TYPE_0_TRANSLUCENT;

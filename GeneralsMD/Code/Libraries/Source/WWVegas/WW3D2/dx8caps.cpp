@@ -1188,37 +1188,28 @@ DX8Caps::DX8Caps(
 	MaxDisplayWidth(0),
 	MaxDisplayHeight(0)
 {
-	memset(&Caps, 0, sizeof(Caps));
-	Caps.MaxSimultaneousTextures = 8;
-	Caps.MaxTextureWidth = 4096;
-	Caps.MaxTextureHeight = 4096;
-	Caps.MaxTextureBlendStages = 8;
-	Caps.MaxPointSize = 256.0f;
-	Caps.RasterCaps = D3DPRASTERCAPS_ZBIAS | D3DPRASTERCAPS_FOGRANGE;
-	Caps.Caps2 = D3DCAPS2_FULLSCREENGAMMA;
-	Caps.TextureOpCaps = 0xFFFFFFFF;
-	Caps.TextureCaps = D3DPTEXTURECAPS_CUBEMAP;
-	Caps.TextureFilterCaps = D3DPTFILTERCAPS_MAGFANISOTROPIC | D3DPTFILTERCAPS_MINFANISOTROPIC;
-	Caps.DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
+	D3DDevice->GetDeviceCaps(&Caps);
 
-	SupportTnL = true;
+	SupportTnL = (Caps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT) != 0;
 	SupportDXTC = true;
-	supportGamma = true;
+	supportGamma = (Caps.Caps2 & D3DCAPS2_FULLSCREENGAMMA) != 0;
 	SupportNPatches = false;
-	SupportBumpEnvmap = true;
-	SupportBumpEnvmapLuminance = true;
-	SupportZBias = true;
-	SupportAnisotropicFiltering = true;
-	SupportModAlphaAddClr = true;
-	SupportDot3 = true;
-	SupportPointSprites = true;
-	SupportCubemaps = true;
+	SupportBumpEnvmap = (Caps.TextureOpCaps & D3DTEXOPCAPS_BUMPENVMAP) != 0;
+	SupportBumpEnvmapLuminance = (Caps.TextureOpCaps & D3DTEXOPCAPS_BUMPENVMAPLUMINANCE) != 0;
+	SupportZBias = (Caps.RasterCaps & D3DPRASTERCAPS_ZBIAS) != 0;
+	SupportAnisotropicFiltering =
+		(Caps.TextureFilterCaps & D3DPTFILTERCAPS_MAGFANISOTROPIC) &&
+		(Caps.TextureFilterCaps & D3DPTFILTERCAPS_MINFANISOTROPIC);
+	SupportModAlphaAddClr = (Caps.TextureOpCaps & D3DTEXOPCAPS_MODULATEALPHA_ADDCOLOR) != 0;
+	SupportDot3 = (Caps.TextureOpCaps & D3DTEXOPCAPS_DOTPRODUCT3) != 0;
+	SupportPointSprites = (Caps.MaxPointSize > 1.0f);
+	SupportCubemaps = (Caps.TextureCaps & D3DPTEXTURECAPS_CUBEMAP) != 0;
 	CanDoMultiPass = true;
 	IsFogAllowed = true;
-	MaxTexturesPerPass = 8;
-	VertexShaderVersion = 0;
-	PixelShaderVersion = 0;
-	MaxSimultaneousTextures = 8;
+	MaxTexturesPerPass = Caps.MaxSimultaneousTextures;
+	VertexShaderVersion = Caps.VertexShaderVersion;
+	PixelShaderVersion = Caps.PixelShaderVersion;
+	MaxSimultaneousTextures = Caps.MaxSimultaneousTextures;
 	DeviceId = 0;
 	DriverBuildVersion = 0;
 	DriverVersionStatus = DRIVER_STATUS_GOOD;
@@ -1248,24 +1239,26 @@ DX8Caps::DX8Caps(
 	MaxDisplayWidth(0),
 	MaxDisplayHeight(0)
 {
-	SupportTnL = true;
+	SupportTnL = (Caps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT) != 0;
 	CanDoMultiPass = true;
 	IsFogAllowed = true;
 	SupportDXTC = true;
-	supportGamma = true;
+	supportGamma = (Caps.Caps2 & D3DCAPS2_FULLSCREENGAMMA) != 0;
 	SupportNPatches = false;
-	SupportBumpEnvmap = true;
-	SupportBumpEnvmapLuminance = true;
-	SupportZBias = true;
-	SupportAnisotropicFiltering = true;
-	SupportModAlphaAddClr = true;
-	SupportDot3 = true;
-	SupportPointSprites = true;
-	SupportCubemaps = true;
-	MaxTexturesPerPass = 8;
-	VertexShaderVersion = 0;
-	PixelShaderVersion = 0;
-	MaxSimultaneousTextures = 8;
+	SupportBumpEnvmap = (Caps.TextureOpCaps & D3DTEXOPCAPS_BUMPENVMAP) != 0;
+	SupportBumpEnvmapLuminance = (Caps.TextureOpCaps & D3DTEXOPCAPS_BUMPENVMAPLUMINANCE) != 0;
+	SupportZBias = (Caps.RasterCaps & D3DPRASTERCAPS_ZBIAS) != 0;
+	SupportAnisotropicFiltering =
+		(Caps.TextureFilterCaps & D3DPTFILTERCAPS_MAGFANISOTROPIC) &&
+		(Caps.TextureFilterCaps & D3DPTFILTERCAPS_MINFANISOTROPIC);
+	SupportModAlphaAddClr = (Caps.TextureOpCaps & D3DTEXOPCAPS_MODULATEALPHA_ADDCOLOR) != 0;
+	SupportDot3 = (Caps.TextureOpCaps & D3DTEXOPCAPS_DOTPRODUCT3) != 0;
+	SupportPointSprites = (Caps.MaxPointSize > 1.0f);
+	SupportCubemaps = (Caps.TextureCaps & D3DPTEXTURECAPS_CUBEMAP) != 0;
+	MaxTexturesPerPass = Caps.MaxSimultaneousTextures;
+	VertexShaderVersion = Caps.VertexShaderVersion;
+	PixelShaderVersion = Caps.PixelShaderVersion;
+	MaxSimultaneousTextures = Caps.MaxSimultaneousTextures;
 	DeviceId = 0;
 	DriverBuildVersion = 0;
 	DriverVersionStatus = DRIVER_STATUS_GOOD;
