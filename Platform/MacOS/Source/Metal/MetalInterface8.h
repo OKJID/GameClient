@@ -1,6 +1,5 @@
 #pragma once
 
-#ifdef __APPLE__
 
 #include <windows.h>
 #include <d3d8.h>
@@ -32,4 +31,4 @@ private:
   ULONG m_RefCount;
 };
 
-#endif // __APPLE__
+

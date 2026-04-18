@@ -9,7 +9,6 @@
  * standard DX8Wrapper path (Resize_And_Position_Window / Set_Device_Resolution)
  * to mirror the tested Windows flow.
  */
-#ifdef __APPLE__
 
 #import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
@@ -116,4 +115,3 @@ DisplayMode MacOSDisplayManager::getCurrentDesktopMode() const {
 	return { 800, 600, 60 };
 }
 
-#endif // __APPLE__

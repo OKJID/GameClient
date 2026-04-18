@@ -1,6 +1,5 @@
 #pragma once
 
-#ifdef __APPLE__
 
 #include <windows.h>
 #include <d3d8.h>
@@ -98,6 +97,7 @@ public:
   HRESULT CopyRects(IDirect3DSurface8 *s, const void *r, UINT c, IDirect3DSurface8 *d, const void *p) override;
   HRESULT Reset(D3DPRESENT_PARAMETERS *p) override;
   HRESULT GetDeviceCaps(D3DCAPS8 *c) override;
+  static void FillDeviceCaps(D3DCAPS8 *pCaps);
   HRESULT GetAdapterIdentifier(UINT a, DWORD f, D3DADAPTER_IDENTIFIER8 *i) override;
   HRESULT SetMaterial(const D3DMATERIAL8 *m) override;
   HRESULT SetClipPlane(DWORD i, const float *p) override;
@@ -137,4 +137,3 @@ public:
 #include "MetalDevice8_state.h"
 };
 
-#endif // __APPLE__
