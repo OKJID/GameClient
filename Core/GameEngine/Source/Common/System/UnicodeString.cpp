@@ -394,7 +394,52 @@ void UnicodeString::format_va(const WideChar* format, va_list args)
 {
 	validate();
 	WideChar buf[MAX_FORMAT_BUF_LEN];
+
+#ifdef __APPLE__
+	WideChar fixedFmt[MAX_FORMAT_BUF_LEN];
+	size_t di = 0;
+	for (size_t si = 0; format[si] != 0 && di < MAX_FORMAT_BUF_LEN - 2; ) {
+		if (format[si] == L'%') {
+			if (format[si+1] == L'%') {
+				fixedFmt[di++] = format[si++];
+				fixedFmt[di++] = format[si++];
+				continue;
+			}
+			fixedFmt[di++] = format[si++];
+			while (format[si] == L'-' || format[si] == L'+' || format[si] == L'0' ||
+				   format[si] == L' ' || format[si] == L'#') {
+				fixedFmt[di++] = format[si++];
+			}
+			while ((format[si] >= L'0' && format[si] <= L'9') || format[si] == L'*') {
+				fixedFmt[di++] = format[si++];
+			}
+			if (format[si] == L'.') {
+				fixedFmt[di++] = format[si++];
+				while ((format[si] >= L'0' && format[si] <= L'9') || format[si] == L'*') {
+					fixedFmt[di++] = format[si++];
+				}
+			}
+			if (format[si] == L'h' || format[si] == L'l') {
+				fixedFmt[di++] = format[si++];
+				if (format[si] == L'h' || format[si] == L'l') fixedFmt[di++] = format[si++];
+				fixedFmt[di++] = format[si++];
+				continue;
+			}
+			if (format[si] == L's') {
+				fixedFmt[di++] = L'l';
+				fixedFmt[di++] = format[si++];
+			} else {
+				fixedFmt[di++] = format[si++];
+			}
+		} else {
+			fixedFmt[di++] = format[si++];
+		}
+	}
+	fixedFmt[di] = 0;
+	const int result = vswprintf(buf, sizeof(buf)/sizeof(WideChar), fixedFmt, args);
+#else
 	const int result = vswprintf(buf, sizeof(buf)/sizeof(WideChar), format, args);
+#endif
 	if (result >= 0)
 	{
 		set(buf);

@@ -20,6 +20,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <clocale>
 #include <unistd.h>
 #include <signal.h>
 #include <execinfo.h>
@@ -292,6 +293,7 @@ GameEngine* CreateGameEngine() {
 char MacOSCommandLineString[4096] = "";
 
 int main(int argc, char* argv[]) {
+    std::setlocale(LC_CTYPE, "en_US.UTF-8");
     MacOSCommandLineString[0] = '\0';
     for (int i=0; i<argc; ++i) {
         if (i>0) strncat(MacOSCommandLineString, " ", sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));

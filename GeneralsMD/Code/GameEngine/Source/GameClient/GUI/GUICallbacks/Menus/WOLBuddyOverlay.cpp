@@ -1970,7 +1970,13 @@ WindowMsgHandledType WOLBuddyOverlayRCMenuSystem( GameWindow *window, UnsignedIn
 					DEBUG_LOG(("buttonStatsID was pushed"));
 
 #if defined(GENERALS_ONLINE)
+#ifdef __APPLE__
+					UnicodeString uniNick;
+					uniNick.translate(nick);
+					SetLookAtPlayer(profileID, uniNick);
+#else
 					SetLookAtPlayer(profileID, UnicodeString(from_utf8(nick.str()).c_str()));
+#endif
 					GameSpyOpenOverlay(GSOVERLAY_PLAYERINFO);
 #else
 					SetLookAtPlayer(profileID, nick);
