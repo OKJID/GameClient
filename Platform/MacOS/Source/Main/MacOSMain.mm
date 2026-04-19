@@ -88,7 +88,7 @@ static void macosSignalHandler(int sig) {
 
 // ── External engine bridges ──
 
-extern "C" void MacOS_ApplyDisplayResolution(int w, int h);
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
 extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
 
 #include <sys/types.h>
@@ -161,7 +161,8 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
     MacOS_UpdateMetalDeviceScreenSize(newW, newH);
 
     // Apply through the full engine path (mirrors OptionsMenu Accept)
-    MacOS_ApplyDisplayResolution(newW, newH);
+    bool isWindowed = TheGlobalData ? TheGlobalData->m_windowed : false;
+    MacOS_ApplyDisplayResolution(newW, newH, isWindowed);
 }
 
 - (void)runGame {
@@ -246,12 +247,16 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
     [NSApp terminate:nil];
 }
 
+extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
+
 - (void)createWindow {
     int width = TheGlobalData ? TheGlobalData->m_xResolution : 800;
     int height = TheGlobalData ? TheGlobalData->m_yResolution : 600;
-    printf("[DIAG] createWindow: %dx%d xRes=%d yRes=%d\n", width, height,
-           TheGlobalData ? TheGlobalData->m_xResolution : -1,
-           TheGlobalData ? TheGlobalData->m_yResolution : -1);
+    bool isWindowed = true; // TheSuperHackers @tweak macOS: Always start in windowed mode.
+
+    MacOS_InitWindowedState(isWindowed, width, height);
+
+    printf("[DIAG] createWindow: %dx%d windowed=%d\n", width, height, isWindowed);
     fflush(stdout);
 
     NSRect frame = NSMakeRect(0, 0, width, height);
@@ -264,8 +269,26 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
                                     styleMask:style
                                     backing:NSBackingStoreBuffered
                                     defer:NO];
+    [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenNone];
     [self.window setTitle:@"Command and Conquer Generals"];
-    [self.window center];
+
+    if (!isWindowed) {
+        NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+        [self.window setStyleMask:NSWindowStyleMaskBorderless];
+        
+        NSScreen* screen = [NSScreen mainScreen];
+        NSRect screenFrame = screen.frame;
+        [self.window setFrame:screenFrame display:YES];
+        
+        TheWritableGlobalData->m_xResolution = (int)screenFrame.size.width;
+        TheWritableGlobalData->m_yResolution = (int)screenFrame.size.height;
+
+        // Notify metal wrapper about immediate resize
+        MacOS_UpdateMetalDeviceScreenSize(screenFrame.size.width, screenFrame.size.height);
+    } else {
+        [self.window center];
+    }
+
     [self.window makeKeyAndOrderFront:nil];
     [self.window setDelegate:self];
 
@@ -274,6 +297,14 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)app {
     return YES;
+}
+
+extern "C" bool MacOS_ToggleFullscreen();
+
+- (BOOL)windowShouldZoom:(NSWindow *)window toFrame:(NSRect)newFrame {
+    // Intercept green "zoom" button to trigger borderless fullscreen
+    MacOS_ToggleFullscreen();
+    return NO; // Prevent default macOS zoom
 }
 
 @end

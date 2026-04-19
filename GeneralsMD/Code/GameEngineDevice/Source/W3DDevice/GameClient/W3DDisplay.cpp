@@ -3414,16 +3414,15 @@ static void drawFramerateBar()
 #include "GameClient/HeaderTemplate.h"
 #include "Common/OptionPreferences.h"
 
-extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 	if (!TheDisplay) return;
 
 	int bitDepth = TheDisplay->getBitDepth();
-	Bool windowed = TheDisplay->getWindowed();
 
-	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, windowed);
+	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, isWindowed);
 	fflush(stdout);
 
-	if (!TheDisplay->setDisplayMode(w, h, bitDepth, windowed)) {
+	if (!TheDisplay->setDisplayMode(w, h, bitDepth, isWindowed)) {
 		printf("[MacOS] ApplyDisplayResolution: setDisplayMode FAILED, aborting\n");
 		fflush(stdout);
 		return;
@@ -3431,6 +3430,7 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
 
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
+	TheWritableGlobalData->m_windowed = isWindowed;
 
 	if (TheHeaderTemplateManager) {
 		TheHeaderTemplateManager->onResolutionChanged();
@@ -3453,9 +3453,12 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
 	}
 
 	OptionPreferences pref;
-	AsciiString resStr;
-	resStr.format("%d %d", w, h);
-	pref["Resolution"] = resStr;
+	if (isWindowed) {
+		AsciiString resStr;
+		resStr.format("%d %d", w, h);
+		pref["Resolution"] = resStr;
+	}
+	pref["Windowed"] = isWindowed ? "yes" : "no";
 	pref.write();
 
 	printf("[MacOS] ApplyDisplayResolution: completed %dx%d (shell=%s)\n",

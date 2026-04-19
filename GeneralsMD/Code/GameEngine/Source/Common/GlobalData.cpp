@@ -1288,6 +1288,10 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 			}
 		}
 	}
+	// TheSuperHackers @tweak macOS: Force the game to launch in windowed mode
+	// to prevent UI layout desynchronization issues. The user can toggle
+	// to fullscreen in-game via the Options menu or Cmd+Enter.
+	TheWritableGlobalData->m_windowed = true;
 #endif
 
 	TheWritableGlobalData->m_xResolution = xres;
