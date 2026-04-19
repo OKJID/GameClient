@@ -272,6 +272,103 @@
             border-right: 4px solid var(--warning-border); 
         }
 
+        /* Tabs & Cache Box Styles */
+
+        .launch-btn {
+            background: var(--accent);
+            color: #000;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 12px;
+            margin: 0 4px;
+        }
+        .tabs-wrapper {
+            margin-top: 24px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+        }
+        .tabs-header {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .tab-btn.active {
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            border-bottom: 2px solid var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        .tab-content {
+            padding: 20px;
+        }
+        .steps-list {
+            margin: 0;
+            padding-left: 20px;
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .steps-list li {
+            margin-bottom: 12px;
+        }
+        .local-notice {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .cache-box {
+            margin-top: 24px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+        }
+        .cache-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #94a3b8;
+        }
+        .cache-item {
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .cache-item:last-child {
+            margin-bottom: 0;
+        }
+        .selectable-path {
+            background: rgba(0,0,0,0.3);
+            padding: 6px 10px;
+            border-radius: 4px;
+            user-select: all;
+            color: var(--accent);
+            border: 1px solid rgba(255,255,255,0.05);
+            width: fit-content;
+        }
+
         .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; color: rgba(255, 255, 255, 0.5); line-height: 1.6; }
         .footer p { margin-bottom: 12px; }
         .footer p:last-child { margin-bottom: 0; }
@@ -348,8 +445,34 @@
     </div>
 
     <div class="step" style="margin-bottom: 0;">
-        <h2><span>5</span> <span id="t-s5-title">Launch the Game</span></h2>
+        <h2><span>5</span> <span id="t-s5-title">Open the Launcher</span></h2>
         <p id="t-s5-desc">You can now double-click the app to launch it! In the launcher, select the folder containing your original Windows game data.</p>
+        
+        <div class="tabs-wrapper">
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="switchTab('steam')" id="t-tab-steam-btn">Steam</button>
+                <button class="tab-btn" onclick="switchTab('local')" id="t-tab-local-btn">Local Archive</button>
+            </div>
+            
+            <div class="tab-content active" id="tab-steam">
+                <ul class="steps-list" id="t-steam-steps"></ul>
+            </div>
+            
+            <div class="tab-content" id="tab-local" style="display: none;">
+                <ul class="steps-list" id="t-local-steps"></ul>
+                <div class="local-notice">
+                    <strong id="t-local-note-title">Important:</strong>
+                    <ul class="steps-list" id="t-local-note-list" style="margin-top: 8px;"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="cache-box">
+            <div class="cache-title" id="t-cache-title">Game Cache:</div>
+            <div class="cache-item"><span id="t-cache-1">main folder</span> <code class="selectable-path">~/Command and Conquer Generals Zero Hour Data/</code></div>
+            <div class="cache-item"><span id="t-cache-2">custom maps</span> <code class="selectable-path">~/Command and Conquer Generals Zero Hour Data/maps/</code></div>
+            <div class="cache-item"><span id="t-cache-3">replays</span> <code class="selectable-path">~/Command and Conquer Generals Zero Hour Data/Replays/</code></div>
+        </div>
     </div>
 
     <div class="footer">
@@ -379,8 +502,18 @@
             s4Desc: "The Terminal will ask for your Mac administrator password (the PIN or password you use to unlock your computer).",
             alertTitle: "Wait! Your typing will be invisible!",
             alertDesc: "When you type your password, <b>no characters or asterisks (*) will appear on the screen</b>. This is a normal macOS security feature. Just type your password blindly and press Enter.",
-            s5Title: "Launch the Game",
-            s5Desc: "You can now double-click the game to launch it! In the launcher, you will need to select the folder containing your original Windows game data.",
+            s5Title: "Open the Launcher",
+            s5Desc: "You can now double-click the app to open the Launcher! You will need to choose how you want to download or link your Windows game data.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Local Archive",
+            steamSteps: '<li>Go to the "Steam" tab in the launcher.</li><li>Log in with your Steam account (the game must be purchased).</li><li>Click the "Download Assets" button.</li><li>If prompted, enter your Steam Guard code (the window appears to the right of the password field; the code usually arrives via email).</li><li>If you haven\'t purchased the game, a popup will redirect you to the C&C Generals ZH Steam page to buy it. After purchasing, click download assets again.</li><li>The launcher will automatically download the clean, legal game files directly from Valve\'s servers.</li><li>Once fully downloaded, the <span class="launch-btn">Launch</span> button will become active — click it and play!</li>',
+            localSteps: '<li>Go to the "Local Archive" tab in the launcher.</li><li>Click the folder selection button and specify the parent folder containing your Windows-version game files.</li><li>If you selected the correct directory, the <span class="launch-btn">Launch</span> button will become active — click it and play!</li>',
+            localNoteTitle: "Important:",
+            localNoteList: '<li>The selected folder MUST contain 2 subdirectories: vanilla Generals and Zero Hour.</li><li>The Windows game must be pre-patched with GenPatcher.</li>',
+            cacheTitle: "Game Cache:",
+            cache1: "main folder",
+            cache2: "custom maps",
+            cache3: "replays",
             footer1: "Generals Online macOS Port is a native community-driven client for Command & Conquer: Generals - Zero Hour.",
             footer2: "It is built upon the infrastructure of Generals Online and the SuperHackers engine fork, originally created by Electronic Arts, enriched with our own custom engine patches, the majority of which were made exclusively for the Mac port.",
             footer3: "This port is not created by, endorsed by, or affiliated with Electronic Arts or Command & Conquer."
@@ -403,8 +536,18 @@
             s4Desc: "Терминал запросит пароль администратора (ваш пин-код или пароль для входа в систему при включении Mac).",
             alertTitle: "Внимание! Пароль вводится «вслепую»!",
             alertDesc: "Когда вы печатаете пароль, <b>символы не будут отображаться (даже звездочки)</b>. Это стандартная защита macOS. Создается ощущение, что клавиатура сломана, но это не так. Просто введите пароль и нажмите Enter.",
-            s5Title: "Запустите игру",
-            s5Desc: "Теперь игру можно запустить обычным двойным кликом! В лаунчерe нужно будет указать путь к папке с файлами Windows-версии игры.",
+            s5Title: "Откройте Лаунчер",
+            s5Desc: "Теперь можно дважды кликнуть по приложению, чтобы открыть Лаунчер! В нем нужно будет выбрать, как вы хотите скачать или привязать данные Windows-версии игры.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Локальный архив (Local Archive)",
+            steamSteps: '<li>Перейдите во вкладку "Steam" в лаунчере.</li><li>Авторизуйтесь под своим аккаунтом из Steam.</li><li>Нажмите кнопку "Загрузить ассеты".</li><li>При необходимости введите код Steam Guard (окошко появится справа от пароля, сам код чаще всего приходит на емейл).</li><li>Если игра не приобретена, будет всплывающее окно, которое переведет на страницу C&C General ZH в Steam. После покупки заново нажмите загрузить ассеты.</li><li>Лаунчер автоматически скачает легальные файлы игры напрямую с серверов Valve в папку <code>~/Documents/Generals Online/</code>.</li><li>После успешной загрузки ресурсов появится активная кнопка <span class="launch-btn">Launch</span> — нажимаем ее и играем!</li>',
+            localSteps: '<li>Перейдите во вкладку "Local Archive" в лаунчере.</li><li>Нажмите кнопку выбора папки и укажите родительскую папку с Windows-версией игры.</li><li>Если вы выбрали правильную директорию, появится активная кнопка <span class="launch-btn">Launch</span> — нажимаем ее и играем!</li>',
+            localNoteTitle: "Важно:",
+            localNoteList: '<li>Внутри выбранной папки обязательно должно быть 2 подкаталога: ванильная Generals и Zero Hour.</li><li>Windows-игра должна быть пропатчена генлаунчером (GenPatcher).</li>',
+            cacheTitle: "Кеш игры:",
+            cache1: "главная папка",
+            cache2: "кастомные карты",
+            cache3: "реплеи",
             footer1: "Generals Online macOS Port — это нативный клиент, созданный сообществом для Command & Conquer: Generals - Zero Hour.",
             footer2: "Он построен на инфраструктуре Generals Online и форке движка SuperHackers (оригинал от Electronic Arts), дополненных нашими собственными патчами, большая часть которых сделана исключительно в рамках мак-порта.",
             footer3: "Этот порт не был создан, не одобрен и не связан с Electronic Arts или Command & Conquer."
@@ -427,8 +570,18 @@
             s4Desc: "Термінал запитає пароль адміністратора (ваш пін-код або пароль для входу в систему при увімкненні Mac).",
             alertTitle: "Увага! Пароль вводиться «наосліп»!",
             alertDesc: "Коли ви вводите пароль, <b>символи не будуть відображатися (навіть зірочки)</b>. Це стандартний захист macOS. Здається, що клавіатура не працює, але це не так. Механічно введіть пароль і натисніть Enter.",
-            s5Title: "Запустіть гру",
-            s5Desc: "Тепер гру можна запустити подвійним кліком! У лаунчері потрібно буде вказати шлях до папки з файлами Windows-версії гри.",
+            s5Title: "Відкрийте Лаунчер",
+            s5Desc: "Тепер можна двічі клікнути по додатку, щоб відкрити Лаунчер! У ньому потрібно буде вибрати, як ви хочете завантажити або прив'язати дані Windows-версії гри.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Локальний архів",
+            steamSteps: '<li>Перейдіть у вкладку "Steam" у лаунчері.</li><li>Авторизуйтесь під своїм акаунтом зі Steam.</li><li>Натисніть кнопку "Завантажити асети".</li><li>За необхідності введіть код Steam Guard (віконце з\'явиться праворуч від пароля, сам код зазвичай приходить на email).</li><li>Якщо гра не придбана, з\'явиться спливаюче вікно, яке переведе вас на сторінку C&C General ZH у Steam. Після покупки знову натисніть завантажити асети.</li><li>Лаунчер автоматично завантажить легальні файли гри напряму з серверів Valve у папку.</li><li>Після успішного завантаження ресурсів з\'явиться активна кнопка <span class="launch-btn">Launch</span> — натискаємо її і граємо!</li>',
+            localSteps: '<li>Перейдіть у вкладку "Local Archive" у лаунчері.</li><li>Натисніть кнопку вибору папки і вкажіть батьківську папку з Windows-версією гри.</li><li>Якщо ви вибрали правильну директорію, з\'явиться активна кнопка <span class="launch-btn">Launch</span> — натискаємо її і граємо!</li>',
+            localNoteTitle: "Важливо:",
+            localNoteList: '<li>Всередині обраної папки обов\'язково має бути 2 підкаталоги: ванільна Generals та Zero Hour.</li><li>Windows-гра має бути пропатчена генлаунчером (GenPatcher).</li>',
+            cacheTitle: "Кеш гри:",
+            cache1: "головна папка",
+            cache2: "кастомні карти",
+            cache3: "реплеї",
             footer1: "Generals Online macOS Port — це нативний клієнт, створений спільнотою для Command & Conquer: Generals - Zero Hour.",
             footer2: "Він побудований на інфраструктурі Generals Online та форку рушія SuperHackers (оригінал від Electronic Arts), доповнених нашими власними патчами, більшість яких зроблена виключно в рамках Mac-порту.",
             footer3: "Цей порт не був створений, не схвалений та не пов'язаний з Electronic Arts або Command & Conquer."
@@ -451,8 +604,18 @@
             s4Desc: "سيطلب منك الـ Terminal كلمة مرور مسؤول Mac (رمز PIN أو كلمة المرور التي تستخدمها لإلغاء القفل).",
             alertTitle: "انتظر! كتابتك ستكون غير مرئية!",
             alertDesc: "عند كتابة كلمة المرور، <b>لن تظهر أية أحرف أو نجوم (*) على الشاشة</b>. هذه ميزة أمان طبيعية في macOS. فقط اكتب كلمة المرور بشكل مخفي واضغط Enter.",
-            s5Title: "شغل اللعبة",
-            s5Desc: "يمكنك الآن النقر نقرًا مزدوجًا لبدء اللعبة! ستحتاج داخل اللانشر لتحديد المجلد الذي يحتوي على ملفات لعبتك الأصلية لنظام الويندوز.",
+            s5Title: "افتح اللانشر",
+            s5Desc: "يمكنك الآن النقر المزدوج على التطبيق لفتح اللانشر! ستحتاج إلى اختيار كيفية تنزيل أو ربط بيانات اللعبة الخاصة بك بنسخة Windows.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "أرشيف محلي",
+            steamSteps: '<li>انتقل إلى علامة التبويب "Steam" في اللانشر.</li><li>قم بتسجيل الدخول باستخدام حساب Steam الخاص بك.</li><li>انقر فوق زر "تنزيل الأصول".</li><li>أدخل رمز Steam Guard إذا طُلب منك ذلك (ستظهر النافذة على يمين كلمة المرور، وعادة ما يصل الرمز عبر البريد الإلكتروني).</li><li>إذا لم تكن اللعبة مشتراة، ستظهر نافذة منبثقة تنقلك إلى صفحة C&C General ZH على مجتمع Steam لشرائها. بعد الدفع، اضغط على زر التنزيل مرة أخرى.</li><li>سيقوم اللانشر بتنزيل ملفات اللعبة القانونية تلقائيًا مباشرة من خوادم Valve إلى مجلد <code>~/Documents/Generals Online/</code>. يظهر تقدم التنزيل في وحدة التحكم المدمجة.</li><li>بعد التحميل الناجح للموارد، سيصبح زر <span class="launch-btn">Launch</span> نشطًا — انقر للعب!</li>',
+            localSteps: '<li>انتقل إلى علامة التبويب "Local Archive" في اللانشر.</li><li>انقر فوق زر تحديد المجلد وحدد المجلد الأصلي الذي يحتوي على نسخة Windows من اللعبة.</li><li>إذا حددت الدليل الصحيح، سيصبح زر <span class="launch-btn">Launch</span> نشطًا — انقر للعب!</li>',
+            localNoteTitle: "هام:",
+            localNoteList: '<li>يجب أن يحتوي المجلد المحدد على دليلين فرعيين: Generals العادية و Zero Hour.</li><li>يجب أن تكون اللعبة الويندوز مصححة بواسطة (GenPatcher).</li>',
+            cacheTitle: "ذاكرة اللعبة:",
+            cache1: "المجلد الرئيسي",
+            cache2: "الخرائط المخصصة",
+            cache3: "الإعادات",
             footer1: "Generals Online macOS Port هو عميل أصلي تم تطويره من قبل المجتمع للعبة Command & Conquer: Generals - Zero Hour.",
             footer2: "إنه مبني على البنية التحتية لـ Generals Online ومحرك SuperHackers المعدل (الأصل من Electronic Arts)، مزود بتصحيحات محركنا الخاصة، ومعظمها تم إجراؤه حصريًا في إطار إصدار Mac.",
             footer3: "هذا المنفذ (Port) لم يتم إنشاؤه أو دعمه أو ارتباطه بـ Electronic Arts أو Command & Conquer."
@@ -475,8 +638,18 @@
             s4Desc: "Терминал әкімші паролін сұрайды (Mac жүйесіне кіру үшін қолданатын пароль немесе PIN).",
             alertTitle: "Назар аударыңыз! Енгізуіңіз көрінбейді!",
             alertDesc: "Парольді терген кезде <b>таңбалар (тіпті жұлдызшалар да) экранда көрсетілмейді</b>. Бұл қалыпты macOS қауіпсіздік қорғанысы. Тек пароліңізді көзсіз теріп, Enter басыңыз.",
-            s5Title: "Ойынды іске қосыңыз",
-            s5Desc: "Енді ойынды екі рет басу арқылы қосуға болады! Лаунчерде Windows нұсқасының файлдары бар папканы көрсету қажет.",
+            s5Title: "Лаунчерді ашыңыз",
+            s5Desc: "Енді лаунчерді ашу үшін қолданбаны екі рет басыңыз! Сізге Windows ойын деректерін жүктеп алу немесе байланыстыру әдісін таңдау қажет болады.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Жергілікті мұрағат",
+            steamSteps: '<li>Лаунчердегі "Steam" қойындысына өтіңіз.</li><li>Өзіңіздің Steam аккаунтыңызбен кіріңіз.</li><li>"Ассеттерді жүктеу" түймесін басыңыз.</li><li>Қажет болса, Steam Guard кодын енгізіңіз (терезе парольдің оң жағында пайда болады, код жиі электрондық поштаға келеді).</li><li>Егер ойын сатып алынбаған болса, Steam-дегі C&C General ZH бетіне өтетін қалқымалы терезе пайда болады. Сатып алғаннан кейін жүктеу түймесін қайта басыңыз.</li><li>Лаунчер Valve серверлерінен ойынның заңды файлдарын <code>~/Documents/Generals Online/</code> папкасына автоматты түрде жүктейді.</li><li>Барлық ресурстар сәтті жүктелгеннен кейін активті <span class="launch-btn">Launch</span> түймесі шығады — оны басып, ойнаңыз!</li>',
+            localSteps: '<li>Лаунчердегі "Local Archive" қойындысына өтіңіз.</li><li>Папканы таңдау түймесін басып, ойынның Windows нұсқасы бар негізгі папканы көрсетіңіз.</li><li>Дұрыс директорияны таңдаған болсаңыз, активті <span class="launch-btn">Launch</span> түймесі шығады — оны басып, ойнаңыз!</li>',
+            localNoteTitle: "Маңызды:",
+            localNoteList: '<li>Таңдалған папка ішінде міндетті түрде 2 ішкі папка болуы керек: қарапайым Generals және Zero Hour.</li><li>Windows ойыны генлаунчермен (GenPatcher) патчталған болуы тиіс.</li>',
+            cacheTitle: "Ойын кеші:",
+            cache1: "негізгі папка",
+            cache2: "кастом карталар",
+            cache3: "реплейлер",
             footer1: "Generals Online macOS Port — бұл Command & Conquer: Generals - Zero Hour ойыны үшін қауымдастықпен жасалған нативті клиент.",
             footer2: "Ол Generals Online инфрақұрылымы мен SuperHackers қозғалтқыш форкіне (түпнұсқасы Electronic Arts) негізделген және біздің өз патчтарымызбен толықтырылған, олардың басым бөлігі тек осы Мак-порт аясында жасалған.",
             footer3: "Бұл порт Electronic Arts немесе Command & Conquer тарапынан жасалмаған, мақұлданбаған және олармен ешқандай байланысы жоқ."
@@ -499,8 +672,18 @@
             s4Desc: "Terminal sẽ yêu cầu mật khẩu quản trị trị viên Mac của bạn (mật khẩu dùng để đăng nhập máy).",
             alertTitle: "Đợi đã! Mật khẩu sẽ bị ẩn!",
             alertDesc: "Khi bạn nhập mật khẩu, <b>sẽ không có ký tự hay dấu sao (*) nào hiện lên</b>. Đây là tính năng bảo mật bình thường của macOS. Cứ nhập mật khẩu bình thường và nhấn Enter.",
-            s5Title: "Mở Game",
-            s5Desc: "Bây giờ bạn có thể nhấp đúp để mở game! Trong launcher, bạn cần chọn thư mục chứa dữ liệu game gốc của Windows.",
+            s5Title: "Mở Launcher",
+            s5Desc: "Bây giờ bạn có thể nhấp đúp vào ứng dụng để mở Launcher! Bạn sẽ cần chọn cách tải xuống hoặc liên kết dữ liệu trò chơi của mình.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Lưu trữ cục bộ",
+            steamSteps: '<li>Chuyển đến tab "Steam" trong launcher.</li><li>Đăng nhập bằng tài khoản Steam của bạn.</li><li>Nhấp vào nút "Tải Asset".</li><li>Nhập mã Steam Guard của bạn nếu được yêu cầu (cửa sổ xuất hiện ở bên phải trường mật khẩu, mã thường được gửi qua email).</li><li>Nếu bạn chưa mua game, một cửa sổ bật lên sẽ chuyển hướng bạn đến trang C&C Generals ZH trên Steam để mua. Sau khi mua, nhấp vào tải xuống tài sản một lần nữa.</li><li>Launcher sẽ tự động tải các tệp trò chơi hợp pháp trực tiếp từ máy chủ của Valve vào thư mục <code>~/Documents/Generals Online/</code>. Tiến trình hiện trong bảng điều khiển.</li><li>Sau khi tải thành công các tài nguyên, nút <span class="launch-btn">Launch</span> sẽ hoạt động — nhấp vào và chơi!</li>',
+            localSteps: '<li>Chuyển đến tab "Local Archive" trong launcher.</li><li>Nhấp vào nút chọn thư mục và chỉ định thư mục gốc chứa phiên bản Windows của trò chơi.</li><li>Nếu bạn đã chọn đúng thư mục, nút <span class="launch-btn">Launch</span> sẽ hoạt động — nhấp vào và chơi!</li>',
+            localNoteTitle: "Quan trọng:",
+            localNoteList: '<li>Thư mục được chọn BAO GỒM 2 thư mục con: Generals gốc và Zero Hour.</li><li>Trò chơi Windows phải được cập nhật bằng GenPatcher.</li>',
+            cacheTitle: "Bộ nhớ đệm trò chơi:",
+            cache1: "thư mục chính",
+            cache2: "bản đồ tùy chỉnh",
+            cache3: "replays",
             footer1: "Generals Online macOS Port là một bản gốc do cộng đồng phát triển cho Command & Conquer: Generals - Zero Hour.",
             footer2: "Nó được xây dựng dựa trên cơ sở hạ tầng của Generals Online và nhánh công cụ SuperHackers (bản gốc của Electronic Arts), được bổ sung bằng các bản vá công cụ tùy chỉnh của chúng tôi, phần lớn trong số đó được thực hiện dành riêng cho bản port Mac.",
             footer3: "Bản port này không được tạo ra, chứng thực hoặc liên kết với Electronic Arts hay Command & Conquer."
@@ -523,8 +706,18 @@
             s4Desc: "Terminal poprosi o hasło administratora Maca (hasło, którego używasz do logowania).",
             alertTitle: "Uwaga! Twoje hasło będzie niewidoczne!",
             alertDesc: "Podczas wpisywania hasła <b>żadne znaki ani gwiazdki (*) nie pojawią się na ekranie</b>. Jest to normalne zabezpieczenie macOS. Po prostu wpisz hasło w ciemno i naciśnij Enter.",
-            s5Title: "Uruchom grę",
-            s5Desc: "Możesz teraz uruchomić grę podwójnym kliknięciem! W launcherze będziesz musiał podać folder z plikami oryginalnej gry z systemu Windows.",
+            s5Title: "Otwórz Launcher",
+            s5Desc: "Teraz możesz dwukrotnie kliknąć aplikację, aby otworzyć Launcher! Musisz wybrać sposób pobrania lub przypisania danych z wersji Windows.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Lokalne Archiwum",
+            steamSteps: '<li>Przejdź do zakładki "Steam" w launcherze.</li><li>Zaloguj się na swoje konto Steam.</li><li>Kliknij przycisk "Pobierz zasoby".</li><li>W razie potrzeby wprowadź kod Steam Guard (okienko pojawi się po prawej stronie od hasła, kod zwykle przychodzi na e-mail).</li><li>Jeśli gra nie jest kupiona, wyskoczy okienko, które przekieruje na stronę C&C General ZH na Steamie. Po zakupie ponownie kliknij pobierz zasoby.</li><li>Launcher automatycznie pobierze legalne pliki gry bezpośrednio z serwerów Valve do folderu <code>~/Documents/Generals Online/</code>. Postęp widać we wbudowanej konsoli.</li><li>Po pomyślnym pobraniu zasobów przycisk <span class="launch-btn">Launch</span> stanie się aktywny — kliknij go i graj!</li>',
+            localSteps: '<li>Przejdź do zakładki "Local Archive" w launcherze.</li><li>Kliknij przycisk wyboru folderu i wskaż folder główny zawierający pliki gry z wersji Windows.</li><li>Jeśli wybrałeś właściwy katalog, przycisk <span class="launch-btn">Launch</span> stanie się aktywny — kliknij go i graj!</li>',
+            localNoteTitle: "Ważne:",
+            localNoteList: '<li>Wybrany folder musi zawierać 2 podkatalogi: zwykłe Generals oraz Zero Hour.</li><li>Gra dla Windows musi być zaktualizowana przez GenPatcher.</li>',
+            cacheTitle: "Pamięć gry:",
+            cache1: "główny folder",
+            cache2: "niestandardowe mapy",
+            cache3: "powtórki",
             footer1: "Generals Online macOS Port to natywny klient stworzony przez społeczność dla Command & Conquer: Generals - Zero Hour.",
             footer2: "Jest oparty na infrastrukturze Generals Online oraz forku silnika SuperHackers (oryginał od Electronic Arts), wzbogacony o nasze własne łatki, z których większość została stworzona wyłącznie na potrzeby portu na Maca.",
             footer3: "Ten port nie został stworzony, zatwierdzony ani nie jest powiązany z Electronic Arts lub Command & Conquer."
@@ -547,8 +740,18 @@
             s4Desc: "Das Terminal fordert dich nun auf, dein Mac-Administrator-Passwort einzugeben.",
             alertTitle: "Warte! Deine Eingabe ist unsichtbar!",
             alertDesc: "Wenn du dein Passwort eingibst, <b>werden keine Zeichen oder Sternchen (*) auf dem Bildschirm angezeigt</b>. Das ist ein normales Sicherheitsmerkmal von macOS. Tippe dein Passwort blind ein und drücke Enter.",
-            s5Title: "Spiel starten",
-            s5Desc: "Du kannst das Spiel nun mit einem Doppelklick starten! Im Launcher musst du den Ordner mit deinen Original-Windows-Spieldaten auswählen.",
+            s5Title: "Öffne den Launcher",
+            s5Desc: "Du kannst nun auf die App doppelklicken, um den Launcher zu öffnen! Du musst wählen, wie du deine Windows-Spieldaten herunterladen oder verknüpfen möchtest.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Lokales Archiv",
+            steamSteps: '<li>Gehe zum Reiter "Steam" im Launcher.</li><li>Melde dich mit deinem Steam-Konto an.</li><li>Klicke auf die Schaltfläche "Assets herunterladen".</li><li>Gib bei Bedarf deinen Steam-Guard-Code ein (das Fenster erscheint rechts neben dem Passwortfeld, der Code kommt meistens per E-Mail).</li><li>Falls das Spiel noch nicht gekauft wurde, öffnet sich ein Pop-up, das auf die Steam-Seite von C&C Generals ZH weiterleitet. Nach dem Kauf nochmals herunterladen.</li><li>Der Launcher lädt die offiziellen Spieldateien automatisch direkt von den Valve-Servern in den Ordner <code>~/Documents/Generals Online/</code>. Der Fortschritt ist in der Konsole ersichtlich.</li><li>Sobald alles heruntergeladen ist, wird der <span class="launch-btn">Launch</span>-Button aktiv — anklicken und spielen!</li>',
+            localSteps: '<li>Gehe zum Reiter "Local Archive" im Launcher.</li><li>Klicke auf die Ordner-Auswahl und wähle den Hauptordner mit den Windows-Spieldateien.</li><li>Wenn du das richtige Verzeichnis ausgewählt hast, wird der <span class="launch-btn">Launch</span>-Button aktiv — anklicken und spielen!</li>',
+            localNoteTitle: "Wichtig:",
+            localNoteList: '<li>Der ausgewählte Ordner muss genau 2 Unterordner haben: das normale Generals und Zero Hour.</li><li>Das Windows-Spiel muss zuvor mit dem GenPatcher gepatched werden.</li>',
+            cacheTitle: "Spiel-Cache:",
+            cache1: "Hauptordner",
+            cache2: "benutzerdefinierte Maps",
+            cache3: "Replays",
             footer1: "Generals Online macOS Port ist ein nativer, von der Community entwickelter Client für Command & Conquer: Generals - Zero Hour.",
             footer2: "Es basiert auf der Generals Online-Infrastruktur und dem SuperHackers-Engine-Fork (Original von Electronic Arts), erweitert um unsere eigenen Patches, von denen der Großteil exklusiv für den Mac-Port entwickelt wurde.",
             footer3: "Dieser Port wurde nicht von Electronic Arts oder Command & Conquer erstellt, genehmigt oder ist mit diesen verbunden."
@@ -571,8 +774,18 @@
             s4Desc: "La Terminal te pedirá tu contraseña de administrador (la misma que usas para iniciar sesión).",
             alertTitle: "¡Atención! ¡Tu escritura será invisible!",
             alertDesc: "Mientras tecleas la contraseña, <b>no aparecerán letras ni asteriscos (*) en la pantalla</b>. Esta es una medida de seguridad normal de macOS. Solo escribe tu contraseña 'a ciegas' y presiona Enter.",
-            s5Title: "Inicia el Juego",
-            s5Desc: "¡Ahora puedes hacer doble clic en el juego para iniciarlo! En el lanzador tendrás que elegir la carpeta que contiene los archivos originales del juego de Windows.",
+            s5Title: "Abre el Lanzador",
+            s5Desc: "¡Ahora puedes hacer doble clic en la aplicación para abrir el Lanzador! Tendrás que elegir cómo descargar o vincular los datos de tu juego.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Archivo Local",
+            steamSteps: '<li>Ve a la pestaña "Steam" en el lanzador.</li><li>Inicia sesión con tu cuenta de Steam.</li><li>Haz clic en el botón "Descargar archivos".</li><li>Si es necesario, introduce tu código de Steam Guard (la ventana aparece a la derecha de la contraseña, el código suele llegar por correo electrónico).</li><li>Si no has comprado el juego, una ventana emergente te redirigirá a la página de C&C Generals ZH en Steam. Después de comprar, vuelve a pulsar descargar archivos.</li><li>El lanzador descargará automáticamente los archivos legales desde los servidores de Valve en la carpeta <code>~/Documents/Generals Online/</code>. El progreso se muestra en la consola integrada.</li><li>Una vez que se hayan descargado todos los recursos, el botón <span class="launch-btn">Launch</span> se activará. ¡Haz clic y juega!</li>',
+            localSteps: '<li>Ve a la pestaña "Local Archive" en el lanzador.</li><li>Haz clic en el botón de selección de carpeta y elige la carpeta base que contiene la versión de Windows del juego.</li><li>Si seleccionaste el directorio correcto, el botón <span class="launch-btn">Launch</span> se activará. ¡Haz clic y juega!</li>',
+            localNoteTitle: "Importante:",
+            localNoteList: '<li>La carpeta seleccionada debe contener 2 subcarpetas: Generals base y Zero Hour.</li><li>El juego de Windows debe estar pre-parcheado con GenPatcher.</li>',
+            cacheTitle: "Caché del juego:",
+            cache1: "carpeta principal",
+            cache2: "mapas personalizados",
+            cache3: "repeticiones",
             footer1: "Generals Online macOS Port es un cliente nativo creado por la comunidad para Command & Conquer: Generals - Zero Hour.",
             footer2: "Está construida sobre la infraestructura de Generals Online y el fork del motor SuperHackers (original de Electronic Arts), enriquecido con nuestros propios parches, la mayoría de los cuales se hicieron exclusivamente para el puerto de Mac.",
             footer3: "Este puerto no fue creado, respaldado ni está afiliado a Electronic Arts ni a Command & Conquer."
@@ -595,8 +808,18 @@
             s4Desc: "Terminal sizden Mac yönetici şifrenizi (bilgisayarınızı açarken girdiğiniz şifre) isteyecektir.",
             alertTitle: "Dikkat! Yazdıklarınız ekranda görünmeyecek!",
             alertDesc: "Şifrenizi yazarken <b>ekranda hiçbir karakter veya yıldız (*) çıkmayacaktır</b>. Bu macOS'un normal bir güvenlik önlemidir. Şifrenizi görmeden yazın ve Enter'a basın.",
-            s5Title: "Oyunu Başlatın",
-            s5Desc: "Artık oyunu çift tıklayarak başlatabilirsiniz! Launcher (başlatıcı) içinde orijinal Windows oyun dosyalarının bulunduğu klasörü seçmeniz gerekecektir.",
+            s5Title: "Launcher'ı Açın",
+            s5Desc: "Artık uygulamaya çift tıklayarak Launcher'ı açabilirsiniz! Windows oyun verilerini nasıl indirmek veya bağlamak istediğinizi seçmeniz gerekecek.",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "Yerel Arşiv",
+            steamSteps: '<li>Launcher\'da "Steam" sekmesine gidin.</li><li>Steam hesabınızla giriş yapın.</li><li>"Asset İndir" düğmesine tıklayın.</li><li>Gerekirse Steam Guard kodunuzu girin (pencere şifrenin sağında belirecektir, kod genellikle e-postaya gelir).</li><li>Oyun satın alınmadıysa, sizi Steam\'deki C&C Generals ZH sayfasına yönlendirecek bir açılır pencere belirecektir. Satın aldıktan sonra indirme düğmesine tekrar basın.</li><li>Launcher, doğrudan Valve sunucularından oyun dosyalarını otomatik olarak <code>~/Documents/Generals Online/</code> klasörüne indirecektir.</li><li>Tüm kaynaklar indikten sonra <span class="launch-btn">Launch</span> düğmesi aktif olacaktır — tıklayın ve oynayın!</li>',
+            localSteps: '<li>Launcher\'da "Local Archive" sekmesine gidin.</li><li>Klasör seçim düğmesine tıklayın ve oyunun Windows sürümünü içeren ana klasörü belirtin.</li><li>Doğru dizini seçerseniz, <span class="launch-btn">Launch</span> düğmesi aktif olacaktır — tıklayın ve oynayın!</li>',
+            localNoteTitle: "Önemli:",
+            localNoteList: '<li>Seçilen klasörün içinde mutlaka 2 alt klasör olmalıdır: Normal Generals ve Zero Hour.</li><li>Windows oyununun daha önceden GenPatcher ile yamanmış olması gerekir.</li>',
+            cacheTitle: "Oyun Önbelleği:",
+            cache1: "ana klasör",
+            cache2: "özel haritalar",
+            cache3: "oyun tekrarları (replays)",
             footer1: "Generals Online macOS Port, Command & Conquer: Generals - Zero Hour için topluluk tarafından oluşturulmuş yerel bir istemcidir.",
             footer2: "Generals Online altyapısı ve SuperHackers motor çatalı (orijinali Electronic Arts tarafından yapılmıştır) üzerine inşa edilmiş olup, kendi özel yamalarımızla zenginleştirilmiştir ve bunların büyük bir kısmı yalnızca Mac portu için özel olarak yapılmıştır.",
             footer3: "Bu bağlantı noktası Electronic Arts veya Command & Conquer tarafından oluşturulmamış, onaylanmamış veya bunlarla bağlantılı değildir."
@@ -619,8 +842,18 @@
             s4Desc: "终端会要求您输入Mac管理员密码（就是您开机时输入的密码）。",
             alertTitle: "注意！您输入的密码将不可见！",
             alertDesc: "当您键盘输入密码时，<b>屏幕上不会显示任何字符或星号(*)</b>。这是macOS正常的安全保护机制。只管盲打输入您的密码，然后按回车即可。",
-            s5Title: "启动游戏",
-            s5Desc: "您现在可以双击运行游戏啦！在启动器中，您需要选择包含原始Windows游戏数据的文件夹。",
+            s5Title: "打开启动器",
+            s5Desc: "您现在可以双击应用程序以打开启动器！您需要选择如何下载或关联您的 Windows 游戏数据。",
+            tabSteamTitle: "Steam",
+            tabLocalTitle: "本地存档",
+            steamSteps: '<li>在启动器中转到"Steam"选项卡。</li><li>登录您的 Steam 帐户。</li><li>点击"下载资源"按钮。</li><li>如果出现提示，请输入您的 Steam Guard 代码（窗口出现在密码右侧，代码通常通过电子邮件接收）。</li><li>如果尚未购买游戏，将会弹出一个窗口引导您前往 Steam 商店页面购买。成功购买后，再次点击下载资源。</li><li>启动器将自动从 Valve 服务器直接下载游戏文件到 <code>~/Documents/Generals Online/</code> 文件夹。</li><li>成功下载所有资源后，<span class="launch-btn">Launch</span> 按钮将被激活——点击它即可游玩！</li>',
+            localSteps: '<li>在启动器中转到"Local Archive"选项卡。</li><li>单击文件夹选择按钮，并指定包含Windows版游戏的父文件夹。</li><li>如果您选择了正确的目录，<span class="launch-btn">Launch</span> 按钮将被激活——点击它即可游玩！</li>',
+            localNoteTitle: "重要提示：",
+            localNoteList: '<li>所选文件夹内必须包含 2 个子文件夹：基础版 Generals 和 Zero Hour。</li><li>Windows 版游戏必须已经通过 GenPatcher 进行过修补。</li>',
+            cacheTitle: "游戏缓存：",
+            cache1: "主文件夹",
+            cache2: "自定义地图",
+            cache3: "游戏录像",
             footer1: "Generals Online macOS Port 是社区为《命令与征服：绝命时刻》创建的本地客户端。",
             footer2: "它基于 Generals Online 基础设施和 SuperHackers 引擎分支（原版由 Electronic Arts 创建），并通过我们自定义引擎补丁进行了丰富，其中大部分是专为Mac移植版制作的。",
             footer3: "该移植版本不是由 Electronic Arts 或 Command & Conquer 制作、认可的，也与它们没有任何关联。"
@@ -628,6 +861,14 @@
     };
 
     let currentLang = 'en';
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById('tab-' + tabId).style.display = 'block';
+        document.getElementById('t-tab-' + tabId + '-btn').classList.add('active');
+    }
 
     function setLanguage(lang) {
         currentLang = lang;
@@ -657,6 +898,17 @@
         
         document.getElementById('t-s5-title').innerHTML = t.s5Title;
         document.getElementById('t-s5-desc').innerHTML = t.s5Desc;
+
+        document.getElementById('t-tab-steam-btn').innerHTML = t.tabSteamTitle;
+        document.getElementById('t-tab-local-btn').innerHTML = t.tabLocalTitle;
+        document.getElementById('t-steam-steps').innerHTML = t.steamSteps;
+        document.getElementById('t-local-steps').innerHTML = t.localSteps;
+        document.getElementById('t-local-note-title').innerHTML = t.localNoteTitle;
+        document.getElementById('t-local-note-list').innerHTML = t.localNoteList;
+        document.getElementById('t-cache-title').innerHTML = t.cacheTitle;
+        document.getElementById('t-cache-1').innerHTML = t.cache1;
+        document.getElementById('t-cache-2').innerHTML = t.cache2;
+        document.getElementById('t-cache-3').innerHTML = t.cache3;
         
         document.getElementById('t-footer1').innerHTML = t.footer1;
         document.getElementById('t-footer2').innerHTML = t.footer2;
