@@ -22,7 +22,7 @@ OUTPUTS_DIR="outputs"
 FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
 ZIP_NAME="Generals_Online_Mac_Alpha.zip"
 DMG_NAME="Generals_Online_Mac_Alpha.dmg"
-README_NAME="README_INSTALL.md"
+INSTRUCTIONS_NAME="Instructions.html"
 
 echo "=========================================="
 echo "📦 Assembling Final Distribution Package"
@@ -101,49 +101,12 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$PLIST_FILE" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon.png" "$PLIST_FILE"
 
-echo "📝 [5/7] Generating README instruction..."
-cat << 'EOF' > "$OUTPUTS_DIR/$README_NAME"
-# Command and Conquer Generals – Mac OS Port 🍏
-
-### ⚠️ Installation & Launch Instructions
-
-Since this application is a free community port and lacks an official paid Apple Developer certificate, the macOS security system (Gatekeeper) will place the downloaded archive and the app into "quarantine". It may say the file is damaged or cannot be opened.
-
-To remove this restriction, you need to run **one** simple command in the Terminal:
-
-1. Unzip the downloaded ZIP archive.
-2. Open the system application **"Terminal"** (Terminal.app).
-3. Enter the following command (it will ask for your Mac administrator password):
-
-```bash
-sudo xattr -cr "Path to/Generals Online.app"
-```
-
-> **Tip:** You can just type `sudo xattr -cr ` (make sure there is a space at the end) and drag the unzipped game app directly into the Terminal window. The path will be inserted automatically!
-
-4. Press **Enter** and type your password (characters will be hidden while typing).
-
-After that, you will be able to launch **Generals Online** with a regular double-click.
-
----
-
-### 🚀 Terminal Quick-Start (For Advanced Users)
-
-If you prefer using the Terminal for the entire process, navigate to the folder where you downloaded the ZIP file and run this one-liner:
-
-```bash
-unzip -d Generals_Online_Mac_Alpha Generals_Online_Mac_Alpha.zip && cd Generals_Online_Mac_Alpha && sudo xattr -cr "Generals Online.app" && open "Generals Online.app"
-```
-
----
-
-### 📂 Connecting Game Data
-
-When the Launcher opens, you **MUST** select the parent folder of your Windows version game files.  
-*(Inside the folder you select, there must be two subdirectories: the Vanilla version and Zero Hour).*
-
-Have a great game, General! 🫡
-EOF
+echo "📝 [5/7] Copying HTML instructions..."
+if [ -f "www/instructions.html" ]; then
+    cp "www/instructions.html" "$OUTPUTS_DIR/$INSTRUCTIONS_NAME"
+else
+    echo "⚠️ Warning: www/instructions.html not found, skipping HTML instructions."
+fi
 
 echo "🗜️ [6/7] Creating final deployment ZIP..."
 # Идем в dist, чтобы в архиве корневым элементом была сама app, без папок build/dist
@@ -151,9 +114,11 @@ cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"
 cd ../..
 
-# Идем в outputs и добавляем ридми внутрь готового зипа
+# Идем в outputs и добавляем инструкции внутрь готового зипа
 cd "$OUTPUTS_DIR" || exit
-zip -rq "$ZIP_NAME" "$README_NAME"
+if [ -f "$INSTRUCTIONS_NAME" ]; then
+    zip -rq "$ZIP_NAME" "$INSTRUCTIONS_NAME"
+fi
 cd ..
 
 # echo "💿 [7/7] Creating DMG installer image..."

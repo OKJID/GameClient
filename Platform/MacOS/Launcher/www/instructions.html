@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generals Online - Installation</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(20, 27, 45, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #10b981;
+            --accent-hover: #059669;
+            --warning-bg: rgba(239, 68, 68, 0.1);
+            --warning-border: #ef4444;
+            --warning-text: #fca5a5;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(59, 130, 246, 0.08), transparent 25%);
+        }
+
+        .container {
+            max-width: 680px;
+            width: 100%;
+            margin: 40px 20px;
+            padding: 40px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+
+        a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .lang-select {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .lang-select:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .step {
+            margin-bottom: 32px;
+            animation: fadeIn 0.5s ease-out forwards;
+            opacity: 0;
+        }
+
+        .step:nth-child(2) { animation-delay: 0.1s; }
+        .step:nth-child(3) { animation-delay: 0.2s; }
+        .step:nth-child(4) { animation-delay: 0.3s; }
+        .step:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step h2 {
+            font-size: 18px;
+            margin: 0 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step h2 span:first-child {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            background: var(--accent);
+            color: #000;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .step p {
+            margin: 0 0 0 40px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            font-size: 15px;
+        }
+
+        .code-box {
+            margin: 16px 0 16px 40px;
+            background: #000;
+            padding: 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: monospace;
+            font-size: 14px;
+        }
+
+        .copy-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .copy-btn.copied {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .alert {
+            margin: 24px 0 0 40px;
+            padding: 16px 20px;
+            background: var(--warning-bg);
+            border-left: 4px solid var(--warning-border);
+            border-radius: 8px;
+        }
+
+        .alert-title {
+            color: #f87171;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-desc {
+            color: var(--warning-text) !important;
+            margin: 0 !important;
+            font-size: 14px !important;
+        }
+
+        .intro-alert {
+            margin: 0 0 32px 0;
+            padding: 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .support-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .support-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none !important;
+            transition: all 0.2s ease;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .support-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .support-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+        }
+        
+        .tg-btn {
+            color: #38bdf8 !important;
+            border-color: rgba(56, 189, 248, 0.2);
+        }
+        .tg-btn:hover {
+            background: rgba(56, 189, 248, 0.1);
+        }
+        
+        .web-btn {
+            color: #fbbf24 !important;
+            border-color: rgba(251, 191, 36, 0.2);
+        }
+        .web-btn:hover {
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        [dir="rtl"] .step p { margin: 0 40px 0 0; }
+        [dir="rtl"] .code-box { margin: 16px 40px 16px 0; }
+        [dir="rtl"] .alert { 
+            margin: 24px 40px 0 0; 
+            border-left: none; 
+            border-right: 4px solid var(--warning-border); 
+        }
+
+        .footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; color: rgba(255, 255, 255, 0.5); line-height: 1.6; }
+        .footer p { margin-bottom: 12px; }
+        .footer p:last-child { margin-bottom: 0; }
+    </style>
+
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <div>
+            <div class="subtitle" id="t-subtitle">Generals Online</div>
+            <h1 id="t-title">macOS Installation</h1>
+        </div>
+        <select class="lang-select" id="langSwitcher">
+            <option value="en">English</option>
+            <option value="ru">Русский</option>
+            <option value="uk">Українська</option>
+            <option value="ar">العربية</option>
+            <option value="kk">Қазақша</option>
+            <option value="vi">Tiếng Việt</option>
+            <option value="pl">Polski</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="tr">Türkçe</option>
+            <option value="zh">中文</option>
+        </select>
+    </div>
+
+    <div class="intro-alert">
+        <span id="t-intro">
+            macOS Gatekeeper will block this app because it is a free community port without a paid Apple Developer certificate. You need to remove the quarantine flag using Terminal before playing.
+        </span>
+        <div class="support-actions">
+            <a href="https://t.me/GeneralsOnlineMacOSChannel" target="_blank" class="support-btn tg-btn">
+                <svg viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                <span id="t-tg-btn">Telegram Channel</span>
+            </a>
+            <a href="https://okladnoj-bio.web.app/" target="_blank" class="support-btn web-btn">
+                <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                <span id="t-web-btn">Support Developer</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="step">
+        <h2><span>1</span> <span id="t-s1-title">Open Terminal</span></h2>
+        <p id="t-s1-desc">Open the <b>Terminal</b> app from Launchpad or Spotlight Search.</p>
+    </div>
+
+    <div class="step">
+        <h2><span>2</span> <span id="t-s2-title">Type the command</span></h2>
+        <p id="t-s2-desc">Copy the following command. <b>Make sure there is a space at the end</b>, but do not press Enter yet:</p>
+        <div class="code-box">
+            <code id="command-text">sudo xattr -cr </code>
+            <button class="copy-btn" id="copyBtn" onclick="copyCommand()">Copy</button>
+        </div>
+    </div>
+
+    <div class="step">
+        <h2><span>3</span> <span id="t-s3-title">Drag and Drop</span></h2>
+        <p id="t-s3-desc">Drag the unzipped <b>Generals Online.app</b> into the Terminal window. The path will be inserted automatically. Then press Enter.</p>
+    </div>
+
+    <div class="step">
+        <h2><span>4</span> <span id="t-s4-title">Enter your Mac Password</span></h2>
+        <p id="t-s4-desc">The Terminal will ask for your Mac administrator password (the PIN/password you use to log in to your computer).</p>
+        <div class="alert">
+            <div class="alert-title">
+                ⚠️ <span id="t-alert-title">Wait! Your typing will be invisible!</span>
+            </div>
+            <p class="alert-desc" id="t-alert-desc">When you type your password, <b>no characters or asterisks will appear on the screen</b>. This is a normal macOS security feature. Just type your password blindly and press Enter.</p>
+        </div>
+    </div>
+
+    <div class="step" style="margin-bottom: 0;">
+        <h2><span>5</span> <span id="t-s5-title">Launch the Game</span></h2>
+        <p id="t-s5-desc">You can now double-click the app to launch it! In the launcher, select the folder containing your original Windows game data.</p>
+    </div>
+
+    <div class="footer">
+        <p id="t-footer1"></p>
+        <p id="t-footer2"></p>
+        <p id="t-footer3"></p>
+    </div>
+</div>
+
+<script>
+    const translations = {
+        en: {
+            subtitle: "Generals Online",
+            title: "macOS Installation",
+            intro: "The ability to run C&C Generals Online on macOS was developed voluntarily out of pure enthusiasm, without a paid Apple Certificate. Therefore, to launch <code>Generals Online</code> for the first time, you need to follow a few simple steps below. However, supporting the developer increases the chances of releasing future versions with an <b>official Apple Certificate</b> and a 1-click launcher!",
+            tgBtn: "Telegram Channel",
+            webBtn: "Support Developer",
+            s1Title: "Open Terminal",
+            s1Desc: "Open the <b>Terminal</b> application from Launchpad or Spotlight Search.",
+            s2Title: "Type the command",
+            s2Desc: "Copy the following command. Paste it into the Terminal (it has a necessary space at the end), but <b>do not press Enter yet</b>:",
+            copyBtnText: "Copy",
+            copyBtnDone: "Copied!",
+            s3Title: "Drag and Drop",
+            s3Desc: "Drag the unzipped <b>Generals Online.app</b> into the Terminal window. Its file path will be inserted automatically. Then press Enter.",
+            s4Title: "Enter your Mac Password",
+            s4Desc: "The Terminal will ask for your Mac administrator password (the PIN or password you use to unlock your computer).",
+            alertTitle: "Wait! Your typing will be invisible!",
+            alertDesc: "When you type your password, <b>no characters or asterisks (*) will appear on the screen</b>. This is a normal macOS security feature. Just type your password blindly and press Enter.",
+            s5Title: "Launch the Game",
+            s5Desc: "You can now double-click the game to launch it! In the launcher, you will need to select the folder containing your original Windows game data.",
+            footer1: "Generals Online macOS Port is a native community-driven client for Command & Conquer: Generals - Zero Hour.",
+            footer2: "It is built upon the infrastructure of Generals Online and the SuperHackers engine fork, originally created by Electronic Arts, enriched with our own custom engine patches, the majority of which were made exclusively for the Mac port.",
+            footer3: "This port is not created by, endorsed by, or affiliated with Electronic Arts or Command & Conquer."
+        },
+        ru: {
+            subtitle: "Generals Online",
+            title: "Установка на macOS",
+            intro: "Возможность запуска C&C General Online на Mac OS сделана бесплатно на чистом энтузиазме без платного сертификата от Apple — поэтому для первого открытия <code>Generals Online</code> нужно выполнить несколько шагов, которые описаны в инструкции ниже. Поддержка разработчика повышает шансы выпуска игры с <b>официальным сертификатом Apple</b> и запуском лаунчера в один клик!",
+            tgBtn: "Телеграм Канал",
+            webBtn: "Поддержать разработчика",
+            s1Title: "Откройте Терминал",
+            s1Desc: "Откройте приложение <b>Терминал</b> (Terminal) через Launchpad или поиск Spotlight.",
+            s2Title: "Вставьте команду",
+            s2Desc: "Скопируйте команду ниже и вставьте её в Терминал (команда заканчивается пробелом). <b>Пока не нажимайте Enter</b>:",
+            copyBtnText: "Скопировать",
+            copyBtnDone: "Скопировано",
+            s3Title: "Перетащите игру",
+            s3Desc: "Перетащите распакованное приложение <b>Generals Online.app</b> прямо в окно Терминала. Путь подставится автоматически. Теперь нажмите Enter.",
+            s4Title: "Введите пароль от Mac",
+            s4Desc: "Терминал запросит пароль администратора (ваш пин-код или пароль для входа в систему при включении Mac).",
+            alertTitle: "Внимание! Пароль вводится «вслепую»!",
+            alertDesc: "Когда вы печатаете пароль, <b>символы не будут отображаться (даже звездочки)</b>. Это стандартная защита macOS. Создается ощущение, что клавиатура сломана, но это не так. Просто введите пароль и нажмите Enter.",
+            s5Title: "Запустите игру",
+            s5Desc: "Теперь игру можно запустить обычным двойным кликом! В лаунчерe нужно будет указать путь к папке с файлами Windows-версии игры.",
+            footer1: "Generals Online macOS Port — это нативный клиент, созданный сообществом для Command & Conquer: Generals - Zero Hour.",
+            footer2: "Он построен на инфраструктуре Generals Online и форке движка SuperHackers (оригинал от Electronic Arts), дополненных нашими собственными патчами, большая часть которых сделана исключительно в рамках мак-порта.",
+            footer3: "Этот порт не был создан, не одобрен и не связан с Electronic Arts или Command & Conquer."
+        },
+        uk: {
+            subtitle: "Generals Online",
+            title: "Встановлення на macOS",
+            intro: "Можливість запуску C&C Generals Online на Mac OS зроблена безкоштовно на чистому ентузіазмі без платного сертифіката від Apple — тому для першого відкриття <code>Generals Online</code> потрібно виконати кілька кроків, які описані в інструкції нижче. Підтримка розробника підвищує шанси випуску гри з <b>офіційним сертифікатом Apple</b> та запуском лаунчера в один клік!",
+            tgBtn: "Телеграм Канал",
+            webBtn: "Підтримати розробника",
+            s1Title: "Відкрийте Термінал",
+            s1Desc: "Відкрийте програму <b>Термінал</b> (Terminal) через Launchpad або пошук Spotlight.",
+            s2Title: "Вставте команду",
+            s2Desc: "Скопіюйте наведену нижче команду та вставте її в Термінал (команда закінчується пробілом). <b>Поки не натискайте Enter</b>:",
+            copyBtnText: "Скопіювати",
+            copyBtnDone: "Скопійовано",
+            s3Title: "Перетягніть гру",
+            s3Desc: "Перетягніть розпакований додаток <b>Generals Online.app</b> прямо у вікно Терміналу. Шлях до файлу підставиться автоматично. Тепер натисніть Enter.",
+            s4Title: "Введіть пароль від Mac",
+            s4Desc: "Термінал запитає пароль адміністратора (ваш пін-код або пароль для входу в систему при увімкненні Mac).",
+            alertTitle: "Увага! Пароль вводиться «наосліп»!",
+            alertDesc: "Коли ви вводите пароль, <b>символи не будуть відображатися (навіть зірочки)</b>. Це стандартний захист macOS. Здається, що клавіатура не працює, але це не так. Механічно введіть пароль і натисніть Enter.",
+            s5Title: "Запустіть гру",
+            s5Desc: "Тепер гру можна запустити подвійним кліком! У лаунчері потрібно буде вказати шлях до папки з файлами Windows-версії гри.",
+            footer1: "Generals Online macOS Port — це нативний клієнт, створений спільнотою для Command & Conquer: Generals - Zero Hour.",
+            footer2: "Він побудований на інфраструктурі Generals Online та форку рушія SuperHackers (оригінал від Electronic Arts), доповнених нашими власними патчами, більшість яких зроблена виключно в рамках Mac-порту.",
+            footer3: "Цей порт не був створений, не схвалений та не пов'язаний з Electronic Arts або Command & Conquer."
+        },
+        ar: {
+            subtitle: "Generals Online",
+            title: "تثبيت macOS",
+            intro: "القدرة على تشغيل لعبة C&C Generals Online على نظام Mac OS تم تطويرها مجانًا بدافع الحماس الخالص بدون شهادة مدفوعة من Apple - لذلك ولتشغيل <code>Generals Online</code> لأول مرة، ستحتاج لاتباع بعض الخطوات الموضحة في التعليمات أدناه. دعم المطور يزيد من فرص إصدار اللعبة <b>بشهادة Apple الرسمية</b> وإطلاق اللانشر بنقرة واحدة!",
+            tgBtn: "قناة تليجرام",
+            webBtn: "دعم المطور",
+            s1Title: "افتح تطبيق Terminal",
+            s1Desc: "افتح تطبيق <b>Terminal</b> من Launchpad أو عبر بحث Spotlight.",
+            s2Title: "اكتب الأمر المطلوب",
+            s2Desc: "انسخ الأمر التالي. ألصقه في الـ Terminal (يحتوي على مسافة في النهاية)، ولكن <b>لا تضغط على مفتاح Enter بعد</b>:",
+            copyBtnText: "نسخ",
+            copyBtnDone: "تم النسخ!",
+            s3Title: "السحب والإفلات",
+            s3Desc: "اسحب تطبيق <b>Generals Online.app</b> الذي تم فك ضغطه إلى نافذة الـ Terminal. سيتم إدراج المسار تلقائيا. ثم اضغط على Enter.",
+            s4Title: "أدخل كلمة مرور الـ Mac",
+            s4Desc: "سيطلب منك الـ Terminal كلمة مرور مسؤول Mac (رمز PIN أو كلمة المرور التي تستخدمها لإلغاء القفل).",
+            alertTitle: "انتظر! كتابتك ستكون غير مرئية!",
+            alertDesc: "عند كتابة كلمة المرور، <b>لن تظهر أية أحرف أو نجوم (*) على الشاشة</b>. هذه ميزة أمان طبيعية في macOS. فقط اكتب كلمة المرور بشكل مخفي واضغط Enter.",
+            s5Title: "شغل اللعبة",
+            s5Desc: "يمكنك الآن النقر نقرًا مزدوجًا لبدء اللعبة! ستحتاج داخل اللانشر لتحديد المجلد الذي يحتوي على ملفات لعبتك الأصلية لنظام الويندوز.",
+            footer1: "Generals Online macOS Port هو عميل أصلي تم تطويره من قبل المجتمع للعبة Command & Conquer: Generals - Zero Hour.",
+            footer2: "إنه مبني على البنية التحتية لـ Generals Online ومحرك SuperHackers المعدل (الأصل من Electronic Arts)، مزود بتصحيحات محركنا الخاصة، ومعظمها تم إجراؤه حصريًا في إطار إصدار Mac.",
+            footer3: "هذا المنفذ (Port) لم يتم إنشاؤه أو دعمه أو ارتباطه بـ Electronic Arts أو Command & Conquer."
+        },
+        kk: {
+            subtitle: "Generals Online",
+            title: "macOS орнату",
+            intro: "C&C Generals Online ойынын Mac OS-та қосу мүмкіндігі Apple-дің ақылы сертификатынсыз тек энтузиазммен жасалған. Сондықтан <code>Generals Online</code> бірінші рет ашу үшін төмендегі бірнеше қадамдарды орындау қажет. Әзірлеушіні қолдау ойынды <b>Apple-дің ресми сертификатымен</b> шығарып, лаунчерді бір рет басу арқылы іске қосу мүмкіндігін арттырады!",
+            tgBtn: "Телеграм каналы",
+            webBtn: "Әзірлеушіні қолдау",
+            s1Title: "Терминалды ашыңыз",
+            s1Desc: "Launchpad немесе Spotlight іздеуі арқылы <b>Terminal</b> қолданбасын ашыңыз.",
+            s2Title: "Команданы енгізіңіз",
+            s2Desc: "Төмендегі команданы көшіріңіз. Оны терминалға қойыңыз (команда соңында бос орын бар), бірақ <b>Enter пернесін әлі баспаңыз</b>:",
+            copyBtnText: "Көшіру",
+            copyBtnDone: "Көшірілді!",
+            s3Title: "Ойынды сүйреп апарыңыз",
+            s3Desc: "Қораптан шығарылған <b>Generals Online.app</b> қолданбасын Терминал терезесіне сүйреп апарыңыз. Жол автоматты түрде қойылады. Содан кейін Enter басыңыз.",
+            s4Title: "Mac паролін енгізіңіз",
+            s4Desc: "Терминал әкімші паролін сұрайды (Mac жүйесіне кіру үшін қолданатын пароль немесе PIN).",
+            alertTitle: "Назар аударыңыз! Енгізуіңіз көрінбейді!",
+            alertDesc: "Парольді терген кезде <b>таңбалар (тіпті жұлдызшалар да) экранда көрсетілмейді</b>. Бұл қалыпты macOS қауіпсіздік қорғанысы. Тек пароліңізді көзсіз теріп, Enter басыңыз.",
+            s5Title: "Ойынды іске қосыңыз",
+            s5Desc: "Енді ойынды екі рет басу арқылы қосуға болады! Лаунчерде Windows нұсқасының файлдары бар папканы көрсету қажет.",
+            footer1: "Generals Online macOS Port — бұл Command & Conquer: Generals - Zero Hour ойыны үшін қауымдастықпен жасалған нативті клиент.",
+            footer2: "Ол Generals Online инфрақұрылымы мен SuperHackers қозғалтқыш форкіне (түпнұсқасы Electronic Arts) негізделген және біздің өз патчтарымызбен толықтырылған, олардың басым бөлігі тек осы Мак-порт аясында жасалған.",
+            footer3: "Бұл порт Electronic Arts немесе Command & Conquer тарапынан жасалмаған, мақұлданбаған және олармен ешқандай байланысы жоқ."
+        },
+        vi: {
+            subtitle: "Generals Online",
+            title: "Cài đặt trên macOS",
+            intro: "Khả năng chạy C&C Generals Online trên macOS được phát triển hoàn toàn miễn phí nhờ vào đam mê và không có chứng chỉ Apple trả phí. Vì vậy, để khởi chạy <code>Generals Online</code> lần đầu tiên, bạn cần thực hiện một vài bước dưới đây. Ủng hộ tác giả sẽ làm tăng cơ hội phát hành game với <b>chứng chỉ Apple chính thức</b> và chạy launcher chỉ với 1 cú click!",
+            tgBtn: "Kênh Telegram",
+            webBtn: "Ủng hộ tác giả",
+            s1Title: "Mở Terminal",
+            s1Desc: "Mở ứng dụng <b>Terminal</b> từ Launchpad hoặc tìm kiếm Spotlight.",
+            s2Title: "Nhập lệnh",
+            s2Desc: "Sao chép lệnh dưới đây và dán vào Terminal (lưu ý có dấu cách ở cuối), nhưng <b>đừng nhấn Enter vội</b>:",
+            copyBtnText: "Sao chép",
+            copyBtnDone: "Đã chép!",
+            s3Title: "Kéo và Thả",
+            s3Desc: "Kéo ứng dụng <b>Generals Online.app</b> đã giải nén vào cửa sổ Terminal. Đường dẫn sẽ được chèn tự động. Sau đó nhấn Enter.",
+            s4Title: "Nhập Mật khẩu Mac",
+            s4Desc: "Terminal sẽ yêu cầu mật khẩu quản trị trị viên Mac của bạn (mật khẩu dùng để đăng nhập máy).",
+            alertTitle: "Đợi đã! Mật khẩu sẽ bị ẩn!",
+            alertDesc: "Khi bạn nhập mật khẩu, <b>sẽ không có ký tự hay dấu sao (*) nào hiện lên</b>. Đây là tính năng bảo mật bình thường của macOS. Cứ nhập mật khẩu bình thường và nhấn Enter.",
+            s5Title: "Mở Game",
+            s5Desc: "Bây giờ bạn có thể nhấp đúp để mở game! Trong launcher, bạn cần chọn thư mục chứa dữ liệu game gốc của Windows.",
+            footer1: "Generals Online macOS Port là một bản gốc do cộng đồng phát triển cho Command & Conquer: Generals - Zero Hour.",
+            footer2: "Nó được xây dựng dựa trên cơ sở hạ tầng của Generals Online và nhánh công cụ SuperHackers (bản gốc của Electronic Arts), được bổ sung bằng các bản vá công cụ tùy chỉnh của chúng tôi, phần lớn trong số đó được thực hiện dành riêng cho bản port Mac.",
+            footer3: "Bản port này không được tạo ra, chứng thực hoặc liên kết với Electronic Arts hay Command & Conquer."
+        },
+        pl: {
+            subtitle: "Generals Online",
+            title: "Instalacja na macOS",
+            intro: "Możliwość uruchomienia C&C Generals Online na macOS powstała całkowicie za darmo i bez płatnego certyfikatu od Apple. Dlatego, aby uruchomić grę po raz pierwszy, musisz wykonać kilka poniższych kroków. Wsparcie dla autora zwiększa szanse na wydanie gry z <b>oficjalnym certyfikatem Apple</b> i uruchamianie jej jednym kliknięciem!",
+            tgBtn: "Kanał Telegram",
+            webBtn: "Wesprzyj twórcę",
+            s1Title: "Otwórz Terminal",
+            s1Desc: "Otwórz aplikację <b>Terminal</b> z Launchpada lub wyszukiwarki Spotlight.",
+            s2Title: "Wprowadź komendę",
+            s2Desc: "Skopiuj poniższą komendę i wklej ją do Terminala (upewnij się, że na końcu jest spacja), ale <b>nie naciskaj jeszcze Enter</b>:",
+            copyBtnText: "Kopiuj",
+            copyBtnDone: "Skopiowano!",
+            s3Title: "Przeciągnij i upuść",
+            s3Desc: "Przeciągnij wypakowaną aplikację <b>Generals Online.app</b> do okna Terminala. Ścieżka pojawi się automatycznie. Następnie naciśnij Enter.",
+            s4Title: "Wpisz hasło Maca",
+            s4Desc: "Terminal poprosi o hasło administratora Maca (hasło, którego używasz do logowania).",
+            alertTitle: "Uwaga! Twoje hasło będzie niewidoczne!",
+            alertDesc: "Podczas wpisywania hasła <b>żadne znaki ani gwiazdki (*) nie pojawią się na ekranie</b>. Jest to normalne zabezpieczenie macOS. Po prostu wpisz hasło w ciemno i naciśnij Enter.",
+            s5Title: "Uruchom grę",
+            s5Desc: "Możesz teraz uruchomić grę podwójnym kliknięciem! W launcherze będziesz musiał podać folder z plikami oryginalnej gry z systemu Windows.",
+            footer1: "Generals Online macOS Port to natywny klient stworzony przez społeczność dla Command & Conquer: Generals - Zero Hour.",
+            footer2: "Jest oparty na infrastrukturze Generals Online oraz forku silnika SuperHackers (oryginał od Electronic Arts), wzbogacony o nasze własne łatki, z których większość została stworzona wyłącznie na potrzeby portu na Maca.",
+            footer3: "Ten port nie został stworzony, zatwierdzony ani nie jest powiązany z Electronic Arts lub Command & Conquer."
+        },
+        de: {
+            subtitle: "Generals Online",
+            title: "macOS Installation",
+            intro: "Die Möglichkeit, C&C Generals Online unter macOS auszuführen, wurde rein aus Enthusiasmus und ohne kostenpflichtiges Apple-Zertifikat entwickelt. Um das Spiel zum ersten Mal auszuführen, folge bitte den unten stehenden Schritten. Die Unterstützung des Entwicklers erhöht die Chancen, das Spiel mit einem <b>offiziellen Apple-Zertifikat</b> und einfachem 1-Klick-Launcher zu veröffentlichen!",
+            tgBtn: "Telegram-Kanal",
+            webBtn: "Entwickler unterstützen",
+            s1Title: "Terminal öffnen",
+            s1Desc: "Öffne die <b>Terminal</b>-App über das Launchpad oder die Spotlight-Suche.",
+            s2Title: "Befehl eingeben",
+            s2Desc: "Kopiere den folgenden Befehl und füge ihn in das Terminal ein (er hat ein Leerzeichen am Ende), aber <b>drücke noch nicht Enter</b>:",
+            copyBtnText: "Kopieren",
+            copyBtnDone: "Kopiert!",
+            s3Title: "Drag and Drop",
+            s3Desc: "Ziehe die entpackte <b>Generals Online.app</b> in das Terminal-Fenster. Der Dateipfad wird automatisch eingefügt. Drücke dann auf Enter.",
+            s4Title: "Mac-Passwort eingeben",
+            s4Desc: "Das Terminal fordert dich nun auf, dein Mac-Administrator-Passwort einzugeben.",
+            alertTitle: "Warte! Deine Eingabe ist unsichtbar!",
+            alertDesc: "Wenn du dein Passwort eingibst, <b>werden keine Zeichen oder Sternchen (*) auf dem Bildschirm angezeigt</b>. Das ist ein normales Sicherheitsmerkmal von macOS. Tippe dein Passwort blind ein und drücke Enter.",
+            s5Title: "Spiel starten",
+            s5Desc: "Du kannst das Spiel nun mit einem Doppelklick starten! Im Launcher musst du den Ordner mit deinen Original-Windows-Spieldaten auswählen.",
+            footer1: "Generals Online macOS Port ist ein nativer, von der Community entwickelter Client für Command & Conquer: Generals - Zero Hour.",
+            footer2: "Es basiert auf der Generals Online-Infrastruktur und dem SuperHackers-Engine-Fork (Original von Electronic Arts), erweitert um unsere eigenen Patches, von denen der Großteil exklusiv für den Mac-Port entwickelt wurde.",
+            footer3: "Dieser Port wurde nicht von Electronic Arts oder Command & Conquer erstellt, genehmigt oder ist mit diesen verbunden."
+        },
+        es: {
+            subtitle: "Generals Online",
+            title: "Instalación en macOS",
+            intro: "La capacidad de jugar C&C Generals Online en macOS fue desarrollada de forma gratuita por puro entusiasmo, sin un certificado de Apple pago. Por eso, para ejecutarlo por primera vez, debes seguir los breves pasos a continuación. ¡El apoyo al desarrollador aumenta las posibilidades de lanzar versiones futuras con un <b>certificado oficial de Apple</b> y un inicio con 1 clic!",
+            tgBtn: "Canal de Telegram",
+            webBtn: "Apoyar al creador",
+            s1Title: "Abre Terminal",
+            s1Desc: "Abre la aplicación <b>Terminal</b> desde el Launchpad o la Búsqueda de Spotlight.",
+            s2Title: "Introduce el comando",
+            s2Desc: "Copia el siguiente comando y pégalo en la Terminal (fíjate que termina con un espacio), pero <b>no presiones Enter todavía</b>:",
+            copyBtnText: "Copiar",
+            copyBtnDone: "¡Copiado!",
+            s3Title: "Arrastrar y Soltar",
+            s3Desc: "Arrastra la aplicación descomprimida <b>Generals Online.app</b> hacia la ventana de la Terminal. La ruta se insertará automáticamente. Luego presiona Enter.",
+            s4Title: "Ingresa tu contraseña de Mac",
+            s4Desc: "La Terminal te pedirá tu contraseña de administrador (la misma que usas para iniciar sesión).",
+            alertTitle: "¡Atención! ¡Tu escritura será invisible!",
+            alertDesc: "Mientras tecleas la contraseña, <b>no aparecerán letras ni asteriscos (*) en la pantalla</b>. Esta es una medida de seguridad normal de macOS. Solo escribe tu contraseña 'a ciegas' y presiona Enter.",
+            s5Title: "Inicia el Juego",
+            s5Desc: "¡Ahora puedes hacer doble clic en el juego para iniciarlo! En el lanzador tendrás que elegir la carpeta que contiene los archivos originales del juego de Windows.",
+            footer1: "Generals Online macOS Port es un cliente nativo creado por la comunidad para Command & Conquer: Generals - Zero Hour.",
+            footer2: "Está construida sobre la infraestructura de Generals Online y el fork del motor SuperHackers (original de Electronic Arts), enriquecido con nuestros propios parches, la mayoría de los cuales se hicieron exclusivamente para el puerto de Mac.",
+            footer3: "Este puerto no fue creado, respaldado ni está afiliado a Electronic Arts ni a Command & Conquer."
+        },
+        tr: {
+            subtitle: "Generals Online",
+            title: "macOS Kurulumu",
+            intro: "C&C Generals Online oyununu macOS'ta çalıştırma imkanı tamamen ücretsiz ve ücretli bir Apple Sertifikası olmadan gönüllü olarak geliştirildi. Bu yüzden ilk defa oynayabilmek için aşağıdaki birkaç adımı izlemeniz gerekiyor. Geliştiriciye destek olmak, gelecekteki sürümlerin <b>resmi bir Apple Sertifikası</b> ile çıkmasını ve 1 tıklamayla açılmasını hızlandırır!",
+            tgBtn: "Telegram Kanalı",
+            webBtn: "Destek Ol",
+            s1Title: "Terminali Açın",
+            s1Desc: "Launchpad veya Spotlight aramasını kullanarak <b>Terminal</b> uygulamasını açın.",
+            s2Title: "Kodu Girin",
+            s2Desc: "Aşağıdaki kodu kopyalayın ve Terminale yapıştırın (sonunda bir boşluk vardır), ama <b>henüz Enter tuşuna basmayın</b>:",
+            copyBtnText: "Kopyala",
+            copyBtnDone: "Kopyalandı!",
+            s3Title: "Sürükle ve Bırak",
+            s3Desc: "Arşivden çıkardığınız <b>Generals Online.app</b> uygulamasını Terminal penceresinin içine sürükleyin. Dosya yolu otomatik eklenecektir. Sonra Enter'a basın.",
+            s4Title: "Mac Şifresini Girin",
+            s4Desc: "Terminal sizden Mac yönetici şifrenizi (bilgisayarınızı açarken girdiğiniz şifre) isteyecektir.",
+            alertTitle: "Dikkat! Yazdıklarınız ekranda görünmeyecek!",
+            alertDesc: "Şifrenizi yazarken <b>ekranda hiçbir karakter veya yıldız (*) çıkmayacaktır</b>. Bu macOS'un normal bir güvenlik önlemidir. Şifrenizi görmeden yazın ve Enter'a basın.",
+            s5Title: "Oyunu Başlatın",
+            s5Desc: "Artık oyunu çift tıklayarak başlatabilirsiniz! Launcher (başlatıcı) içinde orijinal Windows oyun dosyalarının bulunduğu klasörü seçmeniz gerekecektir.",
+            footer1: "Generals Online macOS Port, Command & Conquer: Generals - Zero Hour için topluluk tarafından oluşturulmuş yerel bir istemcidir.",
+            footer2: "Generals Online altyapısı ve SuperHackers motor çatalı (orijinali Electronic Arts tarafından yapılmıştır) üzerine inşa edilmiş olup, kendi özel yamalarımızla zenginleştirilmiştir ve bunların büyük bir kısmı yalnızca Mac portu için özel olarak yapılmıştır.",
+            footer3: "Bu bağlantı noktası Electronic Arts veya Command & Conquer tarafından oluşturulmamış, onaylanmamış veya bunlarla bağlantılı değildir."
+        },
+        zh: {
+            subtitle: "Generals Online",
+            title: "macOS 安装指南",
+            intro: "在macOS上运行C&C绝命时刻完全是由社区成员出于热情免费开发的，因此缺少付费的Apple开发者证书。首次运行游戏前，您需要完成以下几个步骤。支持开发者有助于在未来的版本中获得<b>官方Apple证书</b>，从而实现一键完美启动！",
+            tgBtn: "电报频道",
+            webBtn: "支持开发者",
+            s1Title: "打开 终端",
+            s1Desc: "通过启动台(Launchpad)或聚焦搜索(Spotlight)打开 <b>Terminal (终端)</b> 应用。",
+            s2Title: "输入命令",
+            s2Desc: "复制下方命令并粘贴到“终端”里（注意末尾带有一个空格），但 <b>请先不要按回车键</b>：",
+            copyBtnText: "复制",
+            copyBtnDone: "已复制！",
+            s3Title: "拖拽应用",
+            s3Desc: "将解压后的 <b>Generals Online.app</b> 直接拖拽到终端窗口中。路径会自动输入，然后再按回车键。",
+            s4Title: "输入 Mac 密码",
+            s4Desc: "终端会要求您输入Mac管理员密码（就是您开机时输入的密码）。",
+            alertTitle: "注意！您输入的密码将不可见！",
+            alertDesc: "当您键盘输入密码时，<b>屏幕上不会显示任何字符或星号(*)</b>。这是macOS正常的安全保护机制。只管盲打输入您的密码，然后按回车即可。",
+            s5Title: "启动游戏",
+            s5Desc: "您现在可以双击运行游戏啦！在启动器中，您需要选择包含原始Windows游戏数据的文件夹。",
+            footer1: "Generals Online macOS Port 是社区为《命令与征服：绝命时刻》创建的本地客户端。",
+            footer2: "它基于 Generals Online 基础设施和 SuperHackers 引擎分支（原版由 Electronic Arts 创建），并通过我们自定义引擎补丁进行了丰富，其中大部分是专为Mac移植版制作的。",
+            footer3: "该移植版本不是由 Electronic Arts 或 Command & Conquer 制作、认可的，也与它们没有任何关联。"
+        }
+    };
+
+    let currentLang = 'en';
+
+    function setLanguage(lang) {
+        currentLang = lang;
+        const t = translations[lang];
+        
+        document.getElementById('t-subtitle').innerHTML = t.subtitle;
+        document.getElementById('t-title').innerHTML = t.title;
+        document.getElementById('t-intro').innerHTML = t.intro;
+
+        document.getElementById('t-tg-btn').innerHTML = t.tgBtn;
+        document.getElementById('t-web-btn').innerHTML = t.webBtn;
+        
+        document.getElementById('t-s1-title').innerHTML = t.s1Title;
+        document.getElementById('t-s1-desc').innerHTML = t.s1Desc;
+        
+        document.getElementById('t-s2-title').innerHTML = t.s2Title;
+        document.getElementById('t-s2-desc').innerHTML = t.s2Desc;
+        document.getElementById('copyBtn').innerText = t.copyBtnText;
+        
+        document.getElementById('t-s3-title').innerHTML = t.s3Title;
+        document.getElementById('t-s3-desc').innerHTML = t.s3Desc;
+        
+        document.getElementById('t-s4-title').innerHTML = t.s4Title;
+        document.getElementById('t-s4-desc').innerHTML = t.s4Desc;
+        document.getElementById('t-alert-title').innerHTML = t.alertTitle;
+        document.getElementById('t-alert-desc').innerHTML = t.alertDesc;
+        
+        document.getElementById('t-s5-title').innerHTML = t.s5Title;
+        document.getElementById('t-s5-desc').innerHTML = t.s5Desc;
+        
+        document.getElementById('t-footer1').innerHTML = t.footer1;
+        document.getElementById('t-footer2').innerHTML = t.footer2;
+        document.getElementById('t-footer3').innerHTML = t.footer3;
+        
+        document.documentElement.lang = lang;
+        document.documentElement.dir = (lang === 'ar') ? 'rtl' : 'ltr';
+    }
+
+    document.getElementById('langSwitcher').addEventListener('change', (e) => {
+        setLanguage(e.target.value);
+    });
+
+    async function copyCommand() {
+        const text = "sudo xattr -cr ";
+        try {
+            await navigator.clipboard.writeText(text);
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = translations[currentLang].copyBtnDone;
+            btn.classList.add('copied');
+            
+            setTimeout(() => {
+                btn.innerText = translations[currentLang].copyBtnText;
+                btn.classList.remove('copied');
+            }, 2000);
+        } catch (err) {
+            console.error('Failed to copy text: ', err);
+            const tempInput = document.createElement("input");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = translations[currentLang].copyBtnDone;
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.innerText = translations[currentLang].copyBtnText;
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const userLang = navigator.language.slice(0, 2);
+        if (translations[userLang]) {
+            document.getElementById('langSwitcher').value = userLang;
+            setLanguage(userLang);
+        } else {
+            setLanguage('en');
+        }
+    });
+</script>
+
+</body>
+</html>
