@@ -68,7 +68,7 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
             });
 
         // AC network message arrived callback
-        AC_PLUGIN_LOAD_FUNCTION(ACMessageArrigedViaTransport);
+        AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
 
         // Login func
         AC_PLUGIN_LOAD_FUNCTION(Login);
@@ -89,10 +89,10 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen)
 {
     // TODO: Cache all of these getprocaddresses
-    if (IsPluginLoaded() && Functions.fnACMessageArrigedViaTransport != nullptr)
+    if (IsPluginLoaded() && Functions.fnACMessageArrivedViaTransport != nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] fnOnMessageArrivedViaTransport");
-        Functions.fnACMessageArrigedViaTransport(goUserID, pData, dataLen);
+        Functions.fnACMessageArrivedViaTransport(goUserID, pData, dataLen);
     }
 }
 

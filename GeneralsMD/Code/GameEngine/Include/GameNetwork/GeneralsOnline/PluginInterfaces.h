@@ -56,7 +56,7 @@ public:
     typedef bool (*FuncDefIsLoaded)(void);
     
     typedef void (*FuncDefSetSendMessageViaTransportCallback)(SendMessageViaTransportCallbackFunc);
-    typedef void (*FuncDefACMessageArrigedViaTransport)(uint32_t, void*, uint32_t);
+    typedef void (*FuncDefACMessageArrivedViaTransport)(uint32_t, void*, uint32_t);
     typedef void (*FuncDefLogin)(const char* szGameToken, LoginCallback cb);
     typedef bool (*FuncDefGetMiddlewareAuthToken)(char* buffer, size_t bufferSize);
     typedef bool (*FuncDefIsLoggedIn)(void);
@@ -72,7 +72,7 @@ public:
         FuncDefIsLoaded fnIsLoaded = nullptr;
         FuncDefSetACActionRequiredCallback fnSetACActionRequiredCallback = nullptr;
         FuncDefSetSendMessageViaTransportCallback fnSetSendMessageViaTransportCallback = nullptr;
-        FuncDefACMessageArrigedViaTransport fnACMessageArrigedViaTransport = nullptr;
+        FuncDefACMessageArrivedViaTransport fnACMessageArrivedViaTransport = nullptr;
         FuncDefLogin fnLogin = nullptr;
         FuncDefGetMiddlewareAuthToken fnGetMiddlewareAuthToken = nullptr;
         FuncDefIsLoggedIn fnIsLoggedIn = nullptr;
