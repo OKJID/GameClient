@@ -2343,6 +2343,16 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
+	// TODO_AC: How do we handle this in quickmatch?
+	if (AnticheatPlugInterface::g_bPendingExitLobby)
+	{
+		AnticheatPlugInterface::g_bPendingExitLobby = false;
+
+        GSMessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"), TheGameText->fetchOrSubstitute("GUI:ACLobbyIntegrityError", L"Lobby integrity could not be validated. Leaving Lobby."));
+
+        PopBackToLobby();
+	}
+
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();

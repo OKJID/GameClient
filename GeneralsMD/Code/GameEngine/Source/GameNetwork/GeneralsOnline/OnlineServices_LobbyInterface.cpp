@@ -762,8 +762,6 @@ void NGMP_OnlineServices_LobbyInterface::ApplyLocalUserPropertiesToCurrentNetwor
 	}
 }
 
-// TODO_AC: Do this elsewhere
-std::set<int64_t> g_AlreadyREgistered;
 void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(bool)> fnCallback)
 {
 	// refresh lobby
@@ -905,19 +903,6 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 								memberEntryIter["Region"].get_to(memberEntry.region);
 								memberEntryIter["MiddlewareUserID"].get_to(memberEntry.middlewareUserID);
 
-								if (!memberEntry.middlewareUserID.empty())
-								{
-                                    if (!g_AlreadyREgistered.contains(memberEntry.user_id))
-                                    {
-                                        bool bSuccess = AnticheatPlugInterface::RegisterPlayer(memberEntry.middlewareUserID, memberEntry.user_id);
-										if (bSuccess)
-                                        {
-											g_AlreadyREgistered.insert(memberEntry.user_id);
-
-										}
-                                    }
-								}
-
 								lobbyEntry.members.push_back(memberEntry);
 
 								// TODO_NGMP: Much more robust system here
@@ -1044,6 +1029,9 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 		return;
 	}
 
+    // TODO_AC: Safety, do we need this?
+    AnticheatPlugInterface::EndSession();
+
 	m_bAttemptingToJoinLobby = true;
 	m_CurrentLobby = LobbyEntry();
 
@@ -1061,6 +1049,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			// TODO_NGMP: Remove this and just hardcode it or provide from service
 			j["preferred_port"] = 0;
 
+			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
 			j["has_map"] = bHasMap;
 
 			if (!strPassword.empty())
@@ -1100,6 +1089,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 					{
 						JoinResult = EJoinLobbyResult::JoinLobbyResult_FullRoom;
 					}
+                    else if (statusCode == 417)
+                    {
+                        JoinResult = EJoinLobbyResult::JoinLobbyResult_AnticheatMismatch;
+                    }
 					// TODO_NGMP: Handle room full error (JoinLobbyResult_FullRoom, can we even get that?
 
 					// no response body from this, just http codes
@@ -1190,6 +1183,10 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Lobby is full");
 					}
+                    else if (statusCode == 417)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to join lobby: Anticheat mismatch");
+                    }
 
 
 					if (JoinResult != EJoinLobbyResult::JoinLobbyResult_Success)
@@ -1211,6 +1208,8 @@ void NGMP_OnlineServices_LobbyInterface::LeaveCurrentLobby()
 {
 	// reset host migration flags
 	ResetHostMigrationFlags();
+
+	AnticheatPlugInterface::EndSession();
 
 	// kill mesh
 	if (m_pLobbyMesh != nullptr)
@@ -1277,6 +1276,9 @@ struct CreateLobbyResponse
 
 void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
 {
+	// TODO_AC: Safety, do we need this?
+	AnticheatPlugInterface::EndSession();
+
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()
 		{
 			m_CurrentLobby = LobbyEntry();
@@ -1314,6 +1316,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
+			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
 
 			std::string strPostData = j.dump();
 
@@ -1424,7 +1427,12 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpdatedDetails, std::function<void(bool)> fnCallback)
 {
 	// begin AC
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0");
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0: %d", AnticheatPlugInterface::IsPluginLoaded());
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0: %d", AnticheatPlugInterface::Functions.fnBeginSession);
+
 	AnticheatPlugInterface::BeginSession();
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session End");
 
 	// join the network mesh too
 	if (m_pLobbyMesh == nullptr)

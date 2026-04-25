@@ -1170,6 +1170,10 @@ void NGMP_WOLLobbyMenu_JoinLobbyCallback(EJoinLobbyResult result)
 			s = TheGameText->fetch("GUI:JoinFailedRoomFull");
 			break;
 
+        case EJoinLobbyResult::JoinLobbyResult_AnticheatMismatch:
+            s = TheGameText->fetchOrSubstitute("GUI:JoinFailedAnticheatMismatch", L"You are running a different anticheat from this lobby host.");
+            break;
+
 		// NOTE: Commented out ones are no longer supported. Seems like these we GS concepts but not part of the game
 		/*
 		case PEERInviteOnlyRoom:  // The room is invite only.

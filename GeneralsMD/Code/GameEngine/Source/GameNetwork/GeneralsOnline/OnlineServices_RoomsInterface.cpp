@@ -251,6 +251,24 @@ public:
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkStartSignalling, msg_id, lobby_id, user_id, preferred_port)
 };
 
+class WebSocketMessage_ACRegisterPlayer : public WebSocketMessageBase
+{
+public:
+    int64_t user_id;
+    std::string mwid;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_ACRegisterPlayer, msg_id, user_id, mwid)
+};
+
+class WebSocketMessage_ACDeregisterPlayer : public WebSocketMessageBase
+{
+public:
+    int64_t user_id;
+    std::string mwid;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_ACDeregisterPlayer, msg_id, user_id, mwid)
+};
+
 class WebSocketMessage_NetworkDisconnectPlayer : public WebSocketMessageBase
 {
 public:
@@ -967,6 +985,38 @@ void WebSocket::Tick()
 										}
 									}
 									break;
+
+									case EWebSocketMessageID::AC_REGISTER_PLAYER:
+                                    {
+                                        WebSocketMessage_ACRegisterPlayer acData;
+                                        bool bParsed = JSONGetAsObject(jsonObject, &acData);
+
+										if (bParsed)
+										{
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_REGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											if (!AnticheatPlugInterface::RegisterPlayer(acData.mwid, acData.user_id))
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::RegisterPlayer failed");
+											}
+										}
+                                    }
+                                    break;
+
+                                    case EWebSocketMessageID::AC_DEREGISTER_PLAYER:
+                                    {
+                                        WebSocketMessage_ACDeregisterPlayer acData;
+                                        bool bParsed = JSONGetAsObject(jsonObject, &acData);
+
+										if (bParsed)
+										{
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_DEREGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											if (!AnticheatPlugInterface::DeregisterPlayer(acData.mwid, acData.user_id))
+											{
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::DeregisterPlayer failed");
+											}
+										}
+                                    }
+                                    break;
 
 									case EWebSocketMessageID::NETWORK_CONNECTION_DISCONNECT_PLAYER:
 									{

@@ -56,6 +56,7 @@
 #include "../OnlineServices_Init.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
+#include "../PluginInterfaces.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -865,12 +866,39 @@ void StartPatchCheck()
 	// GENERALS ONLINE
 	NGMP_OnlineServicesManager::CreateInstance();
 
-	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
-		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
-
 	// online services must be initialized
 	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
 	NGMP_OnlineServicesManager::GetInstance()->Init();
+
+    // if we have an AC plugin loaded but the AC external process isnt running, show an error message
+    if (AnticheatPlugInterface::IsPluginLoaded())
+    {
+        if (!AnticheatPlugInterface::IsExternalProcessRunning())
+        {
+            MessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"),
+                TheGameText->fetchOrSubstitute("GUI:ACExternalProcessNotRunning", L"The AntiCheat external process is not running"),
+                CancelPatchCheckCallbackAndReopenDropdown);
+
+            return;
+        }
+    }
+	else if (AnticheatPlugInterface::DidPluginFailToLoad()) // Did we have something to load but it failed?
+	{
+        std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+        std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
+
+		UnicodeString strErrorMssage;
+        strErrorMssage.format(L"Failed to load the AntiCheat plugin from path: %hs. Please make sure the plugin is installed correctly.", pluginPath.c_str());
+
+        MessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"),
+			strErrorMssage,
+            CancelPatchCheckCallbackAndReopenDropdown);
+
+        return;
+	}
+
+    onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
+        TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
 	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bSuccess, bool bNeedsUpdate)
 		{

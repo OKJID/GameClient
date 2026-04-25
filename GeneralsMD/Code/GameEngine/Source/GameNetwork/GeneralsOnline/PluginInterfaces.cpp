@@ -13,12 +13,38 @@
         return; \
     }
 
+bool AnticheatPlugInterface::IsExternalProcessRunning()
+{
+    if (IsPluginLoaded())
+    {
+        return Functions.fnIsExternalProcessRunning();
+    }
+
+    return false;
+}
+
+int AnticheatPlugInterface::GetAnticheatIdentifier()
+{
+    if (IsPluginLoaded())
+    {
+        return Functions.fnGetAnticheatIdentifier();
+    }
+
+    return 0;
+}
+
 void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 {
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from %s", szPluginName);
+
+    m_bPluginLoadFailed = false;
     g_hACPluginModule = LoadLibraryA(szPluginName);
 
     if (!g_hACPluginModule)
     {
+        g_hACPluginModule = nullptr;
+        m_bPluginLoadFailed = true;
+
         DWORD err = GetLastError();
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Failed to load %s (%u)", szPluginName, err);
     }
@@ -40,10 +66,12 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         NetworkLog(ELogVerbosity::LOG_RELEASE, "Initialize result = %d", result);
 
         // check loaded
-        AC_PLUGIN_LOAD_FUNCTION(IsLoaded);
+        AC_PLUGIN_LOAD_FUNCTION(IsExternalProcessRunning);
+
+        AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
 
 #if _DEBUG
-        SetWindowText(ApplicationHWnd, Functions.fnIsLoaded() ? "SECURED" : "INSECURE");
+        SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
 #endif
 
         // set action required callback
@@ -51,9 +79,41 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
             {
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure.");
-                extern void PopBackToLobby();
-                PopBackToLobby();
+                NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required.");
+
+                if (pAuthInterface == nullptr)
+                {
+                    // no auth interface? bail out
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, no auth interface.");
+                    g_bPendingExitLobby = true;
+                }
+                else
+                {
+                    // If it's us, leave, if its someone else, d/c them
+                    if (pAuthInterface->GetUserID() == userID)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
+                        g_bPendingExitLobby = true;
+                    }
+                    else
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
+
+                        NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                        if (pMesh != nullptr)
+                        {
+                            pMesh->DisconnectUser(userID);
+                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
+                        }
+                        else // no mesh, just back out
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
+                            g_bPendingExitLobby = true;
+                        }
+                    }
+                }
             });
 
         // set transport callback
@@ -81,10 +141,16 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         // register player funcs
         AC_PLUGIN_LOAD_FUNCTION(RegisterPlayer);
+        AC_PLUGIN_LOAD_FUNCTION(DeregisterPlayer);
+
+        AC_PLUGIN_LOAD_FUNCTION(Tick);
+        AC_PLUGIN_LOAD_FUNCTION(Shutdown);
 
         // TODO_AC: Deregister player
     }
 }
+
+bool AnticheatPlugInterface::g_bPendingExitLobby = false;
 
 void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen)
 {
@@ -110,6 +176,12 @@ void AnticheatPlugInterface::Authenticate()
         Functions.fnLogin(pAuthInterface->GetAuthToken().c_str(),
             [](bool bSuccess)
             {
+                if (!bSuccess)
+                {
+                    // TODO_AC: Handle this, its a fatal error
+                    return;
+                }
+
                 if (Functions.fnIsLoggedIn())
                 {
                     char buf[4196];
@@ -127,15 +199,33 @@ void AnticheatPlugInterface::Authenticate()
                         pAuthInterface->SendMiddlewareToken(std::string(buf));
                     }
                 }
+                else
+                {
+                    // TODO_AC: Handle this, its a fatal error
+                }
+
+                
             });
     }
 }
 
+bool g_bSessionStarted = false;
+
 void AnticheatPlugInterface::BeginSession()
 {
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] BeginSession() called");
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] IsPluginLoaded=%d, fnBeginSession=%p", IsPluginLoaded(), Functions.fnBeginSession);
+    
     if (IsPluginLoaded() && Functions.fnBeginSession != nullptr)
     {
-        Functions.fnBeginSession;
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Calling plugin fnBeginSession()");
+        Functions.fnBeginSession();
+        g_bSessionStarted = true;
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Plugin fnBeginSession() completed");
+    }
+    else
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot call fnBeginSession - plugin not loaded or function pointer is null");
     }
 }
 
@@ -143,16 +233,23 @@ void AnticheatPlugInterface::EndSession()
 {
     if (IsPluginLoaded() && Functions.fnEndSession != nullptr)
     {
-        Functions.fnEndSession;
+        Functions.fnEndSession();
+        g_bSessionStarted = false;
     }
 }
 
 AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Functions;
 
 HMODULE AnticheatPlugInterface::g_hACPluginModule = nullptr;
+bool AnticheatPlugInterface::m_bPluginLoadFailed = false;
 
 bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUserID)
 {
+    if (!g_bSessionStarted) // TODO_AC: This is hacky, it's because on lobby join, the server can send AC_REGISTER_PLAYER before we join the lobby, so we didnt actually start the session yet. We should buffer these messages until session start or something instead of relying on this hacky global
+    {
+        AnticheatPlugInterface::BeginSession();
+    }
+
     if (IsPluginLoaded() && Functions.fnRegisterPlayer != nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "RegisterPlayer: %s to %" PRIu64, mwUserID.c_str(), goUserID);
@@ -166,6 +263,20 @@ bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUse
 }
 
 
+bool AnticheatPlugInterface::DeregisterPlayer(std::string mwUserID, uint32_t goUserID)
+{
+    if (IsPluginLoaded() && Functions.fnDeregisterPlayer != nullptr)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayer: %s to %" PRIu64, mwUserID.c_str(), goUserID);
+
+        bool bReg = Functions.fnDeregisterPlayer(mwUserID.c_str(), goUserID);
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayerFunc result: %d", bReg);
+        return bReg;
+    }
+
+    return false;
+}
+
 void AnticheatPlugInterface::Tick()
 {
     if (IsPluginLoaded() && Functions.fnTick != nullptr)
@@ -178,7 +289,17 @@ void AnticheatPlugInterface::UnloadPlugin()
 {
     if (IsPluginLoaded())
     {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Starting Shutdown");
+        if (Functions.fnShutdown != nullptr)
+        {
+            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Shutdown in progress");
+            Functions.fnShutdown();
+        }
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Shutdown Complete");
+
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Unloading plugin");
         FreeLibrary(g_hACPluginModule);
         g_hACPluginModule = nullptr;
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Unloaded plugin");
     }
 }

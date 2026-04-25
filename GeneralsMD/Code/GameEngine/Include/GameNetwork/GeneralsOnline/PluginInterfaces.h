@@ -23,15 +23,23 @@ enum class EAnticheatActionReason : int32_t
 };
 
 
-static class AnticheatPlugInterface
+class AnticheatPlugInterface
 {
 public:
+    static bool g_bPendingExitLobby;
+
     static void AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen);
+
+    static bool DidPluginFailToLoad() { return m_bPluginLoadFailed; }
 
     static bool IsPluginLoaded()
     {
-        return g_hACPluginModule != nullptr;
+        return g_hACPluginModule != nullptr && !m_bPluginLoadFailed;
     }
+
+    static bool IsExternalProcessRunning();
+
+    static int GetAnticheatIdentifier();
 
     static void LoadPlugin(const char* szPluginName);
     static void Authenticate();
@@ -39,6 +47,7 @@ public:
     static void Tick();
 
     static bool RegisterPlayer(std::string mwUserID, uint32_t goUserID);
+    static bool DeregisterPlayer(std::string mwUserID, uint32_t goUserID);
 
     static void BeginSession();
     static void EndSession();
@@ -53,7 +62,9 @@ public:
     // Func defs
     typedef void (*FuncDefSetLoggingFunction)(LoggingFunc);
     typedef int (*FuncDefInitialize)(void);
-    typedef bool (*FuncDefIsLoaded)(void);
+    typedef bool (*FuncDefIsExternalProcessRunning)(void);
+
+    typedef int (*FuncDefGetAnticheatIdentifier)(void);
     
     typedef void (*FuncDefSetSendMessageViaTransportCallback)(SendMessageViaTransportCallbackFunc);
     typedef void (*FuncDefACMessageArrivedViaTransport)(uint32_t, void*, uint32_t);
@@ -63,13 +74,17 @@ public:
     typedef void (*FuncDefBeginSession)(void);
     typedef void (*FuncDefEndSession)(void);
     typedef bool (*FuncDefRegisterPlayer)(const char* szMiddlewareUserID, uint32_t goUserID);
+    typedef bool (*FuncDefDeregisterPlayer)(const char* szMiddlewareUserID, uint32_t goUserID);
     typedef void (*FuncDefTick)(void);
+
+    typedef void (*FuncDefShutdown)(void);
 
     struct AnticheatPluginFunctionPtrs
     {
         FuncDefSetLoggingFunction fnSetLoggingFunction = nullptr;
         FuncDefInitialize fnInitialize = nullptr;
-        FuncDefIsLoaded fnIsLoaded = nullptr;
+        FuncDefIsExternalProcessRunning fnIsExternalProcessRunning = nullptr;
+        FuncDefGetAnticheatIdentifier fnGetAnticheatIdentifier = nullptr;
         FuncDefSetACActionRequiredCallback fnSetACActionRequiredCallback = nullptr;
         FuncDefSetSendMessageViaTransportCallback fnSetSendMessageViaTransportCallback = nullptr;
         FuncDefACMessageArrivedViaTransport fnACMessageArrivedViaTransport = nullptr;
@@ -79,12 +94,15 @@ public:
         FuncDefBeginSession fnBeginSession = nullptr;
         FuncDefEndSession fnEndSession = nullptr;
         FuncDefRegisterPlayer fnRegisterPlayer = nullptr;
+        FuncDefDeregisterPlayer fnDeregisterPlayer = nullptr;
         FuncDefTick fnTick = nullptr;
+        FuncDefShutdown fnShutdown = nullptr;
     };
     static AnticheatPluginFunctionPtrs Functions;
 
     // Module
     static HMODULE g_hACPluginModule;
+    static bool m_bPluginLoadFailed;
 };
 
 extern HWND ApplicationHWnd;
