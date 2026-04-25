@@ -46,6 +46,8 @@ public:
     static void UnloadPlugin();
     static void Tick();
 
+    static void RefreshToken();
+
     static bool RegisterPlayer(std::string mwUserID, uint32_t goUserID);
     static bool DeregisterPlayer(std::string mwUserID, uint32_t goUserID);
 
@@ -69,6 +71,7 @@ public:
     typedef void (*FuncDefSetSendMessageViaTransportCallback)(SendMessageViaTransportCallbackFunc);
     typedef void (*FuncDefACMessageArrivedViaTransport)(uint32_t, void*, uint32_t);
     typedef void (*FuncDefLogin)(const char* szGameToken, LoginCallback cb);
+    typedef void (*FuncDefRefreshToken)(const char* szGameToken, LoginCallback cb);
     typedef bool (*FuncDefGetMiddlewareAuthToken)(char* buffer, size_t bufferSize);
     typedef bool (*FuncDefIsLoggedIn)(void);
     typedef void (*FuncDefBeginSession)(void);
@@ -89,6 +92,7 @@ public:
         FuncDefSetSendMessageViaTransportCallback fnSetSendMessageViaTransportCallback = nullptr;
         FuncDefACMessageArrivedViaTransport fnACMessageArrivedViaTransport = nullptr;
         FuncDefLogin fnLogin = nullptr;
+        FuncDefRefreshToken fnRefreshToken = nullptr;
         FuncDefGetMiddlewareAuthToken fnGetMiddlewareAuthToken = nullptr;
         FuncDefIsLoggedIn fnIsLoggedIn = nullptr;
         FuncDefBeginSession fnBeginSession = nullptr;
@@ -103,6 +107,8 @@ public:
     // Module
     static HMODULE g_hACPluginModule;
     static bool m_bPluginLoadFailed;
+
+    static int64_t m_tokenCreationTime;
 };
 
 extern HWND ApplicationHWnd;

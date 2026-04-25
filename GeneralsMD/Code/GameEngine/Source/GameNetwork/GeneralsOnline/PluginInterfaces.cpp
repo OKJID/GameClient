@@ -130,8 +130,9 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         // AC network message arrived callback
         AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
 
-        // Login func
+        // Login funcs
         AC_PLUGIN_LOAD_FUNCTION(Login);
+        AC_PLUGIN_LOAD_FUNCTION(RefreshToken);
         AC_PLUGIN_LOAD_FUNCTION(IsLoggedIn);
         AC_PLUGIN_LOAD_FUNCTION(GetMiddlewareAuthToken);
 
@@ -181,6 +182,8 @@ void AnticheatPlugInterface::Authenticate()
                     // TODO_AC: Handle this, its a fatal error
                     return;
                 }
+
+                m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
                 if (Functions.fnIsLoggedIn())
                 {
@@ -243,6 +246,8 @@ AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Func
 HMODULE AnticheatPlugInterface::g_hACPluginModule = nullptr;
 bool AnticheatPlugInterface::m_bPluginLoadFailed = false;
 
+int64_t AnticheatPlugInterface::m_tokenCreationTime = -1;
+
 bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUserID)
 {
     if (!g_bSessionStarted) // TODO_AC: This is hacky, it's because on lobby join, the server can send AC_REGISTER_PLAYER before we join the lobby, so we didnt actually start the session yet. We should buffer these messages until session start or something instead of relying on this hacky global
@@ -282,6 +287,43 @@ void AnticheatPlugInterface::Tick()
     if (IsPluginLoaded() && Functions.fnTick != nullptr)
     {
         Functions.fnTick();
+
+        // Do we need to refresh our token?
+        if (Functions.fnIsLoggedIn())
+        {
+            int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+            if (m_tokenCreationTime != -1 && now - m_tokenCreationTime >= 45 * 60 * 1000) // refresh every 45m, tokens last 60m, giving us a 15m buffer to refresh and retry if something goes wrong
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Token is about to expire, refreshing...");
+                RefreshToken();
+            }
+        }
+    }
+}
+
+void AnticheatPlugInterface::RefreshToken()
+{
+    if (IsPluginLoaded() && Functions.fnRefreshToken != nullptr && Functions.fnIsLoggedIn)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Refreshing token");
+        NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+        if (pAuthInterface == nullptr)
+        {
+            return;
+        }
+
+        m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+        Functions.fnRefreshToken(pAuthInterface->GetAuthToken().c_str(),
+            [](bool bSuccess)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Refreshed token: %d", bSuccess);
+                if (!bSuccess)
+                {
+                    // TODO_AC: Handle this, its a fatal error
+                    return;
+                }
+            });
     }
 }
 
