@@ -147,20 +147,10 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
     int newW = (int)newSize.width;
     int newH = (int)newSize.height;
 
-    printf("[MacOS] windowDidEndLiveResize: %dx%d\n", newW, newH);
+    printf("[MacOS] windowDidEndLiveResize: logical=%dx%d (bsf=%.1f)\n",
+           newW, newH, self.window.backingScaleFactor);
     fflush(stdout);
 
-    // Update CAMetalLayer drawable size
-    if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
-        CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
-        layer.contentsScale = 1.0;
-        layer.drawableSize = CGSizeMake(newW, newH);
-    }
-
-    // Update MetalDevice8 (viewport, depth texture, screen dimensions)
-    MacOS_UpdateMetalDeviceScreenSize(newW, newH);
-
-    // Apply through the full engine path (mirrors OptionsMenu Accept)
     bool isWindowed = TheGlobalData ? TheGlobalData->m_windowed : false;
     MacOS_ApplyDisplayResolution(newW, newH, isWindowed);
 }

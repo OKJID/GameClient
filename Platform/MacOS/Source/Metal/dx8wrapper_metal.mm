@@ -643,8 +643,7 @@ bool DX8Wrapper::Toggle_Windowed() {
 	Resize_And_Position_Window();
 	Reset_Device();
 
-	CGFloat bsf = win.backingScaleFactor;
-	MacOS_ApplyDisplayResolution(ResolutionWidth * bsf, ResolutionHeight * bsf, IsWindowed);
+	MacOS_ApplyDisplayResolution(ResolutionWidth, ResolutionHeight, IsWindowed);
 
 	return true;
 }
@@ -714,16 +713,18 @@ void DX8Wrapper::Resize_And_Position_Window()
 		[win setFrame:newFrame display:YES animate:NO];
 	}
 
-	// 2. Update CAMetalLayer drawable size
+	// 2. Update CAMetalLayer drawable size (logical points — contentsScale handles Retina)
 	if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
 		CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
 		layer.contentsScale = bsf;
 		layer.contentsGravity = kCAGravityResizeAspect; 
-		layer.drawableSize = CGSizeMake(win.contentView.bounds.size.width * bsf, win.contentView.bounds.size.height * bsf);
+		CGSize logicalSize = win.contentView.bounds.size;
+		layer.drawableSize = CGSizeMake(logicalSize.width, logicalSize.height);
 	}
 
-	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport
-	MacOS_UpdateMetalDeviceScreenSize(win.contentView.bounds.size.width * bsf, win.contentView.bounds.size.height * bsf);
+	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport (logical points)
+	CGSize logicalSize = win.contentView.bounds.size;
+	MacOS_UpdateMetalDeviceScreenSize((int)logicalSize.width, (int)logicalSize.height);
 }
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──
