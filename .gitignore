@@ -75,3 +75,5 @@ Data/*.big
 Platform/MacOS/Build/Logs/
 *.gif
 
+# Firebase Hosting (maintainer-local deployment)
+/Dependencies/general_online_zh/
