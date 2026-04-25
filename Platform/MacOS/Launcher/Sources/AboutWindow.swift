@@ -86,7 +86,7 @@ struct AboutView: View {
 
     private func _buildLinks() -> some View {
         HStack(spacing: 20) {
-            _buildLink(title: "Website", url: "https://okladnoj-bio.web.app/")
+            _buildLink(title: "Website", url: "https://general-online-zh.web.app")
             _buildLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
             _buildLink(title: "GitHub", url: "https://github.com/GeneralsOnlineDevelopmentTeam/GameClient")
         }

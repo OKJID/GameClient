@@ -16,19 +16,30 @@ class LauncherViewModel: ObservableObject {
     @Published var alertMessage: String? = nil
     @Published var steamUsername: String = ""
     @Published var steamPassword: String = ""
+    @Published var isUpdateDismissed: Bool = false
 
     var steamCMD = SteamCMDManager()
-    private var cancellable: AnyCancellable?
+    var updateChecker = UpdateChecker()
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
-        cancellable = steamCMD.objectWillChange.sink { [weak self] _ in
+        steamCMD.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
-        }
+        }.store(in: &cancellables)
+
+        updateChecker.$availableUpdate
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
 
         if let username = KeychainHelper.savedUsername() {
             steamUsername = username
             steamPassword = KeychainHelper.load(account: username) ?? ""
         }
+
+        updateChecker.startPeriodicChecks()
     }
 
     func saveCredentials() {
@@ -174,6 +185,12 @@ struct MainView: View {
                 VStack(spacing: 0) {
                     _buildHeader()
                         .padding(.top, 30)
+
+                    if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
+                        _buildUpdateBanner(update)
+                            .padding(.horizontal, 40)
+                            .padding(.top, 12)
+                    }
 
                     _buildTabBar()
                         .padding(.top, 20)
@@ -591,6 +608,81 @@ struct MainView: View {
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.orange.opacity(0.3), lineWidth: 1))
     }
 
+    // MARK: - Update Banner
+
+    private func _buildUpdateBanner(_ update: AppUpdate) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundColor(neonGreen)
+                    .font(.system(size: 16))
+
+                Text("UPDATE AVAILABLE: v\(update.version)")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Button(action: { viewModel.isUpdateDismissed = true }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            Text(update.releaseNotes)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .lineLimit(3)
+
+            HStack(spacing: 10) {
+                Button(action: {
+                    if let url = URL(string: update.downloadURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.to.line")
+                            .font(.system(size: 11))
+                        Text("DOWNLOAD UPDATE")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(neonGreen.opacity(0.2))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.6), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                Button(action: {
+                    if let url = URL(string: "https://general-online-zh.web.app") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "safari")
+                            .font(.system(size: 11))
+                        Text("SEE DETAILS")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    }
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.2), lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .padding(14)
+        .background(neonGreen.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(neonGreen.opacity(0.3), lineWidth: 1))
+    }
+
     // MARK: - Footer
 
     private func _buildFooter() -> some View {
@@ -613,7 +705,7 @@ struct MainView: View {
                     .shadow(color: .black, radius: 1, x: 1, y: 1)
 
                 HStack(spacing: 8) {
-                    _buildFooterLink(title: "Website", url: "https://okladnoj-bio.web.app/")
+                    _buildFooterLink(title: "Website", url: "https://general-online-zh.web.app")
                     Text("|").foregroundColor(.white.opacity(0.3)).font(.system(size: 10))
                     _buildFooterLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
                 }

@@ -14,6 +14,9 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
+VERSION="1.1.1"
+BUILD="3"
+
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
 CMAKE_APP_DIR="../../../build/macos/GeneralsMD/GeneralsOnlineZH.app"
@@ -81,6 +84,7 @@ codesign --force --deep -s - "$FINAL_APP_DIR"
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc Sources/LauncherApp.swift Sources/MainView.swift \
        Sources/SteamCMDManager.swift Sources/AboutWindow.swift \
+       Sources/UpdateChecker.swift \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
        -target arm64-apple-macosx11.0
 
@@ -100,6 +104,12 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $FINAL_APP_NAME" "$PLIST_FILE"
 /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFile" "$PLIST_FILE" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon.png" "$PLIST_FILE"
+
+/usr/libexec/PlistBuddy -c "Delete :GOLauncherVersion" "$PLIST_FILE" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :GOLauncherVersion string $VERSION" "$PLIST_FILE"
+/usr/libexec/PlistBuddy -c "Delete :GOLauncherBuild" "$PLIST_FILE" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :GOLauncherBuild string $BUILD" "$PLIST_FILE"
+echo "   Launcher version: v$VERSION (build $BUILD)"
 
 echo "📝 [5/7] Copying HTML instructions..."
 if [ -f "www/instructions.html" ]; then
