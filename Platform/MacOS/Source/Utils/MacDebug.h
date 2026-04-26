@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#define DEBUG_AUDIO_MAC_FLAG
+// #define DEBUG_AUDIO_MAC_FLAG
 // #define DEBUG_RENDERING_MAC_FLAG
 
 #ifdef DEBUG_AUDIO_MAC_FLAG
