@@ -6,6 +6,8 @@
 
 # C&C Generals Online — macOS Port
 
+🌐 **Website:** [general-online-zh.web.app](https://general-online-zh.web.app/)
+
 **Native Apple Silicon macOS port of C&C Generals Zero Hour / Generals Online with a direct Metal renderer.**
 
 This is not Wine, not DXVK, not MoltenVK, and not an emulator-based wrapper — it's a full native recompilation of the game engine targeting ARM64 macOS with a custom DirectX 8 → Metal translation layer.
