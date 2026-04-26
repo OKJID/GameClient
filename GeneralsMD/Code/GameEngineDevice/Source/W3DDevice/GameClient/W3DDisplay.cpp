@@ -3411,6 +3411,7 @@ static void drawFramerateBar()
 #ifdef __APPLE__
 #include "GameClient/Shell.h"
 #include "GameClient/InGameUI.h"
+#include "GameClient/ControlBar.h"
 #include "GameClient/HeaderTemplate.h"
 #include "Common/OptionPreferences.h"
 
@@ -3427,6 +3428,8 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 		fflush(stdout);
 		return;
 	}
+
+	Int oldXRes = TheWritableGlobalData->m_xResolution;
 
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
@@ -3450,6 +3453,10 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 			TheInGameUI->recreateControlBar();
 			TheInGameUI->refreshCustomUiResources();
 		}
+	} else if (TheControlBar) {
+		// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored
+		// UI elements during gameplay resize (shortcut bar, right HUD).
+		TheControlBar->repositionForResolution(oldXRes, w);
 	}
 
 	OptionPreferences pref;

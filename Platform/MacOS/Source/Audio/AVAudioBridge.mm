@@ -1,4 +1,5 @@
 #import "AVAudioBridge.h"
+#import "../Utils/MacDebug.h"
 
 // Restore Byte typedef required by AudioToolbox, which was undefined by metal_prefix.h
 #include <MacTypes.h>
@@ -19,6 +20,7 @@ struct AVBridgePlayerSlot {
     int bufferID;
     bool active;
     bool is3D;
+    uint32_t generation;
 };
 
 struct AVBridgeBufferEntry {
@@ -203,6 +205,7 @@ static void ensure_engine_inited(void) {
         gSlots[i].active = false;
         gSlots[i].bufferID = 0;
         gSlots[i].is3D = false;
+        gSlots[i].generation = 0;
     }
 
     NSError *error = nil;
@@ -306,11 +309,14 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     int idx = findFreeSlot();
     if (idx < 0) {
         os_unfair_lock_unlock(&gLock);
+        DEBUG_AUDIO_MAC(("avbridge_play: NO FREE SLOT for buf=%d", bufferID));
         return -1;
     }
     gSlots[idx].active = true;
     gSlots[idx].bufferID = bufferID;
     gSlots[idx].is3D = false;
+    gSlots[idx].generation++;
+    uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
 
     detachAndReattach(idx, false, entry->format);
@@ -322,6 +328,12 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     AVAudioPlayerNodeBufferOptions opts = loop ? AVAudioPlayerNodeBufferLoops : 0;
     [node scheduleBuffer:entry->buffer atTime:nil options:opts completionHandler:^{
         os_unfair_lock_lock(&gLock);
+        if (gSlots[idx].generation != capturedGen) {
+            DEBUG_AUDIO_MAC(("avbridge_play COMPLETION: STALE callback slot=%d gen=%u vs current=%u -> IGNORED",
+                idx, capturedGen, gSlots[idx].generation));
+            os_unfair_lock_unlock(&gLock);
+            return;
+        }
         gSlots[idx].active = false;
         gSlots[idx].bufferID = 0;
         os_unfair_lock_unlock(&gLock);
@@ -343,11 +355,14 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
     int idx = findFreeSlot();
     if (idx < 0) {
         os_unfair_lock_unlock(&gLock);
+        DEBUG_AUDIO_MAC(("avbridge_play3D: NO FREE SLOT for buf=%d", bufferID));
         return -1;
     }
     gSlots[idx].active = true;
     gSlots[idx].bufferID = bufferID;
     gSlots[idx].is3D = true;
+    gSlots[idx].generation++;
+    uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
 
     detachAndReattach(idx, true, entry->format);
@@ -362,6 +377,12 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
 
     [node scheduleBuffer:entry->buffer atTime:nil options:0 completionHandler:^{
         os_unfair_lock_lock(&gLock);
+        if (gSlots[idx].generation != capturedGen) {
+            DEBUG_AUDIO_MAC(("avbridge_play3D COMPLETION: STALE callback slot=%d gen=%u vs current=%u -> IGNORED",
+                idx, capturedGen, gSlots[idx].generation));
+            os_unfair_lock_unlock(&gLock);
+            return;
+        }
         gSlots[idx].active = false;
         gSlots[idx].bufferID = 0;
         os_unfair_lock_unlock(&gLock);
@@ -377,21 +398,28 @@ void avbridge_stop(int playerID) {
     if (playerID < 0 || playerID >= gMaxNodes) return;
     if (!gSlots[playerID].active) return;
 
-    [gSlots[playerID].node stop];
-
     os_unfair_lock_lock(&gLock);
+    gSlots[playerID].generation++;
     gSlots[playerID].active = false;
     gSlots[playerID].bufferID = 0;
     os_unfair_lock_unlock(&gLock);
+
+    [gSlots[playerID].node stop];
 }
 
 void avbridge_stopAll(void) {
+    DEBUG_AUDIO_MAC(("avbridge_stopAll: stopping all %d nodes", gMaxNodes));
+    os_unfair_lock_lock(&gLock);
     for (int i = 0; i < gMaxNodes; i++) {
         if (gSlots[i].active) {
-            [gSlots[i].node stop];
+            gSlots[i].generation++;
             gSlots[i].active = false;
             gSlots[i].bufferID = 0;
         }
+    }
+    os_unfair_lock_unlock(&gLock);
+    for (int i = 0; i < gMaxNodes; i++) {
+        [gSlots[i].node stop];
     }
 }
 

@@ -150,6 +150,12 @@ void MacOSAudioManager::init() {
 }
 
 void MacOSAudioManager::reset() {
+    int activeCount = 0;
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying) activeCount++;
+    }
+    DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() called. %d sources were active.", activeCount));
+
     AudioManager::reset();
     avbridge_stopAll();
     for (auto &pa : m_sources) {
@@ -158,6 +164,8 @@ void MacOSAudioManager::reset() {
         if (pa.eventRTS) { delete pa.eventRTS; pa.eventRTS = nullptr; }
         pa.handle = 0;
     }
+
+    DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() completed. Buffer cache has %zu entries.", m_bufferCache.size()));
 }
 
 void MacOSAudioManager::update() {
