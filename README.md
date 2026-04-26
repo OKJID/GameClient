@@ -1,116 +1,118 @@
-[![GitHub Release](https://img.shields.io/github/v/release/TheSuperHackers/GeneralsGameCode?include_prereleases&sort=date&display_name=tag&style=flat&label=Release)](https://github.com/TheSuperHackers/GeneralsGameCode/releases)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/3)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/1)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/4)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/5)
-![GitHub milestone details](https://img.shields.io/github/milestones/progress-percent/TheSuperHackers/GeneralsGameCode/6)
+![Platform](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-000000?style=flat&logo=apple&logoColor=white)
+![Renderer](https://img.shields.io/badge/renderer-Metal-8E44AD?style=flat&logo=apple&logoColor=white)
+![C++](https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat&logo=cplusplus&logoColor=white)
+![Status](https://img.shields.io/badge/status-Technical%20Preview-orange?style=flat)
+![Online](https://img.shields.io/badge/online-macOS↔macOS%20playable-brightgreen?style=flat)
 
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/bug?style=flat&label=Bug%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ABug)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/enhancement?style=flat&label=Enhancement%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3AEnhancement)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/major?style=flat&label=Major%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3AMajor)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/critical?style=flat&label=Critical%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ACritical)
-[![GitHub issues by-label](https://img.shields.io/github/issues/TheSuperHackers/GeneralsGameCode/blocker?style=flat&label=Blocker%20Issues&labelColor=%23c4c4c4&color=%23424242)](https://github.com/TheSuperHackers/GeneralsGameCode/issues?q=label%3ABlocker)
+# C&C Generals Online — macOS Port
 
-# Welcome to the Generals Game Code Project
+**Native Apple Silicon macOS port of C&C Generals Zero Hour / Generals Online with a direct Metal renderer.**
 
-GeneralsGameCode is a community-driven project aimed at fixing and improving the classic RTS game, *Command &
-Conquer: Generals* and its expansion *Zero Hour*. This repository contains the source code for both games, with a
-primary focus on *Zero Hour*.
+This is not Wine, not DXVK, not MoltenVK, and not an emulator-based wrapper — it's a full native recompilation of the game engine targeting ARM64 macOS with a custom DirectX 8 → Metal translation layer.
 
-Additionally, there is a complementary project repository for fixing and improving game data and assets such as
-INI scripts, GUI, AI, maps, models, textures, audio, localization. You can find it
-[here](https://github.com/TheSuperHackers/GeneralsGamePatch/) and contribute to it as well.
+---
 
-## Project Overview
+## Current Status
 
-The game was originally developed using Visual Studio 6 and C++98. We've updated the code to be compatible with Visual
-Studio 2022 and C++20.
+| Area | Status |
+|:---|:---:|
+| Native Apple Silicon (ARM64) build | ✅ Working |
+| Direct Metal rendering backend | ✅ Working |
+| Singleplayer (Skirmish & Campaign) | ✅ Working |
+| Online multiplayer (macOS ↔ macOS) | ✅ Working |
+| Online multiplayer (macOS ↔ Windows) | 🔄 In Progress |
+| Native macOS audio (AVAudioEngine) | ✅ Working |
+| macOS Launcher (SwiftUI) | ✅ Working |
+| Replay compatibility | ⚠️ Not guaranteed |
 
-The initial goal of this project is to fix critical bugs and implement improvements while maintaining compatibility with
-the original *Generals* version 1.08 and *Zero Hour* version 1.04. Once we can break retail compatibility, more fixes
-and features will be possible to implement.
+> **Note:** Cross-platform multiplayer (macOS ↔ Windows) requires deterministic math parity between ARM64 and x87 FPU pipelines. This is actively being worked on. See [docs/DETERMINISTIC_MATH.md](docs/DETERMINISTIC_MATH.md) for details.
 
-## Current Focus and Future Plans
+---
 
-Here's an overview of our current focus and future plans
+## Videos
 
-- **Modernizing the Codebase**: Transitioning to modern C++ standards and refactoring old code.
-- **Critical Bug Fixes**: Fixing game-breaking issues (e.g., fullscreen crash).
-- **Minor Bug Fixes**: Addressing minor bugs (e.g., UI issues, graphical glitches).
-- **Cross-Platform Support**: Expanding to more platforms. macOS (Apple Silicon) is fully supported with a native Metal rendering backend. Linux support is in progress.
-- **Engine Improvements**: Enhancing the game engine to improve performance and stability.
-- **Client-Side Features**: Enhancing the game's client with features such as an improved replay viewer and UI updates.
-- **Multiplayer Improvements**: Implementing a new game server and an upgraded matchmaking lobby.
-- **Tooling Improvements**: Developing new or improving existing tools for modding and game development.
-- **Community-Driven Improvements**: Once the community grows, we plan to incorporate more features, updates, and
-  changes based on player feedback.
+| | |
+|:---|:---|
+| 🎬 **Installation Guide** | [YouTube — How to install C&C Generals on macOS](https://www.youtube.com/@okjid) |
+| 🎮 **Native Metal Demo** | [YouTube — Native macOS Metal gameplay](https://www.youtube.com/@okjid) |
+| 🔥 **Stress Test (8 Brutal AIs)** | [YouTube — 8 bot stress test, ~40 FPS stable](https://www.youtube.com/@okjid) |
 
-## Running the Game
+---
 
-To run *Generals* or *Zero Hour* using this project, you need to have the original *Command & Conquer: Generals and Zero Hour* game
-installed. The easiest way to get it is through *Command & Conquer The Ultimate Collection*
-on [Steam](https://store.steampowered.com/bundle/39394). Once the game is ready, download the latest version of the
-project from [GitHub Releases](https://github.com/TheSuperHackers/GeneralsGameCode/releases), extract the necessary 
-files, and follow the instructions in the [Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki).
+## How This Differs from GeneralsX
 
+This project is a separate effort with different goals:
 
-## Joining the Community
+| | This Port | GeneralsX |
+|:---|:---|:---|
+| **Target platform** | macOS Apple Silicon (native) | macOS via CrossOver / Wine |
+| **Rendering** | Custom DX8 → Metal bridge | DXVK / MoltenVK / Wine D3D |
+| **Online** | Generals Online (new multiplayer) | GameRanger / LAN |
+| **Simulation** | Targeting deterministic cross-platform sync | Windows-only simulation |
+| **Codebase** | Fork of Generals Online (GOD Team) | Fork of TheSuperHackers |
 
-You can chat and discuss the development of the project on our [Discord channel](https://www.community-outpost.com/discord) to get the latest updates,
-report bugs, and contribute to the project!
+Both projects share the same goal of keeping C&C Generals alive. This port focuses specifically on delivering a first-class native experience on Apple Silicon with Generals Online multiplayer support.
 
-## Building the Game Yourself
+---
 
-We provide support for building the project on Windows, Linux, and macOS. For detailed build instructions, check the
-[Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki/build_guides), which includes guides for VS6, VS2022,
-Docker, CLion, and links to forks supporting additional versions.
+## Quick Start
 
-### Quick Start
+### Prerequisites
+- Apple Silicon Mac (M1/M2/M3/M4)
+- macOS 14+ (Sonoma or later)
+- Xcode Command Line Tools (`xcode-select --install`)
+- Original C&C Generals Zero Hour game files ([Steam](https://store.steampowered.com/bundle/39394))
 
-**Windows (Visual Studio 2022)**
+### Build & Run
 ```bash
-cmake --preset win32
-cmake --build build/win32 --config Release
-```
-
-**Linux (via Docker)**
-```bash
-./scripts/docker-build.sh              # Build using Docker
-./scripts/docker-install.sh --detect # Install to your game
-```
-
-**macOS (Apple Silicon)**
-
-The macOS port runs natively on Apple Silicon (ARM64) with a Metal rendering backend.
-For full setup instructions, prerequisites, and technical documentation, see the
-[macOS Port Documentation](Platform/MacOS/docs/README.md).
-
-```bash
-sh build_run_mac.sh          # Build and run
+sh build_run_mac.sh          # Build and launch
 sh build_run_mac.sh --clean  # Clean rebuild
 ```
 
-### Dependency management
+For detailed setup, prerequisites, and technical documentation see:
+- **[Setup Guide](Platform/MacOS/docs/SETUP.md)** — Full installation walkthrough
+- **[macOS Port Documentation](Platform/MacOS/docs/README.md)** — Architecture overview
 
-The repository uses a vcpkg manifest (`vcpkg.json`) paired with a lockfile (`vcpkg-lock.json`). When you add or upgrade
-dependencies, run `vcpkg install --x-manifest-root . --triplet <triplet>` with `VCPKG_FEATURE_FLAGS=versions` so the
-lockfile picks up the new versions and include the updated lockfile in your change. GitHub Actions consumes these ports
-through `VCPKG_BINARY_SOURCES=clear;files,<workspace>/vcpkg-bincache,readwrite` (paired with an `actions/cache` entry for
-that folder), so the first CI build warms the cache and subsequent builds pull prebuilt binaries instead of
-re-compiling everything.
+---
+
+## Documentation
+
+| Document | Description |
+|:---|:---|
+| [Platform/MacOS/docs/README.md](Platform/MacOS/docs/README.md) | macOS port architecture overview |
+| [Platform/MacOS/docs/SETUP.md](Platform/MacOS/docs/SETUP.md) | Build setup and prerequisites |
+| [Platform/MacOS/docs/RENDERING.md](Platform/MacOS/docs/RENDERING.md) | DX8 → Metal rendering pipeline |
+| [Platform/MacOS/docs/FILE_SYSTEM.md](Platform/MacOS/docs/FILE_SYSTEM.md) | File system and resource resolution |
+| [Platform/MacOS/docs/DEVELOPMENT.md](Platform/MacOS/docs/DEVELOPMENT.md) | Development guidelines |
+| [Platform/MacOS/docs/BUILD_SYSTEM.md](Platform/MacOS/docs/BUILD_SYSTEM.md) | CMake build system details |
+| [Platform/MacOS/docs/IMPLEMENTATION_STATUS.md](Platform/MacOS/docs/IMPLEMENTATION_STATUS.md) | Detailed implementation status |
+| [docs/MACOS_INSTALL.md](docs/MACOS_INSTALL.md) | Player-facing installation guide |
+| [docs/DETERMINISTIC_MATH.md](docs/DETERMINISTIC_MATH.md) | Cross-platform math synchronization |
+| [docs/FAQ.md](docs/FAQ.md) | Frequently asked questions |
+
+---
+
+## Related Pull Requests
+
+This port is being contributed back to the upstream projects:
+
+- **GameClient** — [GeneralsOnlineDevelopmentTeam/GameClient #457](https://github.com/GeneralsOnlineDevelopmentTeam/GameClient/pull/457)
+- **GeneralsGameCode** — [TheSuperHackers/GeneralsGameCode #2602](https://github.com/TheSuperHackers/GeneralsGameCode/pull/2602)
+
+---
+
+## Upstream
+
+This fork is based on the [Generals Online Development Team](https://github.com/GeneralsOnlineDevelopmentTeam/GameClient) codebase. The original community project by [TheSuperHackers](https://github.com/TheSuperHackers/GeneralsGameCode) serves as the foundation for all Generals source code efforts.
 
 ## Contributing
 
-We welcome contributions to the project! If you’re interested in contributing, you need to have knowledge of C++. Join
-the developer chat on Discord for more information on how to get started. Please make sure to read our
-[Contributing Guidelines](CONTRIBUTING.md) before submitting a pull request. You can also check out 
-the [Wiki](https://github.com/TheSuperHackers/GeneralsGameCode/wiki) for more detailed documentation.
+Contributions are welcome! If you're interested in helping with the macOS port — especially in areas like deterministic math, Metal rendering, or audio — join the discussion in the related PRs above or open an issue.
 
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request.
 
 ## License & Legal Disclaimer
 
 EA has not endorsed and does not support this product. All trademarks are the property of their respective owners.
 
-This project is licensed under the [GPL-3.0 License](https://www.gnu.org/licenses/gpl-3.0.html), which allows you to
-freely modify and distribute the source code under the terms of this license. Please see [LICENSE.md](LICENSE.md) 
-for details.
+This project is licensed under the [GPL-3.0 License](https://www.gnu.org/licenses/gpl-3.0.html). See [LICENSE.md](LICENSE.md) for details.
