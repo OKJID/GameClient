@@ -1,7 +1,6 @@
 /**
  * MetalInterface8.mm — IDirect3D8 implementation on Apple Metal
  */
-#ifdef __APPLE__
 
 #import "MetalInterface8.h"
 #import "MetalDevice8.h"
@@ -152,83 +151,7 @@ STDMETHODIMP MetalInterface8::GetDeviceCaps(UINT Adapter, DWORD DeviceType,
   if (!pCaps)
     return E_POINTER;
 
-  // Fill caps directly — no need to create a temporary MetalDevice8.
-  // These are static capabilities and don't depend on device state.
-  memset(pCaps, 0, sizeof(*pCaps));
-  pCaps->DeviceType = D3DDEVTYPE_HAL;
-  pCaps->DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
-  pCaps->MaxSimultaneousTextures = 8;
-  pCaps->MaxTextureBlendStages = 8;
-  
-  // Architecture adaptation
-  pCaps->VertexShaderVersion = 0;
-  pCaps->PixelShaderVersion = 0;
-  pCaps->MaxPrimitiveCount = 0xFFFFFF;
-  pCaps->MaxVertexIndex = 0xFFFFFF;
-  pCaps->MaxStreams = 8;
-  pCaps->MaxActiveLights = 4;
-  pCaps->MaxTextureWidth = 8192;
-  pCaps->MaxTextureHeight = 8192;
-
-  // RasterCaps: fog range + fog table + fog vertex + zbias + mipmap LOD bias
-  pCaps->RasterCaps =
-      D3DPRASTERCAPS_FOGRANGE | D3DPRASTERCAPS_FOGTABLE |
-      D3DPRASTERCAPS_FOGVERTEX | D3DPRASTERCAPS_ZBIAS |
-      D3DPRASTERCAPS_MIPMAPLODBIAS | D3DPRASTERCAPS_ZTEST;
-
-  // TextureCaps: power-of-two not required, alpha, projective, cubemap, volumemap
-  pCaps->TextureCaps =
-      D3DPTEXTURECAPS_ALPHA | D3DPTEXTURECAPS_PROJECTED |
-      D3DPTEXTURECAPS_CUBEMAP | D3DPTEXTURECAPS_MIPMAP |
-      D3DPTEXTURECAPS_MIPCUBEMAP;
-
-  // TextureFilterCaps: all filtering modes Metal supports
-  pCaps->TextureFilterCaps =
-      D3DPTFILTERCAPS_MINFPOINT | D3DPTFILTERCAPS_MINFLINEAR |
-      D3DPTFILTERCAPS_MINFANISOTROPIC |
-      D3DPTFILTERCAPS_MAGFPOINT | D3DPTFILTERCAPS_MAGFLINEAR |
-      D3DPTFILTERCAPS_MIPFPOINT | D3DPTFILTERCAPS_MIPFLINEAR;
-
-  // CubeTextureFilterCaps: same as TextureFilterCaps
-  pCaps->CubeTextureFilterCaps = pCaps->TextureFilterCaps;
-
-  // TextureAddressCaps: wrap, mirror, clamp, border, mirroronce
-  pCaps->TextureAddressCaps =
-      D3DPTADDRESSCAPS_WRAP | D3DPTADDRESSCAPS_MIRROR |
-      D3DPTADDRESSCAPS_CLAMP | D3DPTADDRESSCAPS_BORDER |
-      D3DPTADDRESSCAPS_MIRRORONCE;
-
-  // TextureOpCaps: all operations the W3D ShaderClass::Apply() checks for
-  pCaps->TextureOpCaps =
-      D3DTEXOPCAPS_DISABLE | D3DTEXOPCAPS_SELECTARG1 | D3DTEXOPCAPS_SELECTARG2 |
-      D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_MODULATE4X |
-      D3DTEXOPCAPS_ADD | D3DTEXOPCAPS_ADDSIGNED | D3DTEXOPCAPS_ADDSIGNED2X |
-      D3DTEXOPCAPS_SUBTRACT | D3DTEXOPCAPS_ADDSMOOTH |
-      D3DTEXOPCAPS_BLENDDIFFUSEALPHA | D3DTEXOPCAPS_BLENDTEXTUREALPHA |
-      D3DTEXOPCAPS_BLENDFACTORALPHA | D3DTEXOPCAPS_BLENDCURRENTALPHA |
-      D3DTEXOPCAPS_MODULATEALPHA_ADDCOLOR |
-      D3DTEXOPCAPS_BUMPENVMAP | D3DTEXOPCAPS_BUMPENVMAPLUMINANCE |
-      D3DTEXOPCAPS_DOTPRODUCT3;
-
-  // PrimitiveMiscCaps
-  pCaps->PrimitiveMiscCaps =
-      D3DPMISCCAPS_COLORWRITEENABLE | D3DPMISCCAPS_CULLNONE |
-      D3DPMISCCAPS_CULLCW | D3DPMISCCAPS_CULLCCW |
-      D3DPMISCCAPS_BLENDOP | D3DPMISCCAPS_MASKZ;
-
-  pCaps->Caps2 = D3DCAPS2_FULLSCREENGAMMA;
-  pCaps->SrcBlendCaps = 0x1FFF;
-  pCaps->DestBlendCaps = 0x1FFF;
-  pCaps->ZCmpCaps = 0xFF;
-  pCaps->AlphaCmpCaps = 0xFF;
-  pCaps->StencilCaps = 0xFF;
-
-  pCaps->MaxTextureRepeat = 8192;
-  pCaps->MaxAnisotropy = 16;
-  pCaps->MaxPointSize = 256.0f;
-  pCaps->MaxUserClipPlanes = 6;
-  pCaps->MaxVertexBlendMatrices = 4;
-
+  MetalDevice8::FillDeviceCaps(pCaps);
   return D3D_OK;
 }
 
@@ -270,4 +193,4 @@ extern "C" void *_CreateMetalInterface8_Wrapper() {
   return static_cast<void *>(CreateMetalInterface8());
 }
 
-#endif // __APPLE__
+

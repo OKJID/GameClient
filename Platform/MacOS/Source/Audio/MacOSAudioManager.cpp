@@ -2,15 +2,20 @@
 #include "Common/AudioAffect.h"
 #include "Common/AudioEventInfo.h"
 #include "Common/AudioEventRTS.h"
+#include "Common/AudioHandleSpecialValues.h"
 #include "Common/AudioRequest.h"
 #include "Common/Debug.h"
 #include "Common/GameMemory.h"
 #include "Common/FileSystem.h"
 #include "Common/file.h"
+#include "Common/System/NativeFileSystem.h"
+#include "Common/GlobalData.h"
 #include "../Utils/MacDebug.h"
 #include <unistd.h>
 
 extern FileSystem *TheFileSystem;
+
+static const char* AUDIO_CACHE_DIR_FORMAT = "%sAudioCache/";
 
 #pragma mark - WAV Loading from Engine FileSystem
 
@@ -150,6 +155,12 @@ void MacOSAudioManager::init() {
 }
 
 void MacOSAudioManager::reset() {
+    int activeCount = 0;
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying) activeCount++;
+    }
+    DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() called. %d sources were active.", activeCount));
+
     AudioManager::reset();
     avbridge_stopAll();
     for (auto &pa : m_sources) {
@@ -158,6 +169,8 @@ void MacOSAudioManager::reset() {
         if (pa.eventRTS) { delete pa.eventRTS; pa.eventRTS = nullptr; }
         pa.handle = 0;
     }
+
+    DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() completed. Buffer cache has %zu entries.", m_bufferCache.size()));
 }
 
 void MacOSAudioManager::update() {
@@ -219,10 +232,7 @@ PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand) {
 
 int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) {
     std::string originalPath = path.str();
-    std::string pathStr = originalPath;
-    for (size_t i = 0; i < pathStr.length(); ++i) {
-        if (pathStr[i] == '\\') pathStr[i] = '/';
-    }
+    std::string pathStr = NativeFileSystem::get_safe_path(originalPath);
 
     std::string cacheKey = originalPath + (forceMono ? "_mono" : "_stereo");
     auto hit = m_bufferCache.find(cacheKey);
@@ -288,6 +298,58 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     return bufID;
 }
 
+std::string MacOSAudioManager::getPhysicalPathForStream(const std::string& vfsPath) {
+    std::string safePath = NativeFileSystem::get_safe_path(vfsPath);
+    if (NativeFileSystem::exists(safePath)) {
+        return safePath;
+    }
+
+    if (!TheFileSystem || !TheFileSystem->doesFileExist(vfsPath.c_str())) {
+        return "";
+    }
+
+    File *f = TheFileSystem->openFile(vfsPath.c_str(), File::READ);
+    if (!f) return "";
+
+    size_t fileSize = f->size();
+    if (fileSize == 0 || fileSize > 50 * 1024 * 1024) { f->close(); return ""; }
+
+    uint8_t *buf = (uint8_t*)malloc(fileSize);
+    if (!buf) { f->close(); return ""; }
+
+    Int bytesRead = f->read(buf, (Int)fileSize);
+    f->close();
+
+    if (bytesRead <= 0 || (size_t)bytesRead != fileSize) { free(buf); return ""; }
+
+    AsciiString cachePath;
+    cachePath.format(AUDIO_CACHE_DIR_FORMAT, TheGlobalData->getPath_UserData().str());
+    cachePath.concat(vfsPath.c_str());
+
+    std::string safeMacPath = NativeFileSystem::get_safe_path(cachePath.str());
+
+    bool writeNeeded = true;
+    if (NativeFileSystem::exists(safeMacPath)) {
+        if (NativeFileSystem::file_size(safeMacPath) == fileSize) {
+            writeNeeded = false;
+        }
+    }
+
+    if (writeNeeded) {
+        File *outFile = TheFileSystem->openFile(cachePath.str(), File::WRITE);
+        if (outFile) {
+            outFile->write(buf, (Int)fileSize);
+            outFile->close();
+        } else {
+            free(buf);
+            return "";
+        }
+    }
+
+    free(buf);
+    return safeMacPath;
+}
+
 #pragma mark - Request Processing
 
 void MacOSAudioManager::processRequestList() {
@@ -337,18 +399,21 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
         return;
     }
 
-    bool isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
-    int bufID = loadAudioBuffer(filename, isPos);
-    if (bufID <= 0) {
-        // Suppress this log because it will spam every time a missing/ADPCM sound is triggered, nuking FPS.
-        // DEBUG_AUDIO_MAC(("playAudioEvent: buffer failed for %s. Deleting event.", filename.str()));
-        delete event;
-        return;
-    }
-
     int priority = 50;
     const AudioEventInfo *info = event->getAudioEventInfo();
     if (info) priority = info->m_priority;
+
+    bool isStream = (info && (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming));
+    int bufID = 0;
+
+    if (!isStream) {
+        bool isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
+        bufID = loadAudioBuffer(filename, isPos);
+        if (bufID <= 0) {
+            delete event;
+            return;
+        }
+    }
 
     PlayingAudio *pa = findFreeSource(priority);
     if (!pa) {
@@ -370,13 +435,22 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     float pitch = event->getPitchShift() > 0 ? event->getPitchShift() : 1.0f;
 
     int playerID = -1;
-    const Coord3D *pos = event->getPosition();
-    if (pos && event->isPositionalAudio()) {
-        playerID = avbridge_play3D(bufID, gain, pitch,
-                                   pos->x, pos->y, pos->z,
-                                   500.0f, 50.0f);
+    if (isStream) {
+        std::string physicalPath = getPhysicalPathForStream(filename.str());
+        if (!physicalPath.empty()) {
+            playerID = avbridge_playStream(physicalPath.c_str(), gain, pitch, false);
+        } else {
+            DEBUG_AUDIO_MAC(("playAudioEvent: Failed to extract stream %s", filename.str()));
+        }
     } else {
-        playerID = avbridge_play(bufID, gain, pitch, false);
+        const Coord3D *pos = event->getPosition();
+        if (pos && event->isPositionalAudio()) {
+            playerID = avbridge_play3D(bufID, gain, pitch,
+                                       pos->x, pos->y, pos->z,
+                                       500.0f, 50.0f);
+        } else {
+            playerID = avbridge_play(bufID, gain, pitch, false);
+        }
     }
 
     if (playerID < 0) {
@@ -404,11 +478,16 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *event
     AsciiString filename = eventCopy.getFilename();
     if (filename.isEmpty()) return;
 
-    int bufID = loadAudioBuffer(filename, false);
-    if (bufID <= 0) return;
-
     float baseVol = 1.0f;
     const AudioEventInfo *info = eventCopy.getAudioEventInfo();
+
+    bool isStream = (info && (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming));
+    int bufID = 0;
+
+    if (!isStream) {
+        bufID = loadAudioBuffer(filename, false);
+        if (bufID <= 0) return;
+    }
     if (info) {
         if (info->m_soundType == AT_Music) baseVol = getVolume(AudioAffect_Music);
         else if (info->m_soundType == AT_Streaming) baseVol = getVolume(AudioAffect_Speech);
@@ -420,7 +499,12 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *event
     float gain = eventCopy.getVolume() * baseVol;
     float pitch = eventCopy.getPitchShift() > 0 ? eventCopy.getPitchShift() : 1.0f;
 
-    avbridge_play(bufID, gain, pitch, false);
+    if (isStream) {
+        std::string pathStr = NativeFileSystem::get_safe_path(filename.str());
+        avbridge_playStream(pathStr.c_str(), gain, pitch, false);
+    } else {
+        avbridge_play(bufID, gain, pitch, false);
+    }
 }
 
 #pragma mark - Listener
@@ -473,12 +557,40 @@ void MacOSAudioManager::killAudioEventImmediately(AudioHandle audioEvent) {
 
 #pragma mark - Stubs
 
-void MacOSAudioManager::nextMusicTrack() {}
-void MacOSAudioManager::prevMusicTrack() {}
-Bool MacOSAudioManager::isMusicPlaying() const { return FALSE; }
+void MacOSAudioManager::nextMusicTrack() {
+    AsciiString trackName = getMusicTrackName();
+    TheAudio->removeAudioEvent(AHSV_StopTheMusic);
+    trackName = TheAudio->nextTrackName(trackName);
+    AudioEventRTS newTrack(trackName);
+    TheAudio->addAudioEvent(&newTrack);
+}
+void MacOSAudioManager::prevMusicTrack() {
+    AsciiString trackName = getMusicTrackName();
+    TheAudio->removeAudioEvent(AHSV_StopTheMusic);
+    trackName = TheAudio->prevTrackName(trackName);
+    AudioEventRTS newTrack(trackName);
+    TheAudio->addAudioEvent(&newTrack);
+}
+Bool MacOSAudioManager::isMusicPlaying() const {
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying && pa.eventRTS && pa.eventRTS->getAudioEventInfo()) {
+            if (pa.eventRTS->getAudioEventInfo()->m_soundType == AT_Music) return TRUE;
+        }
+    }
+    return FALSE;
+}
 Bool MacOSAudioManager::isMusicAlreadyLoaded() const { return TRUE; }
 Bool MacOSAudioManager::hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const { return FALSE; }
-AsciiString MacOSAudioManager::getMusicTrackName() const { return ""; }
+AsciiString MacOSAudioManager::getMusicTrackName() const {
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying && pa.eventRTS && pa.eventRTS->getAudioEventInfo()) {
+            if (pa.eventRTS->getAudioEventInfo()->m_soundType == AT_Music) {
+                return pa.eventRTS->getEventName();
+            }
+        }
+    }
+    return AsciiString("");
+}
 void MacOSAudioManager::openDevice() {}
 void MacOSAudioManager::closeDevice() {}
 void *MacOSAudioManager::getDevice() { return nullptr; }

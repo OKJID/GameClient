@@ -3772,6 +3772,42 @@ void ControlBar::hideSpecialPowerShortcut()
 
 }
 
+#ifdef __APPLE__
+// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored UI
+// elements (special power shortcut bar, right HUD) when the display resolution
+// changes during gameplay. Full recreateControlBar() crashes mid-game, so this
+// lightweight approach only adjusts X coordinates by the width delta.
+void ControlBar::repositionForResolution(Int oldW, Int newW)
+{
+	if (oldW == newW || oldW == 0) return;
+
+	if (m_specialPowerShortcutParent) {
+		if (m_animateWindowManagerForGenShortcuts
+		    && !m_animateWindowManagerForGenShortcuts->isEmpty()) {
+			m_animateWindowManagerForGenShortcuts->reset();
+		}
+
+		Int x, y, w, h;
+		m_specialPowerShortcutParent->winGetPosition(&x, &y);
+		m_specialPowerShortcutParent->winGetSize(&w, &h);
+		Int newW_panel = static_cast<Int>(static_cast<Real>(w) * newW / oldW);
+		Int newX = newW - newW_panel;
+		m_specialPowerShortcutParent->winSetPosition(newX, y);
+		m_specialPowerShortcutParent->winSetSize(newW_panel, h);
+	}
+
+	if (m_rightHUDWindow) {
+		Int x, y, w, h;
+		m_rightHUDWindow->winGetPosition(&x, &y);
+		m_rightHUDWindow->winGetSize(&w, &h);
+		Int newX = static_cast<Int>(static_cast<Real>(x) * newW / oldW);
+		Int newW_hud = static_cast<Int>(static_cast<Real>(w) * newW / oldW);
+		m_rightHUDWindow->winSetPosition(newX, y);
+		m_rightHUDWindow->winSetSize(newW_hud, h);
+	}
+}
+#endif
+
 void ControlBar::setFullViewportHeight()
 {
 	TheTacticalView->setHeight(TheDisplay->getHeight());

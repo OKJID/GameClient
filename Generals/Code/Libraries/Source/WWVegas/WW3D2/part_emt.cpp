@@ -156,7 +156,11 @@ ParticleEmitterClass::ParticleEmitterClass(const ParticleEmitterClass & src) :
 	FirstTime = true;
 	IsComplete = false;
 
+#ifdef __APPLE__
+	NameString = src.NameString ? ::_strdup (src.NameString) : nullptr;
+#else
 	NameString = ::_strdup (src.NameString);
+#endif
 }
 
 

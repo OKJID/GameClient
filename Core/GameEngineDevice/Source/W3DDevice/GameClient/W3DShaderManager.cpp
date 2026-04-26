@@ -2606,12 +2606,15 @@ void W3DShaderManager::init()
 	if ((res=W3DShaderManager::getChipset()) != 0)
 	{
 		m_currentChipset = res;	//cache the current chipset.
+		DEBUG_RENDER_CORE_MAC(("W3DShaderManager::init chipset=%d", (int)res));
 
 		//Some of our effects require an offscreen render target, so try creating it here.
 		HRESULT hr=DX8Wrapper::_Get_D3D_Device8()->GetRenderTarget(&m_oldRenderSurface);
 
-		if (hr != S_OK || !m_oldRenderSurface)
+		if (hr != S_OK || !m_oldRenderSurface) {
+			DEBUG_RENDER_CORE_MAC(("W3DShaderManager::init EARLY EXIT: GetRenderTarget hr=0x%x surf=%p", (unsigned)hr, m_oldRenderSurface));
 			return;
+		}
 
 		m_oldRenderSurface->GetDesc(&desc);
 		
@@ -2620,9 +2623,11 @@ void W3DShaderManager::init()
 		if (desc.MultiSampleType == D3DMULTISAMPLE_NONE)
 		{
 			hr=DX8Wrapper::_Get_D3D_Device8()->CreateTexture(desc.Width,desc.Height,1,D3DUSAGE_RENDERTARGET,desc.Format,D3DPOOL_DEFAULT,&m_renderTexture);
+			DEBUG_RENDER_CORE_MAC(("RTT CreateTexture (no MSAA) hr=0x%x tex=%p", (unsigned)hr, m_renderTexture));
 		}
 		else
 		{
+			DEBUG_RENDER_CORE_MAC(("RTT SKIPPED: MSAA type=%u", (unsigned)desc.MultiSampleType));
 			// Force failure path to avoid MSAA mismatch
 			hr = E_FAIL;
 		}
@@ -2935,6 +2940,8 @@ ChipsetType W3DShaderManager::getChipset()
 	ChipsetType chip=DC_UNKNOWN;
 	IDirect3D8* d3d8Interface=DX8Wrapper::_Get_D3D8();
 
+	DEBUG_RENDER_CORE_MAC(("getChipset: d3d8=%p device=%p globalOverride=%d", d3d8Interface, DX8Wrapper::_Get_D3D_Device8(), TheGlobalData ? TheGlobalData->m_chipSetType : -1));
+
 	if (d3d8Interface && DX8Wrapper::_Get_D3D_Device8())
 	{
 
@@ -2942,6 +2949,8 @@ ChipsetType W3DShaderManager::getChipset()
 		::ZeroMemory(&did, sizeof(D3DADAPTER_IDENTIFIER8));
 	/*	HRESULT res = */ d3d8Interface->GetAdapterIdentifier(0,D3DENUM_NO_WHQL_LEVEL,&did);
 		*((LARGE_INTEGER*)&m_driverVersion) = did.DriverVersion;
+
+		DEBUG_RENDER_CORE_MAC(("getChipset: VendorId=0x%x DeviceId=0x%x", did.VendorId, did.DeviceId));
 
 		if(did.VendorId == DC_NVIDIA_VENDOR_ID)
 		{
@@ -3001,6 +3010,8 @@ ChipsetType W3DShaderManager::getChipset()
 		sprintf(buf,"%d.%d",DX8Wrapper::Get_Current_Caps()->Get_Pixel_Shader_Major_Version(),DX8Wrapper::Get_Current_Caps()->Get_Pixel_Shader_Minor_Version());
 		sscanf(buf,"%f",&pixelShaderVersion);
 
+		DEBUG_RENDER_CORE_MAC(("getChipset: maxTex=%d psVer=%f psMajor=%d psMinor=%d", maxTextures, pixelShaderVersion, DX8Wrapper::Get_Current_Caps()->Get_Pixel_Shader_Major_Version(), DX8Wrapper::Get_Current_Caps()->Get_Pixel_Shader_Minor_Version()));
+
 		if (maxTextures >= 4)
 		{	if (pixelShaderVersion >= 1.1f)
 				chip=DC_GENERIC_PIXEL_SHADER_1_1;
@@ -3009,6 +3020,8 @@ ChipsetType W3DShaderManager::getChipset()
 			if (maxTextures >= 8 && pixelShaderVersion >= 2.0f)
 				chip=DC_GENERIC_PIXEL_SHADER_2_0;
 		}
+
+		DEBUG_RENDER_CORE_MAC(("getChipset: result=%d", (int)chip));
 	}
 
 	return chip;
@@ -3021,6 +3034,7 @@ ChipsetType W3DShaderManager::getChipset()
 //=============================================================================
 HRESULT W3DShaderManager::LoadAndCreateD3DShader(const char* strFilePath, const DWORD* pDeclaration, DWORD Usage, Bool ShaderType, DWORD* pHandle)
 {
+	DEBUG_RENDER_CORE_MAC(("LoadAndCreateD3DShader: '%s' type=%s chipset=%d", strFilePath, ShaderType ? "VS" : "PS", (int)getChipset()));
 	if (getChipset() < DC_GENERIC_PIXEL_SHADER_1_1)
 		return E_FAIL;	//don't allow loading any shaders if hardware can't handle it.
 

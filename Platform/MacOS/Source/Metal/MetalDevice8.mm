@@ -4,7 +4,6 @@
  * Stage 0: Skeleton — all methods log and return D3D_OK.
  * BeginScene/EndScene/Present/Clear have real Metal frame lifecycle code.
  */
-#ifdef __APPLE__
 
 // Import ObjC/Metal frameworks FIRST, before win_compat.h
 #import <AppKit/AppKit.h>
@@ -1158,26 +1157,44 @@ STDMETHODIMP MetalDevice8::GetAdapterIdentifier(UINT a, DWORD f,
   return D3D_OK;
 }
 
-STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
-  if (!pCaps)
-    return E_POINTER;
+void MetalDevice8::FillDeviceCaps(D3DCAPS8 *pCaps) {
   memset(pCaps, 0, sizeof(*pCaps));
   pCaps->DeviceType = D3DDEVTYPE_HAL;
   pCaps->DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
   pCaps->MaxSimultaneousTextures = 8;
   pCaps->MaxTextureBlendStages = 8;
-  pCaps->VertexShaderVersion = 0x0101;
-  pCaps->PixelShaderVersion = 0x0101;
+  pCaps->VertexShaderVersion = 0; // Fixed function fallback
+  pCaps->PixelShaderVersion = 0;  // Fixed function fallback
   pCaps->MaxPrimitiveCount = 0xFFFFFF;
   pCaps->MaxVertexIndex = 0xFFFFFF;
   pCaps->MaxStreams = 8;
   pCaps->MaxActiveLights = 4;
-  pCaps->MaxTextureWidth = 4096;
-  pCaps->MaxTextureHeight = 4096;
+  pCaps->MaxTextureWidth = 8192;
+  pCaps->MaxTextureHeight = 8192;
+
   pCaps->RasterCaps =
-      D3DPRASTERCAPS_FOGRANGE | 0x00000100 | 0x00000200 | D3DPRASTERCAPS_ZBIAS;
-  pCaps->TextureCaps = 0x00000001 | 0x00000002 | 0x00000004 | D3DPTEXTURECAPS_MIPMAP |
-                       D3DPTEXTURECAPS_CUBEMAP | D3DPTEXTURECAPS_MIPCUBEMAP;
+      D3DPRASTERCAPS_FOGRANGE | D3DPRASTERCAPS_FOGTABLE |
+      D3DPRASTERCAPS_FOGVERTEX | D3DPRASTERCAPS_ZBIAS |
+      D3DPRASTERCAPS_MIPMAPLODBIAS | D3DPRASTERCAPS_ZTEST;
+
+  pCaps->TextureCaps =
+      D3DPTEXTURECAPS_ALPHA | D3DPTEXTURECAPS_PROJECTED |
+      D3DPTEXTURECAPS_CUBEMAP | D3DPTEXTURECAPS_MIPMAP |
+      D3DPTEXTURECAPS_MIPCUBEMAP;
+
+  pCaps->TextureFilterCaps =
+      D3DPTFILTERCAPS_MINFPOINT | D3DPTFILTERCAPS_MINFLINEAR |
+      D3DPTFILTERCAPS_MINFANISOTROPIC |
+      D3DPTFILTERCAPS_MAGFPOINT | D3DPTFILTERCAPS_MAGFLINEAR |
+      D3DPTFILTERCAPS_MIPFPOINT | D3DPTFILTERCAPS_MIPFLINEAR;
+
+  pCaps->CubeTextureFilterCaps = pCaps->TextureFilterCaps;
+
+  pCaps->TextureAddressCaps =
+      D3DPTADDRESSCAPS_WRAP | D3DPTADDRESSCAPS_MIRROR |
+      D3DPTADDRESSCAPS_CLAMP | D3DPTADDRESSCAPS_BORDER |
+      D3DPTADDRESSCAPS_MIRRORONCE;
+
   pCaps->TextureOpCaps =
       D3DTEXOPCAPS_DISABLE | D3DTEXOPCAPS_SELECTARG1 | D3DTEXOPCAPS_SELECTARG2 |
       D3DTEXOPCAPS_MODULATE | D3DTEXOPCAPS_MODULATE2X | D3DTEXOPCAPS_MODULATE4X |
@@ -1187,22 +1204,32 @@ STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
       D3DTEXOPCAPS_BLENDFACTORALPHA | D3DTEXOPCAPS_BLENDCURRENTALPHA |
       D3DTEXOPCAPS_MODULATEALPHA_ADDCOLOR | D3DTEXOPCAPS_MODULATECOLOR_ADDALPHA |
       D3DTEXOPCAPS_MODULATEINVALPHA_ADDCOLOR | D3DTEXOPCAPS_MODULATEINVCOLOR_ADDALPHA |
+      D3DTEXOPCAPS_BUMPENVMAP | D3DTEXOPCAPS_BUMPENVMAPLUMINANCE |
       D3DTEXOPCAPS_DOTPRODUCT3 | D3DTEXOPCAPS_MULTIPLYADD | D3DTEXOPCAPS_LERP;
-  pCaps->PrimitiveMiscCaps = D3DPMISCCAPS_COLORWRITEENABLE;
+
+  pCaps->PrimitiveMiscCaps =
+      D3DPMISCCAPS_COLORWRITEENABLE | D3DPMISCCAPS_CULLNONE |
+      D3DPMISCCAPS_CULLCW | D3DPMISCCAPS_CULLCCW |
+      D3DPMISCCAPS_BLENDOP | D3DPMISCCAPS_MASKZ;
+
   pCaps->Caps2 = D3DCAPS2_FULLSCREENGAMMA;
   pCaps->SrcBlendCaps = 0x1FFF;
   pCaps->DestBlendCaps = 0x1FFF;
   pCaps->ZCmpCaps = 0xFF;
   pCaps->AlphaCmpCaps = 0xFF;
   pCaps->StencilCaps = 0xFF;
-  // TextureFilterCaps: lets _Init_Filters set FILTER_TYPE_BEST=LINEAR.
-  // FILTER_TYPE_DEFAULT is then overridden back to POINT in texturefilter.cpp (#ifdef __APPLE__)
-  // to prevent DXT1 BC1-block boundary artifacts on UI buttons drawn via Render2DClass.
-  pCaps->TextureFilterCaps =
-      D3DPTFILTERCAPS_MINFPOINT | D3DPTFILTERCAPS_MINFLINEAR |
-      D3DPTFILTERCAPS_MINFANISOTROPIC |
-      D3DPTFILTERCAPS_MAGFPOINT | D3DPTFILTERCAPS_MAGFLINEAR |
-      D3DPTFILTERCAPS_MIPFPOINT | D3DPTFILTERCAPS_MIPFLINEAR;
+
+  pCaps->MaxTextureRepeat = 8192;
+  pCaps->MaxAnisotropy = 16;
+  pCaps->MaxPointSize = 256.0f;
+  pCaps->MaxUserClipPlanes = 6;
+  pCaps->MaxVertexBlendMatrices = 4;
+}
+
+STDMETHODIMP MetalDevice8::GetDeviceCaps(D3DCAPS8 *pCaps) {
+  if (!pCaps)
+    return E_POINTER;
+  FillDeviceCaps(pCaps);
   return D3D_OK;
 }
 
@@ -3415,4 +3442,3 @@ extern "C" void MacOS_ClearTextureDirty(void *device) {
   }
 }
 
-#endif // __APPLE__

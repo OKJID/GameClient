@@ -3411,26 +3411,29 @@ static void drawFramerateBar()
 #ifdef __APPLE__
 #include "GameClient/Shell.h"
 #include "GameClient/InGameUI.h"
+#include "GameClient/ControlBar.h"
 #include "GameClient/HeaderTemplate.h"
 #include "Common/OptionPreferences.h"
 
-extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 	if (!TheDisplay) return;
 
 	int bitDepth = TheDisplay->getBitDepth();
-	Bool windowed = TheDisplay->getWindowed();
 
-	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, windowed);
+	printf("[MacOS] ApplyDisplayResolution: %dx%d (bitDepth=%d windowed=%d)\n", w, h, bitDepth, isWindowed);
 	fflush(stdout);
 
-	if (!TheDisplay->setDisplayMode(w, h, bitDepth, windowed)) {
+	if (!TheDisplay->setDisplayMode(w, h, bitDepth, isWindowed)) {
 		printf("[MacOS] ApplyDisplayResolution: setDisplayMode FAILED, aborting\n");
 		fflush(stdout);
 		return;
 	}
 
+	Int oldXRes = TheWritableGlobalData->m_xResolution;
+
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
+	TheWritableGlobalData->m_windowed = isWindowed;
 
 	if (TheHeaderTemplateManager) {
 		TheHeaderTemplateManager->onResolutionChanged();
@@ -3450,12 +3453,19 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h) {
 			TheInGameUI->recreateControlBar();
 			TheInGameUI->refreshCustomUiResources();
 		}
+	} else if (TheControlBar) {
+		// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored
+		// UI elements during gameplay resize (shortcut bar, right HUD).
+		TheControlBar->repositionForResolution(oldXRes, w);
 	}
 
 	OptionPreferences pref;
-	AsciiString resStr;
-	resStr.format("%d %d", w, h);
-	pref["Resolution"] = resStr;
+	if (isWindowed) {
+		AsciiString resStr;
+		resStr.format("%d %d", w, h);
+		pref["Resolution"] = resStr;
+	}
+	pref["Windowed"] = isWindowed ? "yes" : "no";
 	pref.write();
 
 	printf("[MacOS] ApplyDisplayResolution: completed %dx%d (shell=%s)\n",

@@ -389,15 +389,18 @@ void NGMP_OnlineServicesManager::FetchMacParityCRC(std::function<void(long)> fnC
 					VersionManifestResponse manifestResp = jsonObject.get<VersionManifestResponse>();
 					rawExeCRC = manifestResp.execrc_60;
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Dynamic CRC obtained: %llu", (unsigned long long)rawExeCRC);
+					DEBUG_NETWORK_MAC(("VERSION MANIFEST: Dynamic CRC obtained: %llu", (unsigned long long)rawExeCRC));
 				}
 				catch (...)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Failed to parse response. Body: %s", strBody.c_str());
+					DEBUG_NETWORK_MAC(("VERSION MANIFEST: Failed to parse response. Body: %s", strBody.c_str()));
 				}
 			}
 			else
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION MANIFEST: Failed to get manifest (status %d)", statusCode);
+				DEBUG_NETWORK_MAC(("VERSION MANIFEST: Failed to get manifest (status %d)", statusCode));
 			}
 
 			fnCallback(rawExeCRC);
@@ -460,20 +463,24 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 		NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
 				NetworkLog(ELogVerbosity::LOG_RELEASE, "Version Check: Response code was %d and body was %s", statusCode, strBody.c_str());
+				DEBUG_NETWORK_MAC(("Version Check: Response code was %d and body was %s", statusCode, strBody.c_str()));
 				try
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
+					DEBUG_NETWORK_MAC(("VERSION CHECK: Up To Date"));
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					VersionCheckResponse authResp = jsonObject.get<VersionCheckResponse>();
 
 					if (authResp.result == EVersionCheckResponseResult::OK)
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Up To Date");
+						DEBUG_NETWORK_MAC(("VERSION CHECK: Up To Date"));
 						fnCallback(true, false);
 					}
 					else if (authResp.result == EVersionCheckResponseResult::NEEDS_UPDATE)
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
+						DEBUG_NETWORK_MAC(("VERSION CHECK: Needs Update"));
 
 						// cache the data
 						m_patcher_name = authResp.patcher_name;
@@ -485,12 +492,14 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 					else
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed");
+						DEBUG_NETWORK_MAC(("VERSION CHECK: Failed"));
 						fnCallback(false, false);
 					}
 				}
 				catch (...)
 				{
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Failed to parse response");
+					DEBUG_NETWORK_MAC(("VERSION CHECK: Failed to parse response"));
 					fnCallback(false, false);
 				}
 			}, nullptr, -1);

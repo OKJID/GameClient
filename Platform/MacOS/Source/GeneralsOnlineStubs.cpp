@@ -1,4 +1,4 @@
-#ifdef __APPLE__
+
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -30,7 +30,7 @@ extern "C" {
     void sentry_capture_event(sentry_value_t) {}
     
 }
-#endif
+
 #include <string>
 
 bool SetStringInRegistry(std::string path, std::string key, std::string val) { return true; }

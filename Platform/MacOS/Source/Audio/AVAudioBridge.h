@@ -17,6 +17,7 @@ void    avbridge_unloadBuffer(int bufferID);
 int     avbridge_play(int bufferID, float gain, float pitch, bool loop);
 int     avbridge_play3D(int bufferID, float gain, float pitch,
                         float x, float y, float z, float maxDist, float refDist);
+int     avbridge_playStream(const char* filepath, float gain, float pitch, bool loop);
 void    avbridge_stop(int playerID);
 void    avbridge_stopAll(void);
 bool    avbridge_isPlaying(int playerID);

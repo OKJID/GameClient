@@ -795,8 +795,16 @@ void GameClient::update()
 	}
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
+#ifdef __APPLE__
 	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	m_legacyFrameMSAccured += currTime - m_LegacyFrameEndLastFrame;
+#else
+	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
+
+	if (!freezeTime)
+	{
+		m_legacyFrameMSAccured += currTime - m_LegacyFrameEndLastFrame;
+	}
 	m_LegacyFrameEndLastFrame = currTime;
 
 	// TODO_NGMP: This should really use partial frame intervals instead of a fixed 60hz update

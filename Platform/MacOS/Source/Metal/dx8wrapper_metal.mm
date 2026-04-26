@@ -592,7 +592,66 @@ bool DX8Wrapper::Set_Next_Render_Device()
 	return Set_Render_Device(new_dev);
 }
 
-bool DX8Wrapper::Toggle_Windowed() { return false; }
+extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
+
+static int s_windowedWidth = 800;
+static int s_windowedHeight = 600;
+
+class DX8WrapperHack : public DX8Wrapper {
+public:
+	static void SetWindowedState(bool w) {
+		IsWindowed = w;
+	}
+};
+
+extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes) {
+	DX8WrapperHack::SetWindowedState(isWindowed);
+	DX8Wrapper_IsWindowed = isWindowed;
+	s_windowedWidth = xRes;
+	s_windowedHeight = yRes;
+}
+
+bool DX8Wrapper::Toggle_Windowed() {
+	if (!_Hwnd) return false;
+
+	NSWindow* win = (__bridge NSWindow*)_Hwnd;
+
+	IsWindowed = !IsWindowed;
+	DX8Wrapper_IsWindowed = IsWindowed;
+
+	if (!IsWindowed) {
+		// Switch to Fullscreen
+		s_windowedWidth = ResolutionWidth;
+		s_windowedHeight = ResolutionHeight;
+
+		NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+		[win setStyleMask:NSWindowStyleMaskBorderless];
+		
+		NSScreen* screen = [win screen] ?: [NSScreen mainScreen];
+		ResolutionWidth = (int)screen.frame.size.width;
+		ResolutionHeight = (int)screen.frame.size.height;
+	} else {
+		// Switch to Windowed
+		NSApp.presentationOptions = NSApplicationPresentationDefault;
+		[win setStyleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable];
+		
+		ResolutionWidth = s_windowedWidth;
+		ResolutionHeight = s_windowedHeight;
+	}
+
+	Resize_And_Position_Window();
+	Reset_Device();
+
+	MacOS_ApplyDisplayResolution(ResolutionWidth, ResolutionHeight, IsWindowed);
+
+	return true;
+}
+
+extern "C" bool MacOS_ToggleFullscreen() {
+	WW3D::Toggle_Windowed();
+	return true;
+}
 
 bool DX8Wrapper::Set_Device_Resolution(int width, int height, int bits, int windowed, bool resize_window)
 {
@@ -617,64 +676,55 @@ bool DX8Wrapper::Set_Device_Resolution(int width, int height, int bits, int wind
 // Windows version: GetClientRect → AdjustWindowRect → SetWindowPos.
 // macOS equivalent: resize NSWindow content area → update CAMetalLayer → update MetalDevice8.
 
-extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
-
 void DX8Wrapper::Resize_And_Position_Window()
 {
 	if (!_Hwnd) return;
 
 	NSWindow* win = (__bridge NSWindow*)_Hwnd;
 	NSView* contentView = win.contentView;
-	CGSize currentSize = contentView.bounds.size;
+	CGFloat bsf = win.backingScaleFactor;
 
-	if ((int)currentSize.width == ResolutionWidth &&
-	    (int)currentSize.height == ResolutionHeight) {
-		return;
-	}
-
-	printf("[DX8Wrapper] Resize_And_Position_Window: %dx%d -> %dx%d\n",
-	       (int)currentSize.width, (int)currentSize.height,
-	       ResolutionWidth, ResolutionHeight);
+	printf("[DX8Wrapper] Resize_And_Position_Window: IsWindowed=%d, requested %dx%d\n",
+	       IsWindowed, ResolutionWidth, ResolutionHeight);
 	fflush(stdout);
-	DEBUG_RENDERING_MAC(("Resize_And_Position_Window: %dx%d -> %dx%d",
-	       (int)currentSize.width, (int)currentSize.height,
-	       ResolutionWidth, ResolutionHeight));
-
-	// 1. Resize NSWindow (mirrors AdjustWindowRect + SetWindowPos)
-	NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth, ResolutionHeight);
-	NSRect newFrame = [win frameRectForContentRect:contentRect];
 
 	NSScreen* screen = [win screen] ?: [NSScreen mainScreen];
-	NSRect visibleFrame = screen.visibleFrame;
 
-	// Clamp newFrame to visibleFrame to prevent it from going under the dock
-	// or off the top of the screen when Resolution is larger than usable area.
-	if (newFrame.size.width > visibleFrame.size.width) {
-		newFrame.size.width = visibleFrame.size.width;
+	if (!IsWindowed) {
+		[win setFrame:screen.frame display:YES animate:NO];
+		[win setLevel:NSMainMenuWindowLevel + 1];
+	} else {
+		[win setLevel:NSNormalWindowLevel];
+		NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth, ResolutionHeight);
+		NSRect newFrame = [win frameRectForContentRect:contentRect];
+		NSRect visibleFrame = screen.visibleFrame;
+
+		// Clamp newFrame to visibleFrame to prevent it from going under the dock
+		if (newFrame.size.width > visibleFrame.size.width) {
+			newFrame.size.width = visibleFrame.size.width;
+		}
+		if (newFrame.size.height > visibleFrame.size.height) {
+			newFrame.size.height = visibleFrame.size.height;
+		}
+
+		newFrame.origin.x = (visibleFrame.size.width - newFrame.size.width) / 2 + visibleFrame.origin.x;
+		newFrame.origin.y = NSMaxY(visibleFrame) - newFrame.size.height;
+
+		[win setFrame:newFrame display:YES animate:NO];
 	}
-	if (newFrame.size.height > visibleFrame.size.height) {
-		newFrame.size.height = visibleFrame.size.height;
-	}
 
-	newFrame.origin.x = (visibleFrame.size.width - newFrame.size.width) / 2 + visibleFrame.origin.x;
-	newFrame.origin.y = NSMaxY(visibleFrame) - newFrame.size.height;
-
-	[win setFrame:newFrame display:YES animate:NO];
-
-	// 2. Update CAMetalLayer drawable size
-	CGFloat bsf = win.backingScaleFactor;
+	// 2. Update CAMetalLayer drawable size (logical points — contentsScale handles Retina)
 	if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
 		CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
 		layer.contentsScale = bsf;
-		// Ensure aspect ratio is maintained and layer is letterboxed if window was clamped
 		layer.contentsGravity = kCAGravityResizeAspect; 
-		layer.drawableSize = CGSizeMake(ResolutionWidth * bsf, ResolutionHeight * bsf);
+		CGSize logicalSize = win.contentView.bounds.size;
+		layer.drawableSize = CGSizeMake(logicalSize.width, logicalSize.height);
 	}
 
-	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport
-	MacOS_UpdateMetalDeviceScreenSize(ResolutionWidth * bsf, ResolutionHeight * bsf);
-	DEBUG_RENDERING_MAC(("Resize_And_Position_Window: after UpdateMetalDeviceScreenSize(%.1f, %.1f)",
-	       ResolutionWidth * bsf, ResolutionHeight * bsf));
+	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport (logical points)
+	CGSize logicalSize = win.contentView.bounds.size;
+	MacOS_UpdateMetalDeviceScreenSize((int)logicalSize.width, (int)logicalSize.height);
 }
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──

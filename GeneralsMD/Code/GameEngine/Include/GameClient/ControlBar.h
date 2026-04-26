@@ -773,6 +773,11 @@ public:
 
 	void initSpecialPowershortcutBar( Player *player);
 
+#ifdef __APPLE__
+	// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored UI during gameplay resize
+	void repositionForResolution(Int oldW, Int newW);
+#endif
+
 	void triggerRadarAttackGlow();
 
 	void drawSpecialPowerShortcutMultiplierText();
