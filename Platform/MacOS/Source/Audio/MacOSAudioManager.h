@@ -89,6 +89,7 @@ protected:
   void playAudioEvent(AudioEventRTS *eventToPlay);
 
   int loadAudioBuffer(const AsciiString& path, bool forceMono = false);
+  std::string getPhysicalPathForStream(const std::string& vfsPath);
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand);
 

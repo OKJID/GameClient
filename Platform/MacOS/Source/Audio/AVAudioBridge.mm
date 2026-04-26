@@ -174,6 +174,17 @@ static void detachAndReattach(int slotIdx, bool to3D, AVAudioFormat *format) {
     }
 }
 
+static void ensure_engine_running(void) {
+    if (gEngine && !gEngine.isRunning) {
+        NSError *err = nil;
+        if ([gEngine startAndReturnError:&err]) {
+            DEBUG_AUDIO_MAC(("ensure_engine_running: Engine was stopped/paused. Restarted successfully."));
+        } else {
+            DEBUG_AUDIO_MAC(("ensure_engine_running: Failed to restart engine: %s", err.localizedDescription.UTF8String));
+        }
+    }
+}
+
 static void ensure_engine_inited(void) {
     if (gEngine) return;
 
@@ -338,6 +349,7 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
         gSlots[idx].bufferID = 0;
         os_unfair_lock_unlock(&gLock);
     }];
+    ensure_engine_running();
     [node play];
 
     return idx;
@@ -387,6 +399,57 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
         gSlots[idx].bufferID = 0;
         os_unfair_lock_unlock(&gLock);
     }];
+    ensure_engine_running();
+    [node play];
+
+    return idx;
+}
+
+int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop) {
+    ensure_engine_inited();
+    if (!gEngineStarted) return -1;
+
+    NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:filepath]];
+    NSError *err = nil;
+    AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:&err];
+    if (!file) {
+        DEBUG_AUDIO_MAC(("avbridge_playStream: failed to open file %s: %s", filepath, [[err localizedDescription] UTF8String]));
+        return -1;
+    }
+
+    os_unfair_lock_lock(&gLock);
+    int idx = findFreeSlot();
+    if (idx < 0) {
+        os_unfair_lock_unlock(&gLock);
+        DEBUG_AUDIO_MAC(("avbridge_playStream: NO FREE SLOT for file=%s", filepath));
+        return -1;
+    }
+    gSlots[idx].active = true;
+    gSlots[idx].bufferID = 0; // Not a buffer
+    gSlots[idx].is3D = false;
+    gSlots[idx].generation++;
+    uint32_t capturedGen = gSlots[idx].generation;
+    os_unfair_lock_unlock(&gLock);
+
+    detachAndReattach(idx, false, file.processingFormat);
+
+    AVAudioPlayerNode *node = gSlots[idx].node;
+    node.volume = gain;
+    node.rate = pitch;
+
+    [node scheduleFile:file atTime:nil completionHandler:^{
+        os_unfair_lock_lock(&gLock);
+        if (gSlots[idx].generation != capturedGen) {
+            DEBUG_AUDIO_MAC(("avbridge_playStream COMPLETION: STALE callback slot=%d gen=%u vs current=%u -> IGNORED",
+                idx, capturedGen, gSlots[idx].generation));
+            os_unfair_lock_unlock(&gLock);
+            return;
+        }
+        gSlots[idx].active = false;
+        gSlots[idx].bufferID = 0;
+        os_unfair_lock_unlock(&gLock);
+    }];
+    ensure_engine_running();
     [node play];
 
     return idx;
@@ -425,7 +488,7 @@ void avbridge_stopAll(void) {
 
 bool avbridge_isPlaying(int playerID) {
     if (playerID < 0 || playerID >= gMaxNodes) return false;
-    return gSlots[playerID].active && gSlots[playerID].node.isPlaying;
+    return gSlots[playerID].active;
 }
 
 void avbridge_setVolume(int playerID, float gain) {
