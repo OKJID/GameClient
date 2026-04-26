@@ -48,13 +48,15 @@ This project is a separate effort with different goals:
 
 | | This Port | GeneralsX |
 |:---|:---|:---|
-| **Target platform** | macOS Apple Silicon (native) | macOS via CrossOver / Wine |
-| **Rendering** | Custom DX8 → Metal bridge | DXVK / MoltenVK / Wine D3D |
-| **Online** | Generals Online (new multiplayer) | GameRanger / LAN |
-| **Simulation** | Targeting deterministic cross-platform sync | Windows-only simulation |
+| **Target platform** | macOS Apple Silicon (native) | Linux, macOS, Windows (cross-platform) |
+| **Rendering** | Custom DX8 → Metal bridge | DXVK (DX8 → Vulkan → MoltenVK on macOS) |
+| **Windowing** | Native macOS (Cocoa) | SDL3 |
+| **Audio** | AVAudioEngine (native macOS) | OpenAL |
+| **Online** | Generals Online (new multiplayer) | No online multiplayer |
+| **Simulation** | Targeting deterministic cross-platform sync | Standard simulation |
 | **Codebase** | Fork of Generals Online (GOD Team) | Fork of TheSuperHackers |
 
-Both projects share the same goal of keeping C&C Generals alive. This port focuses specifically on delivering a first-class native experience on Apple Silicon with Generals Online multiplayer support.
+Both projects share the same goal of keeping C&C Generals alive on modern platforms. This port focuses on a first-class **native macOS** experience with **Generals Online** multiplayer, while GeneralsX targets broad **cross-platform** compatibility via portable open-source stacks.
 
 ---
 

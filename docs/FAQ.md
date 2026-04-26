@@ -30,11 +30,14 @@ Yes. This project contains only the game engine source code. You must own the or
 
 ## How is this different from GeneralsX?
 
-GeneralsX runs the Windows version of Generals through CrossOver (Wine) on macOS. This project is a native recompilation with:
-- Native ARM64 binary (no emulation)
-- Direct Metal rendering (no DXVK/MoltenVK)
+GeneralsX is a cross-platform port using SDL3 + DXVK (DX8 → Vulkan, via MoltenVK on macOS) + OpenAL. It targets Linux, macOS, and Windows with a single portable codebase.
+
+This project is a native macOS-specific port with:
+- Direct Metal rendering (no Vulkan/MoltenVK layer)
+- Native macOS audio via AVAudioEngine (no OpenAL)
+- Native Cocoa windowing (no SDL)
 - Generals Online multiplayer support
-- Native macOS audio via AVAudioEngine
+- Deterministic math work for cross-platform sync
 
 Both projects aim to keep C&C Generals playable on modern hardware.
 
