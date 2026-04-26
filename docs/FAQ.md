@@ -16,7 +16,9 @@
 
 ## Are old replays compatible?
 
-Not guaranteed. Any changes to the simulation code (floating-point adjustments, bug fixes, logic changes) can cause replay desynchronization. Replays are only guaranteed to work with the exact same build version.
+**macOS ↔ macOS:** Yes, replays recorded on macOS work on macOS builds.
+
+**From Windows:** Not yet. Windows replays require deterministic math parity between ARM64 and x87 FPU, which is still in progress. See [DETERMINISTIC_MATH.md](DETERMINISTIC_MATH.md).
 
 ## What macOS version do I need?
 

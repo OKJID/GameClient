@@ -23,7 +23,8 @@ This is not Wine, not DXVK, not MoltenVK, and not an emulator-based wrapper — 
 | Online multiplayer (macOS ↔ Windows) | 🔄 In Progress |
 | Native macOS audio (AVAudioEngine) | ✅ Working |
 | macOS Launcher (SwiftUI) | ✅ Working |
-| Replay compatibility | ⚠️ Not guaranteed |
+| Replay compatibility (macOS ↔ macOS) | ✅ Working |
+| Replay compatibility (from Windows) | 🔄 Requires deterministic math |
 
 > **Note:** Cross-platform multiplayer (macOS ↔ Windows) requires deterministic math parity between ARM64 and x87 FPU pipelines. This is actively being worked on. See [docs/DETERMINISTIC_MATH.md](docs/DETERMINISTIC_MATH.md) for details.
 

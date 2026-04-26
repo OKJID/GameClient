@@ -22,7 +22,7 @@ Detailed status of the native macOS Apple Silicon port of C&C Generals Zero Hour
 ## 🔄 In Progress
 
 - **Cross-platform multiplayer (macOS ↔ Windows)** — Requires deterministic math parity between ARM64 NEON and x87 FPU. CRC mismatches occur due to floating-point precision differences. See [DETERMINISTIC_MATH.md](DETERMINISTIC_MATH.md).
-- **Replay cross-compatibility** — Replays between different builds may desync due to simulation changes.
+- **Replay compatibility (from Windows)** — Windows replays require deterministic math parity (ARM64 vs x87 FPU). macOS ↔ macOS replays work correctly.
 
 ## ⚠️ Known Limitations
 
