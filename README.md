@@ -52,11 +52,15 @@ This project is a separate effort with different goals:
 | **Rendering** | Custom DX8 → Metal bridge | DXVK (DX8 → Vulkan → MoltenVK on macOS) |
 | **Windowing** | Native macOS (Cocoa) | SDL3 |
 | **Audio** | AVAudioEngine (native macOS) | OpenAL |
+| **App Size & Overhead** | **~12 MB** (Native APIs, no wrappers) | **~78 MB** (Bundled DXVK, MoltenVK, SDL3) |
 | **Online** | Generals Online (new multiplayer) | No online multiplayer |
 | **Simulation** | Targeting deterministic cross-platform sync | Standard simulation |
 | **Codebase** | Fork of Generals Online (GOD Team) | Fork of TheSuperHackers |
 
-Both projects share the same goal of keeping C&C Generals alive on modern platforms. This port focuses on a first-class **native macOS** experience with **Generals Online** multiplayer, while GeneralsX targets broad **cross-platform** compatibility via portable open-source stacks.
+Both projects share the same goal of keeping C&C Generals alive on modern platforms, but differ fundamentally in their architectural philosophy:
+
+- **This Port** focuses on a pure, first-class **native macOS** experience. By writing directly to Metal, Cocoa, and AVAudioEngine, it completely eliminates translation overhead, resulting in an extremely lightweight application (~12 MB) tailored specifically for Apple Silicon.
+- **GeneralsX** targets broad **cross-platform** compatibility. It leverages mature, heavy-duty translation layers like DXVK to achieve highly accurate graphics out-of-the-box across operating systems, though this introduces heavier binaries and platform-specific translation edge-cases (such as MoltenVK shadow bugs on macOS).
 
 ---
 
