@@ -116,6 +116,7 @@ Bool NextGenTransport::doRecv(void)
             vecData.resize(numBytes);
             memcpy(vecData.data(), msg->GetData(), numBytes);
 
+            // TODO_AC: Improve detection, just add a 'msg type' to the start of the packet
             BYTE b1 = (BYTE)vecData[0];
             BYTE b2 = (BYTE)vecData[1];
             BYTE b3 = (BYTE)vecData[2];

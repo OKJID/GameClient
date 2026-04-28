@@ -752,6 +752,10 @@ void NetworkMesh::SendACPacket(uint32_t userID, const void* pData, uint32_t data
     {
         m_mapConnections[userID].SendACPacket(pData, dataLen);
     }
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Send Packet ERR 1");
+	}
 }
 
 void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
@@ -1002,6 +1006,7 @@ void PlayerConnection::LiteUpdateForAC()
 		const uint32_t numBytes = msg->m_cbSize;
 
 		// is it an AC packet?
+		// TODO_AC: Improve detection, just add a 'msg type' to the start of the packet
 		std::vector<byte> vecData;
 		vecData.resize(numBytes);
 		memcpy(vecData.data(), msg->GetData(), numBytes);
@@ -1027,7 +1032,7 @@ void PlayerConnection::LiteUpdateForAC()
 		else
 		{
 			// not an AC packet, we dont care
-			NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Received NON AC message");
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[AC PACKET] Received NON AC message");
 		}
 
 		msg->Release();
@@ -1105,7 +1110,7 @@ void PlayerConnection::SendACPacket(const void* pData, uint32_t dataLen)
 	vecData[1] = 1;
 	vecData[2] = 2;
 
-    NetworkLog(ELogVerbosity::LOG_DEBUG, "[AC PACKET] Sending AC msg of size %ld to user %ld\n", dataLen, m_userID);
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Sending AC msg of size %ld to user %ld\n", dataLen, m_userID);
     EResult r = SteamNetworkingSockets()->SendMessageToConnection(m_hSteamConnection, vecData.data(), vecData.size(), k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession, nullptr);
 
     if (r != k_EResultOK)

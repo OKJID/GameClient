@@ -74,6 +74,15 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
 #endif
 
+        // integrity callback
+        AC_PLUGIN_LOAD_FUNCTION(SetACIntegrityViolationOccurredCallback);
+
+        Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, local AC integrity violation occured (%d): %s.", violationType, szReason);
+                g_bPendingExitLobby = true;
+            });
+
         // set action required callback
         AC_PLUGIN_LOAD_FUNCTION(SetACActionRequiredCallback);
 
@@ -146,8 +155,6 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         AC_PLUGIN_LOAD_FUNCTION(Tick);
         AC_PLUGIN_LOAD_FUNCTION(Shutdown);
-
-        // TODO_AC: Deregister player
     }
 }
 

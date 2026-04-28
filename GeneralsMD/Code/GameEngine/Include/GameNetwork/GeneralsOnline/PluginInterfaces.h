@@ -61,6 +61,9 @@ public:
     typedef void (*FuncDefSetACActionRequiredCallback)(FuncDefACPlayerActionRequiredCallbackFunc);
     typedef void (*SendMessageViaTransportCallbackFunc)(uint32_t, const void*, uint32_t);
 
+    typedef void (*FuncDefCIntegrityViolationOccurredCallbackFunc)(const char*, int);
+    typedef void (*FuncDefSetACIntegrityViolationOccurredCallback)(FuncDefCIntegrityViolationOccurredCallbackFunc);
+
     // Func defs
     typedef void (*FuncDefSetLoggingFunction)(LoggingFunc);
     typedef int (*FuncDefInitialize)(void);
@@ -89,6 +92,7 @@ public:
         FuncDefIsExternalProcessRunning fnIsExternalProcessRunning = nullptr;
         FuncDefGetAnticheatIdentifier fnGetAnticheatIdentifier = nullptr;
         FuncDefSetACActionRequiredCallback fnSetACActionRequiredCallback = nullptr;
+        FuncDefSetACIntegrityViolationOccurredCallback fnSetACIntegrityViolationOccurredCallback = nullptr;
         FuncDefSetSendMessageViaTransportCallback fnSetSendMessageViaTransportCallback = nullptr;
         FuncDefACMessageArrivedViaTransport fnACMessageArrivedViaTransport = nullptr;
         FuncDefLogin fnLogin = nullptr;

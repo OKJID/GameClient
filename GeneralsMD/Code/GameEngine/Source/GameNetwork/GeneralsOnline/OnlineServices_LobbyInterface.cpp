@@ -1029,7 +1029,6 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 		return;
 	}
 
-    // TODO_AC: Safety, do we need this?
     AnticheatPlugInterface::EndSession();
 
 	m_bAttemptingToJoinLobby = true;
@@ -1276,7 +1275,6 @@ struct CreateLobbyResponse
 
 void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
 {
-	// TODO_AC: Safety, do we need this?
 	AnticheatPlugInterface::EndSession();
 
 	NGMP_OnlineServicesManager::GetInstance()->GetAndParseServiceConfig([=]()

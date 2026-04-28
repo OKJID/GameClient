@@ -141,7 +141,6 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 
 void NGMP_OnlineServices_AuthInterface::SendMiddlewareToken(std::string strMWToken)
 {
-	// TODO_AC: Service should just return 200 if no middleware is loaded
     std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("ProvideMWToken");
 
     // login

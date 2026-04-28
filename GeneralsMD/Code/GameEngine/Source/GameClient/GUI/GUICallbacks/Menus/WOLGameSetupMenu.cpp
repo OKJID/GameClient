@@ -2343,7 +2343,6 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
-	// TODO_AC: How do we handle this in quickmatch?
 	if (AnticheatPlugInterface::g_bPendingExitLobby)
 	{
 		AnticheatPlugInterface::g_bPendingExitLobby = false;
