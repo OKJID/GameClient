@@ -482,7 +482,7 @@ Object *AIPlayer::buildStructureNow(const ThingTemplate *bldgPlan, BuildListInfo
 		{
 			Coord3D rallyPoint;
 			Bool gotOffset = false;
-			if (fabs(info->getRallyOffset()->x) > 1.0f || fabs(info->getRallyOffset()->y)>1.0f) {
+			if (WWMath::FAbsOrigin(info->getRallyOffset()->x) > 1.0f || WWMath::FAbsOrigin(info->getRallyOffset()->y)>1.0f) {
 				gotOffset;
 			}
 			if (!exitInterface->getNaturalRallyPoint(rallyPoint)) {
@@ -640,7 +640,7 @@ Object *AIPlayer::buildStructureWithDozer(const ThingTemplate *bldgPlan, BuildLi
 		dx = dozer->getPosition()->x - pos.x;
 		dy = dozer->getPosition()->y - pos.y;
 
-		Int count = sqrt(dx*dx+dy*dy)/(PATHFIND_CELL_SIZE_F/2);
+		Int count = WWMath::SqrtOrigin(dx*dx+dy*dy)/(PATHFIND_CELL_SIZE_F/2);
 		if (count<2) count = 2;
 		Int i;
 		color.green = 1;
@@ -662,7 +662,7 @@ Object *AIPlayer::buildStructureWithDozer(const ThingTemplate *bldgPlan, BuildLi
 		{
 			Coord3D rallyPoint;
 			Bool gotOffset = false;
-			if (fabs(info->getRallyOffset()->x) > 1.0f || fabs(info->getRallyOffset()->y)>1.0f) {
+			if (WWMath::FAbsOrigin(info->getRallyOffset()->x) > 1.0f || WWMath::FAbsOrigin(info->getRallyOffset()->y)>1.0f) {
 				gotOffset;
 			}
 			if (!exitInterface->getNaturalRallyPoint(rallyPoint)) {
@@ -1245,7 +1245,7 @@ Int AIPlayer::getPlayerSuperweaponValue(Coord3D *center, Int playerNdx, Real rad
 				Real dx = center->x - pos.x;
 				Real dy = center->y - pos.y;
 				if (dx*dx+dy*dy<radSqr) {
-					Real dist = sqrt(dx*dx+dy*dy);
+					Real dist = WWMath::SqrtOrigin(dx*dx+dy*dy);
 					Real factor = 1.0f - (dist/(2*radius)); // 1.0 in center, 0.5 on edges.
 					Real value = pObj->getTemplate()->calcCostToBuild(pPlayer);
 					if (pObj->isKindOf(KINDOF_COMMANDCENTER)) {
@@ -2807,7 +2807,7 @@ void AIPlayer::computeCenterAndRadiusOfBase(Coord3D *center, Real *radius)
 		Real radSqr = dx*dx+dy*dy;
 		if (radSqr>maxRadSqr) maxRadSqr=radSqr;
 	}
-	*radius = sqrt(maxRadSqr);
+	*radius = WWMath::SqrtOrigin(maxRadSqr);
 }
 
 //----------------------------------------------------------------------------------------------------------
