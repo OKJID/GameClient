@@ -270,6 +270,11 @@ Render2DSentenceClass::Set_Location (const Vector2 &loc)
 Vector2
 Render2DSentenceClass::Get_Text_Extents (const WCHAR *text)
 {
+#ifdef __APPLE__
+	if (text == nullptr || Font == nullptr) {
+		return Vector2(0, 0);
+	}
+#endif
 	Vector2 extent (0, Font->Get_Char_Height());
 
 	while (*text) {
@@ -632,7 +637,7 @@ void
 Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExtents)
 {
 #ifdef __APPLE__
-	if (text == nullptr) {
+	if (text == nullptr || Font == nullptr) {
 		return;
 	}
 #endif
@@ -749,6 +754,11 @@ float FindStartingXPos( const WCHAR *text )
 ////////////////////////////////////////////////////////////////////////////////////
 void	Render2DSentenceClass::Build_Sentence_Centered (const WCHAR *text, int *hkX, int *hkY)
 {
+#ifdef __APPLE__
+	if (text == nullptr || Font == nullptr) {
+		return;
+	}
+#endif
 	float char_height = Font->Get_Char_Height ();
 	int		wordWidth = 0;
 	int notCenteredHotkeyX = 0;
@@ -997,7 +1007,7 @@ void	Render2DSentenceClass::Build_Sentence_Centered (const WCHAR *text, int *hkX
 Vector2	Render2DSentenceClass::Build_Sentence_Not_Centered (const WCHAR *text, int *hkX, int *hkY, bool justCalcExtents)
 {
 #ifdef __APPLE__
-	if (text == nullptr) {
+	if (text == nullptr || Font == nullptr) {
 		return Vector2(0.0f, 0.0f);
 	}
 #endif

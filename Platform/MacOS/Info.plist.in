@@ -32,6 +32,11 @@
 	<string>${MACOSX_BUNDLE_COPYRIGHT}</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Generals requires local network access for LAN matches and WebRTC P2P routing.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_generals._tcp</string>
+		<string>_generals._udp</string>
+	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Generals requires audio access for WebRTC initialization.</string>
 	<key>NSCameraUsageDescription</key>

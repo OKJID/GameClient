@@ -512,13 +512,14 @@ static Int addEntry( UnicodeString *string, Int color, Int row, Int column, Game
 	if( !listRow->cell[column].data )
 		listRow->cell[column].data = (void *) TheDisplayStringManager->newDisplayString();
 	displayString = (DisplayString *) listRow->cell[column].data;
-	if ( BitIsSet( window->winGetStatus(), WIN_STATUS_ONE_LINE ) == FALSE )
-		displayString->setWordWrap( width );
-	displayString->setText( *string );
 
 	/** @todo we need for formalize this, but for now just set the font
 	of this listbox entry to the font of the window */
 	displayString->setFont( window->winGetFont() );
+
+	if ( BitIsSet( window->winGetStatus(), WIN_STATUS_ONE_LINE ) == FALSE )
+		displayString->setWordWrap( width );
+	displayString->setText( *string );
 
 	if (overwrite)
 	{
