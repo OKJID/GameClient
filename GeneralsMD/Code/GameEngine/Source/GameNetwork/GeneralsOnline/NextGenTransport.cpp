@@ -116,24 +116,35 @@ Bool NextGenTransport::doRecv(void)
             vecData.resize(numBytes);
             memcpy(vecData.data(), msg->GetData(), numBytes);
 
-            // TODO_AC: Improve detection, just add a 'msg type' to the start of the packet
-            BYTE b1 = (BYTE)vecData[0];
-            BYTE b2 = (BYTE)vecData[1];
-            BYTE b3 = (BYTE)vecData[2];
-            if (b1 == 9
-                && b2 == 1
-                && b3 == 2)
+            // Check minimum packet size for AC header
+            if (numBytes >= 3)
             {
-                NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytes, static_cast<long long>(kvPair.second.m_userID));
+                BYTE b1 = (BYTE)vecData[0];
+                BYTE b2 = (BYTE)vecData[1];
+                BYTE b3 = (BYTE)vecData[2];
+                if (b1 == 9
+                    && b2 == 1
+                    && b3 == 2)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytes, static_cast<long long>(kvPair.second.m_userID));
 
 
-                // remove header
-                // TODO_AC: Optimize this
-                std::vector<byte> vecDataAC;
-                vecDataAC.resize(numBytes - 3);
-                memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
+                    // remove header
+                    // TODO_AC: Optimize this
+                    std::vector<byte> vecDataAC;
+                    vecDataAC.resize(numBytes - 3);
+                    memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
 
-                AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytes - 3);
+                    AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytes - 3);
+                    msg->Release();
+                    continue;
+                }
+            }
+            else if (numBytes > 0 && numBytes < 3)
+            {
+                // Malformed AC packet - too small for header
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytes, static_cast<long long>(kvPair.second.m_userID));
+                msg->Release();
                 continue;
             }
 

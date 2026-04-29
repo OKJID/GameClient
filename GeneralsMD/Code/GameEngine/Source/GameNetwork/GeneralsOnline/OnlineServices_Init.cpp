@@ -1011,7 +1011,7 @@ void NGMP_OnlineServicesManager::InitSentry()
 
 	sentry_options_set_dsn(options, "https://61750bebd112d279bcc286d617819269@o4509316925554688.ingest.us.sentry.io/4509316927586304");
 	sentry_options_set_database_path(options, strDumpPath.c_str());
-	sentry_options_set_release(options, "generalsonline-client@042826");
+	sentry_options_set_release(options, "generalsonline-client@042826_QFE2_EAC");
 
 #if defined(USE_TEST_ENV)
 	sentry_options_set_environment(options, "test");
