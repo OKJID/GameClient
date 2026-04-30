@@ -1,11 +1,12 @@
 // EAC Plugin for macOS — EOS Anti-Cheat Client wrapper
-// TODO(PS_PATH): Replace placeholder EOS credentials with real ones from x64
+// Credentials loaded from environment variables or .eac_credentials (gitignored)
 
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
 #include <string>
 #include <atomic>
+#include <fstream>
 
 #include "eos_sdk.h"
 #include "eos_init.h"
@@ -17,12 +18,68 @@
 #include "eos_anticheatcommon_types.h"
 #include "eos_types.h"
 
-// TODO(PS_PATH): Replace with real credentials from x64
-static const char* PRODUCT_ID     = "PLACEHOLDER_PRODUCT_ID";
-static const char* SANDBOX_ID     = "PLACEHOLDER_SANDBOX_ID";
-static const char* DEPLOYMENT_ID  = "PLACEHOLDER_DEPLOYMENT_ID";
+static std::string g_ProductId;
+static std::string g_SandboxId;
+static std::string g_DeploymentId;
+static int g_AnticheatIdentifier = 1;
 
-static const int ANTICHEAT_IDENTIFIER = 1;
+static bool LoadCredentialsFromFile(const char* path)
+{
+    std::ifstream file(path);
+    if (!file.is_open())
+    {
+        return false;
+    }
+
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (line.empty() || line[0] == '#')
+        {
+            continue;
+        }
+
+        auto eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+
+        std::string key = line.substr(0, eq);
+        std::string val = line.substr(eq + 1);
+
+        if (key == "PRODUCT_ID")          g_ProductId = val;
+        else if (key == "SANDBOX_ID")     g_SandboxId = val;
+        else if (key == "DEPLOYMENT_ID")  g_DeploymentId = val;
+        else if (key == "ANTICHEAT_ID")   g_AnticheatIdentifier = std::atoi(val.c_str());
+    }
+
+    return !g_ProductId.empty();
+}
+
+static void LoadCredentials()
+{
+    const char* envProduct    = getenv("EAC_PRODUCT_ID");
+    const char* envSandbox    = getenv("EAC_SANDBOX_ID");
+    const char* envDeployment = getenv("EAC_DEPLOYMENT_ID");
+    const char* envAcId       = getenv("EAC_ANTICHEAT_ID");
+
+    if (envProduct && envSandbox && envDeployment)
+    {
+        g_ProductId    = envProduct;
+        g_SandboxId    = envSandbox;
+        g_DeploymentId = envDeployment;
+        if (envAcId) g_AnticheatIdentifier = std::atoi(envAcId);
+        return;
+    }
+
+    if (LoadCredentialsFromFile(".eac_credentials"))
+    {
+        return;
+    }
+
+    LoadCredentialsFromFile("plugins/easyanticheat/.eac_credentials");
+}
 
 static EOS_HPlatform g_PlatformHandle = nullptr;
 static EOS_HAntiCheatClient g_ACClientHandle = nullptr;
@@ -156,6 +213,17 @@ int Initialize(void)
 {
     PluginLog("[EAC] Initialize() called");
 
+    LoadCredentials();
+    PluginLog("[EAC] Credentials: product='%s' sandbox='%s' deploy='%s' ac_id=%d",
+        g_ProductId.c_str(), g_SandboxId.c_str(), g_DeploymentId.c_str(), g_AnticheatIdentifier);
+
+    if (g_ProductId.empty() || g_SandboxId.empty() || g_DeploymentId.empty())
+    {
+        PluginLog("[EAC] WARNING: Credentials not configured. Set EAC_PRODUCT_ID/EAC_SANDBOX_ID/EAC_DEPLOYMENT_ID env vars or create .eac_credentials file");
+        g_bInitialized = true;
+        return -3;
+    }
+
     EOS_InitializeOptions initOpts = {};
     initOpts.ApiVersion = EOS_INITIALIZE_API_LATEST;
     initOpts.ProductName = "GeneralsOnline";
@@ -170,9 +238,9 @@ int Initialize(void)
 
     EOS_Platform_Options platformOpts = {};
     platformOpts.ApiVersion = EOS_PLATFORM_OPTIONS_API_LATEST;
-    platformOpts.ProductId = PRODUCT_ID;
-    platformOpts.SandboxId = SANDBOX_ID;
-    platformOpts.DeploymentId = DEPLOYMENT_ID;
+    platformOpts.ProductId = g_ProductId.c_str();
+    platformOpts.SandboxId = g_SandboxId.c_str();
+    platformOpts.DeploymentId = g_DeploymentId.c_str();
     platformOpts.bIsServer = EOS_FALSE;
     platformOpts.Flags = EOS_PF_DISABLE_OVERLAY;
 
@@ -206,7 +274,7 @@ bool IsExternalProcessRunning(void)
 
 int GetAnticheatIdentifier(void)
 {
-    return ANTICHEAT_IDENTIFIER;
+    return g_AnticheatIdentifier;
 }
 
 void SetACActionRequiredCallback(ACPlayerActionCallbackFunc func)
