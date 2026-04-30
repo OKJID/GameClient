@@ -911,7 +911,11 @@ void StartPatchCheck()
 	else if (AnticheatPlugInterface::DidPluginFailToLoad()) // Did we have something to load but it failed?
 	{
         std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+#ifdef __APPLE__
+        std::string pluginPath = std::format("plugins/{}/{}.dylib", strPlugin.c_str(), strPlugin.c_str());
+#else
         std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
+#endif
 
 		UnicodeString strErrorMssage;
         strErrorMssage.format(L"Failed to load the AntiCheat plugin from path: %hs. Please make sure the plugin is installed correctly.", pluginPath.c_str());

@@ -915,13 +915,15 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager->Initialize();
 
     std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
-	std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
-
-#if _DEBUG
-	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+	if (!strPlugin.empty())
+	{
+#ifdef __APPLE__
+		std::string pluginPath = NativeFileSystem::get_safe_path(std::format("plugins/{}/{}.dylib", strPlugin.c_str(), strPlugin.c_str()));
 #else
-	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+		std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
 #endif
+		AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+	}
 
 	// TODO_NGMP: Better location
 	// TODO_NGMP: Get all of this from the service

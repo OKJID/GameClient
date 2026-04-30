@@ -125,4 +125,41 @@ if(APPLE)
 
     target_link_libraries(z_generals PRIVATE macos_platform)
     add_dependencies(z_generals metal_shaders)
+
+    # EAC/EOS: @rpath for Frameworks/ is configured by assemble_distribution.sh at packaging time
+    # (install_name_tool -add_rpath "@executable_path/../Frameworks/" + codesign)
+
+    # EAC/EOS: Auto-download SDK if missing
+    set(EOS_SDK_DIR "${CMAKE_SOURCE_DIR}/Dependencies/EOS-SDK-47370208-Release-v1.18.1.2")
+    set(EOS_SDK_DYLIB "${EOS_SDK_DIR}/SDK/Bin/libEOSSDK-Mac-Shipping.dylib")
+    set(EOS_SDK_ZIP "${CMAKE_SOURCE_DIR}/Dependencies/EOS-SDK-47370208-Release-v1.18.1.2.zip")
+    set(EOS_SDK_URL "https://www.playgenerals.online/dev/EOS-SDK-47370208-Release-v1.18.1.2.zip")
+
+    if(NOT EXISTS "${EOS_SDK_DIR}")
+        message(STATUS "[EAC] EOS SDK not found, downloading from ${EOS_SDK_URL}...")
+        file(DOWNLOAD "${EOS_SDK_URL}" "${EOS_SDK_ZIP}"
+            STATUS EOS_DOWNLOAD_STATUS
+            SHOW_PROGRESS
+        )
+        list(GET EOS_DOWNLOAD_STATUS 0 EOS_DOWNLOAD_ERROR)
+        if(EOS_DOWNLOAD_ERROR)
+            message(WARNING "[EAC] Failed to download EOS SDK (error ${EOS_DOWNLOAD_ERROR}). Anti-cheat will not be available.")
+        else()
+            message(STATUS "[EAC] Extracting EOS SDK...")
+            file(ARCHIVE_EXTRACT INPUT "${EOS_SDK_ZIP}" DESTINATION "${CMAKE_SOURCE_DIR}/Dependencies")
+            file(REMOVE "${EOS_SDK_ZIP}")
+            message(STATUS "[EAC] EOS SDK ready.")
+        endif()
+    endif()
+
+    # EAC/EOS: Copy dylib into app bundle Frameworks/
+    if(EXISTS "${EOS_SDK_DYLIB}")
+        add_custom_command(TARGET z_generals POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${EOS_SDK_DYLIB}" "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks/"
+            COMMENT "Copying EOS SDK dylib to app bundle Frameworks/"
+        )
+    else()
+        message(WARNING "[EAC] libEOSSDK-Mac-Shipping.dylib not found. Anti-cheat will not be available.")
+    endif()
 endif()
