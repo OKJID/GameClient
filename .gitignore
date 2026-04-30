@@ -77,3 +77,4 @@ Platform/MacOS/Build/Logs/
 
 # Firebase Hosting (maintainer-local deployment)
 /Dependencies/general_online_zh/
+/Dependencies/EOS-SDK-*
