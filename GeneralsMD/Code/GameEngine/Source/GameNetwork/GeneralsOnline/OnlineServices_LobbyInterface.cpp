@@ -1099,6 +1099,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 
 			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
 			j["has_map"] = bHasMap;
+			DEBUG_EAC_MAC(("[JOIN] Sending anticheat_id=%d to lobby %lld", AnticheatPlugInterface::GetAnticheatIdentifier(), lobbyInfo.lobbyID));
 
 			if (!strPassword.empty())
 			{
@@ -1124,6 +1125,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 
 					// TODO_NGMP: Dont do extra get here, just return it in the put...
 					EJoinLobbyResult JoinResult = EJoinLobbyResult::JoinLobbyResult_JoinFailed;
+					DEBUG_EAC_MAC(("[JOIN] Server response: statusCode=%d success=%d", statusCode, bSuccess));
 
 					if (statusCode == 200 && bSuccess)
 					{
@@ -1364,6 +1366,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
 			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
+			DEBUG_EAC_MAC(("[CREATE] Creating lobby with anticheat_id=%d", AnticheatPlugInterface::GetAnticheatIdentifier()));
 
 			std::string strPostData = j.dump();
 

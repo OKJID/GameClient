@@ -69,6 +69,7 @@ void GenOnlineSettings::Load(void)
 	::GetCurrentDirectoryA(MAX_PATH + 1u, GameDir);
 	std::string strSettingsFileDir = std::format("{}/GeneralsOnlineData/", TheGlobalData->getPath_UserData().str());
 	std::string strSettingsFilePath = std::format("{}/{}", strSettingsFileDir, SETTINGS_FILENAME);
+	DEBUG_EAC_MAC(("[SETTINGS] Loading from: '%s'", strSettingsFilePath.c_str()));
 	std::string strSettingsFilePathLegacy = std::format("{}/{}", GameDir, SETTINGS_FILENAME_LEGACY);
 
 	// create directories we need
@@ -107,6 +108,7 @@ void GenOnlineSettings::Load(void)
 	if (!vecBytes.empty())
 	{
 		std::string strJSON = std::string((char*)vecBytes.data(), vecBytes.size());
+		DEBUG_EAC_MAC(("[SETTINGS] Raw JSON (len=%zu): %.300s", strJSON.size(), strJSON.c_str()));
 		nlohmann::json jsonSettings = nullptr;
 		
 		try
@@ -254,12 +256,22 @@ void GenOnlineSettings::Load(void)
 
 			if (jsonSettings.contains(SETTINGS_KEY_PLUGINS))
 			{
+				DEBUG_EAC_MAC(("[SETTINGS] Found 'plugins' section in config"));
 				auto pluginSettings = jsonSettings[SETTINGS_KEY_PLUGINS];
 
 				if (pluginSettings.contains(SETTINGS_KEY_PLUGINS_ANTICHEAT))
 				{
 					m_Plugins_Anticheat = pluginSettings[SETTINGS_KEY_PLUGINS_ANTICHEAT];
+					DEBUG_EAC_MAC(("[SETTINGS] plugins.anticheat = '%s'", m_Plugins_Anticheat.c_str()));
 				}
+				else
+				{
+					DEBUG_EAC_MAC(("[SETTINGS] 'plugins' exists but NO 'anticheat' key"));
+				}
+			}
+			else
+			{
+				DEBUG_EAC_MAC(("[SETTINGS] No 'plugins' section in config"));
 			}
 		}
 		

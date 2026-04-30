@@ -77,12 +77,13 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 			{
 				if (bSuccess && statusCode == 200)
 				{
+					DEBUG_EAC_MAC(("[SVC_CFG] ServiceConfig raw body (len=%zu): %s", strBody.size(), strBody.c_str()));
 					nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 					m_ServiceConfig = jsonObject.get<ServiceConfig>();
 				}
 				else
 				{
-					// It's OK to fail, we'll just use the sensible defaults
+					DEBUG_EAC_MAC(("[SVC_CFG] FAILED status=%d success=%d", statusCode, bSuccess));
 					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Status code: %d", statusCode);
 					m_ServiceConfig = ServiceConfig();
 				}
@@ -915,6 +916,7 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager->Initialize();
 
     std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+	DEBUG_EAC_MAC(("[EAC_INIT] GetAnticheatPlugin() = '%s'", strPlugin.c_str()));
 	if (!strPlugin.empty())
 	{
 #ifdef __APPLE__
@@ -922,7 +924,13 @@ void NGMP_OnlineServicesManager::Init()
 #else
 		std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
 #endif
+		DEBUG_EAC_MAC(("[EAC_INIT] Loading plugin from: '%s'", pluginPath.c_str()));
 		AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+		DEBUG_EAC_MAC(("[EAC_INIT] After LoadPlugin: loaded=%d failed=%d id=%d", AnticheatPlugInterface::IsPluginLoaded(), AnticheatPlugInterface::DidPluginFailToLoad(), AnticheatPlugInterface::GetAnticheatIdentifier()));
+	}
+	else
+	{
+		DEBUG_EAC_MAC(("[EAC_INIT] Plugin name EMPTY - skipping LoadPlugin"));
 	}
 
 	// TODO_NGMP: Better location
