@@ -325,7 +325,7 @@ static const char* FindNextNumber( const char* pStart )
 	if( !pNum )
 		return pStart;  //error
 
-	while( !isdigit(*pNum) )
+	while( !isdigit((unsigned char)*pNum) )
 		++pNum;  //go to next number
 	return pNum;
 }

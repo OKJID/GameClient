@@ -55,7 +55,7 @@ AsciiString encodeURL(AsciiString source)
 	const char *ptr = source.str();
 	while (*ptr)
 	{
-		if (isalnum(*ptr) || allowedChars.find(*ptr))
+		if (isalnum((unsigned char)*ptr) || allowedChars.find(*ptr))
 		{
 			target.concat(*ptr);
 		}

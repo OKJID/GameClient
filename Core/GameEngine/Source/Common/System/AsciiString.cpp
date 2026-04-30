@@ -70,7 +70,7 @@ inline char* skipNonSeps(char* p, const char* seps)
 //-----------------------------------------------------------------------------
 inline char* skipWhitespace(char* p)
 {
-	while (*p && isspace(*p))
+	while (*p && isspace((unsigned char)*p))
 		++p;
 	return p;
 }
@@ -78,7 +78,7 @@ inline char* skipWhitespace(char* p)
 //-----------------------------------------------------------------------------
 inline char* skipNonWhitespace(char* p)
 {
-	while (*p && !isspace(*p))
+	while (*p && !isspace((unsigned char)*p))
 		++p;
 	return p;
 }
@@ -330,7 +330,7 @@ void AsciiString::trimEnd()
 		// Clip trailing white space from the string.
 		const int len = strlen(peek());
 		int index = len;
-		while (index > 0 && isspace(getCharAt(index - 1)))
+		while (index > 0 && isspace((unsigned char)getCharAt(index - 1)))
 		{
 			--index;
 		}
@@ -378,7 +378,7 @@ void AsciiString::toLower()
 		char* c = buf;
 		while (c && *c)
 		{
-			*c = tolower(*c);
+			*c = (char)tolower((unsigned char)*c);
 			c++;
 		}
 		set(buf);

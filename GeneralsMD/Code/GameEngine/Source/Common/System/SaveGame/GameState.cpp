@@ -465,7 +465,7 @@ AsciiString GameState::findNextSaveFilename( UnicodeString desc )
 	for (i = 0; i < desc.getLength(); ++i)
 	{
 		char c = (char)desc.getCharAt(i);
-		if (isalnum(c))
+		if (isalnum((unsigned char)c))
 			adesc.concat(c);
 		else
 			adesc.concat('_');

@@ -45,6 +45,8 @@ public:
 
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize);
 
+	void SendACPacket(const void* pData, uint32_t dataLen);
+
 	void UpdateLatencyHistogram();
 
 	bool IsIPV4();
@@ -93,6 +95,8 @@ public:
 	int ComputeConnectionScore();
 
 	HSteamNetConnection m_hSteamConnection = k_HSteamNetConnection_Invalid;
+
+	void LiteUpdateForAC();
 };
 
 struct LobbyMemberEntry;
@@ -168,11 +172,9 @@ public:
 	}
 
 
-	std::queue<QueuedGamePacket> m_queueQueuedGamePackets;
-
-	bool HasGamePacket();
-	QueuedGamePacket RecvGamePacket();
 	int SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t userID);
+
+	void SendACPacket(uint32_t userID, const void* pData, uint32_t dataLen);
 
 	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
 	void DisconnectUser(int64_t remoteUserID);

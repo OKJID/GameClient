@@ -6,6 +6,8 @@
 
 #include "GameNetwork/GeneralsOnline/ngmp_include.h"
 #include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
+#include "ValveNetworkingSockets/steam/steamnetworkingtypes.h"
+#include "GameNetwork/GeneralsOnline/PluginInterfaces.h"
 
 #ifdef _INTERNAL
 // for occasional debugging...
@@ -110,6 +112,43 @@ Bool NextGenTransport::doRecv(void)
                 continue;
 
             const uint32_t numBytes = msg->m_cbSize;
+
+            // is it an AC packet?
+            std::vector<byte> vecData;
+            vecData.resize(numBytes);
+            memcpy(vecData.data(), msg->GetData(), numBytes);
+
+            // Check minimum packet size for AC header
+            if (numBytes >= 3)
+            {
+                BYTE b1 = (BYTE)vecData[0];
+                BYTE b2 = (BYTE)vecData[1];
+                BYTE b3 = (BYTE)vecData[2];
+                if (b1 == 9
+                    && b2 == 1
+                    && b3 == 2)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytes, static_cast<long long>(kvPair.second.m_userID));
+
+
+                    // remove header
+                    // TODO_AC: Optimize this
+                    std::vector<byte> vecDataAC;
+                    vecDataAC.resize(numBytes - 3);
+                    memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
+
+                    AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytes - 3);
+                    msg->Release();
+                    continue;
+                }
+            }
+            else if (numBytes > 0 && numBytes < 3)
+            {
+                // Malformed AC packet - too small for header
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytes, static_cast<long long>(kvPair.second.m_userID));
+                msg->Release();
+                continue;
+            }
 
             NetworkLog(ELogVerbosity::LOG_DEBUG,
                 "[GAME PACKET] Received message of size %u from user %lld",

@@ -2371,6 +2371,15 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 		return;
 	}
 
+	if (AnticheatPlugInterface::g_bPendingExitLobby)
+	{
+		AnticheatPlugInterface::g_bPendingExitLobby = false;
+
+        GSMessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"), TheGameText->fetchOrSubstitute("GUI:ACLobbyIntegrityError", L"Lobby integrity could not be validated. Leaving Lobby."));
+
+        PopBackToLobby();
+	}
+
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
@@ -3570,7 +3579,7 @@ Bool handleGameSetupSlashCommands(UnicodeString uText)
 						for (int i = 0; i < asciiVal.getLength(); ++i)
 						{
 							char thisChar = asciiVal.getCharAt(i);
-							if (!std::isdigit(thisChar))
+							if (!std::isdigit((unsigned char)thisChar))
 							{
 								bIsNumber = false;
 								break;

@@ -15,6 +15,7 @@
 #include "../OnlineServices_Init.h"
 #include "ValveNetworkingSockets/steam/isteamnetworkingutils.h"
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
+#include "../PluginInterfaces.h"
 
 bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
@@ -809,24 +810,6 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 		});
 }
 
-
-bool NetworkMesh::HasGamePacket()
-{
-	return !m_queueQueuedGamePackets.empty();
-}
-
-QueuedGamePacket NetworkMesh::RecvGamePacket()
-{
-	if (HasGamePacket())
-	{
-		QueuedGamePacket frontPacket = m_queueQueuedGamePackets.front();
-		m_queueQueuedGamePackets.pop();
-		return frontPacket;
-	}
-
-	return QueuedGamePacket();
-}
-
 int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
 {
 	auto it = m_mapConnections.find(user_id);
@@ -838,6 +821,30 @@ int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t u
 	return -2;
 }
 
+
+void NetworkMesh::SendACPacket(uint32_t userID, const void* pData, uint32_t dataLen)
+{
+    if (dataLen == 0)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Cannot send empty AC packet to user %u", userID);
+        return;
+    }
+
+    if (pData == nullptr)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Cannot send AC packet with null data to user %u", userID);
+        return;
+    }
+
+    if (m_mapConnections.contains(userID))
+    {
+        m_mapConnections[userID].SendACPacket(pData, dataLen);
+    }
+	else
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Send Packet ERR - user %u not found in connections", userID);
+	}
+}
 
 void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
 {
@@ -1060,8 +1067,86 @@ void NetworkMesh::Tick()
 		PlayerConnection& conn = kvPair.second;
 		conn.UpdateLatencyHistogram();
 	}
+
+	// the game transport isn't created until the game begins, but we want to transfer AC packets in the lobby first, so consider this a liteupdate
+	if (TheNGMPGame != nullptr && !TheNGMPGame->isGameInProgress())
+	{
+		for (auto& kvPair : m_mapConnections)
+		{
+			kvPair.second.LiteUpdateForAC();
+		}
+	}
 }
 
+void PlayerConnection::LiteUpdateForAC()
+{
+    SteamNetworkingMessage_t* pMsg[255] = { nullptr };
+    int numPackets = Recv(pMsg);
+
+    if (numPackets <= 0)
+        return;
+
+    if (numPackets > static_cast<int>(std::size(pMsg)))
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE,
+            "Game Packet Recv: numPackets (%d) > pMsg capacity (%zu), clamping",
+            numPackets, std::size(pMsg));
+        numPackets = static_cast<int>(std::size(pMsg));
+    }
+
+	for (int iPacket = 0; iPacket < numPackets; ++iPacket)
+	{
+		SteamNetworkingMessage_t* msg = pMsg[iPacket];
+		if (!msg)
+		{
+			return;
+		}
+
+		const uint32_t numBytes = msg->m_cbSize;
+
+		// is it an AC packet?
+		// TODO_AC: Improve detection, just add a 'msg type' to the start of the packet
+		std::vector<byte> vecData;
+		vecData.resize(numBytes);
+		memcpy(vecData.data(), msg->GetData(), numBytes);
+
+		// Check minimum packet size for AC header
+		if (numBytes >= 3)
+		{
+			BYTE b1 = (BYTE)vecData[0];
+			BYTE b2 = (BYTE)vecData[1];
+			BYTE b3 = (BYTE)vecData[2];
+			if (b1 == 9
+				&& b2 == 1
+				&& b3 == 2)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Received AC message of size %u from user %lld", numBytes, static_cast<long long>(m_userID));
+
+
+				// remove header
+				// TODO_AC: Optimize this
+				std::vector<byte> vecDataAC;
+				vecDataAC.resize(numBytes - 3);
+				memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
+
+				AnticheatPlugInterface::AC_NetworkMessageArrived(m_userID, vecDataAC.data(), numBytes - 3);
+				msg->Release();
+				continue;
+			}
+		}
+		else if (numBytes > 0 && numBytes < 3)
+		{
+			// Malformed AC packet - too small for header
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytes, static_cast<long long>(m_userID));
+			msg->Release();
+			continue;
+		}
+
+		// not an AC packet, we dont care
+		NetworkLog(ELogVerbosity::LOG_DEBUG, "[AC PACKET] Received NON AC message");
+		msg->Release();
+	}
+}
 
 PlayerConnection::PlayerConnection(int64_t userID, HSteamNetConnection hSteamConnection)
 {
@@ -1082,6 +1167,24 @@ PlayerConnection::PlayerConnection(int64_t userID, HSteamNetConnection hSteamCon
 
 int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 {
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send game packet - connection is invalid for user %lld", m_userID);
+		return (int)k_EResultFail;
+	}
+
+	if (totalDataSize == 0)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send empty game packet to user %lld", m_userID);
+		return (int)k_EResultFail;
+	}
+
+	if (pBuffer == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[GAME PACKET] Cannot send game packet with null buffer to user %lld", m_userID);
+		return (int)k_EResultFail;
+	}
+
 	int sendFlags = k_nSteamNetworkingSend_Reliable | k_nSteamNetworkingSend_AutoRestartBrokenSession; // default from last patch
 
 	ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
@@ -1123,6 +1226,37 @@ int PlayerConnection::SendGamePacket(void* pBuffer, uint32_t totalDataSize)
 	return (int)r;
 }
 
+
+void PlayerConnection::SendACPacket(const void* pData, uint32_t dataLen)
+{
+	if (m_hSteamConnection == k_HSteamNetConnection_Invalid)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Cannot send AC packet - connection is invalid for user %ld", m_userID);
+		return;
+	}
+
+	if (dataLen > 0 && pData == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Cannot send AC packet - data is null for user %ld", m_userID);
+		return;
+	}
+
+	std::vector<BYTE> vecData;
+	vecData.resize(dataLen + 3);
+	memcpy(vecData.data() + 3, pData, dataLen);
+
+	vecData[0] = 9;
+	vecData[1] = 1;
+	vecData[2] = 2;
+
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Sending AC msg of size %ld to user %ld\n", dataLen, m_userID);
+    EResult r = SteamNetworkingSockets()->SendMessageToConnection(m_hSteamConnection, vecData.data(), vecData.size(), k_nSteamNetworkingSend_Reliable, nullptr);
+
+    if (r != k_EResultOK)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Failed to send, err code was %d", r);
+    }
+}
 
 void PlayerConnection::UpdateLatencyHistogram()
 {
@@ -1305,7 +1439,7 @@ void PlayerConnection::SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh,
 		UpdateState(m_State, pOwningMesh);  // may erase *this from the map
 	}
 
-	// Use saved stack values — do NOT touch any member after this point.
+	// Use saved stack values � do NOT touch any member after this point.
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[STEAM CONNECTION] Setting connection %u to disconnected/invalid on user %lld", savedHandle, savedUserID);
 	if (SteamNetworkingSockets())
 	{

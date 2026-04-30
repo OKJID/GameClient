@@ -277,7 +277,7 @@ void PingThreadClass::Thread_Function()
 			// resolve the hostname
 			const char *hostnameBuffer = req.hostname.c_str();
 			UnsignedInt IP = 0xFFFFFFFF;
-			if (isdigit(hostnameBuffer[0]))
+			if (isdigit((unsigned char)hostnameBuffer[0]))
 			{
 				IP = inet_addr(hostnameBuffer);
 				in_addr hostNode;

@@ -56,6 +56,7 @@
 #include "../OnlineServices_Init.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
+#include "../PluginInterfaces.h"
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -656,15 +657,15 @@ static GHTTPBool overallStatsCallback( GHTTPRequest request, GHTTPResult result,
 			message.nextToken(&totalLine, "\n");
 			message.nextToken(&winsLine, "\n");
 			message.nextToken(&lossesLine, "\n");
-			while (totalLine.isNotEmpty() && !isdigit(totalLine.getCharAt(0)))
+			while (totalLine.isNotEmpty() && !isdigit((unsigned char)totalLine.getCharAt(0)))
 			{
 				totalLine = totalLine.str()+1;
 			}
-			while (winsLine.isNotEmpty() && !isdigit(winsLine.getCharAt(0)))
+			while (winsLine.isNotEmpty() && !isdigit((unsigned char)winsLine.getCharAt(0)))
 			{
 				winsLine = winsLine.str()+1;
 			}
-			while (lossesLine.isNotEmpty() && !isdigit(lossesLine.getCharAt(0)))
+			while (lossesLine.isNotEmpty() && !isdigit((unsigned char)lossesLine.getCharAt(0)))
 			{
 				lossesLine = lossesLine.str()+1;
 			}
@@ -891,19 +892,45 @@ void StartPatchCheck()
 	// GENERALS ONLINE
 	NGMP_OnlineServicesManager::CreateInstance();
 
-	onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
-		TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
-
 	// online services must be initialized
 	// TODO_NGMP: Uninit this when leaving MP, waste of resources and cycles
 	NGMP_OnlineServicesManager::GetInstance()->Init();
+
+    // if we have an AC plugin loaded but the AC external process isnt running, show an error message
+    if (AnticheatPlugInterface::IsPluginLoaded())
+    {
+        if (!AnticheatPlugInterface::IsExternalProcessRunning())
+        {
+            MessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"),
+                TheGameText->fetchOrSubstitute("GUI:ACExternalProcessNotRunning", L"The AntiCheat external process is not running"),
+                CancelPatchCheckCallbackAndReopenDropdown);
+
+            return;
+        }
+    }
+	else if (AnticheatPlugInterface::DidPluginFailToLoad()) // Did we have something to load but it failed?
+	{
+        std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+        std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
+
+		UnicodeString strErrorMssage;
+        strErrorMssage.format(L"Failed to load the AntiCheat plugin from path: %hs. Please make sure the plugin is installed correctly.", pluginPath.c_str());
+
+        MessageBoxOk(TheGameText->fetchOrSubstitute("GUI:ACErrorHeader", L"AntiCheat Error"),
+			strErrorMssage,
+            CancelPatchCheckCallbackAndReopenDropdown);
+
+        return;
+	}
+
+    onlineCancelWindow = MessageBoxCancel(TheGameText->fetch("GUI:CheckingForPatches"),
+        TheGameText->fetch("GUI:CheckingForPatches"), CancelPatchCheckCallbackAndReopenDropdown);
 
 	NGMP_OnlineServicesManager::GetInstance()->StartVersionCheck([](bool bSuccess, bool bNeedsUpdate)
 		{
 #if defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
 			bNeedsUpdate = false;
 #endif
-
 			cantConnectBeforeOnline = !bSuccess;
 			mustDownloadPatch = bNeedsUpdate;
 

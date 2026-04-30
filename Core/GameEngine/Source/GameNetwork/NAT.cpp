@@ -1167,7 +1167,7 @@ void NAT::sendMangledPortNumberToTarget(UnsignedShort mangledPort, GameSlot *tar
 void NAT::processGlobalMessage(Int slotNum, const char *options) {
 	const char *ptr = options;
 	// skip preceding whitespace.
-	while (isspace(*ptr)) {
+	while (isspace((unsigned char)*ptr)) {
 		++ptr;
 	}
 	DEBUG_LOG(("NAT::processGlobalMessage - got message from slot %d, message is \"%s\"", slotNum, ptr));

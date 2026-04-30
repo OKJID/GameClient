@@ -19,6 +19,8 @@ public:
 
 	void GoToDetermineNetworkCaps();
 
+	void SendMiddlewareToken(std::string strMWToken);
+
 	void BeginLogin();
 	void DoReAuth();
 

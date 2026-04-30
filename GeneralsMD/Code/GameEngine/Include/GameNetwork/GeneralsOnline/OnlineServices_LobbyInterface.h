@@ -27,6 +27,7 @@ struct LobbyMemberEntry : public NetworkMemberBase
 	uint16_t m_SlotState = SlotState::SLOT_OPEN;
 
 	std::string region;
+	std::string middlewareUserID;
 	int latency = 0;
 
 	bool IsHuman() const
@@ -83,7 +84,8 @@ enum class EJoinLobbyResult
 	JoinLobbyResult_Success, // The room was joined.
 	JoinLobbyResult_FullRoom,       // The room is full.
 	JoinLobbyResult_BadPassword,    // An incorrect password (or none) was given for a passworded room.
-	JoinLobbyResult_JoinFailed // Generic failure.
+	JoinLobbyResult_JoinFailed, // Generic failure.
+	JoinLobbyResult_AnticheatMismatch // Anticheat mismatch
 };
 
 enum class ELobbyJoinability

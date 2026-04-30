@@ -80,7 +80,7 @@ void dumpBufferToLog(const void *vBuf, Int len, const char *fname, Int line)
 		for (dumpindex2 = 0; dumpindex2 < numBytesThisLine; ++dumpindex2)
 		{
 			char c = buf[offset + dumpindex2];
-			DEBUG_LOG_RAW(("%c", (isprint(c)?c:'.')));
+			DEBUG_LOG_RAW(("%c", (isprint((unsigned char)c)?c:'.')));
 		}
 		DEBUG_LOG_RAW(("\n"));
 	}
@@ -105,7 +105,7 @@ UnsignedInt ResolveIP(AsciiString host)
   }
 
   // String such as "127.0.0.1"
-  if (isdigit(host.getCharAt(0)))
+  if (isdigit((unsigned char)host.getCharAt(0)))
   {
     return ( ntohl(inet_addr(host.str())) );
   }

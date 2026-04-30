@@ -369,6 +369,8 @@ void NGMP_OnlineServicesManager::Shutdown()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] HTTPManager shutdown complete");
 	}
 
+	AnticheatPlugInterface::UnloadPlugin();
+
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] OnlineServicesManager shutdown complete");
 }
 
@@ -912,6 +914,15 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();
 
+    std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+	std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
+
+#if _DEBUG
+	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+#else
+	AnticheatPlugInterface::LoadPlugin(pluginPath.c_str());
+#endif
+
 	// TODO_NGMP: Better location
 	// TODO_NGMP: Get all of this from the service
 	int moneyVal = 100000;
@@ -946,6 +957,8 @@ void NGMP_OnlineServicesManager::Init()
 
 void NGMP_OnlineServicesManager::Tick()
 {
+	AnticheatPlugInterface::Tick();
+
 	// screenshots
 	{
 		// send screenshot
@@ -1081,7 +1094,7 @@ void NGMP_OnlineServicesManager::InitSentry()
 
 	sentry_options_set_dsn(options, "https://61750bebd112d279bcc286d617819269@o4509316925554688.ingest.us.sentry.io/4509316927586304");
 	sentry_options_set_database_path(options, NativeFileSystem::get_safe_path(strDumpPath).c_str());
-	sentry_options_set_release(options, "generalsonline-client@032926_QFE5");
+	sentry_options_set_release(options, "generalsonline-client@032926_QFE5_EAC");
 
 #if defined(USE_TEST_ENV)
 	sentry_options_set_environment(options, "test");
