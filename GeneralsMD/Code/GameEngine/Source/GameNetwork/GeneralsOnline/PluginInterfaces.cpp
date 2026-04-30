@@ -4,6 +4,21 @@
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_Auth.h"
 
+#ifdef __APPLE__
+#include <dlfcn.h>
+#endif
+
+#ifdef __APPLE__
+#define AC_PLUGIN_LOAD_FUNCTION(funcName) \
+    AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)dlsym(g_hACPluginModule, #funcName); \
+    if (!AnticheatPlugInterface::Functions.fn##funcName) \
+    { \
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Failed to find " #funcName " function"); \
+        dlclose(g_hACPluginModule); \
+        g_hACPluginModule = nullptr; \
+        return; \
+    }
+#else
 #define AC_PLUGIN_LOAD_FUNCTION(funcName) \
     AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
     if (!AnticheatPlugInterface::Functions.fn##funcName) \
@@ -12,6 +27,7 @@
         FreeLibrary(g_hACPluginModule); \
         return; \
     }
+#endif
 
 bool AnticheatPlugInterface::IsExternalProcessRunning()
 {
@@ -38,6 +54,16 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from %s", szPluginName);
 
     m_bPluginLoadFailed = false;
+#ifdef __APPLE__
+    g_hACPluginModule = dlopen(szPluginName, RTLD_LAZY);
+
+    if (!g_hACPluginModule)
+    {
+        m_bPluginLoadFailed = true;
+        const char* err = dlerror();
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Failed to load %s (%s)", szPluginName, err ? err : "unknown error");
+    }
+#else
     g_hACPluginModule = LoadLibraryA(szPluginName);
 
     if (!g_hACPluginModule)
@@ -48,6 +74,7 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         DWORD err = GetLastError();
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Failed to load %s (%u)", szPluginName, err);
     }
+#endif
     else
     {
         // set logger 
@@ -70,7 +97,7 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
 
-#if _DEBUG
+#if _DEBUG && !defined(__APPLE__)
         SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
 #endif
 
@@ -190,7 +217,11 @@ void AnticheatPlugInterface::Authenticate()
                     return;
                 }
 
+#ifdef __APPLE__
+                m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
                 m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
                 if (Functions.fnIsLoggedIn())
                 {
@@ -250,7 +281,11 @@ void AnticheatPlugInterface::EndSession()
 
 AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Functions;
 
+#ifdef __APPLE__
+void* AnticheatPlugInterface::g_hACPluginModule = nullptr;
+#else
 HMODULE AnticheatPlugInterface::g_hACPluginModule = nullptr;
+#endif
 bool AnticheatPlugInterface::m_bPluginLoadFailed = false;
 
 int64_t AnticheatPlugInterface::m_tokenCreationTime = -1;
@@ -298,7 +333,11 @@ void AnticheatPlugInterface::Tick()
         // Do we need to refresh our token?
         if (Functions.fnIsLoggedIn())
         {
+#ifdef __APPLE__
+            int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
             int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
             if (m_tokenCreationTime != -1 && now - m_tokenCreationTime >= 45 * 60 * 1000) // refresh every 45m, tokens last 60m, giving us a 15m buffer to refresh and retry if something goes wrong
             {
                 NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Token is about to expire, refreshing...");
@@ -319,7 +358,11 @@ void AnticheatPlugInterface::RefreshToken()
             return;
         }
 
+#ifdef __APPLE__
+        m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+#else
         m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+#endif
 
         Functions.fnRefreshToken(pAuthInterface->GetAuthToken().c_str(),
             [](bool bSuccess)
@@ -347,7 +390,11 @@ void AnticheatPlugInterface::UnloadPlugin()
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Shutdown Complete");
 
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Unloading plugin");
+#ifdef __APPLE__
+        dlclose(g_hACPluginModule);
+#else
         FreeLibrary(g_hACPluginModule);
+#endif
         g_hACPluginModule = nullptr;
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Unloaded plugin");
     }

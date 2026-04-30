@@ -109,10 +109,16 @@ public:
     static AnticheatPluginFunctionPtrs Functions;
 
     // Module
+#ifdef __APPLE__
+    static void* g_hACPluginModule;
+#else
     static HMODULE g_hACPluginModule;
+#endif
     static bool m_bPluginLoadFailed;
 
     static int64_t m_tokenCreationTime;
 };
 
+#ifndef __APPLE__
 extern HWND ApplicationHWnd;
+#endif

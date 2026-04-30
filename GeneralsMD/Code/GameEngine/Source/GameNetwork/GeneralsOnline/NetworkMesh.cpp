@@ -1106,7 +1106,11 @@ void PlayerConnection::LiteUpdateForAC()
 
 		// is it an AC packet?
 		// TODO_AC: Improve detection, just add a 'msg type' to the start of the packet
+#ifdef __APPLE__
+		std::vector<uint8_t> vecData;
+#else
 		std::vector<byte> vecData;
+#endif
 		vecData.resize(numBytes);
 		memcpy(vecData.data(), msg->GetData(), numBytes);
 
@@ -1125,7 +1129,11 @@ void PlayerConnection::LiteUpdateForAC()
 
 				// remove header
 				// TODO_AC: Optimize this
+#ifdef __APPLE__
+				std::vector<uint8_t> vecDataAC;
+#else
 				std::vector<byte> vecDataAC;
+#endif
 				vecDataAC.resize(numBytes - 3);
 				memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
 

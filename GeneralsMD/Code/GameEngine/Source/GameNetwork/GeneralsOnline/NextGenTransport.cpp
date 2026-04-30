@@ -114,7 +114,11 @@ Bool NextGenTransport::doRecv(void)
             const uint32_t numBytes = msg->m_cbSize;
 
             // is it an AC packet?
+#ifdef __APPLE__
+            std::vector<uint8_t> vecData;
+#else
             std::vector<byte> vecData;
+#endif
             vecData.resize(numBytes);
             memcpy(vecData.data(), msg->GetData(), numBytes);
 
@@ -133,7 +137,11 @@ Bool NextGenTransport::doRecv(void)
 
                     // remove header
                     // TODO_AC: Optimize this
+#ifdef __APPLE__
+                    std::vector<uint8_t> vecDataAC;
+#else
                     std::vector<byte> vecDataAC;
+#endif
                     vecDataAC.resize(numBytes - 3);
                     memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytes - 3);
 

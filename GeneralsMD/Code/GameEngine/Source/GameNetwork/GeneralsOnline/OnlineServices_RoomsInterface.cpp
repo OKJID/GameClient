@@ -1025,7 +1025,7 @@ void WebSocket::Tick()
 
 										if (bParsed)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_REGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_REGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid.c_str());
 											if (!AnticheatPlugInterface::RegisterPlayer(acData.mwid, acData.user_id))
 											{
 												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::RegisterPlayer failed");
@@ -1041,7 +1041,7 @@ void WebSocket::Tick()
 
 										if (bParsed)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_DEREGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid);
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Websocket AC_DEREGISTER_PLAYER for %lld and %s", acData.user_id, acData.mwid.c_str());
 											if (!AnticheatPlugInterface::DeregisterPlayer(acData.mwid, acData.user_id))
 											{
 												NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AnticheatPlugInterface::DeregisterPlayer failed");
