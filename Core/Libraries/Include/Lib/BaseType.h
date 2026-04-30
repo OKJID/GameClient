@@ -222,7 +222,7 @@ struct Coord2D
         y = 0.0f;
     }
 
-    Real length() const { return (Real)sqrt(x * x + y * y); }
+    Real length() const { return (Real)Sqrt(x * x + y * y); }
     Real lengthSqr() const { return x * x + y * y; }
 
     void normalize()
@@ -234,7 +234,6 @@ struct Coord2D
             y /= len;
         }
     }
-
     Real toAngle() const;  ///< turn 2D vector into angle (where angle 0 is down the +x axis)
 
 };
@@ -247,7 +246,7 @@ inline Real Coord2D::toAngle() const
     vector.x = x;
     vector.y = y;
 
-    Real dist = (Real)sqrt(vector.x * vector.x + vector.y * vector.y);
+    Real dist = (Real)Sqrt(vector.x * vector.x + vector.y * vector.y);
 
     // normalize
     if (dist == 0.0f)
@@ -309,7 +308,12 @@ struct ICoord2D
         y = 0;
     }
 
-    Int length() const { return (Int)sqrt((double)(x * x + y * y)); }
+    bool is(Int value) const
+    {
+        return x == value && y == value;
+    }
+
+    Int length() const { return (Int)Sqrt((double)(x * x + y * y)); }
 };
 
 struct Region2D
@@ -347,7 +351,7 @@ struct Coord3D
 {
     Real x, y, z;
 
-    Real length() const { return (Real)sqrt(x * x + y * y + z * z); }
+    Real length() const { return (Real)Sqrt(x * x + y * y + z * z); }
     Real lengthSqr() const { return (x * x + y * y + z * z); }
 
     void normalize()
@@ -430,7 +434,7 @@ struct ICoord3D
 {
     Int x, y, z;
 
-    Int length() const { return (Int)sqrt((double)(x * x + y * y + z * z)); }
+    Int length() const { return (Int)Sqrt((double)(x * x + y * y + z * z)); }
 
     void zero()
     {
