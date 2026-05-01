@@ -975,6 +975,11 @@ void GameEngine::update()
 			TheGameClient->UPDATE();
 			TheMessageStream->propagateMessages();
 
+            if (TheNetwork != nullptr)
+            {
+                TheNetwork->UPDATE();
+            }
+
 			if (g_bTearDownGeneralsOnlineRequested) // delayed tear down
 			{
 				g_bTearDownGeneralsOnlineRequested = false;
@@ -983,12 +988,6 @@ void GameEngine::update()
 
 			}
 			
-
-			if (TheNetwork != nullptr)
-			{
-				TheNetwork->UPDATE();
-			}
-
 			if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 			{
 				NGMP_OnlineServicesManager::GetInstance()->Tick();
