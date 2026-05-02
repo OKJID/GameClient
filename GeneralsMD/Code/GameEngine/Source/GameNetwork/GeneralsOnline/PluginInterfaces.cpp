@@ -79,6 +79,11 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         Functions.fnSetACIntegrityViolationOccurredCallback([](const char* szReason, int violationType)
             {
+                if (szReason == nullptr)
+                {
+                    szReason = "(null reason)";
+                }
+
                 NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, local AC integrity violation occured (%d): %s.", violationType, szReason);
                 g_bPendingExitLobby = true;
             });
@@ -88,39 +93,43 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         Functions.fnSetACActionRequiredCallback([](uint32_t userID, const char* szReason, EAnticheatActionType actionType, EAnticheatActionReason actionReason)
             {
+                if (szReason == nullptr)
+                {
+                    szReason = "(null reason)";
+                }
+
                 NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
 
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required.");
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Action required: %s", szReason);
 
                 if (pAuthInterface == nullptr)
                 {
                     // no auth interface? bail out
                     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, no auth interface.");
                     g_bPendingExitLobby = true;
+                    return;
+                }
+
+                // If it's us, leave, if its someone else, d/c them
+                if (pAuthInterface->GetUserID() == userID)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
+                    g_bPendingExitLobby = true;
                 }
                 else
                 {
-                    // If it's us, leave, if its someone else, d/c them
-                    if (pAuthInterface->GetUserID() == userID)
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
-                        g_bPendingExitLobby = true;
-                    }
-                    else
-                    {
-                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnecting remote user, lobby isn't secure, action was requested against remote user %u.", userID);
 
-                        NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                        if (pMesh != nullptr)
-                        {
-                            pMesh->DisconnectUser(userID);
-                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
-                        }
-                        else // no mesh, just back out
-                        {
-                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
-                            g_bPendingExitLobby = true;
-                        }
+                    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                    if (pMesh != nullptr)
+                    {
+                        pMesh->DisconnectUser(userID);
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Disconnected: %u.", userID);
+                    }
+                    else // no mesh, just back out
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, actionable player was remote, but no mesh exists to take action.");
+                        g_bPendingExitLobby = true;
                     }
                 }
             });
@@ -129,10 +138,20 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         AC_PLUGIN_LOAD_FUNCTION(SetSendMessageViaTransportCallback);
         Functions.fnSetSendMessageViaTransportCallback([](uint32_t goUserID, const void* pData, uint32_t dataLen)
             {
+                if (pData == nullptr || dataLen == 0)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: SendMessageViaTransport received null/empty data");
+                    return;
+                }
+
                 NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
                 if (pMesh != nullptr)
                 {
                     pMesh->SendACPacket(goUserID, pData, dataLen);
+                }
+                else
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot send AC packet - NetworkMesh is null");
                 }
             });
 
@@ -162,6 +181,12 @@ bool AnticheatPlugInterface::g_bPendingExitLobby = false;
 
 void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen)
 {
+    if (pData == nullptr || dataLen == 0)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: AC_NetworkMessageArrived received null/empty data");
+        return;
+    }
+
     // TODO: Cache all of these getprocaddresses
     if (IsPluginLoaded() && Functions.fnACMessageArrivedViaTransport != nullptr)
     {
@@ -173,7 +198,7 @@ void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* p
 
 void AnticheatPlugInterface::Authenticate()
 {
-    if (IsPluginLoaded() && Functions.fnLogin != nullptr && Functions.fnIsLoggedIn)
+    if (IsPluginLoaded() && Functions.fnLogin != nullptr && Functions.fnIsLoggedIn != nullptr)
     {
         NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
         if (pAuthInterface == nullptr)
@@ -192,10 +217,10 @@ void AnticheatPlugInterface::Authenticate()
 
                 m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 
-                if (Functions.fnIsLoggedIn())
+                if (Functions.fnIsLoggedIn != nullptr && Functions.fnIsLoggedIn())
                 {
                     char buf[4196];
-                    if (Functions.fnGetMiddlewareAuthToken(buf, sizeof(buf)))
+                    if (Functions.fnGetMiddlewareAuthToken != nullptr && Functions.fnGetMiddlewareAuthToken(buf, sizeof(buf)))
                     {
                         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Got MW token: %s", buf);
 
@@ -296,7 +321,7 @@ void AnticheatPlugInterface::Tick()
         Functions.fnTick();
 
         // Do we need to refresh our token?
-        if (Functions.fnIsLoggedIn())
+        if (Functions.fnIsLoggedIn != nullptr && Functions.fnIsLoggedIn())
         {
             int64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
             if (m_tokenCreationTime != -1 && now - m_tokenCreationTime >= 45 * 60 * 1000) // refresh every 45m, tokens last 60m, giving us a 15m buffer to refresh and retry if something goes wrong
@@ -310,7 +335,7 @@ void AnticheatPlugInterface::Tick()
 
 void AnticheatPlugInterface::RefreshToken()
 {
-    if (IsPluginLoaded() && Functions.fnRefreshToken != nullptr && Functions.fnIsLoggedIn)
+    if (IsPluginLoaded() && Functions.fnRefreshToken != nullptr && Functions.fnIsLoggedIn != nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Refreshing token");
         NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();

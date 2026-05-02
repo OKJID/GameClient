@@ -13,6 +13,8 @@
 #include "ValveNetworkingSockets/steam/isteamnetworkingutils.h"
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
 #include "../PluginInterfaces.h"
+#include "ValveNetworkingSockets/steam/isteamnetworkingsockets.h"
+#include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
 
 bool g_bForceRelay = false;
 UnsignedInt m_exeCRCOriginal = 0;
@@ -568,6 +570,7 @@ NetworkMesh::NetworkMesh()
 	SteamNetworkingUtils()->SetGlobalConfigValueInt32(k_ESteamNetworkingConfig_LogLevel_P2PRendezvous, k_ESteamNetworkingSocketsDebugOutputType_Error);
 
 	// try a shutdown
+	g_bNetworkMeshDestroying.store(true);
 	GameNetworkingSockets_Kill();
 
 	NGMP_OnlineServicesManager* pOnlineServicesMgr = NGMP_OnlineServicesManager::GetInstance();
@@ -658,6 +661,7 @@ NetworkMesh::NetworkMesh()
 	}
 
 	SteamNetworkingUtils()->SetGlobalCallback_SteamNetConnectionStatusChanged(OnSteamNetConnectionStatusChanged);
+	g_bNetworkMeshDestroying.store(false);
 
 	ESteamNetworkingSocketsDebugOutputType logType =
 #if defined(_DEBUG)
@@ -736,12 +740,22 @@ void NetworkMesh::UpdateConnectivity(PlayerConnection* connection)
 
 int NetworkMesh::SendGamePacket(void* pBuffer, uint32_t totalDataSize, int64_t user_id)
 {
+	if (!pBuffer || totalDataSize == 0)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[SendGamePacket] CRITICAL: Received null pBuffer or zero size from user %lld, size=%u", static_cast<long long>(user_id), totalDataSize);
+		return -3;  // Invalid buffer
+	}
+
+	// Thread safety: Lock connection map during access
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	
 	auto it = m_mapConnections.find(user_id);
 	if (it != m_mapConnections.end())
 	{
 		return it->second.SendGamePacket(pBuffer, totalDataSize);
 	}
 	
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[SendGamePacket] Connection not found for user %lld", static_cast<long long>(user_id));
 	return -2;
 }
 
@@ -760,6 +774,9 @@ void NetworkMesh::SendACPacket(uint32_t userID, const void* pData, uint32_t data
         return;
     }
 
+	// Thread safety: Lock connection map during access
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+
     if (m_mapConnections.contains(userID))
     {
         m_mapConnections[userID].SendACPacket(pData, dataLen);
@@ -772,6 +789,9 @@ void NetworkMesh::SendACPacket(uint32_t userID, const void* pData, uint32_t data
 
 void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort)
 {
+	// Thread safety: Lock connection map during access
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+
 	// if we already have a connection to this use, drop it, having a single-direction connection will break signalling
 	auto it = m_mapConnections.find(remoteUserID);
 	if (it != m_mapConnections.end())
@@ -864,15 +884,20 @@ void NetworkMesh::StartConnectionSignalling(int64_t remoteUserID, uint16_t prefe
 	}
 
 	// create a local user type
-	m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
+	{
+		std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+		m_mapConnections[remoteUserID] = PlayerConnection(remoteUserID, hSteamConnection);
 
-	// add attempt
-	++m_mapConnections[remoteUserID].m_SignallingAttempts;
+		// add attempt
+		++m_mapConnections[remoteUserID].m_SignallingAttempts;
+	}
 }
 
 
 void NetworkMesh::DisconnectUser(int64_t remoteUserID)
 {
+	std::lock_guard<std::recursive_mutex> lock(m_mapConnectionsMutex);
+	
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[DC] Dumping all Steam connections");
 	for (auto& kvPair : m_mapConnections)
 	{
@@ -1012,7 +1037,10 @@ void PlayerConnection::LiteUpdateForAC()
 		SteamNetworkingMessage_t* msg = pMsg[iPacket];
 		if (!msg)
 		{
-			return;
+			// CRITICAL BUG FIX: Don't return early - continue loop to release remaining messages
+			// Skipping null entry but continue processing others
+			NetworkLog(ELogVerbosity::LOG_DEBUG, "[AC PACKET] Received null message at index %d", iPacket);
+			continue;
 		}
 
 		const uint32_t numBytes = msg->m_cbSize;

@@ -2,7 +2,8 @@
 
 #include "NGMP_include.h"
 #include <ws2ipdef.h>
-#include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
+#include <mutex>
+#include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
 
 class NetRoom_ChatMessagePacket;
 
@@ -200,6 +201,7 @@ public:
 
 private:
 	std::map<int64_t, PlayerConnection> m_mapConnections;
+	mutable std::recursive_mutex m_mapConnectionsMutex;  // Synchronizes access to m_mapConnections
 
 	ISignalingClient* m_pSignaling = nullptr;
 

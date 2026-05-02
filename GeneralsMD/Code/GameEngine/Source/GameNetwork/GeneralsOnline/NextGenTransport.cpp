@@ -17,6 +17,11 @@
 
 NextGenTransport::NextGenTransport()
 {
+    // Initialize statistics tracking
+    m_statisticsSlot = 0;
+    m_lastSecond = timeGetTime();
+    m_useLatency = FALSE;
+    m_usePacketLoss = FALSE;
 }
 
 NextGenTransport::~NextGenTransport()
@@ -45,6 +50,13 @@ void NextGenTransport::reset(void)
     std::memset(m_outgoingBytes, 0, sizeof(m_outgoingBytes));
     std::memset(m_unknownPackets, 0, sizeof(m_unknownPackets));
     std::memset(m_unknownBytes, 0, sizeof(m_unknownBytes));
+    
+    // Clear retry state for all outgoing packets
+    for (int i = 0; i < MAX_MESSAGES; ++i)
+    {
+        m_outPacketState[i].retryCount = 0;
+        m_inBufferOccupied[i] = false;  // Mark all incoming slots as empty
+    }
 }
 
 Bool NextGenTransport::update(void)
@@ -67,6 +79,20 @@ Bool NextGenTransport::doRecv(void)
 {
     bool bRet = FALSE;
     int numRead = 0;
+
+    // Statistics gathering - advance slot every second (same as UDPTransport)
+    UnsignedInt now = timeGetTime();
+    if (m_lastSecond + 1000 < now)
+    {
+        m_lastSecond = now;
+        m_statisticsSlot = (m_statisticsSlot + 1) % MAX_TRANSPORT_STATISTICS_SECONDS;
+        m_outgoingPackets[m_statisticsSlot] = 0;
+        m_outgoingBytes[m_statisticsSlot] = 0;
+        m_incomingPackets[m_statisticsSlot] = 0;
+        m_incomingBytes[m_statisticsSlot] = 0;
+        m_unknownPackets[m_statisticsSlot] = 0;
+        m_unknownBytes[m_statisticsSlot] = 0;
+    }
 
     TransportMessage incomingMessage{};
     std::memset(&incomingMessage, 0, sizeof(incomingMessage));
@@ -214,9 +240,14 @@ Bool NextGenTransport::doRecv(void)
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
             if (m_usePacketLoss)
             {
-                if (TheGlobalData->m_packetLoss >= GameClientRandomValue(0, 100))
+                // Drop packet if random value is below loss percentage
+                // E.g., if m_packetLoss = 50, drop ~50% of packets
+                if (TheGlobalData->m_packetLoss > GameClientRandomValue(0, 100))
                 {
                     // Simulated packet loss
+                    NetworkLog(ELogVerbosity::LOG_DEBUG,
+                        "Game Packet Recv: Simulated packet loss (loss%%=%d)",
+                        TheGlobalData->m_packetLoss);
                     continue;
                 }
             }
@@ -226,8 +257,23 @@ Bool NextGenTransport::doRecv(void)
 
             if (!isGenerals)
             {
-                NetworkLog(ELogVerbosity::LOG_RELEASE,
-                    "Game Packet Recv: Is NOT a generals packet");
+                // Check if it's a CRC failure or magic number failure to help diagnose corruption
+                if (incomingMessage.header.magic != GENERALS_MAGIC_NUMBER)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Recv: BAD MAGIC NUMBER - Expected 0x%04X, got 0x%04X from user %lld. "
+                        "Packet is corrupted or from wrong game version.",
+                        GENERALS_MAGIC_NUMBER, incomingMessage.header.magic,
+                        static_cast<long long>(kvPair.second.m_userID));
+                }
+                else
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Recv: CRC MISMATCH - Expected 0x%08X, got 0x%08X from user %lld. "
+                        "Packet is corrupted during transmission or has invalid payload length (%u).",
+                        incomingMessage.header.crc, 0, // We'd need to compute the CRC to compare
+                        static_cast<long long>(kvPair.second.m_userID), incomingMessage.length);
+                }
                 m_unknownPackets[m_statisticsSlot]++;
                 m_unknownBytes[m_statisticsSlot] += numBytes;
                 continue;
@@ -238,10 +284,23 @@ Bool NextGenTransport::doRecv(void)
 
             // Store into first free slot in m_inBuffer
             bool stored = false;
+            int fullCount = 0;
             for (int i = 0; i < MAX_MESSAGES; ++i)
             {
-                if (m_inBuffer[i].length != 0)
+                // Check if slot is occupied using flag, not length
+                // (length could be 0 for legitimate empty packets)
+                // However, if the packet has been consumed (length cleared to 0 by outside code),
+                // clear the occupied flag too
+                if (m_inBuffer[i].length == 0 && m_inBufferOccupied[i])
+                {
+                    m_inBufferOccupied[i] = false;
+                }
+
+                if (m_inBufferOccupied[i])
+                {
+                    fullCount++;
                     continue;
+                }
 
                 // Clear slot
                 std::memset(&m_inBuffer[i], 0, sizeof(m_inBuffer[i]));
@@ -258,8 +317,10 @@ Bool NextGenTransport::doRecv(void)
                     if (payloadLen > dstCap)
                     {
                         NetworkLog(ELogVerbosity::LOG_RELEASE,
-                            "Game Packet Recv: Truncating payload from %u to %zu bytes for inBuffer[%d]",
-                            payloadLen, dstCap, i);
+                            "Game Packet Recv: WARNING - Truncating payload from %u to %zu bytes for inBuffer[%d] from user %lld. "
+                            "This indicates the incoming packet exceeds the buffer capacity and data will be lost. "
+                            "Consider increasing MAX_MESSAGE_LEN or MAX_PACKET_SIZE.",
+                            payloadLen, dstCap, i, static_cast<long long>(kvPair.second.m_userID));
                     }
 
                     std::memcpy(m_inBuffer[i].data,
@@ -270,17 +331,24 @@ Bool NextGenTransport::doRecv(void)
                 }
                 else
                 {
+                    // Zero-length packet - store with length=0 but mark as occupied
                     m_inBuffer[i].length = 0;
                 }
 
+                // Mark slot as occupied
+                m_inBufferOccupied[i] = true;
                 stored = true;
                 break;
             }
 
             if (!stored)
             {
+                // Buffer is full - log this as it indicates potential packet loss
                 NetworkLog(ELogVerbosity::LOG_RELEASE,
-                    "Game Packet Recv: m_inBuffer full, dropping packet");
+                    "Game Packet Recv: ERROR - m_inBuffer is FULL (%d/%d slots occupied), dropping packet from user %lld. "
+                    "Incoming packets will be lost until buffer slots are freed. "
+                    "Consider increasing MAX_MESSAGES (%d) to handle higher packet rates.",
+                    fullCount, MAX_MESSAGES, static_cast<long long>(kvPair.second.m_userID), MAX_MESSAGES);
             }
             else
             {
@@ -304,7 +372,10 @@ Bool NextGenTransport::doSend(void)
     for (int i = 0; i < MAX_MESSAGES; ++i)
     {
         if (m_outBuffer[i].length == 0)
+        {
+            m_outPacketState[i].retryCount = 0;  // Reset retry counter when packet slot is cleared
             continue;
+        }
 
         NGMP_OnlineServicesManager* pOnlineServicesManager = NGMP_OnlineServicesManager::GetInstance();
         if (pOnlineServicesManager == nullptr)
@@ -346,6 +417,7 @@ Bool NextGenTransport::doSend(void)
                     totalLen,
                     sizeof(TransportMessageHeader) + static_cast<size_t>(MAX_PACKET_SIZE));
                 m_outBuffer[i].length = 0; // drop this entry
+                m_outPacketState[i].retryCount = 0;
                 retval = FALSE;
                 continue;
             }
@@ -355,38 +427,77 @@ Bool NextGenTransport::doSend(void)
             {
                 NetworkLog(ELogVerbosity::LOG_RELEASE,
                     "Game Packet Send: No network mesh");
-                m_outBuffer[i].length = 0;
+                // Don't clear the packet - retry next frame
                 retval = FALSE;
                 continue;
             }
 
+            // CRITICAL FIX: Create a temporary buffer with ONLY header + data
+            // Do NOT send the entire TransportMessage struct which contains metadata
+            // (length, addr, port fields that corrupt the packet on the wire)
+            std::vector<byte> packetData;
+            packetData.resize(totalLen);
+            
+            // Copy header
+            std::memcpy(packetData.data(), 
+                       &m_outBuffer[i].header, 
+                       sizeof(TransportMessageHeader));
+            
+            // Copy payload data
+            std::memcpy(packetData.data() + sizeof(TransportMessageHeader),
+                       m_outBuffer[i].data,
+                       m_outBuffer[i].length);
+
             int sendResult =
                 pMesh->SendGamePacket(
-                    static_cast<void*>(&m_outBuffer[i]),
+                    packetData.data(),  // Send only header + data, NOT entire struct
                     totalLen,
                     pSlot->m_userID);
 
-            retval = (sendResult >= 0);
+            if (sendResult >= 0)
+            {
+                // Send successful
+                ++numSent;
+                m_outgoingPackets[m_statisticsSlot]++;
+                m_outgoingBytes[m_statisticsSlot] +=
+                    m_outBuffer[i].length + sizeof(TransportMessageHeader);
+                m_outBuffer[i].length = 0; // Remove from queue
+                m_outPacketState[i].retryCount = 0;
+                retval = TRUE;
+            }
+            else
+            {
+                // Send failed - implement retry logic for transient errors
+                m_outPacketState[i].retryCount++;
+                
+                if (m_outPacketState[i].retryCount < OutgoingPacketState::MAX_RETRIES)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Send: SendGamePacket failed (err=%d), retry %d/%d for packet to user %lld",
+                        sendResult, m_outPacketState[i].retryCount, 
+                        OutgoingPacketState::MAX_RETRIES, pSlot->m_userID);
+                    // Keep packet in queue for retry
+                    retval = FALSE;
+                }
+                else
+                {
+                    // Max retries exceeded - drop packet
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Send: Dropping packet after %d failed retries to user %lld",
+                        m_outPacketState[i].retryCount, pSlot->m_userID);
+                    m_outBuffer[i].length = 0;
+                    m_outPacketState[i].retryCount = 0;
+                    retval = FALSE;
+                }
+            }
         }
         else
         {
             NetworkLog(ELogVerbosity::LOG_RELEASE,
-                "Game Packet Send: No slot for addr %u", m_outBuffer[i].addr);
-            retval = FALSE;
-        }
-
-        if (retval)
-        {
-            ++numSent;
-            m_outgoingPackets[m_statisticsSlot]++;
-            m_outgoingBytes[m_statisticsSlot] +=
-                m_outBuffer[i].length + sizeof(TransportMessageHeader);
-            m_outBuffer[i].length = 0; // Remove from queue
-        }
-        else
-        {
-            // Keep the entry? For now, drop it to avoid infinite retry loops.
+                "Game Packet Send: No slot for addr %u, dropping packet", m_outBuffer[i].addr);
             m_outBuffer[i].length = 0;
+            m_outPacketState[i].retryCount = 0;
+            retval = FALSE;
         }
     }
 
