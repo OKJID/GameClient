@@ -108,11 +108,12 @@ UnsignedInt SimulationMathCrc::calculate()
 
 void SimulationMathCrc::runBenchmark(int iterations)
 {
+    int i;
     clock_t startDet = clock();
     UnsignedInt crcDet = 0;
     
     setFPMode();
-    for (int i = 0; i < iterations; ++i)
+    for (i = 0; i < iterations; ++i)
     {
         XferCRC xfer;
         xfer.open("SimMathDet");
@@ -128,7 +129,7 @@ void SimulationMathCrc::runBenchmark(int iterations)
     UnsignedInt crcNat = 0;
     
     setFPMode();
-    for (int i = 0; i < iterations; ++i)
+    for (i = 0; i < iterations; ++i)
     {
         XferCRC xfer;
         xfer.open("SimMathNat");
