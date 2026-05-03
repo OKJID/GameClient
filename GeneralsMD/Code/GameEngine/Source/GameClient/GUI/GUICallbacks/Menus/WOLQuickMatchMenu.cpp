@@ -1247,7 +1247,6 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 							std::string strState = "Unknown";
 
 							EConnectionState connState = connection->GetState();
-							std::string strConnectionType = connection->GetConnectionType();
 
 							switch (connState)
 							{
