@@ -26,17 +26,17 @@ enum SteamCMDState: Equatable {
 
     var statusText: String {
         switch self {
-        case .idle: return "READY"
-        case .downloadingSteamCMD: return "INSTALLING STEAMCMD..."
-        case .waitingForCredentials: return "AWAITING CREDENTIALS"
-        case .authenticating: return "AUTHENTICATING..."
-        case .waitingSteamGuard: return "STEAM GUARD CODE REQUIRED"
-        case .downloading(let progress): return "DOWNLOADING ASSETS... \(progress)"
-        case .validating: return "VALIDATING FILES..."
-        case .downloadingPatch(let progress): return String(format: "DOWNLOADING PATCH... %.0f%%", progress * 100)
-        case .unpackingPatch: return "UNPACKING PATCH..."
-        case .completed: return "ASSETS READY"
-        case .failed(let msg): return "ERROR: \(msg)"
+        case .idle: return L10n.steam.status.ready
+        case .downloadingSteamCMD: return L10n.steam.status.installingSteamCMD
+        case .waitingForCredentials: return L10n.steam.status.awaitingCreds
+        case .authenticating: return L10n.steam.status.authenticating
+        case .waitingSteamGuard: return L10n.steam.status.steamGuard
+        case .downloading(let progress): return L10n.steam.status.downloading.replacingOccurrences(of: "%@", with: progress)
+        case .validating: return L10n.steam.status.validating
+        case .downloadingPatch(let progress): return String(format: L10n.steam.status.downloadingPatch, progress * 100)
+        case .unpackingPatch: return L10n.steam.status.unpacking
+        case .completed: return L10n.steam.status.assetsReady
+        case .failed(let msg): return L10n.steam.status.error.replacingOccurrences(of: "%@", with: msg)
         }
     }
 }

@@ -14,8 +14,8 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
-VERSION="1.2.0"
-BUILD="4"
+VERSION="1.2.1"
+BUILD="5"
 
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
@@ -84,7 +84,8 @@ codesign --force --deep -s - "$FINAL_APP_DIR"
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc Sources/LauncherApp.swift Sources/MainView.swift \
        Sources/SteamCMDManager.swift Sources/AboutWindow.swift \
-       Sources/UpdateChecker.swift \
+       Sources/UpdateChecker.swift Sources/AssetPatcher.swift \
+       Sources/Localization.swift \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
        -target arm64-apple-macosx11.0
 

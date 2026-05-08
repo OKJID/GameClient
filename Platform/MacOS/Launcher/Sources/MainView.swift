@@ -17,13 +17,20 @@ class LauncherViewModel: ObservableObject {
     @Published var steamUsername: String = ""
     @Published var steamPassword: String = ""
     @Published var isUpdateDismissed: Bool = false
+    @Published var showPatchConfirmation: Bool = false
+    @Published var selectedLanguage: String = L10n.current
 
     var steamCMD = SteamCMDManager()
+    var assetPatcher = AssetPatcher()
     var updateChecker = UpdateChecker()
     private var cancellables = Set<AnyCancellable>()
 
     init() {
         steamCMD.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
+        assetPatcher.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &cancellables)
 
@@ -52,10 +59,39 @@ class LauncherViewModel: ObservableObject {
         return _validateGameFolder(at: URL(fileURLWithPath: installPath))
     }
 
+    var zhDirectoryURL: URL? {
+        guard !installPath.isEmpty else { return nil }
+        return AssetPatcher.findZHDirectory(at: URL(fileURLWithPath: installPath))
+    }
+
+    var isSteamPatchReady: Bool {
+        return assetPatcher.isCommunityPatchInstalled(at: steamCMD.assetsDir)
+    }
+
+    var isPatchReady: Bool {
+        switch activeTab {
+        case .steam: return isSteamPatchReady
+        case .local:
+            guard let zhDir = zhDirectoryURL else { return false }
+            return assetPatcher.isCommunityPatchInstalled(at: zhDir)
+        }
+    }
+
+    var needsPatching: Bool {
+        switch activeTab {
+        case .steam:
+            return steamCMD.areAssetsValid && !isSteamPatchReady
+                && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
+        case .local:
+            return isPathValid && !isPatchReady && !assetPatcher.state.isRunning
+        }
+    }
+
     var canLaunch: Bool {
         switch activeTab {
-        case .steam: return steamCMD.areAssetsValid && !steamCMD.state.isRunning
-        case .local: return isPathValid
+        case .steam: return steamCMD.areAssetsValid && isSteamPatchReady
+            && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
+        case .local: return isPathValid && isPatchReady && !assetPatcher.state.isRunning
         }
     }
 
@@ -77,7 +113,28 @@ class LauncherViewModel: ObservableObject {
             DispatchQueue.main.async {
                 self.installPath = url.path
                 UserDefaults.standard.set(self.installPath, forKey: "GENERALS_INSTALL_PATH")
+                self.objectWillChange.send()
             }
+        }
+    }
+
+    func requestPatching() {
+        switch activeTab {
+        case .steam:
+            confirmPatching()
+        case .local:
+            showPatchConfirmation = true
+        }
+    }
+
+    func confirmPatching() {
+        switch activeTab {
+        case .steam:
+            assetPatcher.startPatching(rootDir: steamCMD.installDir, zhDir: steamCMD.assetsDir)
+        case .local:
+            guard let zhDir = zhDirectoryURL else { return }
+            let rootURL = URL(fileURLWithPath: installPath)
+            assetPatcher.startPatching(rootDir: rootURL, zhDir: zhDir)
         }
     }
 
@@ -216,18 +273,28 @@ struct MainView: View {
             get: { viewModel.alertMessage.map { AlertItem(message: $0) } },
             set: { _ in viewModel.alertMessage = nil }
         )) { alert in
-            Alert(title: Text("Launch Error"), message: Text(alert.message), dismissButton: .default(Text("OK")))
+            Alert(title: Text(L10n.alerts.launchError), message: Text(alert.message), dismissButton: .default(Text(L10n.alerts.ok)))
         }
         .alert(isPresented: $viewModel.steamCMD.showPurchaseAlert) {
             Alert(
-                title: Text("Game Not Found"),
-                message: Text("The account \"\(viewModel.steamCMD.lastUsername)\" does not own Command & Conquer™ Generals — Zero Hour.\n\nPurchase the game on Steam, then press \"Download Assets\" again."),
-                primaryButton: .default(Text("Open Steam Store")) {
+                title: Text(L10n.alerts.gameNotFound),
+                message: Text(L10n.alerts.gameNotFoundMsg.replacingOccurrences(of: "%@", with: viewModel.steamCMD.lastUsername)),
+                primaryButton: .default(Text(L10n.alerts.openSteamStore)) {
                     if let url = URL(string: SteamCMDManager.storeURL) {
                         NSWorkspace.shared.open(url)
                     }
                 },
-                secondaryButton: .cancel(Text("Close"))
+                secondaryButton: .cancel(Text(L10n.alerts.close))
+            )
+        }
+        .alert(isPresented: $viewModel.showPatchConfirmation) {
+            Alert(
+                title: Text(L10n.alerts.patchTitle),
+                message: Text(L10n.alerts.patchMsg),
+                primaryButton: .destructive(Text(L10n.alerts.patchButton)) {
+                    viewModel.confirmPatching()
+                },
+                secondaryButton: .cancel()
             )
         }
     }
@@ -251,12 +318,12 @@ struct MainView: View {
 
     private func _buildHeader() -> some View {
         VStack(spacing: 4) {
-            Text("GENERALS ONLINE")
+            Text(L10n.app.title)
                 .font(.system(size: 48, weight: .black))
                 .foregroundColor(.white)
                 .shadow(color: neonBlue, radius: 15)
 
-            Text("COMMUNITY MAC PORT")
+            Text(L10n.app.subtitle)
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.7))
                 .shadow(color: .black, radius: 2, x: 0, y: 2)
@@ -284,10 +351,10 @@ struct MainView: View {
 
         switch tab {
         case .steam:
-            label = "STEAM (RECOMMENDED)"
+            label = L10n.tab.steam
             icon = "arrow.down.circle.fill"
         case .local:
-            label = "LOCAL ARCHIVE"
+            label = L10n.tab.local
             icon = "folder.fill"
         }
 
@@ -307,6 +374,7 @@ struct MainView: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
             .background(isActive ? neonBlue.opacity(0.25) : Color.clear)
+            .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -337,7 +405,7 @@ struct MainView: View {
 
     private func _buildSteamCredentials() -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("STEAM CREDENTIALS")
+            Text(L10n.steam.credentials)
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.6))
 
@@ -350,7 +418,7 @@ struct MainView: View {
                         .frame(width: 110)
 
                     Button(action: { viewModel.steamCMD.submitSteamGuard() }) {
-                        Text("SUBMIT")
+                        Text(L10n.steam.submit)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.white)
                             .padding(.horizontal, 12)
@@ -368,7 +436,7 @@ struct MainView: View {
 
                 if viewModel.steamCMD.state.isRunning {
                     Button(action: { viewModel.steamCMD.cancel() }) {
-                        Text("CANCEL")
+                        Text(L10n.steam.cancel)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.red)
                             .padding(.horizontal, 16)
@@ -399,7 +467,7 @@ struct MainView: View {
             HStack(spacing: 6) {
                 Image(systemName: "arrow.down.circle.fill")
                     .font(.system(size: 13))
-                Text("DOWNLOAD ASSETS")
+                Text(L10n.steam.download)
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
             }
             .foregroundColor(canStart ? .white : .white.opacity(0.3))
@@ -482,7 +550,7 @@ struct MainView: View {
 
     private func _buildLocalTab() -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("TACTICAL DATA PATH:")
+            Text(L10n.local.path)
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.7))
 
@@ -500,7 +568,7 @@ struct MainView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 Button(action: { viewModel.chooseFolder() }) {
-                    Text("LOCATE")
+                    Text(L10n.local.locate)
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundColor(.white)
                         .padding(.horizontal, 18)
@@ -510,10 +578,16 @@ struct MainView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(PlainButtonStyle())
+                .disabled(viewModel.assetPatcher.state.isRunning)
             }
 
             if !viewModel.installPath.isEmpty && !viewModel.isPathValid {
                 _buildLocalValidationWarning()
+            }
+
+            if viewModel.assetPatcher.state.isRunning || viewModel.assetPatcher.state == .completed {
+                _buildPatchConsole()
+                _buildPatchStatus()
             }
         }
         .padding(20)
@@ -528,7 +602,7 @@ struct MainView: View {
                 .foregroundColor(.red.opacity(0.8))
                 .font(.system(size: 14))
 
-            Text("INVALID TARGET — No ini.big / inizh.big detected in subdirectories")
+            Text(L10n.local.invalidTarget)
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(.red.opacity(0.8))
         }
@@ -544,6 +618,10 @@ struct MainView: View {
     private func _buildBottomAction() -> some View {
         if viewModel.canLaunch {
             _buildLaunchButton()
+        } else if viewModel.assetPatcher.state.isRunning {
+            _buildPatchingProgressButton()
+        } else if viewModel.needsPatching {
+            _buildPatchButton()
         } else {
             _buildTargetRequiredHint()
         }
@@ -556,10 +634,10 @@ struct MainView: View {
                     ProgressView()
                         .scaleEffect(0.7)
                         .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    Text("INITIALIZING...")
+                    Text(L10n.action.initialize)
                 } else {
                     Image(systemName: "play.fill")
-                    Text("LAUNCH")
+                    Text(L10n.action.launch)
                 }
             }
             .font(.system(size: 24, weight: .bold, design: .monospaced))
@@ -597,7 +675,7 @@ struct MainView: View {
 
             Text(viewModel.activeTab == .steam
                  ? "DOWNLOAD GAME ASSETS VIA STEAM TO ENABLE LAUNCH"
-                 : "SELECT THE PARENT DIRECTORY CONTAINING BOTH GAME VERSIONS")
+                 : L10n.local.selectHint)
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange.opacity(0.8))
                 .multilineTextAlignment(.center)
@@ -606,6 +684,95 @@ struct MainView: View {
         .background(Color.orange.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.orange.opacity(0.3), lineWidth: 1))
+    }
+
+    // MARK: - Patch Actions (Local Archive)
+
+    private func _buildPatchButton() -> some View {
+        Button(action: { viewModel.requestPatching() }) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.down.doc.fill")
+                Text(L10n.action.patch)
+            }
+            .font(.system(size: 24, weight: .bold, design: .monospaced))
+            .foregroundColor(.white)
+            .padding(.horizontal, 50)
+            .padding(.vertical, 14)
+            .background(
+                LinearGradient(
+                    colors: [Color.orange.opacity(0.3), Color.orange.opacity(0.15)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange, lineWidth: 2))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .shadow(color: Color.orange.opacity(0.5), radius: 12)
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func _buildPatchingProgressButton() -> some View {
+        HStack(spacing: 10) {
+            ProgressView()
+                .scaleEffect(0.7)
+                .progressViewStyle(CircularProgressViewStyle(tint: .orange))
+            Text(viewModel.assetPatcher.state.statusText)
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.orange.opacity(0.8))
+        }
+        .padding(.horizontal, 30)
+        .padding(.vertical, 14)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.3), lineWidth: 1))
+    }
+
+    private func _buildPatchConsole() -> some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                Text(viewModel.assetPatcher.consoleLog.isEmpty ? "Awaiting patch process..." : viewModel.assetPatcher.consoleLog)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(neonGreen.opacity(0.8))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .id("patchConsoleBottom")
+            }
+            .frame(height: 100)
+            .background(Color.black.opacity(0.7))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.15), lineWidth: 1))
+            .onChange(of: viewModel.assetPatcher.consoleLog) { _ in
+                withAnimation {
+                    proxy.scrollTo("patchConsoleBottom", anchor: .bottom)
+                }
+            }
+        }
+    }
+
+    private func _buildPatchStatus() -> some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(_patchStatusColor())
+                .frame(width: 8, height: 8)
+                .shadow(color: _patchStatusColor(), radius: 4)
+
+            Text(viewModel.assetPatcher.state.statusText)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .lineLimit(1)
+
+            Spacer()
+        }
+    }
+
+    private func _patchStatusColor() -> Color {
+        switch viewModel.assetPatcher.state {
+        case .idle: return .gray
+        case .cleaning, .downloadingPatch, .unpacking: return .orange
+        case .completed: return neonGreen
+        case .failed: return .red
+        }
     }
 
     // MARK: - Update Banner
@@ -617,7 +784,7 @@ struct MainView: View {
                     .foregroundColor(neonGreen)
                     .font(.system(size: 16))
 
-                Text("UPDATE AVAILABLE: v\(update.version)")
+                Text(L10n.update.available.replacingOccurrences(of: "%@", with: update.version))
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
 
@@ -645,7 +812,7 @@ struct MainView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.to.line")
                             .font(.system(size: 11))
-                        Text("DOWNLOAD UPDATE")
+                        Text(L10n.update.download)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                     }
                     .foregroundColor(.white)
@@ -665,7 +832,7 @@ struct MainView: View {
                     HStack(spacing: 6) {
                         Image(systemName: "safari")
                             .font(.system(size: 11))
-                        Text("SEE DETAILS")
+                        Text(L10n.update.details)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                     }
                     .foregroundColor(.white.opacity(0.7))
@@ -699,7 +866,7 @@ struct MainView: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                Text("Ported by OKJI (Okladnoj)")
+                Text(L10n.footer.author)
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.75))
                     .shadow(color: .black, radius: 1, x: 1, y: 1)
@@ -711,6 +878,8 @@ struct MainView: View {
                 }
             }
             Spacer()
+
+            _buildLanguagePicker()
 
             Button(action: {
                 AboutWindowController.show()
@@ -725,6 +894,29 @@ struct MainView: View {
             }
         }
         .padding(.horizontal, 20)
+    }
+
+    private func _buildLanguagePicker() -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "globe")
+                .font(.system(size: 13))
+                .foregroundColor(.white.opacity(0.5))
+
+            Picker("", selection: Binding<String>(
+                get: { viewModel.selectedLanguage },
+                set: { newLang in
+                    L10n.setCurrent(newLang)
+                    viewModel.selectedLanguage = newLang
+                }
+            )) {
+                ForEach(L10n.supportedLanguages, id: \.self) { lang in
+                    Text(L10n.languageNames[lang] ?? lang).tag(lang)
+                }
+            }
+            .labelsHidden()
+            .frame(width: 110)
+            .colorScheme(.dark)
+        }
     }
 
     private func _buildFooterLink(title: String, url: String) -> some View {
