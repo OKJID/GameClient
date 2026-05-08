@@ -916,6 +916,12 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager->Initialize();
 
     std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
+#ifdef __APPLE__
+    if (strPlugin.empty())
+    {
+        strPlugin = "easyanticheat";
+    }
+#endif
 	DEBUG_EAC_MAC(("[EAC_INIT] GetAnticheatPlugin() = '%s'", strPlugin.c_str()));
 	if (!strPlugin.empty())
 	{

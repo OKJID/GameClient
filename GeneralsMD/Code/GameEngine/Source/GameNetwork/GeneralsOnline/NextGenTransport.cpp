@@ -460,7 +460,11 @@ Bool NextGenTransport::doSend(void)
             // CRITICAL FIX: Create a temporary buffer with ONLY header + data
             // Do NOT send the entire TransportMessage struct which contains metadata
             // (length, addr, port fields that corrupt the packet on the wire)
+#ifdef __APPLE__
+            std::vector<uint8_t> packetData;
+#else
             std::vector<byte> packetData;
+#endif
             packetData.resize(totalLen);
             
             // Copy header

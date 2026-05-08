@@ -121,7 +121,9 @@ void SimulationMathCrc::runBenchmark(int iterations)
         xfer.close();
         if (i == 0) crcDet = xfer.getCRC();
     }
+#ifndef __APPLE__
     _fpreset();
+#endif
     clock_t endDet = clock();
     double timeDetMs = (double)(endDet - startDet) / CLOCKS_PER_SEC * 1000.0;
 
@@ -137,7 +139,9 @@ void SimulationMathCrc::runBenchmark(int iterations)
         xfer.close();
         if (i == 0) crcNat = xfer.getCRC();
     }
+#ifndef __APPLE__
     _fpreset();
+#endif
     clock_t endNat = clock();
     double timeNatMs = (double)(endNat - startNat) / CLOCKS_PER_SEC * 1000.0;
 

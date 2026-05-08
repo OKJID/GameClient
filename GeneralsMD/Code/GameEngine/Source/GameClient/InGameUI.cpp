@@ -99,6 +99,9 @@
 #include "../NetworkMesh.h"
 #include "GameNetwork/NetworkDefs.h"
 #include "GameNetwork/NetworkInterface.h"
+#ifdef __APPLE__
+#include "ValveNetworkingSockets/steam/steamnetworkingsockets.h"
+#endif
 extern NetworkInterface * TheNetwork;
 #endif
 

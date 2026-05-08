@@ -137,6 +137,8 @@ if(APPLE)
         add_custom_command(TARGET z_generals POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks"
             COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin/EOS-SDK/SDK/Bin/libEOSSDK-Mac-Shipping.dylib" "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks/"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:easyanticheat>" "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat/"
         )
     else()
         message(STATUS "EAC Plugin source not found (private repo). Skipping plugin build.")
