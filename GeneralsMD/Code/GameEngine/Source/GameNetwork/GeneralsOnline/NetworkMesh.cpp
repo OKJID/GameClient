@@ -601,6 +601,15 @@ NetworkMesh::NetworkMesh()
 {
 	DEBUG_INFO_MAC(("[P2P] NetworkMesh::NetworkMesh() - BEGIN"));
 
+	// Block the status-changed callback from firing while the library is
+	// torn down and re-initialized.  Without this guard the callback can
+	// be dispatched (e.g. from a previous Tick's RunCallbacks queue) after
+	// GameNetworkingSockets_Kill() has freed its internal mutexes but
+	// before GameNetworkingSockets_Init() has rebuilt them, resulting in
+	// an EXCEPTION_ACCESS_VIOLATION_READ on a null mutex pointer inside
+	// mtx_do_lock.
+	g_bNetworkMeshDestroying.store(true);
+
 	// try a shutdown
 	g_bNetworkMeshDestroying.store(true);
 	GameNetworkingSockets_Kill();
@@ -726,6 +735,10 @@ NetworkMesh::NetworkMesh()
 	DEBUG_INFO_MAC(("[P2P] CSignalingClient created OK"));
 
 	SteamNetworkingUtils()->SetGlobalCallback_SteamNetConnectionStatusChanged(OnSteamNetConnectionStatusChanged);
+	g_bNetworkMeshDestroying.store(false);
+
+	// Library is fully re-initialized and the callback is registered;
+	// it is now safe to allow OnSteamNetConnectionStatusChanged to run.
 	g_bNetworkMeshDestroying.store(false);
 
 	ESteamNetworkingSocketsDebugOutputType logType =

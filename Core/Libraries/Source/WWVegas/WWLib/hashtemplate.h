@@ -372,7 +372,8 @@ template <class KeyType, class ValueType> inline void HashTemplateClass<KeyType,
 
 	for (i = cnt; i < (int)new_size; i++)
 		new_table[i].Next = i+1;
-	new_table[new_size-1].Next = NIL;
+	if (cnt < (int)new_size)
+		new_table[new_size-1].Next = NIL;
 
 	First	= cnt;
 	Hash	= new_hash;

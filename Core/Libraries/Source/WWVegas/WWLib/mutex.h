@@ -81,7 +81,10 @@ public:
 
 class CriticalSectionClass
 {
-	void* handle;
+	// Inline storage for CRITICAL_SECTION to avoid heap allocation entirely.
+	// CRITICAL_SECTION is 40 bytes on x64 and 24 bytes on x86; 40 bytes with
+	// 8-byte alignment is sufficient for both platforms.
+	alignas(8) char handle[40];
 	unsigned locked;
 
 	// Lock and unlock are private so that you can't use them directly. Use LockClass as a sentry instead!

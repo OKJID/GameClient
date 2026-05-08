@@ -1350,7 +1350,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
                             }
                         }
 
-                        // 3) Convert jitter to a 0–1+ ratio relative to latency
+                        // 3) Convert jitter to a 0Â–1+ ratio relative to latency
                         Real jitterRatio = 0.0f;
                         if (maxLatMs > 0)
                         {
@@ -1371,7 +1371,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
                         }
                         else if (maxLatMs > 200)
                         {
-                            // Medium-high latency (200–300 ms)
+                            // Medium-high latency (200Â–300 ms)
                             minSlack = serviceConf.ibra_minslack_greaterthan200ms;
                             maxSlack = serviceConf.ibra_maxslack_greaterthan200ms;
                         }
@@ -2002,11 +2002,16 @@ PlayerLeaveCode ConnectionManager::disconnectPlayer(Int slot) {
 
 	if (slot == m_packetRouterSlot) {
 		Int index = 0;
-		while ((index < (MAX_SLOTS-1)) && (m_packetRouterFallback[index] != m_packetRouterSlot)) {
+		while ((index < MAX_SLOTS) && (m_packetRouterFallback[index] != m_packetRouterSlot)) {
 			++index;
 		}
 		++index;
-		m_packetRouterSlot = m_packetRouterFallback[index];
+		if (index < MAX_SLOTS) {
+			m_packetRouterSlot = m_packetRouterFallback[index];
+		} else {
+			DEBUG_LOG(("ConnectionManager::disconnectPlayer - packet router had no valid fallback, defaulting to local slot %d", m_localSlot));
+			m_packetRouterSlot = m_localSlot;
+		}
 		DEBUG_LOG(("Packet router left.  New packet router is slot %d", m_packetRouterSlot));
 		retval = PLAYERLEAVECODE_PACKETROUTER;
 	}
@@ -2712,11 +2717,14 @@ void ConnectionManager::sendSingleFrameToPlayer(UnsignedInt playerID, UnsignedIn
 
 UnsignedInt ConnectionManager::getNextPacketRouterSlot(UnsignedInt playerID) {
 	Int index = 0;
-	while ((index < (MAX_SLOTS-1)) && (m_packetRouterFallback[index] != playerID)) {
+	while ((index < MAX_SLOTS) && (m_packetRouterFallback[index] != playerID)) {
 		++index;
 	}
 	++index;
-	return m_packetRouterFallback[index];
+	if (index < MAX_SLOTS) {
+		return m_packetRouterFallback[index];
+	}
+	return MAX_SLOTS; // No valid next packet router; caller checks for >= MAX_SLOTS
 }
 
 void ConnectionManager::requestFrameDataResend(Int playerID, UnsignedInt frame) {

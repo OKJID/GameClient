@@ -1887,13 +1887,19 @@ void PartitionData::doCircleFillPrecise(Real centerX, Real centerY, Real radius)
 	ThePartitionManager->worldToCell(centerX + radius, centerY + radius, &maxCellX, &maxCellY);
 
 	Real cellSize = ThePartitionManager->getCellSize();
+	Real halfCellSize = cellSize * 0.5f;
 
 	for (Int x = minCellX; x <= maxCellX; ++x)
 	{
 		for (Int y = minCellY; y <= maxCellY; ++y)
 		{
-			Real cellWorldX = x * cellSize;
-			Real cellWorldY = y * cellSize;
+			// getCellCenterPos returns the world-space center of the cell, accounting for
+			// m_worldExtents.lo offset. Subtracting halfCellSize gives the lower-left corner,
+			// which is what doesCircleOverlapCell expects.
+			Real cellWorldX, cellWorldY;
+			ThePartitionManager->getCellCenterPos(x, y, cellWorldX, cellWorldY);
+			cellWorldX -= halfCellSize;
+			cellWorldY -= halfCellSize;
 
 			if (doesCircleOverlapCell(centerX, centerY, radius, cellWorldX, cellWorldY, cellSize))
 			{

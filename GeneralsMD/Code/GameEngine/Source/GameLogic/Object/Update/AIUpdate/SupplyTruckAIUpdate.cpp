@@ -89,6 +89,8 @@ SupplyTruckAIUpdate::SupplyTruckAIUpdate( Thing *thing, const ModuleData* module
 //-------------------------------------------------------------------------------------------------
 SupplyTruckAIUpdate::~SupplyTruckAIUpdate()
 {
+	if (m_supplyTruckStateMachine)
+		m_supplyTruckStateMachine->halt();
 	deleteInstance(m_supplyTruckStateMachine);
 }
 

@@ -608,7 +608,7 @@ void DumpExceptionInfo( unsigned int u, EXCEPTION_POINTERS* e_info )
 	/*
 	** Dump the bytes at EIP. This will make it easier to match the crash address with later versions of the game.
 	*/
-	char scrap[512];
+	char scrap[512] = {};
 	DOUBLE_DEBUG ( ("EIP bytes dump..."));
 	wsprintf (scrap, "\nBytes at CS:EIP (%08X)  : ", context->Eip);
 
@@ -619,7 +619,7 @@ void DumpExceptionInfo( unsigned int u, EXCEPTION_POINTERS* e_info )
 	{
 		if (IsBadReadPtr(eip_ptr, 1))
 		{
-			lstrcat (scrap, "?? ");
+			strlcat(scrap, "?? ", ARRAY_SIZE(scrap));
 		}
 		else
 		{

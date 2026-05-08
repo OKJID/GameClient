@@ -149,7 +149,8 @@ void INI::parseMapCacheDefinition( INI* ini )
 	{
 		// maps without localized name tags
 		AsciiString tempdisplayname;
-		tempdisplayname = name.reverseFind('\\') + 1;
+		const char *lastBackslash = name.reverseFind('\\');
+		tempdisplayname = lastBackslash ? lastBackslash + 1 : name.str();
 		md.m_displayName.translate(tempdisplayname);
 		if (md.m_numPlayers >= 2)
 		{

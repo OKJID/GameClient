@@ -17,6 +17,17 @@ WebSocket::WebSocket()
 WebSocket::~WebSocket()
 {
 	Shutdown();
+	// Only call Shutdown if it has not been initiated already.
+	// NGMP_OnlineServicesManager::Shutdown() calls Shutdown() before releasing the shared_ptr,
+	// so calling it again from the destructor would redundantly block for another 100ms sleep
+	// and attempt to free already-released curl resources.
+	if (!m_bShuttingDown)
+	{
+		Shutdown();
+	}
+
+
+
 
 	if (m_pHeaders != nullptr)
 	{
@@ -209,6 +220,14 @@ void WebSocket::Disconnect()
 			m_pHeaders = nullptr;
 		}
 
+
+		// Remove from multi handle before cleanup (required by libcurl)
+		if (m_pMulti != nullptr)
+		{
+			curl_multi_remove_handle(m_pMulti, m_pCurlWS);
+		}
+
+
 		// cleanup
 		curl_easy_cleanup(m_pCurlWS);
 		m_pCurlWS = nullptr;
@@ -353,6 +372,15 @@ public:
 	std::vector<uint8_t> payload;
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_NetworkSignal, target_user_id, payload)
+};
+
+class WebSocketMessage_AnticheatMessage : public WebSocketMessageBase
+{
+public:
+    int64_t target_user_id = -1;
+    std::vector<uint8_t> payload;
+
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessage_AnticheatMessage, target_user_id, payload)
 };
 
 class WebSocketMessage_ServerProbe : public WebSocketMessageBase
@@ -1161,6 +1189,22 @@ void WebSocket::Tick()
 									}
 									break;
 
+                                    case EWebSocketMessageID::ANTICHEAT_MESSAGE:
+                                    {
+                                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] GOT AC MSG FROM WEBSOCKET!");
+
+										WebSocketMessage_AnticheatMessage acMsg;
+                                        bool bParsed = JSONGetAsObject(jsonObject, &acMsg);
+
+                                        if (bParsed)
+                                        {
+                                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AC Msg Signal User: %lld!", acMsg.target_user_id);
+                                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AC Msg Signal Payload Size: %d!", (int)acMsg.payload.size());
+                                            AnticheatPlugInterface::AC_NetworkMessageArrived(acMsg.target_user_id, acMsg.payload.data(), acMsg.payload.size());
+                                        }
+                                    }
+                                    break;
+
 									case EWebSocketMessageID::LOBBY_CURRENT_LOBBY_UPDATE:
 									{
 										// re-get the room info as it is stale
@@ -1514,4 +1558,5 @@ void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::unordered_map<uint
 		m_RosterNeedsRefreshCallback();
 	}
 }
+
 

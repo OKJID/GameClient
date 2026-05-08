@@ -1106,6 +1106,12 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 		}
 	}
 
+	if (comboBoxLANIP)
+		GadgetComboBoxSetText(comboBoxLANIP, L"***.***.***.***");
+
+	if (comboBoxOnlineIP)
+		GadgetComboBoxSetText(comboBoxOnlineIP, L"***.***.***.***");
+
 	// HTTP Proxy
 	GameWindow *textEntryHTTPProxy = TheWindowManager->winGetWindowFromId(nullptr, NAMEKEY("OptionsMenu.wnd:TextEntryHTTPProxy"));
 	if (textEntryHTTPProxy)

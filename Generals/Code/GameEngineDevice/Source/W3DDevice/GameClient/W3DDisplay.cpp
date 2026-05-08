@@ -2545,9 +2545,17 @@ void W3DDisplay::drawImage( const Image *image, Int startX, Int startY,
 
 	// if we have raw texture data we will use it, otherwise we are referencing filenames
 	if( BitIsSet( image->getStatus(), IMAGE_STATUS_RAW_TEXTURE ) )
+	{
+		if( image->getRawTextureData() == nullptr )
+			return;
 		m_2DRender->Set_Texture( (TextureClass *)(image->getRawTextureData()) );
+	}
 	else
+	{
+		if( image->getFilename().isEmpty() )
+			return;
 		m_2DRender->Set_Texture( image->getFilename().str() );
+	}
 
 	RectClass screen_rect(startX,startY,endX,endY);
 	RectClass uv_rect(uv->lo.x,uv->lo.y,uv->hi.x,uv->hi.y);

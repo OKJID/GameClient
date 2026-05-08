@@ -1525,7 +1525,9 @@ GameSpyLoadScreen::~GameSpyLoadScreen()
 	}
 }
 
+#if !defined(GENERALS_ONLINE)
 extern Int GetAdditionalDisconnectsFromUserFile(Int playerID);
+#endif
 
 void GameSpyLoadScreen::init( GameInfo *game )
 {
@@ -1774,7 +1776,9 @@ GameSlot *lSlot = game->getSlot(game->getLocalSlotNum());
 		{
 			numGames += it->second;
 		}
+#if !defined(GENERALS_ONLINE)
 		numGames += GetAdditionalDisconnectsFromUserFile(stats.id);
+#endif
 
 		formatString.format(L"%d", numGames);
 		GadgetStaticTextSetText(m_playerTotalDisconnects[netSlot], formatString);
@@ -1985,7 +1989,8 @@ void MapTransferLoadScreen::init( GameInfo *game )
 		GadgetStaticTextSetText(m_progressText[netSlot], UnicodeString::TheEmptyString );
 		m_progressText[netSlot]->winSetEnabledTextColors(houseColor, m_progressText[netSlot]->winGetEnabledTextBorderColor());
 
-		if ((i == 0 || (TheGameInfo->getConstSlot(i)->isHuman() && TheGameInfo->getConstSlot(i)->hasMap())) && m_progressBars[netSlot])
+		const GameSlot *gameInfoSlot = TheGameInfo->getConstSlot(i);
+		if ((i == 0 || (gameInfoSlot && gameInfoSlot->isHuman() && gameInfoSlot->hasMap())) && m_progressBars[netSlot])
 			m_progressBars[netSlot]->winHide(TRUE);
 
 		m_playerLookup[i] = netSlot; // save our mapping so we can update progress correctly

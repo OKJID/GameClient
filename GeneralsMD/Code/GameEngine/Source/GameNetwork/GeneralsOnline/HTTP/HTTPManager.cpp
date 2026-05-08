@@ -103,7 +103,12 @@ void HTTPManager::Shutdown()
 						HTTPRequest* pRequest = *it;
 						if (pRequest != nullptr && pRequest->EasyHandleMatches(pCurlHandle))
 						{
-							pRequest->Threaded_SetComplete(m->data.result);
+							// During shutdown, skip invoking the completion callback. The callback
+							// may reference objects (e.g. NGMP_OnlineServices_StatsInterface via
+							// captured 'this') that have already been or are being destroyed,
+							// leading to use-after-free memory corruption and crashes in unrelated
+							// destructors such as GameSpyMiscPreferences::~GameSpyMiscPreferences().
+							// HTTPRequest::~HTTPRequest() handles all necessary curl handle cleanup.
 							delete pRequest;
 							m_vecRequestsInFlight.erase(it);
 							break;
@@ -122,6 +127,17 @@ void HTTPManager::Shutdown()
 		
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "[HTTPManager] All in-flight requests completed");
 
+		// Delete any remaining in-flight requests without invoking their callbacks.
+		// These are requests that completed via curl but were not matched above, or
+		// requests that are still pending completion. Invoking callbacks here is unsafe
+		// as the objects they reference may already be destroyed.
+		for (HTTPRequest* pRequest : m_vecRequestsInFlight)
+		{
+			if (pRequest != nullptr)
+			{
+				delete pRequest;
+			}
+		}
 		m_vecRequestsInFlight.clear();
 
 		// Now safe to cleanup
@@ -199,9 +215,6 @@ HTTPManager::~HTTPManager()
 void HTTPManager::Initialize()
 {
 	CHECK_MAIN_THREAD;
-
-    // Initialize libcurl global state
-    curl_global_init(CURL_GLOBAL_DEFAULT);
 
 	m_pCurl = curl_multi_init();
 	m_bProxyEnabled = DeterminePlatformProxySettings();

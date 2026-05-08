@@ -303,11 +303,11 @@ static void memset32(void* ptr, Int value, Int bytesToFill)
 	bytesToFill -= (wordsToFill<<2);
 
 	Int *p = (Int*)ptr;
-	for (++wordsToFill; --wordsToFill; )
+	while (wordsToFill-- > 0)
 		*p++ = value;
 
 	Byte *b = (Byte *)p;
-	for (++bytesToFill; --bytesToFill; )
+	while (bytesToFill-- > 0)
 		*b++ = (Byte)value;
 }
 
@@ -1451,7 +1451,7 @@ BlockCheckpointInfo *Checkpointable::debugAddCheckpointInfo(
 	{
 #ifdef MEMORYPOOL_STACKTRACE
 		void **stacktrace = bi->getStacktraceInfo();
-		if (theStackTraceDepth > 0 && !TheGlobalData || TheGlobalData->m_checkForLeaks)
+		if (theStackTraceDepth > 0 && (!TheGlobalData || TheGlobalData->m_checkForLeaks))
 		{
 			memset(stacktrace, 0, MEMORYPOOL_STACKTRACE_SIZE_BYTES);
 			::FillStackAddresses(stacktrace, min(MEMORYPOOL_STACKTRACE_SIZE, theStackTraceDepth), MEMORYPOOL_STACKTRACE_SKIP_SIZE);
@@ -1584,7 +1584,8 @@ MemoryPoolBlob* MemoryPool::createBlob(Int allocationCount)
 	blob->addBlobToList(&m_firstBlob, &m_lastBlob);
 
 	DEBUG_ASSERTCRASH(m_firstBlobWithFreeBlocks == NULL, ("DO NOT IGNORE. Please call John McD - x36872 (m_firstBlobWithFreeBlocks != NULL)"));
-	m_firstBlobWithFreeBlocks = blob;
+	if (m_firstBlobWithFreeBlocks == NULL)
+		m_firstBlobWithFreeBlocks = blob;
 
 	// bookkeeping
 	m_totalBlocksInPool += allocationCount;

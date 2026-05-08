@@ -3084,7 +3084,8 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				(TheGlobalData->m_netMinPlayers==0 || TheGameInfo->isMultiPlayer()))
 			{
 				Int count;
-				const ThingTemplate *thing = TheThingFactory->findTemplate( ThePlayerList->getLocalPlayer()->getPlayerTemplate()->getBeaconTemplate() );
+				const PlayerTemplate *localPlayerTemplate = ThePlayerList->getLocalPlayer()->getPlayerTemplate();
+				const ThingTemplate *thing = localPlayerTemplate ? TheThingFactory->findTemplate( localPlayerTemplate->getBeaconTemplate() ) : nullptr;
 				ThePlayerList->getLocalPlayer()->countObjectsByThingTemplate( 1, &thing, false, &count );
 				DEBUG_LOG(("MSG_META_PLACE_BEACON - Player already has %d beacons active", count));
 				if (count < TheMultiplayerSettings->getMaxBeaconsPerPlayer())

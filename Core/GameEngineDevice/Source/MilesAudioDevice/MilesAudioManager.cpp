@@ -480,6 +480,13 @@ void MilesAudioManager::reset()
 void MilesAudioManager::update()
 {
 	AudioManager::update();
+
+	// Check audio device is initialized before updating
+	if (m_digitalHandle == nullptr)
+	{
+		return;  // Audio device not ready, skip update
+	}
+
 	setDeviceListenerPosition();
 	processRequestList();
 	processPlayingList();
@@ -1193,7 +1200,10 @@ void MilesAudioManager::freeAllMilesHandles()
 	std::list<HSAMPLE>::iterator it;
 	for ( it = m_availableSamples.begin(); it != m_availableSamples.end(); /* empty */ ) {
 		HSAMPLE sample = *it;
-		AIL_release_sample_handle(sample);
+		if (sample != nullptr)
+		{
+			AIL_release_sample_handle(sample);
+		}
 		it = m_availableSamples.erase(it);
 	}
 	m_num2DSamples = 0;
@@ -1201,7 +1211,10 @@ void MilesAudioManager::freeAllMilesHandles()
 	std::list<H3DSAMPLE>::iterator it3D;
 	for ( it3D = m_available3DSamples.begin(); it3D != m_available3DSamples.end(); /* empty */ ) {
 		H3DSAMPLE sample3D = *it3D;
-		AIL_release_3D_sample_handle(sample3D);
+		if (sample3D != nullptr)
+		{
+			AIL_release_3D_sample_handle(sample3D);
+		}
 		it3D = m_available3DSamples.erase(it3D);
 	}
 	m_num3DSamples = 0;
@@ -1440,8 +1453,12 @@ AsciiString MilesAudioManager::getMusicTrackName() const
 void MilesAudioManager::openDevice()
 {
 	if (!TheGlobalData->m_audioOn) {
+		m_digitalHandle = nullptr;
 		return;
 	}
+
+	// Always clear handle at start - only set if initialization succeeds
+	m_digitalHandle = nullptr;
 
 	AIL_set_redist_directory("MSS\\");
 	AIL_startup();
@@ -1453,22 +1470,31 @@ void MilesAudioManager::openDevice()
 
 	retval = AIL_quick_startup(audioSettings->m_useDigital, audioSettings->m_useMidi, audioSettings->m_outputRate, audioSettings->m_outputBits, audioSettings->m_outputChannels);
 
-	// Quick handles tells us where to store the various devices. For now, we're only interested in the digital handle.
-	AIL_quick_handles(&m_digitalHandle, nullptr, nullptr);
-
-	if (retval) {
-		buildProviderList();
-	} else {
-		// if we couldn't initialize any devices, turn sound off (fail silently)
-		setOn( false, AudioAffect_All );
+	if (!retval) {
+		// Initialization failed - ensure m_digitalHandle stays nullptr and audio is disabled
+		m_digitalHandle = nullptr;
+		setOn(false, AudioAffect_All);
+		return;  // EXIT EARLY - don't continue with invalid device
 	}
 
+	// Only get handles if initialization succeeded
+	AIL_quick_handles(&m_digitalHandle, nullptr, nullptr);
+
+	// If we still don't have a valid handle, disable audio
+	if (m_digitalHandle == nullptr) {
+		setOn(false, AudioAffect_All);
+		return;
+	}
+
+	// Device initialized successfully - proceed with setup
+	buildProviderList();
 	selectProvider(TheAudio->getProviderIndex(m_pref3DProvider));
 
 	// Now that we're all done, update the cached variables so that everything is in sync.
 	TheAudio->refreshCachedVariables();
 
 	if (!isValidProvider()) {
+		m_digitalHandle = nullptr;  // Mark as invalid if provider check fails
 		return;
 	}
 
@@ -1478,9 +1504,13 @@ void MilesAudioManager::openDevice()
 //-------------------------------------------------------------------------------------------------
 void MilesAudioManager::closeDevice()
 {
-	freeAllMilesHandles();
-	unselectProvider();
-	AIL_shutdown();
+	if (m_digitalHandle != nullptr)
+	{
+		freeAllMilesHandles();
+		unselectProvider();
+		AIL_shutdown();
+		m_digitalHandle = nullptr;
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

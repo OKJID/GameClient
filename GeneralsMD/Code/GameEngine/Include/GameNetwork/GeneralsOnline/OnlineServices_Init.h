@@ -59,7 +59,7 @@ enum EWebSocketMessageID
 	NETWORK_ROOM_MARK_READY = 5,
 	LOBBY_CURRENT_LOBBY_UPDATE = 6,
 	NETWORK_ROOM_LOBBY_LIST_UPDATE = 7,
-	UNUSED_PLACEHOLDER = 8, // this was relay upgrade, was removed. We can re-use it later, but service needs this placeholder
+	ANTICHEAT_MESSAGE = 8,
 	PLAYER_NAME_CHANGE = 9,
 	LOBBY_ROOM_CHAT_FROM_CLIENT = 10,
 	LOBBY_CHAT_FROM_SERVER = 11,
@@ -156,6 +156,8 @@ public:
 	void SendData_RequestSignalling(int64_t targetUserID);
 	void SendData_Signalling(int64_t targetUserID, std::vector<uint8_t> vecPayload);
 	void SendData_StartGame();
+
+	void SendData_ACMessage(int64_t targetUserID, std::vector<uint8_t> vecPayload);
 
 	void SendData_ChangeLobbyPassword(UnicodeString& strNewPassword);
 	void SendData_RemoveLobbyPassword();

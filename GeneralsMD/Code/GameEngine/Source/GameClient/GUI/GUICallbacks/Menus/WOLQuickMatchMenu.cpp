@@ -1117,10 +1117,15 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 
 	// cannot connect to the lobby we joined
+	if (pLobbyInterface != nullptr)
+	{
+
 	pLobbyInterface->RegisterForCannotConnectToLobbyCallback([](void)
 		{
 			// TODO_QUICKMATCH: Show error message + stop matchmaking + enable buttons again
 		});
+	}
+
 
 	// get playlist list
 	NGMP_OnlineServices_MatchmakingInterface* pMatchmakingInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_MatchmakingInterface>();
@@ -1330,12 +1335,14 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
                         buttonText.format(L"%s", TheGameText->fetch("GUI:Buddies").str());
                     }
 					buttonBuddies->winSetText(buttonText);
+
+
                 }
             });
     }
 
     // And also initialize it
-    if (buttonBuddies != nullptr && pSocialInterface->GetNumTotalNotifications() > 0)
+    if (buttonBuddies != nullptr && pSocialInterface != nullptr && pSocialInterface->GetNumTotalNotifications() > 0)
     {
         UnicodeString buttonText;
         buttonText.format(L"%s [%d]", TheGameText->fetch("GUI:Buddies").str(), pSocialInterface->GetNumTotalNotifications());
@@ -2488,4 +2495,5 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 
 	return MSG_HANDLED;
 }
+
 

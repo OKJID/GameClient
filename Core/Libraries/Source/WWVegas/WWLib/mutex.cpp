@@ -90,26 +90,12 @@ MutexClass::LockClass::~LockClass()
 
 // ----------------------------------------------------------------------------
 
-CriticalSectionClass::CriticalSectionClass() : handle(nullptr), locked(false)
+CriticalSectionClass::CriticalSectionClass() : locked(false)
 {
 	#ifdef _UNIX
 		//assert(0);
 	#else
-		// Allocate with proper alignment for CRITICAL_SECTION
-		// On 64-bit: requires 8-byte alignment, on 32-bit: requires 4-byte alignment
-		#if defined(_WIN64) || defined(__LP64__)
-			size_t alignment = 8;
-		#else
-			size_t alignment = 4;
-		#endif
-		
-		handle = _aligned_malloc(sizeof(CRITICAL_SECTION), alignment);
-		if (handle != nullptr) {
-			InitializeCriticalSection((CRITICAL_SECTION*)handle);
-		}
-		else {
-			WWASSERT(false); // Allocation failed
-		}
+		InitializeCriticalSection((CRITICAL_SECTION*)handle);
 	#endif
 }
 
@@ -119,10 +105,7 @@ CriticalSectionClass::~CriticalSectionClass()
 		//assert(0);
 	#else
 		WWASSERT(!locked); // Can't delete locked critical section!
-		if (handle != nullptr) {
-			DeleteCriticalSection((CRITICAL_SECTION*)handle);
-			_aligned_free(handle);
-		}
+		DeleteCriticalSection((CRITICAL_SECTION*)handle);
 	#endif
 }
 

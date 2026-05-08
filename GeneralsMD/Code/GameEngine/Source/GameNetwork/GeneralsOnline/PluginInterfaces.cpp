@@ -23,15 +23,16 @@
     AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)GetProcAddress(g_hACPluginModule, #funcName); \
     if (!AnticheatPlugInterface::Functions.fn##funcName) \
     { \
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "Failed to find " #funcName " function", MB_OK); \
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "Failed to find " #funcName " function"); \
         FreeLibrary(g_hACPluginModule); \
+        g_hACPluginModule = nullptr; \
         return; \
     }
 #endif
 
 bool AnticheatPlugInterface::IsExternalProcessRunning()
 {
-    if (IsPluginLoaded())
+    if (IsPluginLoaded() && Functions.fnIsExternalProcessRunning != nullptr)
     {
         return Functions.fnIsExternalProcessRunning();
     }
@@ -41,7 +42,7 @@ bool AnticheatPlugInterface::IsExternalProcessRunning()
 
 int AnticheatPlugInterface::GetAnticheatIdentifier()
 {
-    if (IsPluginLoaded())
+    if (IsPluginLoaded() && Functions.fnGetAnticheatIdentifier != nullptr)
     {
         return Functions.fnGetAnticheatIdentifier();
     }
@@ -51,6 +52,13 @@ int AnticheatPlugInterface::GetAnticheatIdentifier()
 
 void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 {
+    if (szPluginName == nullptr)
+    {
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Plugin name is null");
+        m_bPluginLoadFailed = true;
+        return;
+    }
+
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from %s", szPluginName);
 
     m_bPluginLoadFailed = false;
@@ -98,7 +106,10 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
 
 #if _DEBUG && !defined(__APPLE__)
-        SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
+        if (ApplicationHWnd != nullptr)
+        {
+            SetWindowText(ApplicationHWnd, Functions.fnIsExternalProcessRunning() ? "SECURED" : "INSECURE");
+        }
 #endif
 
         // integrity callback
@@ -138,7 +149,8 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
                 }
 
                 // If it's us, leave, if its someone else, d/c them
-                if (pAuthInterface->GetUserID() == userID)
+                uint32_t localUserID = pAuthInterface->GetUserID();
+                if (localUserID == userID)
                 {
                     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Leaving lobby, lobby isn't secure, action was requested against local user.");
                     g_bPendingExitLobby = true;
@@ -171,14 +183,45 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
                     return;
                 }
 
-                NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-                if (pMesh != nullptr)
+                // prefer websocket if we have it, otherwise fall back to p2p mesh
+                bool bFallbackToP2P = false;
+                std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
+                if (pWS != nullptr)
                 {
-                    pMesh->SendACPacket(goUserID, pData, dataLen);
+                    if (pWS->IsConnected())
+                    {
+                        if (dataLen > 0)
+                        {
+                            std::vector<uint8_t> vecPayload((uint8_t*)pData, (uint8_t*)pData + dataLen);
+                            pWS->SendData_ACMessage(goUserID, vecPayload);
+                        }
+                        else
+                        {
+                            bFallbackToP2P = true;
+                        }
+                    }
+                    else
+                    {
+                        bFallbackToP2P = true;
+                    }
                 }
                 else
                 {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot send AC packet - NetworkMesh is null");
+                    bFallbackToP2P = true;
+                }
+
+                if (bFallbackToP2P)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AC Packets - WebSocket unavailable, falling back to P2P");
+                    NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                    if (pMesh != nullptr)
+                    {
+                        pMesh->SendACPacket(goUserID, pData, dataLen);
+                    }
+                    else
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot send AC packet - NetworkMesh is null");
+                    }
                 }
             });
 
@@ -233,7 +276,8 @@ void AnticheatPlugInterface::Authenticate()
             return;
         }
 
-        Functions.fnLogin(pAuthInterface->GetAuthToken().c_str(),
+        std::string authToken = pAuthInterface->GetAuthToken();
+        Functions.fnLogin(authToken.c_str(),
             [](bool bSuccess)
             {
                 if (!bSuccess)
@@ -257,12 +301,14 @@ void AnticheatPlugInterface::Authenticate()
 
                         // Now we can begin login
                         NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-                        if (pAuthInterface == nullptr)
+                        if (pAuthInterface != nullptr)
                         {
-                            return;
+                            pAuthInterface->SendMiddlewareToken(std::string(buf));
                         }
-
-                        pAuthInterface->SendMiddlewareToken(std::string(buf));
+                        else
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Auth interface became null during login callback");
+                        }
                     }
                 }
                 else
@@ -324,7 +370,7 @@ bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUse
 
     if (IsPluginLoaded() && Functions.fnRegisterPlayer != nullptr)
     {
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "RegisterPlayer: %s to %" PRIu64, mwUserID.c_str(), goUserID);
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "RegisterPlayer: %s to %" PRIu32, mwUserID.c_str(), goUserID);
 
         bool bReg = Functions.fnRegisterPlayer(mwUserID.c_str(), goUserID);
         NetworkLog(ELogVerbosity::LOG_RELEASE, "RegisterPlayerFunc result: %d", bReg);
@@ -339,7 +385,7 @@ bool AnticheatPlugInterface::DeregisterPlayer(std::string mwUserID, uint32_t goU
 {
     if (IsPluginLoaded() && Functions.fnDeregisterPlayer != nullptr)
     {
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayer: %s to %" PRIu64, mwUserID.c_str(), goUserID);
+        NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayer: %s to %" PRIu32, mwUserID.c_str(), goUserID);
 
         bool bReg = Functions.fnDeregisterPlayer(mwUserID.c_str(), goUserID);
         NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayerFunc result: %d", bReg);
@@ -389,12 +435,14 @@ void AnticheatPlugInterface::RefreshToken()
         m_tokenCreationTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
 #endif
 
-        Functions.fnRefreshToken(pAuthInterface->GetAuthToken().c_str(),
+        std::string authToken = pAuthInterface->GetAuthToken();
+        Functions.fnRefreshToken(authToken.c_str(),
             [](bool bSuccess)
             {
                 NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Refreshed token: %d", bSuccess);
                 if (!bSuccess)
                 {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Token refresh failed");
                     // TODO_AC: Handle this, its a fatal error
                     return;
                 }

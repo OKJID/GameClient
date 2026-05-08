@@ -55,7 +55,7 @@ class DebugDisplayInterface;
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
 
-#define NO_USE_QPF	// non-QPF is much faster.
+#define USE_QPF	// QPF is safer on multi-core systems with CPU frequency scaling.
 
 #if defined(PERF_TIMERS) || defined(DUMP_PERF_STATS)
 //-------------------------------------------------------------------------------------------------

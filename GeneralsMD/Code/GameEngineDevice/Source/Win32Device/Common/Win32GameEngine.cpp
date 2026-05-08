@@ -114,7 +114,9 @@ void Win32GameEngine::update()
 			// If we are running a multiplayer game, keep running the logic.
 			// There is code in the client to skip client redraw if we are
 			// iconic.  jba.
-			if (TheGameEngine->getQuitting() || TheGameLogic->isInInternetGame() || TheGameLogic->isInLanGame()) {
+			// GO_CHANGE: If we have an active network session, keep running to prevent disconnecting us from
+			// other players during lobby and loading screen where isInMultiplayerGame() returns false
+			if (TheGameEngine->getQuitting() || TheGameLogic->isInMultiplayerGame() || (TheNetwork != nullptr)) {
 				break; // keep running.
 			}
 		}
