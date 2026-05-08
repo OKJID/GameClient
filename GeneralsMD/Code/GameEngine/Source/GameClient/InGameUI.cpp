@@ -7144,7 +7144,13 @@ void InGameUI::drawSystemTime(Int& x, Int& y)
 #if defined(GENERALS_ONLINE)
 	if (NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay() && TheNetwork != nullptr)
 	{
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+#ifdef __APPLE__
+			std::chrono::system_clock::now().time_since_epoch()
+#else
+			std::chrono::utc_clock::now().time_since_epoch()
+#endif
+		).count();
 		if (currTime - lastFPSUpdate >= 1000)
 		{
 			lastFPSUpdate = currTime;

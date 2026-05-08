@@ -1166,7 +1166,9 @@ void NGMP_OnlineServicesManager::InitSentry()
 	// Disable the crash handler backend to prevent it from attempting to
 	// initialize Windows UI components (SystemNavigationManagerStatics::GetForCurrentView)
 	// on a non-UI thread during sentry_init(), which causes an access violation.
+#ifndef __APPLE__
 	sentry_options_set_backend(options, nullptr);
+#endif
 
 	sentry_init(options);
 #endif
