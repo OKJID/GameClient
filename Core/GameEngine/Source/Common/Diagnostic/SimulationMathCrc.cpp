@@ -120,7 +120,8 @@ void SimulationMathCrc::runBenchmark(int iterations)
         xfer.open("SimMathDet");
         appendSimulationMathCrc_Deterministic(xfer);
         xfer.close();
-        if (i == 0) crcDet = xfer.getCRC();
+		if (i == 0)
+			crcDet = xfer.getCRC();
     }
 #ifndef __APPLE__
     _fpreset();
@@ -139,7 +140,8 @@ void SimulationMathCrc::runBenchmark(int iterations)
         xfer.open("SimMathNat");
         appendSimulationMathCrc_Native(xfer);
         xfer.close();
-        if (i == 0) crcNat = xfer.getCRC();
+		if (i == 0)
+			crcNat = xfer.getCRC();
     }
 #ifndef __APPLE__
     _fpreset();
