@@ -41,6 +41,7 @@
 #include "GameClient/MapUtil.h"
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/GameInfo.h"
+#include "Common/System/NativeFileSystem.h"
 #include <filesystem>
 
 // GLOBALS ////////////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +131,7 @@ static void embedPristineMap( AsciiString map, Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 static void embedInUseMap( AsciiString map, Xfer *xfer )
 {
-	FILE *fp = fopen( map.str(), "rb" );
+	FILE *fp = NativeFileSystem::fopen( map.str(), "rb" );
 
 	// sanity
 	if( fp == nullptr )
@@ -188,7 +189,7 @@ static void extractAndSaveMap( AsciiString mapToSave, Xfer *xfer )
 	UnsignedInt dataSize;
 
 	// open handle to output file
-	FILE *fp = fopen( mapToSave.str(), "w+b" );
+	FILE *fp = NativeFileSystem::fopen( mapToSave.str(), "w+b" );
 	if( fp == nullptr )
 	{
 
@@ -520,7 +521,8 @@ void GameStateMap::clearScratchPadMaps()
 #else
 	try
 	{
-		for (const auto& entry : std::filesystem::directory_iterator(TheGameState->getSaveDirectory().str()))
+		std::string safeSaveDir = NativeFileSystem::get_safe_path(TheGameState->getSaveDirectory().str());
+		for (const auto& entry : std::filesystem::directory_iterator(safeSaveDir))
 		{
 			if (entry.is_regular_file())
 			{
@@ -528,10 +530,9 @@ void GameStateMap::clearScratchPadMaps()
 				if (path.length() >= 4)
 				{
 					std::string ext = path.substr(path.length() - 4);
-					// lowercase ext manually or just check for .map
 					if (ext == ".map" || ext == ".MAP")
 					{
-						std::filesystem::remove(entry.path());
+						NativeFileSystem::remove(path);
 					}
 				}
 			}

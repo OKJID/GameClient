@@ -30,6 +30,7 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"
 #include <filesystem>
+#include "Common/System/NativeFileSystem.h"
 #ifndef __APPLE__
 #include <io.h>
 #else
@@ -477,7 +478,7 @@ AsciiString GameState::findNextSaveFilename( UnicodeString desc )
 		leaf.format("%s_%04d%s", adesc.str(), i, SAVE_GAME_EXTENSION);
 
 		AsciiString path = getFilePathInSaveDirectory(leaf);
-		if( _access( path.str(), 0 ) == -1 )
+		if( !NativeFileSystem::exists(path.str()) )
 			return leaf;	// note that this returns the leaf, not the full path
 	}
 #else
@@ -524,7 +525,7 @@ AsciiString GameState::findNextSaveFilename( UnicodeString desc )
 			fullPath = getFilePathInSaveDirectory(filename);
 
 			// if file does not exist we're all good
-			if( _access( fullPath.str(), 0 ) == -1 )
+			if( !NativeFileSystem::exists(fullPath.str()) )
 				return filename;
 
 			// test the text filename
@@ -571,7 +572,7 @@ SaveCode GameState::saveGame( AsciiString filename, UnicodeString desc,
 	}
 
 	// make absolutely sure the save directory exists
-	CreateDirectory( getSaveDirectory().str(), nullptr );
+	NativeFileSystem::create_directory( std::string(getSaveDirectory().str()) );
 
 	// construct path to file
 	AsciiString filepath = getFilePathInSaveDirectory(filename);
@@ -1019,7 +1020,8 @@ void GameState::getSaveGameInfoFromFile( AsciiString filename, SaveGameInfo *sav
 
 	// open file for partial loading
 	XferLoad xferLoad;
-	xferLoad.open( filename );
+	AsciiString filepath = getFilePathInSaveDirectory(filename);
+	xferLoad.open( filepath );
 
 	//
 	// disable post processing cause we're not really doing a load of game data that
@@ -1349,7 +1351,8 @@ void GameState::iterateSaveFiles( IterateSaveFileCallback callback, void *userDa
 #else
 	try
 	{
-		for (const auto& entry : std::filesystem::directory_iterator(getSaveDirectory().str()))
+		std::string safeSaveDir = NativeFileSystem::get_safe_path(getSaveDirectory().str());
+		for (const auto& entry : std::filesystem::directory_iterator(safeSaveDir))
 		{
 			if (entry.is_regular_file())
 			{

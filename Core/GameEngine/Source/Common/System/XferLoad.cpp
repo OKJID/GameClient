@@ -33,6 +33,9 @@
 #include "Common/GameState.h"
 #include "Common/Snapshot.h"
 #include "Common/XferLoad.h"
+#ifdef __APPLE__
+#include "Common/System/NativeFileSystem.h"
+#endif
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
@@ -80,7 +83,11 @@ void XferLoad::open( AsciiString identifier )
 	Xfer::open( identifier );
 
 	// open the file
+#ifdef __APPLE__
+	m_fileFP = NativeFileSystem::fopen( identifier.str(), "rb" );
+#else
 	m_fileFP = fopen( identifier.str(), "rb" );
+#endif
 	if( m_fileFP == nullptr )
 	{
 

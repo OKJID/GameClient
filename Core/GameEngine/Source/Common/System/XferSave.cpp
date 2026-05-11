@@ -32,6 +32,9 @@
 #include "Common/XferSave.h"
 #include "Common/Snapshot.h"
 #include "Common/GameMemory.h"
+#ifdef __APPLE__
+#include "Common/System/NativeFileSystem.h"
+#endif
 
 // PRIVATE TYPES //////////////////////////////////////////////////////////////////////////////////
 class XferBlockData : public MemoryPoolObject
@@ -120,7 +123,11 @@ void XferSave::open( AsciiString identifier )
 	Xfer::open( identifier );
 
 	// open the file
+#ifdef __APPLE__
+	m_fileFP = NativeFileSystem::fopen( identifier.str(), "w+b" );
+#else
 	m_fileFP = fopen( identifier.str(), "w+b" );
+#endif
 	if( m_fileFP == nullptr )
 	{
 

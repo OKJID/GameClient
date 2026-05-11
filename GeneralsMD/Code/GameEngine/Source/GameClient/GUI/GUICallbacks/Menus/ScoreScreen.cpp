@@ -654,7 +654,7 @@ WindowMsgHandledType ScoreScreenSystem( GameWindow *window, UnsignedInt msg,
 						}
 						else
 						{
-
+							startNextCampaignGame();
 						}
 					}
 					else if (screenType == SCORESCREEN_INTERNET)
