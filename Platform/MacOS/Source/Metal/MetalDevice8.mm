@@ -1258,9 +1258,14 @@ STDMETHODIMP MetalDevice8::Reset(D3DPRESENT_PARAMETERS *p) { return D3D_OK; }
 
 int g_metalPresentCount = 0;
 int g_metalDrawCallsThisFrame = 0;
+extern "C" void MacOS_DismissSplash();
 
 STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
                                    const void *r) {
+  if (g_metalPresentCount == 0) {
+    MacOS_DismissSplash();
+  }
+
   // printf("[DIAG] Present frame=%d drawable=%p cmdBuf=%p encoder=%p drawCalls=%d\n",
   //        g_metalPresentCount, m_CurrentDrawable, m_CurrentCommandBuffer, m_CurrentEncoder, g_metalDrawCallsThisFrame);
   // fflush(stdout);

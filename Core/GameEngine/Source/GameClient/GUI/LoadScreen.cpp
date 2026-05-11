@@ -955,6 +955,13 @@ void ChallengeLoadScreen::init( GameInfo *game )
 	// create the new background video stream
 	m_videoStream = TheVideoPlayer->open( TheCampaignManager->getCurrentMission()->m_movieLabel );
 
+#ifdef __APPLE__
+	if ( m_videoStream == nullptr )
+	{
+		return;
+	}
+#endif
+
 	// Create the new buffer
 	m_videoBuffer = TheDisplay->createVideoBuffer();
 	if (m_videoBuffer == nullptr || !m_videoBuffer->allocate(	m_videoStream->width(), m_videoStream->height() ))

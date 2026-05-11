@@ -240,9 +240,11 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
 extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
 
 - (void)createWindow {
+    [self showSplashWindow];
+
     int width = TheGlobalData ? TheGlobalData->m_xResolution : 800;
     int height = TheGlobalData ? TheGlobalData->m_yResolution : 600;
-    bool isWindowed = true; // TheSuperHackers @tweak macOS: Always start in windowed mode.
+    bool isWindowed = true;
 
     MacOS_InitWindowedState(isWindowed, width, height);
 
@@ -261,28 +263,60 @@ extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
                                     defer:NO];
     [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenNone];
     [self.window setTitle:@"Command and Conquer Generals"];
-
-    if (!isWindowed) {
-        NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
-        [self.window setStyleMask:NSWindowStyleMaskBorderless];
-        
-        NSScreen* screen = [NSScreen mainScreen];
-        NSRect screenFrame = screen.frame;
-        [self.window setFrame:screenFrame display:YES];
-        
-        TheWritableGlobalData->m_xResolution = (int)screenFrame.size.width;
-        TheWritableGlobalData->m_yResolution = (int)screenFrame.size.height;
-
-        // Notify metal wrapper about immediate resize
-        MacOS_UpdateMetalDeviceScreenSize(screenFrame.size.width, screenFrame.size.height);
-    } else {
-        [self.window center];
-    }
-
+    [self.window center];
+    [self.window setAlphaValue:0.0];
     [self.window makeKeyAndOrderFront:nil];
     [self.window setDelegate:self];
 
     ApplicationHWnd = (__bridge void*)self.window;
+}
+
+static NSWindow* g_splashWindow = nil;
+
+- (void)showSplashWindow {
+    NSString* splashPath = [[NSBundle mainBundle] pathForResource:@"Install_Final" ofType:@"bmp"];
+    if (!splashPath) {
+        return;
+    }
+
+    NSImage* splashImage = [[NSImage alloc] initWithContentsOfFile:splashPath];
+    if (!splashImage) {
+        return;
+    }
+
+    NSRect frame = NSMakeRect(0, 0, 800, 600);
+    g_splashWindow = [[NSWindow alloc] initWithContentRect:frame
+                                       styleMask:NSWindowStyleMaskBorderless
+                                       backing:NSBackingStoreBuffered
+                                       defer:NO];
+    [g_splashWindow setBackgroundColor:[NSColor blackColor]];
+    [g_splashWindow setLevel:NSStatusWindowLevel];
+    [g_splashWindow center];
+
+    NSImageView* splashView = [NSImageView imageViewWithImage:splashImage];
+    splashView.frame = g_splashWindow.contentView.bounds;
+    splashView.imageScaling = NSImageScaleAxesIndependently;
+    splashView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    [g_splashWindow.contentView addSubview:splashView];
+
+    [g_splashWindow makeKeyAndOrderFront:nil];
+    [g_splashWindow display];
+}
+
+extern "C" void MacOS_DismissSplash() {
+    if (!g_splashWindow) {
+        return;
+    }
+
+    [g_splashWindow orderOut:nil];
+    g_splashWindow = nil;
+
+    NSWindow *mainWindow = (__bridge NSWindow *)ApplicationHWnd;
+    if (mainWindow) {
+        [mainWindow setAlphaValue:1.0];
+    }
+
+    fprintf(stderr, "[MacOS] Splash window dismissed\n");
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)app {

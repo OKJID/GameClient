@@ -216,7 +216,8 @@
             "binaryDir": "${sourceDir}/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "RTS_BUILD_OPTION_FFMPEG": "ON"
             },
             "condition": {
                 "type": "equals",

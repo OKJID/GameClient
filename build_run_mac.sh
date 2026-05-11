@@ -130,6 +130,13 @@ sleep 1
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
 # export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
+# Copy splash screen into app bundle
+SPLASH_BMP=$(find "$GENERALS_INSTALL_PATH" -maxdepth 2 -name "Install_Final.bmp" -print -quit 2>/dev/null)
+if [ -n "$SPLASH_BMP" ]; then
+    mkdir -p "build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/Resources"
+    cp -f "$SPLASH_BMP" "build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/Resources/Install_Final.bmp"
+fi
+
 # Metal frame rate control:
 # 60 = VSync (default)
 # 0  = uncapped

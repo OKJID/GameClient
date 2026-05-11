@@ -2898,6 +2898,9 @@ void W3DDisplay::drawScaledVideoBuffer(VideoBuffer* buffer, VideoStreamInterface
 		endX = getWidth();
 	}
 
+#ifdef __APPLE__
+	drawFillRect(0, 0, getWidth(), getHeight(), 0xFF000000);
+#endif
 	drawVideoBuffer(buffer, startX, startY, endX, endY);
 }
 
