@@ -14,8 +14,8 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
-VERSION="1.2.2"
-BUILD="6"
+VERSION="1.3.0"
+BUILD="7"
 
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
@@ -98,6 +98,7 @@ echo "🎨 [4/7] Injecting Launcher UI assets and patching..."
 cp assets/background.png "$RESOURCES_DIR/background.png" 2>/dev/null || true
 cp assets/dir_image.png "$RESOURCES_DIR/dir_image.png" 2>/dev/null || true
 cp assets/author_logo.png "$RESOURCES_DIR/author_logo.png" 2>/dev/null || true
+cp assets/Install_Final.bmp "$RESOURCES_DIR/Install_Final.bmp" 2>/dev/null || true
 cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
 
 PLIST_FILE="$CONTENTS_DIR/Info.plist"
