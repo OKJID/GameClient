@@ -1,4 +1,5 @@
 #include "MacOSAudioManager.h"
+#include "MacOSVideoAudioStream.h"
 #include "Common/AudioAffect.h"
 #include "Common/AudioEventInfo.h"
 #include "Common/AudioEventRTS.h"
@@ -128,6 +129,8 @@ static bool loadWavFromBig(const std::string &originalPath, uint8_t **outData, s
 MacOSAudioManager::MacOSAudioManager() {}
 
 MacOSAudioManager::~MacOSAudioManager() {
+    delete m_videoAudioStream;
+    m_videoAudioStream = nullptr;
     avbridge_shutdown();
 }
 
@@ -614,8 +617,18 @@ void MacOSAudioManager::adjustVolumeOfPlayingAudio(AsciiString eventName, Real n
 void MacOSAudioManager::removePlayingAudio(AsciiString eventName) {}
 void MacOSAudioManager::removeAllDisabledAudio() {}
 Bool MacOSAudioManager::has3DSensitiveStreamsPlaying() const { return FALSE; }
-void *MacOSAudioManager::getHandleForBink() { return nullptr; }
-void MacOSAudioManager::releaseHandleForBink() {}
+void *MacOSAudioManager::getHandleForBink() {
+    if (!m_videoAudioStream) {
+        m_videoAudioStream = new MacOSVideoAudioStream();
+    }
+    return m_videoAudioStream;
+}
+
+void MacOSAudioManager::releaseHandleForBink() {
+    if (m_videoAudioStream) {
+        m_videoAudioStream->reset();
+    }
+}
 void MacOSAudioManager::setPreferredProvider(AsciiString providerNdx) {}
 void MacOSAudioManager::setPreferredSpeaker(AsciiString speakerType) {}
 Real MacOSAudioManager::getFileLengthMS(AsciiString strToLoad) const { return 0.0f; }

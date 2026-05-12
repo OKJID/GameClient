@@ -14,6 +14,8 @@ struct PlayingAudio {
     int priority;
 };
 
+class MacOSVideoAudioStream;
+
 class MacOSAudioManager : public AudioManager {
 public:
   MacOSAudioManager();
@@ -97,4 +99,6 @@ private:
   static const int MAX_SOURCES = 64;
   std::vector<PlayingAudio> m_sources;
   std::unordered_map<std::string, int> m_bufferCache;
+  MacOSVideoAudioStream* m_videoAudioStream = nullptr;
 };
+

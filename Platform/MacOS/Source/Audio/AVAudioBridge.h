@@ -35,6 +35,9 @@ void    avbridge_resumeAll(void);
 
 void    avbridge_cleanup(void);
 
+void*   avbridge_get_engine(void);
+void*   avbridge_get_mixer2D(void);
+
 #ifdef __cplusplus
 }
 #endif

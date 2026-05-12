@@ -537,3 +537,15 @@ void avbridge_setListenerPosition(float x, float y, float z,
 
 void avbridge_cleanup(void) {
 }
+
+#pragma mark - Public API: Engine Access (for VideoAudioStream)
+
+void* avbridge_get_engine(void) {
+    ensure_engine_inited();
+    return (__bridge void*)gEngine;
+}
+
+void* avbridge_get_mixer2D(void) {
+    ensure_engine_inited();
+    return (__bridge void*)gMixer2D;
+}

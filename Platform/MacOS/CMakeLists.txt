@@ -35,6 +35,8 @@ set(AUDIO_SRC
     Source/Audio/MacOSAudioManager.h
     Source/Audio/AVAudioBridge.mm
     Source/Audio/AVAudioBridge.h
+    Source/Audio/MacOSVideoAudioStream.mm
+    Source/Audio/MacOSVideoAudioStream.h
 )
 
 # ── Input ──
@@ -210,6 +212,7 @@ set_source_files_properties(
     Source/Input/MacOSMouse.mm
     Source/System/MacOSLocalFileSystem.mm
     Source/Audio/AVAudioBridge.mm
+    Source/Audio/MacOSVideoAudioStream.mm
     PROPERTIES
         SKIP_PRECOMPILE_HEADERS ON
         LANGUAGE OBJCXX
