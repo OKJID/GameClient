@@ -285,6 +285,19 @@ For `D3DFVF_XYZRHW` vertices (screen coordinates), three overrides are applied:
 
 No Y-inversion is needed when copying to the atlas — rows are stored top-down in both platforms.
 
+### Text Centering: Dual-Mode `Build_Sentence_Not_Centered`
+
+`Build_Sentence_Not_Centered` operates in **two modes** controlled by `justCalcExtents`:
+
+| Mode | `justCalcExtents` | What it does |
+|:---|:---|:---|
+| **Measure** | `true` | Only calculates text extents (width/height). Does NOT allocate surfaces. |
+| **Render** | `false` | Allocates surfaces, blits glyphs, records sentence chunks. |
+
+`Build_Sentence_Centered` calls this function **twice**: first with `justCalcExtents=true` to measure text width, then renders with centering offset `(totalWidth - lineWidth) / 2`.
+
+**Critical caveat:** When `justCalcExtents=true`, `Allocate_New_Surface` intentionally skips `SurfaceClass` creation — `CurSurface` remains `nullptr` **by design**. Any null-guard on `CurSurface` after `Allocate_New_Surface` **must** check `!justCalcExtents`, otherwise the measure pass returns zero extents and text centering breaks (all text shifts to top-left).
+
 ---
 
 ## Matrices: D3D → Metal

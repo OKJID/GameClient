@@ -127,8 +127,8 @@ killall -9 lldb 2>/dev/null
 
 sleep 1
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"

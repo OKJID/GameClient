@@ -14,8 +14,8 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
-VERSION="1.3.0"
-BUILD="7"
+VERSION="1.3.1"
+BUILD="8"
 
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
@@ -73,6 +73,15 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "🔒 [2/7] Cleaning RPATHs and re-signing..."
+
+# dylibbundler modifies all dylibs in Frameworks/, including libEOSSDK-Mac-Shipping.dylib
+# (EAC plugin dependency), corrupting its original code signature.
+# Restore the original from the CMake build output.
+EOS_SDK_BUILD="$CMAKE_APP_DIR/Contents/Frameworks/libEOSSDK-Mac-Shipping.dylib"
+if [ -f "$EOS_SDK_BUILD" ]; then
+    cp -f "$EOS_SDK_BUILD" "$FRAMEWORKS_DIR/libEOSSDK-Mac-Shipping.dylib"
+fi
+
 EXISTING_RPATHS=$(otool -l "$GAME_BINARY" | grep -A 2 LC_RPATH | awk '/path / {print $2}')
 for rp in $EXISTING_RPATHS; do
     while install_name_tool -delete_rpath "$rp" "$GAME_BINARY" 2>/dev/null; do true; done

@@ -126,8 +126,11 @@ if(APPLE)
     target_link_libraries(z_generals PRIVATE macos_platform)
     add_dependencies(z_generals metal_shaders)
 
-    # EAC/EOS: @rpath for Frameworks/ is configured by assemble_distribution.sh at packaging time
-    # (install_name_tool -add_rpath "@executable_path/../Frameworks/" + codesign)
+    # EAC/EOS: @rpath must include Frameworks/ so dlopen(easyanticheat.dylib)
+    # can resolve its @rpath/libEOSSDK-Mac-Shipping.dylib dependency at runtime.
+    set_target_properties(z_generals PROPERTIES
+        BUILD_RPATH "@executable_path/../Frameworks;${CMAKE_BINARY_DIR}/eac_plugin"
+    )
 
     # EAC Plugin (Private Submodule)
     if(EXISTS "${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin/CMakeLists.txt")

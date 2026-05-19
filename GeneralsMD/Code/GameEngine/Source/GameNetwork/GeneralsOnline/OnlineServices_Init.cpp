@@ -25,12 +25,29 @@
 
 
 #ifdef __APPLE__
+#include <mach-o/dyld.h>
+
 // Generals.exe (Vanilla): 287639043
 // GeneralsOnlineZH.exe (30 FPS build): 3196037691
 // GeneralsOnlineZH_60.exe (60 FPS build): 1431066825
 namespace {
 	constexpr long MAC_PARITY_FALLBACK_EXE_CRC = 1431066825;    // GeneralsOnlineZH_60.exe (IEEE CRC32)
 	constexpr long MAC_PARITY_SHIFT_ADD_BASE   = 3966796141;    // GeneralsOnlineZH_60.exe (Shift-Add CRC)
+
+	std::string GetExecutableDirectory()
+	{
+		uint32_t bufSize = 0;
+		_NSGetExecutablePath(nullptr, &bufSize);
+		std::string exePath(bufSize, '\0');
+		_NSGetExecutablePath(exePath.data(), &bufSize);
+		exePath.resize(bufSize - 1);
+		auto lastSlash = exePath.rfind('/');
+		if (lastSlash != std::string::npos)
+		{
+			return exePath.substr(0, lastSlash);
+		}
+		return ".";
+	}
 }
 #endif
 
@@ -926,7 +943,8 @@ void NGMP_OnlineServicesManager::Init()
 	if (!strPlugin.empty())
 	{
 #ifdef __APPLE__
-		std::string pluginPath = NativeFileSystem::get_safe_path(std::format("plugins/{}/{}.dylib", strPlugin.c_str(), strPlugin.c_str()));
+		std::string exeDir = GetExecutableDirectory();
+		std::string pluginPath = std::format("{}/plugins/{}/{}.dylib", exeDir, strPlugin.c_str(), strPlugin.c_str());
 #else
 		std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
 #endif

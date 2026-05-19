@@ -711,7 +711,11 @@ Render2DSentenceClass::Allocate_New_Surface (const WCHAR *text, bool justCalcExt
 		//
 		//	Create the new surface
 		//
+#ifdef __APPLE__
+		CurSurface = NEW_REF (SurfaceClass, (CurrTextureSize, CurrTextureSize, WW3D_FORMAT_A8R8G8B8));
+#else
 		CurSurface = NEW_REF (SurfaceClass, (CurrTextureSize, CurrTextureSize, WW3D_FORMAT_A4R4G4B4));
+#endif
 		WWASSERT (CurSurface != nullptr);
 		
 		//
@@ -777,6 +781,11 @@ void	Render2DSentenceClass::Build_Sentence_Centered (const WCHAR *text, int *hkX
 	if (CurSurface == nullptr) {
 		Allocate_New_Surface (text);
 	}
+#ifdef __APPLE__
+	if (CurSurface == nullptr) {
+		return;
+	}
+#endif
 
 
 
@@ -1037,6 +1046,11 @@ Vector2	Render2DSentenceClass::Build_Sentence_Not_Centered (const WCHAR *text, i
 	if (CurSurface == nullptr) {
 		Allocate_New_Surface (text, justCalcExtents);
 	}
+#ifdef __APPLE__
+	if (!justCalcExtents && CurSurface == nullptr) {
+		return Vector2(0.0f, 0.0f);
+	}
+#endif
 
 	TextureOffset.Set (TEXTURE_OFFSET, 0);
 	TextureStartX = TEXTURE_OFFSET;
@@ -1350,6 +1364,23 @@ FontCharsClass::Blit_Char (WCHAR ch, uint16 *dest_ptr, int dest_stride, int x, i
 	const FontCharsClassCharDataStruct	* data = Get_Char_Data( ch );
 	if ( data != nullptr && data->Width != 0 ) {
 
+#ifdef __APPLE__
+		int dest_inc32 = (dest_stride >> 2);
+		uint32 *src32 = (uint32 *)data->Buffer;
+		uint32 *dst32 = (uint32 *)dest_ptr + (dest_inc32 * y) + x;
+
+		for ( int row = 0; row < CharHeight; row ++ ) {
+			for ( int col = 0; col < data->Width; col ++ ) {
+				uint32 curData = *src32;
+				if (col<PixelOverlap) {
+					curData |= dst32[col];
+				}
+				dst32[col] = curData;
+				src32++;
+			}
+			dst32 += dest_inc32;
+		}
+#else
 		//
 		//	Setup the src and destination pointers
 		//
@@ -1371,6 +1402,7 @@ FontCharsClass::Blit_Char (WCHAR ch, uint16 *dest_ptr, int dest_stride, int x, i
 			}
 			dest_ptr	+= dest_inc;
 		}
+#endif
 	}
 
 	return ;
@@ -1438,6 +1470,7 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	curr_buffer_p += CurrPixelOffset;
 
     int stride = GDIBitmapStride;
+    uint32* dest32 = (uint32*)curr_buffer_p;
 
 	for (int row = 0; row < char_size.cy; row ++) {
 		int index = (row * stride);
@@ -1446,9 +1479,8 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 			uint8 pixel_value = GDIBitmapBits[index];
 			index += 1;
 
-			uint16 pixel_color = (pixel_value != 0) ? 0x0FFF : 0;
-			uint8 alpha_value = ((pixel_value >> 4) & 0xF);
-			*curr_buffer_p++ = pixel_color | (alpha_value << 12);
+			uint32 pixel_color = (pixel_value != 0) ? 0x00FFFFFF : 0;
+			*dest32++ = pixel_color | ((uint32)pixel_value << 24);
 		}
 	}
 #else
@@ -1532,7 +1564,11 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	//
 	//	Advance the character position
 	//
+#ifdef __APPLE__
+	CurrPixelOffset += ((char_size.cx+PixelOverlap) * CharHeight) * 2;
+#else
 	CurrPixelOffset += ((char_size.cx+PixelOverlap) * CharHeight);
+#endif
 
 	//
 	//	Return the index of the entry we just added
@@ -1558,7 +1594,12 @@ FontCharsClass::Update_Current_Buffer (int char_width)
 		//
 		//	Would we extend past this buffer?
 		//
-		if ( (CurrPixelOffset + (char_width * CharHeight)) > CHAR_BUFFER_LEN ) {
+#ifdef __APPLE__
+		int pixels_needed = char_width * CharHeight * 2;
+#else
+		int pixels_needed = char_width * CharHeight;
+#endif
+		if ( (CurrPixelOffset + pixels_needed) > CHAR_BUFFER_LEN ) {
 			needs_new_buffer = true;
 		}
 	}
@@ -1627,6 +1668,9 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, width, colorSpace, kCGImageAlphaNone);
 	CGColorSpaceRelease(colorSpace);
 	
+	CGContextSetShouldSmoothFonts(context, false);
+	CGContextSetAllowsFontSmoothing(context, false);
+
 	MemDC = (HDC)context;
 	GDIBitmapBits = (uint8*)CGBitmapContextGetData(context);
 	GDIBitmapStride = CGBitmapContextGetBytesPerRow(context);

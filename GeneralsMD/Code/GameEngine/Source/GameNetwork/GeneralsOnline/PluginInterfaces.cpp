@@ -6,6 +6,7 @@
 
 #ifdef __APPLE__
 #include <dlfcn.h>
+#include "Common/System/NativeFileSystem.h"
 #endif
 
 #ifdef __APPLE__
@@ -63,7 +64,8 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
     m_bPluginLoadFailed = false;
 #ifdef __APPLE__
-    g_hACPluginModule = dlopen(szPluginName, RTLD_LAZY);
+    std::string safePath = NativeFileSystem::get_safe_path(szPluginName);
+    g_hACPluginModule = dlopen(safePath.c_str(), RTLD_LAZY);
 
     if (!g_hACPluginModule)
     {
