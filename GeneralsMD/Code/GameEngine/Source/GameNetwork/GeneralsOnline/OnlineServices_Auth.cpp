@@ -190,6 +190,9 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 		j["reserved_2"] = std::string();
 		j["exe_crc"] = TheGlobalData->m_exeCRC;
 		j["ini_crc"] = TheGlobalData->m_iniCRC;
+#ifdef __APPLE__
+		j["platform"] = "macos";
+#endif
 		std::string strPostData = j.dump();
 
 		// attach refresh token
@@ -364,6 +367,9 @@ void NGMP_OnlineServices_AuthInterface::Tick()
             j["reserved_2"] = std::string();
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
             j["ini_crc"] = TheGlobalData->m_iniCRC;
+#ifdef __APPLE__
+			j["platform"] = "macos";
+#endif
 			std::string strPostData = j.dump();
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)

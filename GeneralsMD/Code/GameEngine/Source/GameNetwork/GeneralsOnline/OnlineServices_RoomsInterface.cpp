@@ -1177,6 +1177,8 @@ void WebSocket::Tick()
 											playerEntryIter["UserID"].get_to(newMember.user_id);
 											playerEntryIter["Name"].get_to(newMember.display_name);
 											playerEntryIter["IsAdmin"].get_to(newMember.m_bIsAdmin);
+											if (playerEntryIter.contains("Platform"))
+												playerEntryIter["Platform"].get_to(newMember.platform);
 
 											mapMembers.emplace(newMember.user_id, newMember);
 										}

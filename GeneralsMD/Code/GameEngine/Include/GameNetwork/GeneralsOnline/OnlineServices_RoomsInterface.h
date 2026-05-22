@@ -95,6 +95,7 @@ struct NGMP_RoomInfo
 class NetworkRoomMember : public NetworkMemberBase
 {
 public:
+	std::string platform;
 	bool IsValid() const { return user_id != -1; }
 };
 
