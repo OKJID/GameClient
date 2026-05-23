@@ -2,11 +2,16 @@ import SwiftUI
 import AppKit
 
 struct AboutView: View {
+    @AppStorage("LAUNCHER_LANGUAGE") private var launcherLanguage: String = "en"
+    
     private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
     private let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
     var body: some View {
         VStack(spacing: 20) {
+            // Force redraw when language changes by referencing launcherLanguage in body
+            Text(launcherLanguage).frame(width: 0, height: 0).opacity(0)
+            
             _buildLogo()
             _buildTitle()
             _buildCredits()
@@ -43,7 +48,7 @@ struct AboutView: View {
                 .font(.system(size: 22, weight: .bold))
                 .foregroundColor(.white)
 
-            Text("macOS Native Port")
+            Text(L10n.about.nativePort)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(neonBlue)
 
@@ -67,7 +72,7 @@ struct AboutView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("macOS Port by Dima Ok (OKJI)")
+                    Text(L10n.about.portAuthor)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(.white)
 
@@ -77,7 +82,7 @@ struct AboutView: View {
                 }
             }
 
-            Text("Built on top of the EA GPLv3 open-source release")
+            Text(L10n.about.builtOnTop)
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.4))
                 .multilineTextAlignment(.center)
@@ -86,7 +91,7 @@ struct AboutView: View {
 
     private func _buildLinks() -> some View {
         HStack(spacing: 20) {
-            _buildLink(title: "Website", url: "https://general-online-zh.web.app")
+            _buildLink(title: L10n.about.website, url: "https://general-online-zh.web.app")
             _buildLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
             _buildLink(title: "GitHub", url: "https://github.com/GeneralsOnlineDevelopmentTeam/GameClient")
         }
@@ -110,7 +115,7 @@ struct AboutView: View {
     }
 
     private func _buildLegal() -> some View {
-        Text("C&C: Generals Zero Hour™ is a trademark of Electronic Arts.\nGame engine source code licensed under GPLv3.")
+        Text(L10n.about.legal)
             .font(.system(size: 10))
             .foregroundColor(.white.opacity(0.3))
             .multilineTextAlignment(.center)
@@ -123,6 +128,7 @@ class AboutWindowController {
 
     static func show() {
         if let existing = window {
+            existing.title = L10n.about.windowTitle
             existing.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -136,9 +142,19 @@ class AboutWindowController {
             defer: false
         )
         win.contentView = aboutView
-        win.title = "About Generals Online"
+        win.title = L10n.about.windowTitle
         win.center()
         win.isReleasedWhenClosed = false
+        
+        // Clear reference on close so that it rebuilds next time
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: win,
+            queue: .main
+        ) { _ in
+            AboutWindowController.window = nil
+        }
+        
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 

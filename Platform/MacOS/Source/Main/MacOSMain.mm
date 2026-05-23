@@ -38,6 +38,7 @@
 #include "Common/Debug.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
+#include "GameClient/Mouse.h"
 #include "BuildVersion.h"
 #include "GeneratedVersion.h"
 
@@ -153,6 +154,18 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
 
     bool isWindowed = TheGlobalData ? TheGlobalData->m_windowed : false;
     MacOS_ApplyDisplayResolution(newW, newH, isWindowed);
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)notification {
+    if (TheMouse) {
+        TheMouse->regainFocus();
+    }
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification {
+    if (TheMouse) {
+        TheMouse->loseFocus();
+    }
 }
 
 - (void)runGame {

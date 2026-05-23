@@ -19,6 +19,15 @@ class LauncherViewModel: ObservableObject {
     @Published var isUpdateDismissed: Bool = false
     @Published var showPatchConfirmation: Bool = false
     @Published var selectedLanguage: String = L10n.current
+    @Published var isWindowedEdgeScrollEnabled: Bool = false {
+        didSet {
+            let valStr = isWindowedEdgeScrollEnabled ? "yes" : "no"
+            OptionsIniHelper.writeValues([
+                "ScreenEdgeScrollEnabledInWindowedApp": valStr,
+                "CursorCaptureEnabledInWindowedGame": isWindowedEdgeScrollEnabled ? "yes" : "no"
+            ])
+        }
+    }
 
     var steamCMD = SteamCMDManager()
     var assetPatcher = AssetPatcher()
@@ -46,6 +55,14 @@ class LauncherViewModel: ObservableObject {
             steamPassword = KeychainHelper.load(account: username) ?? ""
         }
 
+        let path = OptionsIniHelper.optionsFilePath
+        if !FileManager.default.fileExists(atPath: path.path) {
+            OptionsIniHelper.writeValues([
+                "ScreenEdgeScrollEnabledInWindowedApp": "no",
+                "CursorCaptureEnabledInWindowedGame": "yes"
+            ])
+        }
+        self.isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
         updateChecker.startPeriodicChecks()
     }
 
@@ -239,32 +256,37 @@ struct MainView: View {
 
                 _buildBackground(size: geometry.size)
 
-                VStack(spacing: 0) {
-                    _buildHeader()
-                        .padding(.top, 30)
+                HStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        _buildHeader()
+                            .padding(.top, 30)
 
-                    if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
-                        _buildUpdateBanner(update)
+                        if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
+                            _buildUpdateBanner(update)
+                                .padding(.horizontal, 40)
+                                .padding(.top, 12)
+                        }
+
+                        _buildTabBar()
+                            .padding(.top, 20)
+
+                        _buildActiveTab()
                             .padding(.horizontal, 40)
-                            .padding(.top, 12)
+                            .padding(.top, 16)
+
+                        Spacer()
+
+                        _buildBottomAction()
+                            .padding(.bottom, 12)
+
+                        _buildFooter()
+                            .padding(.bottom, 20)
                     }
+                    .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity)
 
-                    _buildTabBar()
-                        .padding(.top, 20)
-
-                    _buildActiveTab()
-                        .padding(.horizontal, 40)
-                        .padding(.top, 16)
-
-                    Spacer()
-
-                    _buildBottomAction()
-                        .padding(.bottom, 12)
-
-                    _buildFooter()
-                        .padding(.bottom, 20)
+                    SidebarView(viewModel: viewModel)
                 }
-                .padding(.horizontal, 20)
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
             .edgesIgnoringSafeArea(.all)
@@ -878,45 +900,8 @@ struct MainView: View {
                 }
             }
             Spacer()
-
-            _buildLanguagePicker()
-
-            Button(action: {
-                AboutWindowController.show()
-            }) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 18))
-                    .foregroundColor(.white.opacity(0.6))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .onHover { inside in
-                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-            }
         }
         .padding(.horizontal, 20)
-    }
-
-    private func _buildLanguagePicker() -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "globe")
-                .font(.system(size: 13))
-                .foregroundColor(.white.opacity(0.5))
-
-            Picker("", selection: Binding<String>(
-                get: { viewModel.selectedLanguage },
-                set: { newLang in
-                    L10n.setCurrent(newLang)
-                    viewModel.selectedLanguage = newLang
-                }
-            )) {
-                ForEach(L10n.supportedLanguages, id: \.self) { lang in
-                    Text(L10n.languageNames[lang] ?? lang).tag(lang)
-                }
-            }
-            .labelsHidden()
-            .frame(width: 110)
-            .colorScheme(.dark)
-        }
     }
 
     private func _buildFooterLink(title: String, url: String) -> some View {

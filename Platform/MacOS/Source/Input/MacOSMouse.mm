@@ -19,6 +19,8 @@
 #include "WW3D2/rendobj.h"
 #import <AppKit/AppKit.h>
 
+extern HWND ApplicationHWnd;
+
 
 
 MacOSMouse::MacOSMouse(void) {
@@ -66,7 +68,41 @@ void MacOSMouse::reset(void) {
   m_nextGetIndex = 0;
 }
 
-void MacOSMouse::update(void) { Mouse::update(); }
+void MacOSMouse::update(void) {
+  Mouse::update();
+
+  if (isCursorCaptured() && ApplicationHWnd) {
+    NSWindow *window = (__bridge NSWindow *)ApplicationHWnd;
+    if (window && [window isKeyWindow]) {
+      NSRect contentRect = [window contentRectForFrameRect:[window frame]];
+      NSPoint mousePos = [NSEvent mouseLocation];
+
+      CGFloat minX = contentRect.origin.x;
+      CGFloat maxX = contentRect.origin.x + contentRect.size.width;
+      CGFloat minY = contentRect.origin.y;
+      CGFloat maxY = contentRect.origin.y + contentRect.size.height;
+
+      CGFloat clampedX = mousePos.x;
+      CGFloat clampedY = mousePos.y;
+      bool needsWarp = false;
+      CGFloat margin = 1.0;
+
+      if (clampedX < minX + margin) { clampedX = minX + margin; needsWarp = true; }
+      if (clampedX > maxX - margin) { clampedX = maxX - margin; needsWarp = true; }
+      if (clampedY < minY + margin) { clampedY = minY + margin; needsWarp = true; }
+      if (clampedY > maxY - margin) { clampedY = maxY - margin; needsWarp = true; }
+
+      if (needsWarp) {
+        NSScreen *primaryScreen = [[NSScreen screens] firstObject];
+        if (primaryScreen) {
+          CGFloat screenHeight = primaryScreen.frame.size.height;
+          CGPoint warpPoint = CGPointMake(clampedX, screenHeight - clampedY);
+          CGWarpMouseCursorPosition(warpPoint);
+        }
+      }
+    }
+  }
+}
 
 void MacOSMouse::initCursorResources(void) {
 

@@ -11,7 +11,7 @@ struct GeneralsLauncherApp: App {
         .windowStyle(.hiddenTitleBar)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("About Generals Online") {
+                Button(L10n.settings.aboutButton) {
                     AboutWindowController.show()
                 }
             }

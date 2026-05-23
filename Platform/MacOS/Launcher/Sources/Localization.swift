@@ -54,6 +54,8 @@ enum L10n {
     static let footer = Footer()
     static let patch = Patch()
     static let folder = Folder()
+    static let settings = Settings()
+    static let about = About()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -139,6 +141,24 @@ enum L10n {
         var prompt: String { resolve("folder.prompt") }
     }
 
+    struct Settings {
+        var title: String { resolve("settings.title") }
+        var windowedEdgeScroll: String { resolve("settings.windowedEdgeScroll") }
+        var windowedEdgeScrollDesc: String { resolve("settings.windowedEdgeScrollDesc") }
+        var language: String { resolve("settings.language") }
+        var about: String { resolve("settings.about") }
+        var aboutButton: String { resolve("settings.aboutButton") }
+    }
+
+    struct About {
+        var windowTitle: String { resolve("about.windowTitle") }
+        var nativePort: String { resolve("about.nativePort") }
+        var portAuthor: String { resolve("about.portAuthor") }
+        var builtOnTop: String { resolve("about.builtOnTop") }
+        var website: String { resolve("about.website") }
+        var legal: String { resolve("about.legal") }
+    }
+
     static let translations: [String: [String: String]] = [
         "en": en, "ru": ru, "uk": uk, "ar": ar, "kk": kk,
         "vi": vi, "pl": pl, "de": de, "es": es, "tr": tr,
@@ -191,7 +211,19 @@ enum L10n {
         "patch.status.unpacking": "UNPACKING PATCH...",
         "patch.status.completed": "PATCH APPLIED SUCCESSFULLY",
         "patch.status.error": "ERROR: %@",
-        "folder.prompt": "Select the Windows Game Folder (containing .big files)"
+        "folder.prompt": "Select the Windows Game Folder (containing .big files)",
+        "settings.title": "GAME SETTINGS",
+        "settings.windowedEdgeScroll": "Edge Scroll in Windowed Mode",
+        "settings.windowedEdgeScrollDesc": "Captures mouse cursor inside the game window during gameplay for edge scrolling.",
+        "settings.language": "Language",
+        "settings.about": "System",
+        "settings.aboutButton": "About Generals Online",
+        "about.windowTitle": "About Generals Online",
+        "about.nativePort": "macOS Native Port",
+        "about.portAuthor": "macOS Port by Dima Ok (OKJI)",
+        "about.builtOnTop": "Built on top of the EA GPLv3 open-source release",
+        "about.website": "Website",
+        "about.legal": "C&C: Generals Zero Hour™ is a trademark of Electronic Arts.\nGame engine source code licensed under GPLv3."
     ]
 
     static let ru: [String: String] = [
@@ -240,7 +272,19 @@ enum L10n {
         "patch.status.unpacking": "РАСПАКОВКА ПАТЧА...",
         "patch.status.completed": "ПАТЧ УСПЕШНО ПРИМЕНЁН",
         "patch.status.error": "ОШИБКА: %@",
-        "folder.prompt": "Выберите папку с Windows-версией игры (содержащую .big файлы)"
+        "folder.prompt": "Выберите папку с Windows-версией игры (содержащую .big файлы)",
+        "settings.title": "НАСТРОЙКИ ИГРЫ",
+        "settings.windowedEdgeScroll": "Автоскролл в оконном режиме",
+        "settings.windowedEdgeScrollDesc": "Захватывает курсор мыши внутри окна игры во время матча для скролла карты.",
+        "settings.language": "Язык",
+        "settings.about": "Система",
+        "settings.aboutButton": "О программе",
+        "about.windowTitle": "О Generals Online",
+        "about.nativePort": "Нативный порт для macOS",
+        "about.portAuthor": "Порт для macOS: Дима Ок (OKJI)",
+        "about.builtOnTop": "Разработано на базе открытого исходного кода EA GPLv3",
+        "about.website": "Сайт",
+        "about.legal": "C&C: Generals Zero Hour™ является товарным знаком Electronic Arts.\nИсходный код игрового движка лицензирован под GPLv3."
     ]
 
     static let uk: [String: String] = [
@@ -289,7 +333,19 @@ enum L10n {
         "patch.status.unpacking": "РОЗПАКУВАННЯ ПАТЧА...",
         "patch.status.completed": "ПАТЧ УСПІШНО ЗАСТОСОВАНО",
         "patch.status.error": "ПОМИЛКА: %@",
-        "folder.prompt": "Виберіть папку з Windows-версією гри (що містить .big файли)"
+        "folder.prompt": "Виберіть папку з Windows-версією гри (що містить .big файли)",
+        "settings.title": "НАЛАШТУВАННЯ ГРИ",
+        "settings.windowedEdgeScroll": "Автоскрол у віконному режимі",
+        "settings.windowedEdgeScrollDesc": "Захоплює курсор миші всередині вікна гри під час матчу для скролу карти.",
+        "settings.language": "Мова",
+        "settings.about": "Система",
+        "settings.aboutButton": "Про програму",
+        "about.windowTitle": "Про Generals Online",
+        "about.nativePort": "Нативний порт для macOS",
+        "about.portAuthor": "Порт для macOS: Діма Ок (OKJI)",
+        "about.builtOnTop": "Розроблено на базі відкритого вихідного коду EA GPLv3",
+        "about.website": "Сайт",
+        "about.legal": "C&C: Generals Zero Hour™ є товарним знаком Electronic Arts.\nВихідний код ігрового движка ліцензовано під GPLv3."
     ]
 
     static let hi: [String: String] = [
@@ -338,7 +394,19 @@ enum L10n {
         "patch.status.unpacking": "पैच अनपैक हो रहा है...",
         "patch.status.completed": "पैच सफलतापूर्वक लागू",
         "patch.status.error": "त्रुटि: %@",
-        "folder.prompt": "Windows गेम फ़ोल्डर चुनें (.big फ़ाइलें वाला)"
+        "folder.prompt": "Windows गेम फ़ोल्डर चुनें (.big फ़ाइलें वाला)",
+        "settings.title": "GAME SETTINGS",
+        "settings.windowedEdgeScroll": "Edge Scroll in Windowed Mode",
+        "settings.windowedEdgeScrollDesc": "Captures mouse cursor inside the game window during gameplay for edge scrolling.",
+        "settings.language": "भाषा (Language)",
+        "settings.about": "सिस्टम (System)",
+        "settings.aboutButton": "Generals Online के बारे में",
+        "about.windowTitle": "Generals Online के बारे में",
+        "about.nativePort": "macOS नेटिव पोर्ट",
+        "about.portAuthor": "Dima Ok (OKJI) द्वारा macOS पोर्ट",
+        "about.builtOnTop": "EA GPLv3 ओपन-सोर्स रिलीज़ के आधार पर निर्मित",
+        "about.website": "वेबसाइट",
+        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts का एक ट्रेडमार्क है।\nगेम इंजन सोर्स कोड GPLv3 के तहत लाइसेंस प्राप्त है।"
     ]
 
     static let zh: [String: String] = [
@@ -387,7 +455,19 @@ enum L10n {
         "patch.status.unpacking": "正在解压补丁...",
         "patch.status.completed": "补丁应用成功",
         "patch.status.error": "错误：%@",
-        "folder.prompt": "选择 Windows 游戏文件夹（包含 .big 文件）"
+        "folder.prompt": "选择 Windows 游戏文件夹（包含 .big 文件）",
+        "settings.title": "游戏设置",
+        "settings.windowedEdgeScroll": "窗口模式边缘滚动",
+        "settings.windowedEdgeScrollDesc": "在游戏过程中将鼠标限制在窗口内，以启用边缘滚动功能。",
+        "settings.language": "语言 (Language)",
+        "settings.about": "系统",
+        "settings.aboutButton": "关于 Generals Online",
+        "about.windowTitle": "关于 Generals Online",
+        "about.nativePort": "macOS 原生移植版",
+        "about.portAuthor": "macOS 移植者：Dima Ok (OKJI)",
+        "about.builtOnTop": "基于 EA GPLv3 开源版本开发",
+        "about.website": "官方网站",
+        "about.legal": "C&C: Generals Zero Hour™ 是 Electronic Arts 的商标。\n游戏引擎源码基于 GPLv3 授权。"
     ]
 
     static let ar: [String: String] = [
@@ -436,7 +516,19 @@ enum L10n {
         "patch.status.unpacking": "جارٍ فك التصحيح...",
         "patch.status.completed": "تم تطبيق التصحيح بنجاح",
         "patch.status.error": "خطأ: %@",
-        "folder.prompt": "حدد مجلد لعبة Windows (يحتوي على ملفات .big)"
+        "folder.prompt": "حدد مجلد لعبة Windows (يحتوي على ملفات .big)",
+        "settings.title": "GAME SETTINGS",
+        "settings.windowedEdgeScroll": "Edge Scroll in Windowed Mode",
+        "settings.windowedEdgeScrollDesc": "Captures mouse cursor inside the game window during gameplay for edge scrolling.",
+        "settings.language": "اللغة (Language)",
+        "settings.about": "النظام (System)",
+        "settings.aboutButton": "حول Generals Online",
+        "about.windowTitle": "حول Generals Online",
+        "about.nativePort": "نسخة macOS الأصلية",
+        "about.portAuthor": "نقل إلى macOS بواسطة Dima Ok (OKJI)",
+        "about.builtOnTop": "مبني على إصدار EA GPLv3 مفتوح المصدر",
+        "about.website": "الموقع الإلكتروني",
+        "about.legal": "C&C: Generals Zero Hour™ هي علامة تجارية لشركة Electronic Arts.\nرمز مصدر محرك اللعبة مرخص بموجب GPLv3."
     ]
 
     static let kk: [String: String] = [
@@ -485,7 +577,19 @@ enum L10n {
         "patch.status.unpacking": "ПАТЧ АШЫЛУДА...",
         "patch.status.completed": "ПАТЧ СӘТТІ ҚОЛДАНЫЛДЫ",
         "patch.status.error": "ҚАТЕ: %@",
-        "folder.prompt": "Windows ойын қалтасын таңдаңыз (.big файлдары бар)"
+        "folder.prompt": "Windows ойын қалтасын таңдаңыз (.big файлдары бар)",
+        "settings.title": "ОЙЫН БАПТАУЛАРЫ",
+        "settings.windowedEdgeScroll": "Терезе режиміндегі автоскролл",
+        "settings.windowedEdgeScrollDesc": "Картаны скроллдау үшін тінтуір меңзерін ойын терезесінің ішінде шектейді.",
+        "settings.language": "Тіл (Language)",
+        "settings.about": "Жүйе (System)",
+        "settings.aboutButton": "Generals Online туралы",
+        "about.windowTitle": "Generals Online туралы",
+        "about.nativePort": "macOS нативті порты",
+        "about.portAuthor": "macOS порты: Дима Ок (OKJI)",
+        "about.builtOnTop": "EA GPLv3 ашық бастапқы коды негізінде жасалған",
+        "about.website": "Веб-сайт",
+        "about.legal": "C&C: Generals Zero Hour™ — Electronic Arts сауда белгісі.\nОйын қозғалтқышының бастапқы коды GPLv3 лицензиясымен таратылады."
     ]
 
     static let vi: [String: String] = [
@@ -534,7 +638,19 @@ enum L10n {
         "patch.status.unpacking": "ĐANG GIẢI NÉN BẢN VÁ...",
         "patch.status.completed": "ÁP DỤNG BẢN VÁ THÀNH CÔNG",
         "patch.status.error": "LỖI: %@",
-        "folder.prompt": "Chọn thư mục trò chơi Windows (chứa tệp .big)"
+        "folder.prompt": "Chọn thư mục trò chơi Windows (chứa tệp .big)",
+        "settings.title": "GAME SETTINGS",
+        "settings.windowedEdgeScroll": "Edge Scroll in Windowed Mode",
+        "settings.windowedEdgeScrollDesc": "Captures mouse cursor inside the game window during gameplay for edge scrolling.",
+        "settings.language": "Ngôn ngữ (Language)",
+        "settings.about": "Hệ thống",
+        "settings.aboutButton": "Về Generals Online",
+        "about.windowTitle": "Về Generals Online",
+        "about.nativePort": "Bản chuyển đổi gốc cho macOS",
+        "about.portAuthor": "Bản chuyển đổi macOS bởi Dima Ok (OKJI)",
+        "about.builtOnTop": "Được xây dựng trên nền tảng nguồn mở EA GPLv3",
+        "about.website": "Trang web",
+        "about.legal": "C&C: Generals Zero Hour™ là nhãn hiệu của Electronic Arts.\nMã nguồn công cụ trò chơi được cấp phép theo GPLv3."
     ]
 
     static let pl: [String: String] = [
@@ -583,7 +699,19 @@ enum L10n {
         "patch.status.unpacking": "ROZPAKOWYWANIE ŁATKI...",
         "patch.status.completed": "ŁATKA ZASTOSOWANA POMYŚLNIE",
         "patch.status.error": "BŁĄD: %@",
-        "folder.prompt": "Wybierz folder gry Windows (zawierający pliki .big)"
+        "folder.prompt": "Wybierz folder gry Windows (zawierający pliki .big)",
+        "settings.title": "USTAWIENIA GRY",
+        "settings.windowedEdgeScroll": "Przewijanie przy krawędzi w trybie okienkowym",
+        "settings.windowedEdgeScrollDesc": "Ogranicza kursor myszy do okna gry, aby umożliwić przewijanie przy krawędzi.",
+        "settings.language": "Język (Language)",
+        "settings.about": "System",
+        "settings.aboutButton": "O Generals Online",
+        "about.windowTitle": "O Generals Online",
+        "about.nativePort": "Natywny port macOS",
+        "about.portAuthor": "Port macOS autorstwa Dima Ok (OKJI)",
+        "about.builtOnTop": "Zbudowano na bazie wersji open-source EA GPLv3",
+        "about.website": "Strona internetowa",
+        "about.legal": "C&C: Generals Zero Hour™ jest znakiem towarowym Electronic Arts.\nKod źródłowy silnika gry licencjonowany na GPLv3."
     ]
 
     static let de: [String: String] = [
@@ -632,7 +760,19 @@ enum L10n {
         "patch.status.unpacking": "PATCH WIRD ENTPACKT...",
         "patch.status.completed": "PATCH ERFOLGREICH ANGEWENDET",
         "patch.status.error": "FEHLER: %@",
-        "folder.prompt": "Windows-Spielordner auswählen (mit .big-Dateien)"
+        "folder.prompt": "Windows-Spielordner auswählen (mit .big-Dateien)",
+        "settings.title": "SPIEL-EINSTELLUNGEN",
+        "settings.windowedEdgeScroll": "Scrollen am Bildschirmrand im Fenstermodus",
+        "settings.windowedEdgeScrollDesc": "Hält den Mauszeiger im Spielfenster, um das Scrollen am Bildschirmrand zu ermöglichen.",
+        "settings.language": "Sprache (Language)",
+        "settings.about": "System",
+        "settings.aboutButton": "Über Generals Online",
+        "about.windowTitle": "Über Generals Online",
+        "about.nativePort": "Nativer macOS-Port",
+        "about.portAuthor": "macOS-Port von Dima Ok (OKJI)",
+        "about.builtOnTop": "Erstellt auf Basis der EA GPLv3 Open-Source-Version",
+        "about.website": "Webseite",
+        "about.legal": "C&C: Generals Zero Hour™ ist eine Marke von Electronic Arts.\nSpiel-Engine-Quellcode lizenziert unter GPLv3."
     ]
 
     static let es: [String: String] = [
@@ -681,7 +821,19 @@ enum L10n {
         "patch.status.unpacking": "DESCOMPRIMIENDO PARCHE...",
         "patch.status.completed": "PARCHE APLICADO CON ÉXITO",
         "patch.status.error": "ERROR: %@",
-        "folder.prompt": "Seleccione la carpeta del juego de Windows (que contiene archivos .big)"
+        "folder.prompt": "Seleccione la carpeta del juego de Windows (que contiene archivos .big)",
+        "settings.title": "AJUSTES DEL JUEGO",
+        "settings.windowedEdgeScroll": "Desplazamiento en los bordes en modo ventana",
+        "settings.windowedEdgeScrollDesc": "Mantiene el cursor dentro de la ventana del juego para permitir el desplazamiento en los bordes.",
+        "settings.language": "Idioma (Language)",
+        "settings.about": "Sistema",
+        "settings.aboutButton": "Acerca de Generals Online",
+        "about.windowTitle": "Acerca de Generals Online",
+        "about.nativePort": "Puerto nativo de macOS",
+        "about.portAuthor": "Puerto de macOS por Dima Ok (OKJI)",
+        "about.builtOnTop": "Creado sobre la versión de código abierto EA GPLv3",
+        "about.website": "Sitio web",
+        "about.legal": "C&C: Generals Zero Hour™ es una marca comercial de Electronic Arts.\nCódigo fuente del motor de juego bajo licencia GPLv3."
     ]
 
     static let tr: [String: String] = [
@@ -730,6 +882,18 @@ enum L10n {
         "patch.status.unpacking": "YAMA AÇILIYOR...",
         "patch.status.completed": "YAMA BAŞARIYLA UYGULANDI",
         "patch.status.error": "HATA: %@",
-        "folder.prompt": "Windows oyun klasörünü seçin (.big dosyaları içeren)"
+        "folder.prompt": "Windows oyun klasörünü seçin (.big dosyaları içeren)",
+        "settings.title": "OYUN AYARLARI",
+        "settings.windowedEdgeScroll": "Pencere Modunda Kenar Kaydırma",
+        "settings.windowedEdgeScrollDesc": "Kenar kaydırma için oyun sırasında fare imlecini pencere sınırları içinde tutar.",
+        "settings.language": "Dil (Language)",
+        "settings.about": "Sistem",
+        "settings.aboutButton": "Generals Online Hakkında",
+        "about.windowTitle": "Generals Online Hakkında",
+        "about.nativePort": "macOS Yerel Portu",
+        "about.portAuthor": "macOS Portu: Dima Ok (OKJI)",
+        "about.builtOnTop": "EA GPLv3 açık kaynak sürümü temel alınarak oluşturulmuştur",
+        "about.website": "Web Sitesi",
+        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts'ın ticari markasıdır.\nOyun motoru kaynak kodu GPLv3 lisanslıdır."
     ]
 }

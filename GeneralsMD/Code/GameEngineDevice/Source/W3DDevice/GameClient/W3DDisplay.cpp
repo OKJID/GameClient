@@ -3445,6 +3445,7 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
 	TheWritableGlobalData->m_windowed = isWindowed;
+	TheDisplay->setWindowed(isWindowed);
 
 	if (TheHeaderTemplateManager) {
 		TheHeaderTemplateManager->onResolutionChanged();

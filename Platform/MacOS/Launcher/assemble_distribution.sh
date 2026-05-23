@@ -91,10 +91,7 @@ install_name_tool -add_rpath "@executable_path/../Frameworks/" "$GAME_BINARY"
 codesign --force --deep -s - "$FINAL_APP_DIR"
 
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
-swiftc Sources/LauncherApp.swift Sources/MainView.swift \
-       Sources/SteamCMDManager.swift Sources/AboutWindow.swift \
-       Sources/UpdateChecker.swift Sources/AssetPatcher.swift \
-       Sources/Localization.swift \
+swiftc $(find Sources -name "*.swift") \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
        -target arm64-apple-macosx11.0
 
