@@ -497,6 +497,11 @@ AIGroup *AI::findGroup( UnsignedInt id )
 	return nullptr;
 }
 
+Bool AI::doesGroupExist(AIGroup* group) const
+{
+	return std::find(m_groupList.begin(), m_groupList.end(), group) != m_groupList.end();
+}
+
 //--------------------------------------------------------------------------------------------------------
 /**
  * Get the next formation id.
@@ -534,7 +539,7 @@ public:
 	}
 
 #if defined(RTS_DEBUG)
-	virtual const char* debugGetName() { return "PartitionFilterLiveMapEnemies"; }
+	virtual const char* debugGetName() override { return "PartitionFilterLiveMapEnemies"; }
 #endif
 };
 
@@ -564,7 +569,7 @@ public:
 	}
 
 #if defined(RTS_DEBUG)
-	virtual const char* debugGetName() { return "PartitionFilterWithinAttackRange"; }
+	virtual const char* debugGetName() override { return "PartitionFilterWithinAttackRange"; }
 #endif
 };
 

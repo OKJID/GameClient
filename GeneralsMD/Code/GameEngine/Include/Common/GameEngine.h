@@ -84,9 +84,9 @@ protected:
 
 	virtual void resetSubsystems();
 
-	Bool canUpdateGameLogic();
+	Bool canUpdateGameLogic(UnsignedInt logicTimeQueryFlags);
 	Bool canUpdateNetworkGameLogic();
-	Bool canUpdateRegularGameLogic();
+	Bool canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags);
 
 	virtual FileSystem *createFileSystem();								///< Factory for FileSystem classes
 	virtual LocalFileSystem *createLocalFileSystem() = 0;	///< Factory for LocalFileSystem classes
@@ -97,10 +97,10 @@ protected:
 	virtual ModuleFactory *createModuleFactory() = 0;			///< Factory for modules
 	virtual ThingFactory *createThingFactory() = 0;				///< Factory for the thing factory
 	virtual FunctionLexicon *createFunctionLexicon() = 0;	///< Factory for Function Lexicon
-	virtual Radar *createRadar() = 0;											///< Factory for radar
+	virtual Radar *createRadar(Bool dummy) = 0;						///< Factory for radar
 	virtual WebBrowser *createWebBrowser() = 0;						///< Factory for embedded browser
 	virtual ParticleSystemManager* createParticleSystemManager(Bool dummy) = 0;
-	virtual AudioManager *createAudioManager() = 0;				///< Factory for Audio Manager
+	virtual AudioManager *createAudioManager(Bool dummy) = 0;				///< Factory for Audio Manager
 
 	Real m_logicTimeAccumulator; ///< Frame time accumulated towards submitting a new logic frame
 

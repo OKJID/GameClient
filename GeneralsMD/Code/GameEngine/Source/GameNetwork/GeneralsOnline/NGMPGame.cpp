@@ -58,7 +58,9 @@ NGMPGame::NGMPGame()
 NGMPGame::~NGMPGame()
 {
 	// Force camera to update from config
-	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, true);
+    TheTacticalView->setDefaultView(DEG_TO_RADF(TheGlobalData->m_cameraPitch),
+        DEG_TO_RADF(TheGlobalData->m_cameraYaw),
+        1.0f, true);
 }
 
 void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
@@ -542,7 +544,10 @@ void NGMPGame::launchGame(void)
 	}
 
 	// Force camera to update from config
-	TheTacticalView->setDefaultView(0.0f, 0.0f, 1.0f, false);
+    TheTacticalView->setDefaultView(DEG_TO_RADF(TheGlobalData->m_cameraPitch),
+        DEG_TO_RADF(TheGlobalData->m_cameraYaw),
+        1.0f,
+		false);
 
 
 	// shutdown the top, but do not pop it off the stack

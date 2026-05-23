@@ -51,7 +51,7 @@ public:
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(BoneMgrDialogClass)
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
 	//}}AFX_VIRTUAL
 
 // Implementation
@@ -59,12 +59,12 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(BoneMgrDialogClass)
-	virtual BOOL OnInitDialog();
+	virtual BOOL OnInitDialog() override;
 	afx_msg void OnSelchangedBoneTree(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnSelchangeObjectCombo();
 	afx_msg void OnDestroy();
-	virtual void OnOK();
-	virtual void OnCancel();
+	virtual void OnOK() override;
+	virtual void OnCancel() override;
 	afx_msg void OnAttachButton();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
@@ -86,7 +86,7 @@ protected:
 		bool						Is_Object_In_List (const char *passet_name, DynamicVectorClass <RenderObjClass *> &node_list);
 		bool						Is_Render_Obj_Already_Attached (const CString &name);
 		void						Update_Controls (HTREEITEM selected_item);
-		HTREEITEM				Get_Current_Bone_Item (void);
+		HTREEITEM				Get_Current_Bone_Item ();
 		void						Remove_Object_From_Bone (HTREEITEM bone_item, const CString &name);
 
 	private:

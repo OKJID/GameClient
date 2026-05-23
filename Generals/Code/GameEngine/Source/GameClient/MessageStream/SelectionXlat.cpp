@@ -418,7 +418,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				if (m_dragSelecting)
 				{
 					// insert area selection "hint" message into stream
-					GameMessage *hintMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION_HINT );
+					GameMessage *hintMsg = TheMessageStream->appendMessage( GameMessage::MSG_BEGIN_AREA_SELECTION_HINT );
 
 					// build rectangular region defined by the drag selection
 					IRegion2D pixelRegion;
@@ -508,7 +508,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 					TheInGameUI->selectMatchingAcrossScreen();
 
 				// emit "picked" message
-				GameMessage *pickMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION );
+				GameMessage *pickMsg = TheMessageStream->appendMessage( GameMessage::MSG_END_AREA_SELECTION_HINT );
 				pickMsg->appendDrawableIDArgument( picked->getID() );  /// note we are putting in a drawable id
 
 				if (TheInGameUI->isInPreferSelectionMode() && !listOfSelectedDrawables.empty()) {
@@ -857,7 +857,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				TheInGameUI->endAreaSelectHint(nullptr);
 
 				// insert area selection message into stream
-				GameMessage *dragMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION );
+				GameMessage *dragMsg = TheMessageStream->appendMessage( GameMessage::MSG_END_AREA_SELECTION_HINT );
 
 				IRegion2D selectionRegion;
 				buildRegion( &m_selectFeedbackAnchor, &msg->getArgument(0)->pixel, &selectionRegion );
@@ -900,7 +900,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			// 3) 3-D camera position has changed
 			m_deselectFeedbackAnchor = msg->getArgument( 0 )->pixel;
 			m_lastClick = (UnsignedInt) msg->getArgument( 2 )->integer;
-			TheTacticalView->getPosition(&m_deselectDownCameraPosition);
+			m_deselectDownCameraPosition = TheTacticalView->getPosition();
 
 			break;
 		}
@@ -908,13 +908,10 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 		//-----------------------------------------------------------------------------
 		case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_UP:
 		{
-			ICoord2D delta, pixel;
-			UnsignedInt currentTime;
-			Coord3D cameraPos;
-
-			TheTacticalView->getPosition(&cameraPos);
+			Coord3D cameraPos = TheTacticalView->getPosition();
 			cameraPos.sub(&m_deselectDownCameraPosition);
 
+			ICoord2D pixel = msg->getArgument( 0 )->pixel;
 			pixel = msg->getArgument( 0 )->pixel;
 			currentTime = (UnsignedInt) msg->getArgument( 2 )->integer;
 
@@ -1024,7 +1021,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			{
 				DEBUG_LOG(("META: select team %d",group));
 
-				UnsignedInt now = TheGameLogic->getFrame();
+				UnsignedInt now = timeGetTime();
 				if ( m_lastGroupSelTime == 0 )
 				{
 					m_lastGroupSelTime = now;
@@ -1033,7 +1030,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				Bool performSelection = TRUE;
 
 				// check for double-press to jump view
-				if ( now - m_lastGroupSelTime < 20 && group == m_lastGroupSelGroup )
+				if ( now - m_lastGroupSelTime < TheGlobalData->m_doubleClickTimeMS && group == m_lastGroupSelGroup )
 				{
 					DEBUG_LOG(("META: DOUBLETAP select team %d",group));
 					// TheSuperHackers @bugfix Stubbjax 26/05/2025 Perform selection on double-press
@@ -1105,7 +1102,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			{
 				DEBUG_LOG(("META: select team %d",group));
 
-				UnsignedInt now = TheGameLogic->getFrame();
+				UnsignedInt now = timeGetTime();
 				if ( m_lastGroupSelTime == 0 )
 				{
 					m_lastGroupSelTime = now;
@@ -1113,7 +1110,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 
 				// check for double-press to jump view
 
-				if ( now - m_lastGroupSelTime < 20 && group == m_lastGroupSelGroup )
+				if ( now - m_lastGroupSelTime < TheGlobalData->m_doubleClickTimeMS && group == m_lastGroupSelGroup )
 				{
 					DEBUG_LOG(("META: DOUBLETAP select team %d",group));
 					Player *player = ThePlayerList->getLocalPlayer();

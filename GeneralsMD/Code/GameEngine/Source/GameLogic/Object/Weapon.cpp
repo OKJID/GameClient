@@ -399,8 +399,8 @@ void WeaponTemplate::reset()
 
 	// No matter what we have now, we want to convert it to frames from msec.
 	// ShotDelay used to use parseDurationUnsignedInt, and we are expanding on that.
-	self->m_minDelayBetweenShots = WWMath::Ceilf_Origin(ConvertDurationFromMsecsToFrames((Real)self->m_minDelayBetweenShots));
-	self->m_maxDelayBetweenShots = WWMath::Ceilf_Origin(ConvertDurationFromMsecsToFrames((Real)self->m_maxDelayBetweenShots));
+	self->m_minDelayBetweenShots = ceilf(ConvertDurationFromMsecsToFrames((Real)self->m_minDelayBetweenShots));
+	self->m_maxDelayBetweenShots = ceilf(ConvertDurationFromMsecsToFrames((Real)self->m_maxDelayBetweenShots));
 
 }
 
@@ -1190,7 +1190,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_UNRELIABLE_FIRESTORMS
 void WeaponTemplate::trimOldHistoricDamage() const
 {
 	UnsignedInt expirationDate = TheGameLogic->getFrame() - TheGlobalData->m_historicDamageLimit;
@@ -1253,7 +1253,7 @@ static Bool is2DDistSquaredLessThan(const Coord3D& a, const Coord3D& b, Real dis
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_UNRELIABLE_FIRESTORMS
 void WeaponTemplate::processHistoricDamage(const Object* source, const Coord3D* pos) const
 {
 	//
@@ -1346,7 +1346,6 @@ void WeaponTemplate::dealDamageInternal(ObjectID sourceID, ObjectID victimID, co
 {
 	if (sourceID == 0)	// must have a source
 		return;
-
 	if (victimID == 0 && pos == nullptr)	// must have some sort of destination
 		return;
 
@@ -1643,7 +1642,7 @@ const WeaponTemplate *WeaponStore::findWeaponTemplate( const AsciiString& name )
 	if (name.compareNoCase("None") == 0)
 		return nullptr;
 	const WeaponTemplate * wt = findWeaponTemplatePrivate( TheNameKeyGenerator->nameToKey( name ) );
-	DEBUG_ASSERTCRASH(wt != nullptr, ("Weapon %s not found!",name));
+	DEBUG_ASSERTCRASH(wt != nullptr, ("Weapon %s not found!", name.str()));
 	return wt;
 }
 
@@ -1651,6 +1650,9 @@ const WeaponTemplate *WeaponStore::findWeaponTemplate( const AsciiString& name )
 const WeaponTemplate *WeaponStore::findWeaponTemplate( const char* name ) const
 {
 	if (stricmp(name, "None") == 0)
+{
+	if (stricmp(name, "None") == 0)
+>>>>>>> god-team/main
 		return nullptr;
 	const WeaponTemplate * wt = findWeaponTemplatePrivate( TheNameKeyGenerator->nameToKey( name ) );
 	DEBUG_ASSERTCRASH(wt != nullptr, ("Weapon %s not found!",name));

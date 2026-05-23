@@ -208,8 +208,6 @@ SphereMeshClass::Set_DCG (bool is_additive, int index, float value)
 		dcg[index].Z = 1.0F;
 		dcg[index].W = value;
 	}
-
-	return ;
 }
 
 // Note: SPHERE_NUM_LOD does not include the null LOD.
@@ -435,9 +433,9 @@ public:
 /*
 ** Prototype for Sphere objects
 */
-class SpherePrototypeClass : public W3DMPO, public PrototypeClass
+class SpherePrototypeClass : public PrototypeClass
 {
-	W3DMPO_GLUE(SpherePrototypeClass)
+	W3DMPO_CODE(SpherePrototypeClass)
 public:
 	SpherePrototypeClass ();
 	SpherePrototypeClass (SphereRenderObjClass *sphere);

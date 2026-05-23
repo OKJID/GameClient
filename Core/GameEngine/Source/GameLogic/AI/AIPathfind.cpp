@@ -3943,7 +3943,6 @@ void PathfindLayer::classifyLayerMapCell( Int i, Int j , PathfindCell *cell, Bri
 			}
 		}
 	}
-	return;
 }
 
 
@@ -6074,9 +6073,7 @@ void Pathfinder::processPathfindQueue()
 	m_logicalExtent = bounds;
 
 	m_cumulativeCellsAllocated = 0;	// Number of pathfind cells examined.
-#ifdef DEBUG_QPF
 	Int pathsFound = 0;
-#endif
 	while (m_cumulativeCellsAllocated < PATHFIND_CELLS_PER_FRAME &&
 		m_queuePRTail!=m_queuePRHead) {
 		Object *obj = TheGameLogic->findObjectByID(m_queuedPathfindRequests[m_queuePRHead]);
@@ -6085,15 +6082,17 @@ void Pathfinder::processPathfindQueue()
 			AIUpdateInterface *ai = obj->getAIUpdateInterface();
 			if (ai) {
 				ai->doPathfind(this);
-#ifdef DEBUG_QPF
 				pathsFound++;
-#endif
 			}
 		}
 		m_queuePRHead = m_queuePRHead+1;
 		if (m_queuePRHead >= PATHFIND_QUEUE_LEN) {
 			m_queuePRHead = 0;
 		}
+	}
+	if (pathsFound > 0) {
+		PROFILER_PLOT("PathfindCells", (double)m_cumulativeCellsAllocated);
+		PROFILER_PLOT("PathfindPaths", (double)pathsFound);
 	}
 #ifdef DEBUG_QPF
 	if (pathsFound>0) {
@@ -11341,10 +11340,20 @@ void Pathfinder::crc( Xfer *xfer )
 
 	xfer->xferInt(&m_numWallPieces);
 	CRCDEBUG_LOG(("m_numWallPieces: %8.8X", ((XferCRC *)xfer)->getCRC()));
-	for (Int i=0; i<MAX_WALL_PIECES; ++i)
+
+#if RETAIL_COMPATIBLE_CRC
+	// TheSuperHackers @fix The original code effectively accessed m_numWallPieces 128 times,
+	// because it used &m_wallPieces[MAX_WALL_PIECES] which is out-of-bounds and points to m_numWallPieces.
+	static_assert(sizeof(Int) == sizeof(ObjectID), "Type sizes must be equal for correct xfer");
+
+	for (Int i = 0; i < MAX_WALL_PIECES; ++i)
 	{
-		xfer->xferObjectID(&m_wallPieces[MAX_WALL_PIECES]);
+		xfer->xferInt(&m_numWallPieces);
 	}
+#else
+	xfer->xferUser(m_wallPieces, sizeof(m_wallPieces));
+#endif
+
 	CRCDEBUG_LOG(("m_wallPieces: %8.8X", ((XferCRC *)xfer)->getCRC()));
 
 	xfer->xferReal(&m_wallHeight);

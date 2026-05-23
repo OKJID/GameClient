@@ -159,7 +159,7 @@ public:
 
 #if defined(RTS_DEBUG)
 	// Disconnect screen testing
-	virtual void toggleNetworkOn();
+	virtual void toggleNetworkOn() override;
 #endif
 
 	// Exposing some info contained in the Connection Manager
@@ -203,15 +203,15 @@ protected:
 	void SendCommandsToConnectionManager();												///< Send the new commands to the ConnectionManager
 	Bool AllCommandsReady(UnsignedInt frame);											///< Do we have all the commands for the given frame?
 	void RelayCommandsToCommandList(UnsignedInt frame);						///< Put the commands for the given frame onto TheCommandList.
-	Bool isTransferCommand(GameMessage* msg);											///< Is this a command that needs to be transfered to the other clients?
-	Bool processCommand(GameMessage* msg);												///< Whatever needs to be done as a result of this command, do it now.
-	void processFrameSynchronizedNetCommand(NetCommandRef* msg);	///< If there is a network command that needs to be executed at the same frame number on all clients, it happens here.
-	void processRunAheadCommand(NetRunAheadCommandMsg* msg);			///< Do what needs to be done when we get a new run ahead command.
-	void processDestroyPlayerCommand(NetDestroyPlayerCommandMsg* msg);	///< Do what needs to be done when we need to destroy a player.
+	static Bool isMessageTypeWithinNetworkRange(GameMessage::Type type);
+	Bool processCommand(GameMessage *msg);												///< Whatever needs to be done as a result of this command, do it now.
+	void processFrameSynchronizedNetCommand(NetCommandRef *msg);	///< If there is a network command that needs to be executed at the same frame number on all clients, it happens here.
+	void processRunAheadCommand(NetRunAheadCommandMsg *msg);			///< Do what needs to be done when we get a new run ahead command.
+	void processDestroyPlayerCommand(NetDestroyPlayerCommandMsg *msg);	///< Do what needs to be done when we need to destroy a player.
 	void endOfGameCheck();																				///< Checks to see if its ok to leave this game.  If it is, send the apropriate command to the game logic.
 	Bool timeForNewFrame();
 
-	ConnectionManager* m_conMgr;																	///< The connection manager object
+	ConnectionManager *m_conMgr;																	///< The connection manager object
 
 	UnsignedInt m_lastFrame;																			///< The last game logic frame that was processed.
 
@@ -384,8 +384,6 @@ void Network::init()
 #if defined(RTS_DEBUG)
 	m_networkOn = TRUE;
 #endif
-
-	return;
 }
 
 #if defined(GENERALS_ONLINE)
@@ -494,14 +492,8 @@ void Network::attachTransport(Transport* transport) {
 	}
 }
 
-/**
- * Does this command need to be transfered to the other game clients?
- */
-Bool Network::isTransferCommand(GameMessage* msg) {
-	if ((msg != NULL) && ((msg->getType() > GameMessage::MSG_BEGIN_NETWORK_MESSAGES) && (msg->getType() < GameMessage::MSG_END_NETWORK_MESSAGES))) {
-		return TRUE;
-	}
-	return FALSE;
+Bool Network::isMessageTypeWithinNetworkRange(GameMessage::Type type) {
+	return type > GameMessage::MSG_BEGIN_NETWORK_MESSAGES && type < GameMessage::MSG_END_NETWORK_MESSAGES;
 }
 
 /**
@@ -512,7 +504,7 @@ void Network::GetCommandsFromCommandList() {
 	GameMessage* next = NULL;
 	while (msg != NULL) {
 		next = msg->next();
-		if (isTransferCommand(msg)) { // Is this something we should be sending to the other players?
+		if (isMessageTypeWithinNetworkRange(msg->getType())) { // Is this something we should be sending to the other players?
 			if (m_localStatus == NETLOCALSTATUS_INGAME) {
 				m_conMgr->sendLocalGameMessage(msg, getExecutionFrame());
 			}
@@ -636,15 +628,25 @@ void Network::RelayCommandsToCommandList(UnsignedInt frame) {
 		return;
 	}
 	m_checkCRCsThisFrame = FALSE;
-	NetCommandList* netcmdlist = m_conMgr->getFrameCommandList(frame);
-	NetCommandRef* msg = netcmdlist->getFirstMessage();
-	while (msg != NULL) {
+	NetCommandList *netcmdlist = m_conMgr->getFrameCommandList(frame);
+	NetCommandRef *msg = netcmdlist->getFirstMessage();
+	while (msg != nullptr) {
 		NetCommandType cmdType = msg->getCommand()->getNetCommandType();
 		if (cmdType == NETCOMMANDTYPE_GAMECOMMAND) {
-			//DEBUG_LOG(("Network::RelayCommandsToCommandList - appending command %d of type %s to command list on frame %d", msg->getCommand()->getID(), ((NetGameCommandMsg *)msg->getCommand())->constructGameMessage()->getCommandAsString(), TheGameLogic->getFrame()));
-			TheCommandList->appendMessage(((NetGameCommandMsg*)msg->getCommand())->constructGameMessage());
-		}
-		else {
+			NetGameCommandMsg* gmsg = static_cast<NetGameCommandMsg*>(msg->getCommand());
+#if RETAIL_COMPATIBLE_CRC
+			TheCommandList->appendMessage(gmsg->constructGameMessage());
+#else
+			// TheSuperHackers @fix stephanmeesters 14/05/2026 Verify accepted type of incoming game messages
+			if (isMessageTypeWithinNetworkRange(gmsg->getGameMessageType())) {
+				//DEBUG_LOG(("Network::RelayCommandsToCommandList - appending command %d of type %s to command list on frame %d", msg->getCommand()->getID(), gmsg->getCommandAsString(), TheGameLogic->getFrame()));
+				TheCommandList->appendMessage(gmsg->constructGameMessage());
+			} else {
+				DEBUG_LOG(("Network::RelayCommandsToCommandList - rejecting game message from player %d of type %s, which is not a network type.",
+					gmsg->getPlayerID(), GameMessage::getCommandTypeAsString(gmsg->getGameMessageType())));
+			}
+#endif
+		} else {
 			processFrameSynchronizedNetCommand(msg);
 		}
 		msg = msg->getNext();

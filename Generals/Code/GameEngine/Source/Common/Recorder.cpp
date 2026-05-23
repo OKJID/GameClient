@@ -71,58 +71,103 @@ static const UnsignedInt desyncOffset = frameCountOffset + sizeof(UnsignedInt);
 static const UnsignedInt quitEarlyOffset = desyncOffset + sizeof(Bool);
 static const UnsignedInt disconOffset = quitEarlyOffset + sizeof(Bool);
 
+static void writeAtOffset(File* file, Int offset, const void* data, Int dataSize)
+{
+	UnsignedInt fileSize = file->size();
+	DEBUG_ASSERTCRASH((UnsignedInt)(offset + dataSize) <= fileSize, ("writeAtOffset would exceed file size!"));
+	if (file->seek(offset, File::seekMode::START) == offset)
+	{
+		file->write(data, dataSize);
+	}
+	MAYBE_UNUSED Int res = file->seek(fileSize, File::seekMode::START);
+	(void)res;
+	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+}
+
+#if defined(RTS_DEBUG)
+static FILE* openStatsLogFile()
+{
+	unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
+	char computerName[MAX_COMPUTERNAME_LENGTH + 1];
+	if (!GetComputerName(computerName, &bufSize))
+	{
+		strcpy(computerName, "unknown");
+	}
+	AsciiString statsFile = TheGlobalData->m_baseStatsDir;
+	statsFile.concat(computerName);
+	statsFile.concat(".txt");
+	return fopen(statsFile.str(), "a+");
+}
+#endif
+
+RecorderClass::CRCInfo::CRCInfo() :
+	m_sawCRCMismatch(FALSE),
+	m_skippedOne(FALSE),
+	m_localPlayer(0)
+{}
+
+RecorderClass::CRCInfo::CRCInfo(UnsignedInt localPlayer, Bool isMultiplayer)
+{
+	m_sawCRCMismatch = FALSE;
+	m_skippedOne = !isMultiplayer;
+	m_localPlayer = localPlayer;
+}
+
+void RecorderClass::CRCInfo::addCRC(UnsignedInt val)
+{
+	// TheSuperHackers @fix helmutbuhler 03/04/2025
+	// In Multiplayer, the first MSG_LOGIC_CRC message somehow doesn't make it through the network.
+	// Perhaps this happens because the network is not yet set up on frame 0.
+	// So we also don't queue up the first local crc message, otherwise the crc
+	// messages wouldn't match up anymore and we'd desync immediately during playback.
+	if (!m_skippedOne)
+	{
+		m_skippedOne = TRUE;
+		return;
+	}
+
+	m_data.push_back(val);
+	//DEBUG_LOG(("CRCInfo::addCRC() - crc %8.8X pushes list to %d entries (full=%d)", val, m_data.size(), !m_data.empty()));
+}
+
+UnsignedInt RecorderClass::CRCInfo::readCRC()
+{
+	if (m_data.empty())
+	{
+		DEBUG_LOG(("CRCInfo::readCRC() - bailing, full=0, size=%d", m_data.size()));
+		return 0;
+	}
+
+	UnsignedInt val = m_data.front();
+	m_data.pop_front();
+	//DEBUG_LOG(("CRCInfo::readCRC() - returning %8.8X, full=%d, size=%d", val, !m_data.empty(), m_data.size()));
+	return val;
+}
+
 void RecorderClass::logGameStart(AsciiString options)
 {
 	if (!m_file)
 		return;
 
 	time(&startTime);
-	UnsignedInt fileSize = m_file->size();
-	// move to appropriate offset
-	if ( m_file->seek(startTimeOffset, File::seekMode::START) == startTimeOffset )
-	{
-		// save off start time
-		replay_time_t tmp = (replay_time_t)startTime;
-		m_file->write(&tmp, sizeof(tmp));
-	}
-	// move back to end of stream
-#ifdef DEBUG_CRASHING
-	Int res =
-#endif
-	m_file->seek(fileSize, File::seekMode::START);
-	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+	replay_time_t tmp = (replay_time_t)startTime;
+	writeAtOffset(m_file, startTimeOffset, &tmp, sizeof(tmp));
 
 #if defined(RTS_DEBUG)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
-		//if (TheLAN)
+		TheFileSystem->createDirectory(TheGlobalData->m_baseStatsDir);
+		FILE *logFP = openStatsLogFile();
+		if (!logFP)
 		{
-			unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
-			char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-			if (!GetComputerName(computerName, &bufSize))
-			{
-				strcpy(computerName, "unknown");
-			}
-			AsciiString statsFile = TheGlobalData->m_baseStatsDir;
-			TheFileSystem->createDirectory(statsFile);
-			statsFile.concat(computerName);
-			statsFile.concat(".txt");
-			FILE *logFP = fopen(statsFile.str(), "a+");
-			if (!logFP)
-			{
-				// try again locally
-				TheWritableGlobalData->m_baseStatsDir = TheGlobalData->getPath_UserData();
-				statsFile = TheGlobalData->m_baseStatsDir;
-				statsFile.concat(computerName);
-				statsFile.concat(".txt");
-				logFP = fopen(statsFile.str(), "a+");
-			}
-			if (logFP)
-			{
-				struct tm *t2 = localtime(&startTime);
-				fprintf(logFP, "\nGame start at %s\tOptions are %s\n", asctime(t2), options.str());
-				fclose(logFP);
-			}
+			TheWritableGlobalData->m_baseStatsDir = TheGlobalData->getPath_UserData();
+			logFP = openStatsLogFile();
+		}
+		if (logFP)
+		{
+			struct tm *t2 = localtime(&startTime);
+			fprintf(logFP, "\nGame start at %s\tOptions are %s\n", asctime(t2), options.str());
+			fclose(logFP);
 		}
 	}
 #endif
@@ -138,35 +183,14 @@ void RecorderClass::logPlayerDisconnect(UnicodeString player, Int slot)
 	{
 		return;
 	}
-	UnsignedInt fileSize = m_file->size();
-	// move to appropriate offset
+	Bool flag = TRUE;
 	Int playerSlotDisconOffset = disconOffset + slot * sizeof(Bool);
-	if ( m_file->seek(playerSlotDisconOffset, File::seekMode::START) == playerSlotDisconOffset )
-	{
-		// save off discon status
-		Bool flag = TRUE;
-		m_file->write(&flag, sizeof(flag));
-	}
-	// move back to end of stream
-#ifdef DEBUG_CRASHING
-	Int res =
-#endif
-	m_file->seek(fileSize, File::seekMode::START);
-	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+	writeAtOffset(m_file, playerSlotDisconOffset, &flag, sizeof(flag));
 
 #if defined(RTS_DEBUG)
 	if (TheGlobalData->m_saveStats)
 	{
-		unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
-		char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-		if (!GetComputerName(computerName, &bufSize))
-		{
-			strcpy(computerName, "unknown");
-		}
-		AsciiString statsFile = TheGlobalData->m_baseStatsDir;
-		statsFile.concat(computerName);
-		statsFile.concat(".txt");
-		FILE *logFP = fopen(statsFile.str(), "a+");
+		FILE *logFP = openStatsLogFile();
 		if (logFP)
 		{
 			time_t t;
@@ -184,35 +208,14 @@ void RecorderClass::logCRCMismatch()
 	if (!m_file)
 		return;
 
-	UnsignedInt fileSize = m_file->size();
-	// move to appropriate offset
-	if ( m_file->seek(desyncOffset, File::seekMode::START) == desyncOffset )
-	{
-		// save off desync status
-		Bool flag = TRUE;
-		m_file->write(&flag, sizeof(flag));
-	}
-	// move back to end of stream
-#ifdef DEBUG_CRASHING
-	Int res =
-#endif
-	m_file->seek(fileSize, File::seekMode::START);
-	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+	Bool flag = TRUE;
+	writeAtOffset(m_file, desyncOffset, &flag, sizeof(flag));
 
 #if defined(RTS_DEBUG)
 	if (TheGlobalData->m_saveStats)
 	{
 		m_wasDesync = TRUE;
-		unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
-		char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-		if (!GetComputerName(computerName, &bufSize))
-		{
-			strcpy(computerName, "unknown");
-		}
-		AsciiString statsFile = TheGlobalData->m_baseStatsDir;
-		statsFile.concat(computerName);
-		statsFile.concat(".txt");
-		FILE *logFP = fopen(statsFile.str(), "a+");
+		FILE *logFP = openStatsLogFile();
 		if (logFP)
 		{
 			time_t t;
@@ -233,51 +236,22 @@ void RecorderClass::logGameEnd()
 	time_t t;
 	time(&t);
 	UnsignedInt frameCount = TheGameLogic->getFrame();
-	UnsignedInt fileSize = m_file->size();
-	// move to appropriate offset
-	if ( m_file->seek(endTimeOffset, File::seekMode::START) == endTimeOffset )
-	{
-		// save off end time
-		replay_time_t tmp = (replay_time_t)t;
-		m_file->write(&tmp, sizeof(tmp));
-	}
-	// move to appropriate offset
-	if ( m_file->seek(frameCountOffset, File::seekMode::START) == frameCountOffset )
-	{
-		// save off frameCount
-		m_file->write(&frameCount, sizeof(frameCount));
-	}
-	// move back to end of stream
-#ifdef DEBUG_CRASHING
-	Int res =
-#endif
-	m_file->seek(fileSize, File::seekMode::START);
-	DEBUG_ASSERTCRASH(res == fileSize, ("Could not seek to end of file!"));
+	replay_time_t tmp = (replay_time_t)t;
+	writeAtOffset(m_file, endTimeOffset, &tmp, sizeof(tmp));
+	writeAtOffset(m_file, frameCountOffset, &frameCount, sizeof(frameCount));
 
 #if defined(RTS_DEBUG)
 	if (TheNetwork && TheGlobalData->m_saveStats)
 	{
-		//if (TheLAN)
+		FILE *logFP = openStatsLogFile();
+		if (logFP)
 		{
-			unsigned long bufSize = MAX_COMPUTERNAME_LENGTH + 1;
-			char computerName[MAX_COMPUTERNAME_LENGTH + 1];
-			if (!GetComputerName(computerName, &bufSize))
-			{
-				strcpy(computerName, "unknown");
-			}
-			AsciiString statsFile = TheGlobalData->m_baseStatsDir;
-			statsFile.concat(computerName);
-			statsFile.concat(".txt");
-			FILE *logFP = fopen(statsFile.str(), "a+");
-			if (logFP)
-			{
-				struct tm *t2 = localtime(&t);
-				time_t duration = t - startTime;
-				Int minutes = duration/60;
-				Int seconds = duration%60;
-				fprintf(logFP, "Game end at   %s(%d:%2.2d elapsed time)\n", asctime(t2), minutes, seconds);
-				fclose(logFP);
-			}
+			struct tm *t2 = localtime(&t);
+			time_t duration = t - startTime;
+			Int minutes = duration/60;
+			Int seconds = duration%60;
+			fprintf(logFP, "Game end at   %s(%d:%2.2d elapsed time)\n", asctime(t2), minutes, seconds);
+			fclose(logFP);
 		}
 	}
 #endif
@@ -1003,84 +977,9 @@ AsciiString RecorderClass::getCurrentReplayFilename()
 	return AsciiString::TheEmptyString;
 }
 
-// TheSuperHackers @info helmutbuhler 03/04/2025
-// Some info about CRC:
-// In each game, each peer periodically calculates a CRC from the local gamestate and sends that
-// in a message to all peers (including itself) so that everyone can check that the crc is synchronous.
-// In a network game, there is a delay between sending the CRC message and receiving it. This is
-// necessary because if you were to wait each frame for all messages from all peers, things would go
-// horribly slow.
-// But this delay is not a problem for CRC checking because everyone receives the CRC in the same frame
-// and every peer just makes sure all the received CRCs are equal.
-// While playing replays, this is a problem however: The CRC messages in the replays appear on the frame
-// they were received, which can be a few frames delayed if it was a network game. And if we were to
-// compare those with the local gamestate, they wouldn't sync up.
-// So, in order to fix this, we need to queue up our local CRCs,
-// so that we can check it with the crc messages that come later.
-// This class is basically that queue.
-class CRCInfo
-{
-public:
-	CRCInfo(UnsignedInt localPlayer, Bool isMultiplayer);
-	void addCRC(UnsignedInt val);
-	UnsignedInt readCRC();
-
-	int GetQueueSize() const { return m_data.size(); }
-
-	UnsignedInt getLocalPlayer() { return m_localPlayer; }
-
-	void setSawCRCMismatch() { m_sawCRCMismatch = TRUE; }
-	Bool sawCRCMismatch() const { return m_sawCRCMismatch; }
-
-protected:
-
-	Bool m_sawCRCMismatch;
-	Bool m_skippedOne;
-	std::list<UnsignedInt> m_data;
-	UnsignedInt m_localPlayer;
-};
-
-CRCInfo::CRCInfo(UnsignedInt localPlayer, Bool isMultiplayer)
-{
-	m_localPlayer = localPlayer;
-	m_skippedOne = !isMultiplayer;
-	m_sawCRCMismatch = FALSE;
-}
-
-void CRCInfo::addCRC(UnsignedInt val)
-{
-	// TheSuperHackers @fix helmutbuhler 03/04/2025
-	// In Multiplayer, the first MSG_LOGIC_CRC message somehow doesn't make it through the network.
-	// Perhaps this happens because the network is not yet set up on frame 0.
-	// So we also don't queue up the first local crc message, otherwise the crc
-	// messages wouldn't match up anymore and we'd desync immediately during playback.
-	if (!m_skippedOne)
-	{
-		m_skippedOne = TRUE;
-		return;
-	}
-
-	m_data.push_back(val);
-	//DEBUG_LOG(("CRCInfo::addCRC() - crc %8.8X pushes list to %d entries (full=%d)", val, m_data.size(), !m_data.empty()));
-}
-
-UnsignedInt CRCInfo::readCRC()
-{
-	if (m_data.empty())
-	{
-		DEBUG_LOG(("CRCInfo::readCRC() - bailing, full=0, size=%d", m_data.size()));
-		return 0;
-	}
-
-	UnsignedInt val = m_data.front();
-	m_data.pop_front();
-	//DEBUG_LOG(("CRCInfo::readCRC() - returning %8.8X, full=%d, size=%d", val, !m_data.empty(), m_data.size()));
-	return val;
-}
-
 Bool RecorderClass::sawCRCMismatch() const
 {
-	return m_crcInfo->sawCRCMismatch();
+	return m_crcInfo.sawCRCMismatch();
 }
 
 void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool fromPlayback)
@@ -1088,11 +987,11 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 	if (fromPlayback)
 	{
 		//DEBUG_LOG(("RecorderClass::handleCRCMessage() - Adding CRC of %X from %d to m_crcInfo", newCRC, playerIndex));
-		m_crcInfo->addCRC(newCRC);
+		m_crcInfo.addCRC(newCRC);
 		return;
 	}
 
-	Int localPlayerIndex = m_crcInfo->getLocalPlayer();
+	Int localPlayerIndex = m_crcInfo.getLocalPlayer();
 	Bool samePlayer = FALSE;
 	AsciiString playerName;
 	playerName.format("player%d", localPlayerIndex);
@@ -1101,10 +1000,10 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 		samePlayer = TRUE;
 	if (samePlayer || (localPlayerIndex < 0))
 	{
-		UnsignedInt playbackCRC = m_crcInfo->readCRC();
+		UnsignedInt playbackCRC = m_crcInfo.readCRC();
 		//DEBUG_LOG(("RecorderClass::handleCRCMessage() - Comparing CRCs of InGame:%8.8X Replay:%8.8X Frame:%d from Player %d",
-		//	playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo->GetQueueSize()-1, playerIndex));
-		if (TheGameLogic->getFrame() > 0 && newCRC != playbackCRC && !m_crcInfo->sawCRCMismatch())
+		//	playbackCRC, newCRC, TheGameLogic->getFrame()-m_crcInfo.GetQueueSize()-1, playerIndex));
+		if (TheGameLogic->getFrame() > 0 && newCRC != playbackCRC && !m_crcInfo.sawCRCMismatch())
 		{
 			// Since we don't seem to have any *visible* desyncs when replaying games, but get this warning
 			// virtually every replay, the assumption is our CRC checking is faulty.  Since we're at the
@@ -1118,7 +1017,7 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 			// TheSuperHackers @info helmutbuhler 03/04/2025
 			// Note: We subtract the queue size from the frame number. This way we calculate the correct frame
 			// the mismatch first happened in case the NetCRCInterval is set to 1 during the game.
-			const UnsignedInt mismatchFrame = TheGameLogic->getFrame() - m_crcInfo->GetQueueSize() - 1;
+			const UnsignedInt mismatchFrame = TheGameLogic->getFrame() - m_crcInfo.GetQueueSize() - 1;
 
 			// Now also prints a UI message for it.
 			const UnicodeString mismatchDetailsStr = TheGameText->FETCH_OR_SUBSTITUTE("GUI:CRCMismatchDetails", L"InGame:%8.8X Replay:%8.8X Frame:%d");
@@ -1140,7 +1039,7 @@ void RecorderClass::handleCRCMessage(UnsignedInt newCRC, Int playerIndex, Bool f
 				TheGameLogic->setGamePaused(pause, pauseMusic, pauseInput);
 
 				// Mark this mismatch as seen when we had the chance to pause once.
-				m_crcInfo->setSawCRCMismatch();
+				m_crcInfo.setSawCRCMismatch();
 			}
 		}
 		return;
@@ -1262,9 +1161,9 @@ Bool RecorderClass::playbackFile(AsciiString filename)
 #endif
 
 	Bool isMultiplayer = m_gameInfo.getSlot(header.localPlayerIndex)->getIP() != 0;
-	m_crcInfo = NEW CRCInfo(header.localPlayerIndex, isMultiplayer);
+	m_crcInfo = CRCInfo(header.localPlayerIndex, isMultiplayer);
 	REPLAY_CRC_INTERVAL = m_gameInfo.getCRCInterval();
-	DEBUG_LOG(("Player index is %d, replay CRC interval is %d", m_crcInfo->getLocalPlayer(), REPLAY_CRC_INTERVAL));
+	DEBUG_LOG(("Player index is %d, replay CRC interval is %d", m_crcInfo.getLocalPlayer(), REPLAY_CRC_INTERVAL));
 
 	Int difficulty = 0;
 	m_file->read(&difficulty, sizeof(difficulty));

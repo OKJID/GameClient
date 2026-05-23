@@ -448,9 +448,7 @@ void GameEngine::init()
 		initSubsystem(TheTerrainRoads,"TheTerrainRoads", MSGNEW("GameEngineSubsystem") TerrainRoadCollection(), &xferCRC, "Data\\INI\\Default\\Roads.ini", "Data\\INI\\Roads.ini");
 		initSubsystem(TheGlobalLanguageData,"TheGlobalLanguageData",MSGNEW("GameEngineSubsystem") GlobalLanguage, nullptr); // must be before the game text
 		TheGlobalLanguageData->parseCustomDefinition();
-		initSubsystem(TheAudio,"TheAudio", TheGlobalData->m_headless ? NEW AudioManagerDummy : createAudioManager(), nullptr);
-		if (!TheAudio->isMusicAlreadyLoaded())
-			setQuitting(TRUE);
+		initSubsystem(TheAudio,"TheAudio", createAudioManager(TheGlobalData->m_headless), nullptr);
 
 #if RTS_ZEROHOUR && RETAIL_COMPATIBLE_CRC
 		TheNameKeyGenerator->syncNameKeyID();
@@ -489,18 +487,19 @@ void GameEngine::init()
 		initSubsystem(TheCrateSystem,"TheCrateSystem", MSGNEW("GameEngineSubsystem") CrateSystem(), &xferCRC, "Data\\INI\\Default\\Crate.ini", "Data\\INI\\Crate.ini");
 		initSubsystem(ThePlayerList,"ThePlayerList", MSGNEW("GameEngineSubsystem") PlayerList(), nullptr);
 		initSubsystem(TheRecorder,"TheRecorder", createRecorder(), nullptr);
-		initSubsystem(TheRadar,"TheRadar", TheGlobalData->m_headless ? NEW RadarDummy : createRadar(), nullptr);
+		initSubsystem(TheRadar,"TheRadar", createRadar(TheGlobalData->m_headless), nullptr);
 		initSubsystem(TheVictoryConditions,"TheVictoryConditions", createVictoryConditions(), nullptr);
 
 		AsciiString fname;
 		fname.format("Data\\%s\\CommandMap", GetRegistryLanguage().str());
 		initSubsystem(TheMetaMap,"TheMetaMap", MSGNEW("GameEngineSubsystem") MetaMap(), nullptr, fname.str(), "Data\\INI\\CommandMap");
 
-		TheMetaMap->generateMetaMap();
-
 #if defined(RTS_DEBUG)
 		ini.loadFileDirectory("Data\\INI\\CommandMapDebug", INI_LOAD_MULTIFILE, nullptr);
 #endif
+
+		TheMetaMap->generateMetaMap();
+		TheMetaMap->verifyMetaMap();
 
 		initSubsystem(TheActionManager,"TheActionManager", MSGNEW("GameEngineSubsystem") ActionManager(), nullptr);
 		//initSubsystem((CComObject<WebBrowser> *)TheWebBrowser,"(CComObject<WebBrowser> *)TheWebBrowser", (CComObject<WebBrowser> *)createWebBrowser(), nullptr);
@@ -660,7 +659,7 @@ void GameEngine::resetSubsystems()
 }
 
 /// -----------------------------------------------------------------------------------------------
-Bool GameEngine::canUpdateGameLogic()
+Bool GameEngine::canUpdateGameLogic(UnsignedInt logicTimeQueryFlags)
 {
 	// Must be first.
 	TheGameLogic->preUpdate();
@@ -674,7 +673,7 @@ Bool GameEngine::canUpdateGameLogic()
 	}
 	else
 	{
-		return canUpdateRegularGameLogic();
+		return canUpdateRegularGameLogic(logicTimeQueryFlags);
 	}
 }
 
@@ -695,11 +694,10 @@ Bool GameEngine::canUpdateNetworkGameLogic()
 }
 
 /// -----------------------------------------------------------------------------------------------
-Bool GameEngine::canUpdateRegularGameLogic()
+Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 {
-	const Bool enabled = TheFramePacer->isLogicTimeScaleEnabled();
-	const Int logicTimeScaleFps = TheFramePacer->getLogicTimeScaleFps();
-	const Int maxRenderFps = TheFramePacer->getFramesPerSecondLimit();
+	const Int logicTimeScaleFps = TheFramePacer->getActualLogicTimeScaleFps(logicTimeQueryFlags);
+	const Int maxRenderFps = TheFramePacer->getActualFramesPerSecondLimit();
 
 #if defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
 	const Bool useFastMode = TheGlobalData->m_TiVOFastMode;
@@ -707,7 +705,7 @@ Bool GameEngine::canUpdateRegularGameLogic()
 	const Bool useFastMode = TheGlobalData->m_TiVOFastMode && TheGameLogic->isInReplayGame();
 #endif
 
-	if (useFastMode || !enabled || logicTimeScaleFps >= maxRenderFps)
+	if (useFastMode || logicTimeScaleFps >= maxRenderFps)
 	{
 		// Logic time scale is uncapped or larger equal Render FPS. Update straight away.
 		return true;
@@ -761,7 +759,7 @@ void GameEngine::update()
 			}
 		}
 
-		const Bool canUpdate = canUpdateGameLogic();
+		const Bool canUpdate = canUpdateGameLogic(FramePacer::IgnoreFrozenTime | FramePacer::IgnoreHaltedGame);
 		const Bool canUpdateLogic = canUpdate && !TheFramePacer->isGameHalted() && !TheFramePacer->isTimeFrozen();
 		const Bool canUpdateScript = canUpdate && !TheFramePacer->isGameHalted();
 
@@ -1067,11 +1065,3 @@ void updateTGAtoDDS()
 
 	system(CONVERT_EXEC1);
 }
-
-//-------------------------------------------------------------------------------------------------
-// System things
-
-// If we're using the Wide character version of MessageBox, then there's no additional
-// processing necessary. Please note that this is a sleazy way to get this information,
-// but pending a better one, this'll have to do.
-extern const Bool TheSystemIsUnicode = (((void*) (::MessageBox)) == ((void*) (::MessageBoxW)));

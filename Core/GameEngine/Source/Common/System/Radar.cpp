@@ -1193,7 +1193,14 @@ Bool Radar::tryEvent( RadarEventType event, const Coord3D *pos )
 			const Real distSquared = sqr(m_event[ i ].worldLoc.x - pos->x) + sqr(m_event[ i ].worldLoc.y - pos->y);
 #endif
 
-			if( distSquared <= closeEnoughDistanceSq )
+			Bool isClose = distSquared <= closeEnoughDistanceSq;
+			#if PRESERVE_RADAR_WARNING_SUPPRESSION
+				// TheSuperHackers @tweak Preserve retail map-wide suppression for under attack events
+				// because otherwise they trigger way too frequent from cargo planes.
+				isClose |= (event == RADAR_EVENT_UNDER_ATTACK);
+			#endif
+
+			if( isClose )
 			{
 
 				// finally only reject making a new event of this existing one is "recent enough"

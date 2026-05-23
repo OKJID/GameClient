@@ -191,7 +191,9 @@ public:
 	Real m_viewportHeightScale; // The height scale of the tactical view ranging 0..1. Used to hide the world behind the Control Bar.
 	Real m_cameraPitch;
 	Real m_cameraYaw;
+#if PRESERVE_RETAIL_SCRIPTED_CAMERA
 	Real m_cameraHeight;
+#endif
 	Real m_maxCameraHeight;
 	Real m_minCameraHeight;
 	Real m_terrainHeightAtEdgeOfMap;
@@ -402,7 +404,10 @@ public:
 																			 units will always keep their formation. If it's <1.0, then the user must click a
 																			 smaller area within the rectangle to order the gather. */
 
-	Int m_antiAliasBoxValue;          ///< value of selected antialias from combo box in options menu
+	UnsignedInt m_antiAliasLevel;          ///< value of selected antialias level in the game options
+	UnsignedInt m_textureFilteringMode;       ///< value related to TextureFilterClass::TextureFilterModeEnum
+	UnsignedInt m_textureAnisotropyLevel;     ///< value related to TextureFilterClass::AnisotropicFilterMode
+
 	Bool m_languageFilterPref;        ///< Bool if user wants to filter language
 	Bool m_loadScreenDemo;						///< Bool if true, run the loadscreen demo movie
 	Bool m_disableRender;							///< if true, no rendering!

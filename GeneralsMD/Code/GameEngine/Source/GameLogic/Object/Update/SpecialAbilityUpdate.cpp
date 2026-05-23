@@ -95,7 +95,7 @@ SpecialAbilityUpdate::~SpecialAbilityUpdate()
 }
 
 /*------------------------------------------------------------------------------------------------
-void SpecialAbilityUpdate::update( void )
+void SpecialAbilityUpdate::update()
 
 This is the brains of the entire special ability update. There are several optional steps and
 variations that can be processed for any particular type of special ability. A special ability
@@ -1488,7 +1488,7 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
       if( targetMoney && objectMoney )
       {
         UnsignedInt cash = targetMoney->countMoney();
-#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_HARDCODED_BLACK_LOTUS_CASH_HACK
         UnsignedInt desiredAmount = 1000;
 #else
         UnsignedInt desiredAmount = data->m_effectValue;

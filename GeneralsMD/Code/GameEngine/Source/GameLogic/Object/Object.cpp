@@ -1924,7 +1924,7 @@ void Object::attemptDamage( DamageInfo *damageInfo )
 			getControllingPlayer() &&
 			!BitIsSet(damageInfo->in.m_sourcePlayerMask, getControllingPlayer()->getPlayerMask()) &&
 			m_radarData != nullptr &&
-			getControllingPlayer() == ThePlayerList->getLocalPlayer() )
+			isLocallyControlled() )
 		TheRadar->tryUnderAttackEvent( this );
 
 }
@@ -4135,12 +4135,10 @@ void Object::xfer( Xfer *xfer )
 	Drawable *draw = getDrawable();
 	DrawableID drawableID = draw ? draw->getID() : INVALID_DRAWABLE_ID;
 	xfer->xferDrawableID( &drawableID );
-	if( xfer->getXferMode() == XFER_LOAD )
+	if (draw && xfer->getXferMode() == XFER_LOAD)
 	{
-
 		// change the ID of the drawable attached to be the same ID as it was when it was saved
-		draw->setID( drawableID );
-
+		draw->setID(drawableID);
 	}
 
 	// internal name
@@ -4176,19 +4174,6 @@ void Object::xfer( Xfer *xfer )
 
 	// private status
 	xfer->xferUnsignedByte( &m_privateStatus );
-
-	// OK, now that we have xferred our status bits, it's safe to set the team...
-	if( xfer->getXferMode() == XFER_LOAD )
-	{
-		Team *team = TheTeamFactory->findTeamByID( teamID );
-		if( team == nullptr )
-		{
-			DEBUG_CRASH(( "Object::xfer - Unable to load team" ));
-			throw SC_INVALID_DATA;
-		}
-		const Bool restoring = true;
-		setOrRestoreTeam( team, restoring );
-	}
 
 	// geometry info
 	xfer->xferSnapshot( &m_geometryInfo );
@@ -4240,6 +4225,20 @@ void Object::xfer( Xfer *xfer )
 
 	// disabled till frame
 	xfer->xferUser( m_disabledTillFrame, sizeof( UnsignedInt ) * DISABLED_COUNT );
+
+	// OK, now that we have xferred our status bits and disabled data, it's safe to set the team...
+	// TheSuperHackers @todo Refactor so that this code can be moved to loadPostProcess.
+	if( xfer->getXferMode() == XFER_LOAD )
+	{
+		Team *team = TheTeamFactory->findTeamByID( teamID );
+		if( team == nullptr )
+		{
+			DEBUG_CRASH(( "Object::xfer - Unable to load team" ));
+			throw SC_INVALID_DATA;
+		}
+		const Bool restoring = true;
+		setOrRestoreTeam( team, restoring );
+	}
 
 	// special model condition until
 	xfer->xferUnsignedInt( &m_smcUntil );

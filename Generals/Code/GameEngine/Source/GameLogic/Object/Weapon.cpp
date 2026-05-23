@@ -363,13 +363,12 @@ void WeaponTemplate::reset()
 	static const char *MIN_LABEL = "Min";
 	static const char *MAX_LABEL = "Max";
 
-	const char* token = ini->getNextTokenOrNull(ini->getSepsColon());
-
+	const char* token = ini->getNextToken(ini->getSepsColon());
 	if( stricmp(token, MIN_LABEL) == 0 )
 	{
 		// Two entry min/max
 		self->m_minDelayBetweenShots = INI::scanInt(ini->getNextToken(ini->getSepsColon()));
-		token = ini->getNextTokenOrNull(ini->getSepsColon());
+		token = ini->getNextToken(ini->getSepsColon());
 		if( stricmp(token, MAX_LABEL) != 0 )
 		{
 			// Messed up double entry
@@ -1097,7 +1096,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_UNRELIABLE_FIRESTORMS
 void WeaponTemplate::trimOldHistoricDamage() const
 {
 	UnsignedInt expirationDate = TheGameLogic->getFrame() - TheGlobalData->m_historicDamageLimit;
@@ -1160,7 +1159,7 @@ static Bool is2DDistSquaredLessThan(const Coord3D& a, const Coord3D& b, Real dis
 }
 
 //-------------------------------------------------------------------------------------------------
-#if RETAIL_COMPATIBLE_CRC || PRESERVE_RETAIL_BEHAVIOR
+#if RETAIL_COMPATIBLE_CRC || PRESERVE_UNRELIABLE_FIRESTORMS
 void WeaponTemplate::processHistoricDamage(const Object* source, const Coord3D* pos) const
 {
 	//
@@ -1482,7 +1481,7 @@ const WeaponTemplate *WeaponStore::findWeaponTemplate( const AsciiString& name )
 	if (name.compareNoCase("None") == 0)
 		return nullptr;
 	const WeaponTemplate * wt = findWeaponTemplatePrivate( TheNameKeyGenerator->nameToKey( name ) );
-	DEBUG_ASSERTCRASH(wt != nullptr, ("Weapon %s not found!",name));
+	DEBUG_ASSERTCRASH(wt != nullptr, ("Weapon %s not found!", name.str()));
 	return wt;
 }
 

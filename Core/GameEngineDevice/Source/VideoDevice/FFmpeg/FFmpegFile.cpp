@@ -211,10 +211,20 @@ Bool FFmpegFile::decodePacket()
 		return false;
 
 	const int stream_idx = m_packet->stream_index;
-	DEBUG_ASSERTCRASH(m_streams.size() > stream_idx, ("stream index out of bounds"));
+	if (stream_idx < 0 || (size_t)stream_idx >= m_streams.size()) {
+		DEBUG_LOG(("Invalid stream index: %d (total streams: %zu)", stream_idx, m_streams.size()));
+		av_packet_unref(m_packet);
+		return true;
+	}
 
 	auto &stream = m_streams[stream_idx];
 	AVCodecContext *codec_ctx = stream.codec_ctx;
+	if (codec_ctx == nullptr) {
+		DEBUG_LOG(("Null codec context for stream %d", stream_idx));
+		av_packet_unref(m_packet);
+		return true;
+	}
+
 	result = avcodec_send_packet(codec_ctx, m_packet);
 	// Check if we need more data
 	if (result == AVERROR(EAGAIN))
@@ -225,6 +235,7 @@ Bool FFmpegFile::decodePacket()
 		char error_buffer[1024];
 		av_strerror(result, error_buffer, sizeof(error_buffer));
 		DEBUG_LOG(("Failed 'avcodec_send_packet': %s", error_buffer));
+		av_packet_unref(m_packet);
 		return false;
 	}
 	av_packet_unref(m_packet);
@@ -245,8 +256,14 @@ Bool FFmpegFile::decodePacket()
 			return false;
 		}
 
-		if (m_frameCallback != nullptr) {
-			m_frameCallback(stream.frame, stream_idx, stream.stream_type, m_userData);
+		// Validate the frame before passing to callback
+		if (stream.frame != nullptr && stream.frame->data[0] != nullptr && 
+			stream.frame->width > 0 && stream.frame->height > 0) {
+			if (m_frameCallback != nullptr) {
+				m_frameCallback(stream.frame, stream_idx, stream.stream_type, m_userData);
+			}
+		} else {
+			DEBUG_LOG(("Decoded frame has invalid data or dimensions"));
 		}
 	}
 

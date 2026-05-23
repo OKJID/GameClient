@@ -35,6 +35,7 @@
 
 #include "GameClient/Display.h"
 #include "WW3D2/lightenvironment.h"
+#include "W3DDevice/GameClient/W3DProfilerFrameCapture.h"
 
 class VideoBuffer;
 class W3DDebugDisplay;
@@ -45,6 +46,7 @@ class Render2DClass;
 class RTS3DScene;
 class RTS2DScene;
 class RTS3DInterfaceScene;
+class TextureClass;
 
 
 //=============================================================================
@@ -69,7 +71,7 @@ public:
  	virtual void setGamma(Real gamma, Real bright, Real contrast, Bool calibrate) override;
 	virtual void doSmartAssetPurgeAndPreload(const char* usageFileName) override;
 #if defined(RTS_DEBUG)
-	virtual void dumpAssetUsage(const char* mapname);
+	virtual void dumpAssetUsage(const char* mapname) override;
 #endif
 
 	//---------------------------------------------------------------------------
@@ -133,7 +135,7 @@ public:
 	virtual void setShroudLevel(Int x, Int y, CellShroudStatus setting) override;
 	virtual void setBorderShroudLevel(UnsignedByte level) override;	///<color that will appear in unused border terrain.
 #if defined(RTS_DEBUG)
-	virtual void dumpModelAssets(const char *path);	///< dump all used models/textures to a file.
+	virtual void dumpModelAssets(const char *path) override;	///< dump all used models/textures to a file.
 #endif
 	virtual void preloadModelAssets( AsciiString model ) override;			///< preload model asset
 	virtual void preloadTextureAssets( AsciiString texture ) override;	///< preload texture asset
@@ -160,7 +162,10 @@ protected:
 	void calculateTerrainLOD();						///< Calculate terrain LOD.
 	void renderLetterBox(UnsignedInt time);							///< draw letter box border
 	void updateAverageFPS();	///< calculate the average fps over the last 30 frames.
-	static Bool isTimeFrozen();
+	void setup2DRenderState(TextureClass *tex, DrawImageMode mode, Bool grayscale);
+	virtual void onBeginBatch() override;
+	virtual void onEndBatch() override;
+	virtual void onFlush() override;
 
 	Byte m_initialized;												///< TRUE when system is initialized
 	LightClass *m_myLight[LightEnvironmentClass::MAX_LIGHTS];										///< light hack for now
@@ -169,8 +174,18 @@ protected:
 	Bool m_isClippedEnabled;	///<used by 2D drawing operations to define clip re
 	Real m_averageFPS;		///<average fps over the last 30 frames.
 	Real m_currentFPS;		///<current fps value.
+
+	TextureClass *m_batchTexture;
+	DrawImageMode m_batchMode;
+	Bool m_batchGrayscale;
+	Bool m_batchNeedsInit;
+
 #if defined(RTS_DEBUG)
 	Int64 m_timerAtCumuFPSStart;
+#endif
+
+#ifdef PROFILER_ENABLED
+	W3DProfilerFrameCapture *m_profilerFrameCapture;
 #endif
 
 	enum

@@ -14,7 +14,7 @@
 #endif
 
 #if defined(_DEBUG)
-//#define USE_DEBUG_ON_LIVE_SERVER 1
+#define USE_DEBUG_ON_LIVE_SERVER 1
 #endif
 
 #if !defined(_DEBUG)

@@ -52,7 +52,7 @@ public:
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(ColorSelectionDialogClass)
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
 	//}}AFX_VIRTUAL
 
 // Implementation
@@ -60,8 +60,8 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(ColorSelectionDialogClass)
-	virtual BOOL OnInitDialog();
-	virtual void OnOK();
+	virtual BOOL OnInitDialog() override;
+	virtual void OnOK() override;
 	afx_msg void OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar);
 	afx_msg void OnPaint();
 	afx_msg void OnGrayscaleCheck();
@@ -77,7 +77,7 @@ protected:
 		//
 		//	Public methods
 		//
-		const Vector3 &		Get_Color (void) const				{ return m_Color; }
+		const Vector3 &		Get_Color () const				{ return m_Color; }
 		void						Set_Color (const Vector3 &color) { m_Color = color; }
 
 	protected:
@@ -86,7 +86,7 @@ protected:
 		//
 		//	Inline accessors
 		//
-		void						Paint_Color_Window (void);
+		void						Paint_Color_Window ();
 		void						Update_Sliders (int slider_id);
 
 	private:

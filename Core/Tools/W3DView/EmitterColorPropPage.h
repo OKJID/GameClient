@@ -55,19 +55,19 @@ public:
 	// ClassWizard generate virtual function overrides
 	//{{AFX_VIRTUAL(EmitterColorPropPageClass)
 	public:
-	virtual BOOL OnApply();
-	virtual void OnCancel();
+	virtual BOOL OnApply() override;
+	virtual void OnCancel() override;
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult);
-	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
+	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
+	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
 	// Generated message map functions
 	//{{AFX_MSG(EmitterColorPropPageClass)
-	virtual BOOL OnInitDialog();
+	virtual BOOL OnInitDialog() override;
 	afx_msg void OnDestroy();
 	afx_msg void OnDeltaposRedRandomSpin(NMHDR* pNMHDR, LRESULT* pResult);
 	//}}AFX_MSG
@@ -83,17 +83,17 @@ protected:
 		//
 		//	Inline accessors
 		//
-		EmitterInstanceListClass *	Get_Emitter (void) const { return m_pEmitterList; }
+		EmitterInstanceListClass *	Get_Emitter () const { return m_pEmitterList; }
 		void								Set_Emitter (EmitterInstanceListClass *pemitter_list) { m_pEmitterList = pemitter_list; Initialize (); }
-		bool								Is_Data_Valid (void) const { return m_bValid; }
+		bool								Is_Data_Valid () const { return m_bValid; }
 
 		void								Get_Color_Keyframes (ParticlePropertyStruct<Vector3> &colors)	{ colors = m_CurrentColors; }
 		void								Get_Opacity_Keyframes (ParticlePropertyStruct<float> &opacity)	{ opacity = m_CurrentOpacities; }
-		/*const Vector3 &				Get_Start_Color (void) const { return m_StartColor; }
-		const Vector3 &				Get_End_Color (void) const { return m_EndColor; }
-		float								Get_Start_Opacity (void) const { return m_StartOpacity; }
-		float								Get_End_Opacity (void) const { return m_EndOpacity; }
-		float								Get_Fade_Time (void) const { return m_FadeTime; }*/
+		/*const Vector3 &				Get_Start_Color () const { return m_StartColor; }
+		const Vector3 &				Get_End_Color () const { return m_EndColor; }
+		float								Get_Start_Opacity () const { return m_StartOpacity; }
+		float								Get_End_Opacity () const { return m_EndOpacity; }
+		float								Get_Fade_Time () const { return m_FadeTime; }*/
 
 		void								On_Lifetime_Changed (float lifetime);
 
@@ -103,9 +103,9 @@ protected:
 		//
 		//	Protected methods
 		//
-		void				Initialize (void);
-		void				Update_Colors (void);
-		void				Update_Opacities (void);
+		void				Initialize ();
+		void				Update_Colors ();
+		void				Update_Opacities ();
 
 	private:
 

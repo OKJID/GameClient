@@ -22,6 +22,7 @@
 #include "STLUtils.h"
 #include "stringex.h"
 #include <Utility/stdio_adapter.h>
+#include <rts/profile.h>
 
 #include "../../GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
 

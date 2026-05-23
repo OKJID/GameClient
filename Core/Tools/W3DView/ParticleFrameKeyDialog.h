@@ -41,8 +41,8 @@ public:
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(ParticleFrameKeyDialogClass)
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult);
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
+	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
@@ -50,8 +50,8 @@ protected:
 
 	// Generated message map functions
 	//{{AFX_MSG(ParticleFrameKeyDialogClass)
-	virtual BOOL OnInitDialog();
-	virtual void OnOK();
+	virtual BOOL OnInitDialog() override;
+	virtual void OnOK() override;
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
@@ -60,7 +60,7 @@ public:
 	/////////////////////////////////////////////////////////////
 	//	Public methods
 	/////////////////////////////////////////////////////////////
-	float					Get_Frame (void) const { return m_Frame; }
+	float					Get_Frame () const { return m_Frame; }
 
 private:
 

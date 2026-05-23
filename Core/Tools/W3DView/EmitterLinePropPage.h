@@ -55,18 +55,18 @@ public:
 	// ClassWizard generate virtual function overrides
 	//{{AFX_VIRTUAL(EmitterLinePropPageClass)
 	public:
-	virtual BOOL OnApply();
+	virtual BOOL OnApply() override;
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
-	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult);
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
+	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
+	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
 	// Generated message map functions
 	//{{AFX_MSG(EmitterLinePropPageClass)
-	virtual BOOL OnInitDialog();
+	virtual BOOL OnInitDialog() override;
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
@@ -78,21 +78,21 @@ protected:
 		//
 		//	Public methods
 		//
-		EmitterInstanceListClass *	Get_Emitter (void) const { return m_pEmitterList; }
+		EmitterInstanceListClass *	Get_Emitter () const { return m_pEmitterList; }
 		void								Set_Emitter (EmitterInstanceListClass *pemitter_list) { m_pEmitterList = pemitter_list; Initialize (); }
-		bool								Is_Data_Valid (void) const { return m_bValid; }
+		bool								Is_Data_Valid () const { return m_bValid; }
 
-		int								Get_Mapping_Mode (void) const { return m_MappingMode; }
-		bool								Get_Merge_Intersections (void) const { return m_MergeIntersections; }
-		bool								Get_End_Caps (void) const { return m_EndCaps; }
-		bool								Get_Disable_Sorting (void) const { return m_DisableSorting; }
+		int								Get_Mapping_Mode () const { return m_MappingMode; }
+		bool								Get_Merge_Intersections () const { return m_MergeIntersections; }
+		bool								Get_End_Caps () const { return m_EndCaps; }
+		bool								Get_Disable_Sorting () const { return m_DisableSorting; }
 
-		int								Get_Subdivision_Level (void) const { return m_SubdivisionLevel; }
-		float								Get_Noise_Amplitude (void) const { return m_NoiseAmplitude; }
-		float								Get_Merge_Abort_Factor (void) const { return m_MergeAbortFactor; }
-		float								Get_Texture_Tile_Factor (void) const { return m_TextureTileFactor; }
-		float								Get_U_Per_Sec(void) const { return m_UPerSec; }
-		float								Get_V_Per_Sed(void) const { return m_VPerSec; }
+		int								Get_Subdivision_Level () const { return m_SubdivisionLevel; }
+		float								Get_Noise_Amplitude () const { return m_NoiseAmplitude; }
+		float								Get_Merge_Abort_Factor () const { return m_MergeAbortFactor; }
+		float								Get_Texture_Tile_Factor () const { return m_TextureTileFactor; }
+		float								Get_U_Per_Sec() const { return m_UPerSec; }
+		float								Get_V_Per_Sed() const { return m_VPerSec; }
 
 	protected:
 
@@ -100,7 +100,7 @@ protected:
 		//
 		//	Protected methods
 		//
-		void								Initialize (void);
+		void								Initialize ();
 
 	private:
 

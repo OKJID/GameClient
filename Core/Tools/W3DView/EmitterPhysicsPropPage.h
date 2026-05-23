@@ -58,18 +58,18 @@ public:
 	// ClassWizard generate virtual function overrides
 	//{{AFX_VIRTUAL(EmitterPhysicsPropPageClass)
 	public:
-	virtual BOOL OnApply();
+	virtual BOOL OnApply() override;
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
-	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult);
-	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
+	virtual BOOL OnNotify(WPARAM wParam, LPARAM lParam, LRESULT* pResult) override;
+	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
 	// Generated message map functions
 	//{{AFX_MSG(EmitterPhysicsPropPageClass)
-	virtual BOOL OnInitDialog();
+	virtual BOOL OnInitDialog() override;
 	afx_msg void OnSpecifyVelocityRandom();
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
@@ -84,15 +84,15 @@ protected:
 		//
 		//	Inline accessors
 		//
-		EmitterInstanceListClass *	Get_Emitter (void) const { return m_pEmitterList; }
+		EmitterInstanceListClass *	Get_Emitter () const { return m_pEmitterList; }
 		void								Set_Emitter (EmitterInstanceListClass *pemitter_list) { m_pEmitterList = pemitter_list; Initialize (); }
-		bool								Is_Data_Valid (void) const { return m_bValid; }
+		bool								Is_Data_Valid () const { return m_bValid; }
 
-		Vector3Randomizer *			Get_Velocity_Random (void) const	{ return m_Randomizer; }
-		const Vector3 &				Get_Velocity (void) const			{ return m_Velocity; }
-		const Vector3 &				Get_Acceleration (void) const		{ return m_Acceleration; }
-		float								Get_Out_Factor (void) const		{ return m_OutFactor; }
-		float								Get_Inheritance_Factor (void) const	{ return m_InheritanceFactor; }
+		Vector3Randomizer *			Get_Velocity_Random () const	{ return m_Randomizer; }
+		const Vector3 &				Get_Velocity () const			{ return m_Velocity; }
+		const Vector3 &				Get_Acceleration () const		{ return m_Acceleration; }
+		float								Get_Out_Factor () const		{ return m_OutFactor; }
+		float								Get_Inheritance_Factor () const	{ return m_InheritanceFactor; }
 
 	protected:
 
@@ -100,7 +100,7 @@ protected:
 		//
 		//	Protected methods
 		//
-		void								Initialize (void);
+		void								Initialize ();
 		void								On_Setting_Changed (UINT ctrl_id);
 
 	private:

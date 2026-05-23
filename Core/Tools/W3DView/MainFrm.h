@@ -51,20 +51,20 @@ public:
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CMainFrame)
 	public:
-	virtual BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext);
-	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
-	virtual BOOL OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO* pHandlerInfo);
+	virtual BOOL OnCreateClient(LPCREATESTRUCT lpcs, CCreateContext* pContext) override;
+	virtual BOOL PreCreateWindow(CREATESTRUCT& cs) override;
+	virtual BOOL OnCmdMsg(UINT nID, int nCode, void* pExtra, AFX_CMDHANDLERINFO* pHandlerInfo) override;
 	protected:
-	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam);
-	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam);
+	virtual LRESULT WindowProc(UINT message, WPARAM wParam, LPARAM lParam) override;
+	virtual BOOL OnCommand(WPARAM wParam, LPARAM lParam) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
 public:
-	virtual ~CMainFrame();
+	virtual ~CMainFrame() override;
 #ifdef RTS_DEBUG
-	virtual void AssertValid() const;
-	virtual void Dump(CDumpContext& dc) const;
+	virtual void AssertValid() const override;
+	virtual void Dump(CDumpContext& dc) const override;
 #endif
 
 protected:  // control bar embedded members
@@ -251,7 +251,7 @@ public:
 	CView *GetPane (int iRow, int iCol) const
 	{ return (CView *)m_wndSplitter.GetPane (iRow, iCol); }
 
-	void	ShowObjectProperties (void);
+	void	ShowObjectProperties ();
 
 	void	OnSelectionChanged (ASSET_TYPE newAssetType);
 
@@ -260,18 +260,18 @@ public:
 	void	Update_Particle_Count (int particles);
 	void	UpdateCameraDistance (float cameraDistance);
 	void	UpdateFrameCount (int iCurrentFrame, int iTotalFrames, float frame_rate);
-	void	RestoreOriginalSize (void);
+	void	RestoreOriginalSize ();
 	void	Select_Device (bool show_dlg = true);
 
-	HMENU	Get_Emitters_List_Menu (void) const { return m_hEmittersSubMenu; }
-	void	Update_Emitters_List (void);
+	HMENU	Get_Emitters_List_Menu () const { return m_hEmittersSubMenu; }
+	void	Update_Emitters_List ();
 
 protected:
 
 	//////////////////////////////////////////////////////////////////////
 	//	Protected methods
 	//////////////////////////////////////////////////////////////////////
-	void	Restore_Window_State (void);
+	void	Restore_Window_State ();
 
 private:
 

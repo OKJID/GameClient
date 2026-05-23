@@ -238,27 +238,27 @@ static WWINLINE bool			Is_Power_Of_2(const unsigned int val);
 	static WWINLINE float		Min(float a, float b);
 	static WWINLINE float		Max(float a, float b);
 
-	static WWINLINE int			Float_As_Int(const float f) { return *((int*)&f); }
+static WWINLINE int			Float_As_Int(const float f) { return *((int*)&f); }
 
-	// Linearly interpolates between a and b using parameter t in [0, 1].
-	// t = 0 returns a, t = 1 returns b, values in between return a proportionate blend.
-	static WWINLINE float		Lerp(float a, float b, float t);
-	static WWINLINE double	Lerp(double a, double b, float t);
+// Linearly interpolates between a and b using parameter t in [0, 1].
+// t = 0 returns a, t = 1 returns b, values in between return a proportionate blend.
+static WWINLINE float		Lerp(float a, float b, float t);
+static WWINLINE double	Lerp(double a, double b, float t);
 
-	// Computes the interpolation parameter t such that v = Lerp(a, b, t).
-	// Returns where v lies between a and b as a ratio, typically in [0, 1].
-	static WWINLINE float		Inverse_Lerp(float a, float b, float v);
-	static WWINLINE double	Inverse_Lerp(double a, double b, float v);
+// Computes the interpolation parameter t such that v = Lerp(a, b, t).
+// Returns where v lies between a and b as a ratio, typically in [0, 1].
+static WWINLINE float		Inverse_Lerp(float a, float b, float v);
+static WWINLINE double	Inverse_Lerp(double a, double b, float v);
 
-	static WWINLINE long			Float_To_Long(double f);
+static WWINLINE long			Float_To_Long(double f);
 
-	static WWINLINE unsigned char Unit_Float_To_Byte(float f) { return (unsigned char)(f * 255.0f); }
-	static WWINLINE float			Byte_To_Unit_Float(unsigned char byte) { return ((float)byte) / 255.0f; }
+static WWINLINE unsigned char Unit_Float_To_Byte(float f) { return (unsigned char)(f*255.0f); }
+static WWINLINE float			Byte_To_Unit_Float(unsigned char byte) { return ((float)byte) / 255.0f; }
 
-	static WWINLINE bool			Is_Valid_Float(float x);
-	static WWINLINE bool			Is_Valid_Double(double x);
+static WWINLINE bool			Is_Valid_Float(float x);
+static WWINLINE bool			Is_Valid_Double(double x);
 
-	static WWINLINE float Normalize_Angle(float angle); // Normalizes the angle to the range -PI..PI
+static WWINLINE float Normalize_Angle(float angle); // Normalizes the angle to the range -PI..PI
 
 };
 
@@ -352,12 +352,12 @@ WWINLINE float WWMath::Max(float a, float b)
 
 WWINLINE float WWMath::Lerp(float a, float b, float t)
 {
-	return (a + (b - a) * t);
+	return (a + (b - a)*t);
 }
 
 WWINLINE double WWMath::Lerp(double a, double b, float t)
 {
-	return (a + (b - a) * t);
+	return (a + (b - a)*t);
 }
 
 WWINLINE float WWMath::Inverse_Lerp(float a, float b, float v)

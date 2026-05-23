@@ -354,8 +354,22 @@ void FFmpegVideoStream::onFrame(AVFrame *frame, int stream_idx, int stream_type,
 {
 	FFmpegVideoStream *videoStream = static_cast<FFmpegVideoStream *>(user_data);
 	if (stream_type == AVMEDIA_TYPE_VIDEO) {
+		if (frame == nullptr || frame->data == nullptr || frame->data[0] == nullptr) {
+			DEBUG_LOG(("Invalid video frame received in onFrame callback"));
+			return;
+		}
+
+		if (frame->width <= 0 || frame->height <= 0) {
+			DEBUG_LOG(("Invalid video frame dimensions: %dx%d", frame->width, frame->height));
+			return;
+		}
+
 		av_frame_free(&videoStream->m_frame);
 		videoStream->m_frame = av_frame_clone(frame);
+		if (videoStream->m_frame == nullptr) {
+			DEBUG_LOG(("Failed to clone video frame"));
+			return;
+		}
 		videoStream->m_gotFrame = true;
 	}
 #ifdef RTS_USE_OPENAL
@@ -484,7 +498,21 @@ void FFmpegVideoStream::frameRender( VideoBuffer *buffer )
 		return;
 	}
 
-	if (m_frame->data == nullptr) {
+	if (m_frame->data == nullptr || m_frame->data[0] == nullptr) {
+		return;
+	}
+
+	int frame_width = width();
+	int frame_height = height();
+
+	if (frame_width <= 0 || frame_height <= 0) {
+		DEBUG_LOG(("Invalid frame dimensions: %dx%d", frame_width, frame_height));
+		return;
+	}
+
+	AVPixelFormat src_pix_fmt = static_cast<AVPixelFormat>(m_frame->format);
+	if (src_pix_fmt == AV_PIX_FMT_NONE) {
+		DEBUG_LOG(("Invalid source pixel format"));
 		return;
 	}
 
@@ -508,9 +536,9 @@ void FFmpegVideoStream::frameRender( VideoBuffer *buffer )
 	}
 
 	m_swsContext = sws_getCachedContext(m_swsContext,
-		width(),
-		height(),
-		static_cast<AVPixelFormat>(m_frame->format),
+		frame_width,
+		frame_height,
+		src_pix_fmt,
 		buffer->width(),
 		buffer->height(),
 		dst_pix_fmt,
@@ -518,6 +546,12 @@ void FFmpegVideoStream::frameRender( VideoBuffer *buffer )
 		nullptr,
 		nullptr,
 		nullptr);
+
+	if (m_swsContext == nullptr) {
+		DEBUG_LOG(("Failed to create SwsContext for frame conversion (%dx%d %s -> %s)",
+			frame_width, frame_height, av_get_pix_fmt_name(src_pix_fmt), av_get_pix_fmt_name(dst_pix_fmt)));
+		return;
+	}
 
 	uint8_t *buffer_data = static_cast<uint8_t *>(buffer->lock());
 	if (buffer_data == nullptr) {
@@ -527,9 +561,10 @@ void FFmpegVideoStream::frameRender( VideoBuffer *buffer )
 
 	int dst_strides[] = { (int)buffer->pitch() };
 	uint8_t *dst_data[] = { buffer_data };
-	[[maybe_unused]] int result =
-		sws_scale(m_swsContext, m_frame->data, m_frame->linesize, 0, height(), dst_data, dst_strides);
-	DEBUG_ASSERTLOG(result >= 0, ("Failed to scale frame"));
+	int result = sws_scale(m_swsContext, m_frame->data, m_frame->linesize, 0, frame_height, dst_data, dst_strides);
+	if (result < 0) {
+		DEBUG_LOG(("Failed to scale frame: sws_scale returned %d", result));
+	}
 	buffer->unlock();
 }
 

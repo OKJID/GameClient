@@ -77,22 +77,22 @@
 #include "dx8wrapper.h"
 
 
-/***********************************************************************************************
- * CameraClass::CameraClass -- constructor                                                     *
- *                                                                                             *
- * INPUT:                                                                                      *
- *                                                                                             *
- * OUTPUT:                                                                                     *
- *                                                                                             *
- * WARNINGS:                                                                                   *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   3/21/98    GTH : Created.                                                                 *
- *=============================================================================================*/
+ /***********************************************************************************************
+  * CameraClass::CameraClass -- constructor                                                     *
+  *                                                                                             *
+  * INPUT:                                                                                      *
+  *                                                                                             *
+  * OUTPUT:                                                                                     *
+  *                                                                                             *
+  * WARNINGS:                                                                                   *
+  *                                                                                             *
+  * HISTORY:                                                                                    *
+  *   3/21/98    GTH : Created.                                                                 *
+  *=============================================================================================*/
 CameraClass::CameraClass() :
 	Projection(PERSPECTIVE),
-	Viewport(Vector2(0,0),Vector2(1,1)),		// pixel viewport to render into
-	AspectRatio(4.0f/3.0f),
+	Viewport(Vector2(0, 0), Vector2(1, 1)),		// pixel viewport to render into
+	AspectRatio(4.0f / 3.0f),
 	ZNear(1.0f),										// near clip plane distance
 	ZFar(1000.0f),										// far clip plane distance
 	ZBufferMin(0.0f),									// smallest value we'll write into the z-buffer
@@ -117,7 +117,7 @@ CameraClass::CameraClass() :
  *   3/21/98    GTH : Created.                                                                 *
  *   4/13/2001  hy : added in copy code for new member functions                               *
  *=============================================================================================*/
-CameraClass::CameraClass(const CameraClass & src) :
+CameraClass::CameraClass(const CameraClass& src) :
 	RenderObjClass(src),
 	Projection(src.Projection),
 	Viewport(src.Viewport),
@@ -150,7 +150,7 @@ CameraClass::CameraClass(const CameraClass & src) :
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-CameraClass & CameraClass::operator = (const CameraClass & that)
+CameraClass& CameraClass::operator = (const CameraClass& that)
 {
 	if (this != &that) {
 		RenderObjClass::operator = (that);
@@ -170,7 +170,7 @@ CameraClass & CameraClass::operator = (const CameraClass & that)
 		FrustumValid = false;
 	}
 
-	return * this;
+	return *this;
 }
 
 
@@ -203,9 +203,9 @@ CameraClass::~CameraClass()
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-RenderObjClass * CameraClass::Clone() const
+RenderObjClass* CameraClass::Clone() const
 {
-	return NEW_REF( CameraClass, (*this) );
+	return NEW_REF(CameraClass, (*this));
 }
 
 
@@ -221,9 +221,9 @@ RenderObjClass * CameraClass::Clone() const
  * HISTORY:                                                                                    *
  *   9/29/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Get_Obj_Space_Bounding_Sphere(SphereClass & sphere) const
+void CameraClass::Get_Obj_Space_Bounding_Sphere(SphereClass& sphere) const
 {
-	sphere.Center.Set(0,0,0);
+	sphere.Center.Set(0, 0, 0);
 	sphere.Radius = ZFar;		// could optimize this but its not really used.
 }
 
@@ -240,10 +240,10 @@ void CameraClass::Get_Obj_Space_Bounding_Sphere(SphereClass & sphere) const
  * HISTORY:                                                                                    *
  *   9/29/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Get_Obj_Space_Bounding_Box(AABoxClass & box) const
+void CameraClass::Get_Obj_Space_Bounding_Box(AABoxClass& box) const
 {
-	box.Center.Set(0,0,0);
-	box.Extent.Set(ZFar,ZFar,ZFar);	// could optimize this but its not really used.
+	box.Center.Set(0, 0, 0);
+	box.Extent.Set(ZFar, ZFar, ZFar);	// could optimize this but its not really used.
 }
 
 
@@ -261,7 +261,7 @@ void CameraClass::Get_Obj_Space_Bounding_Box(AABoxClass & box) const
  * HISTORY:                                                                                    *
  *   5/29/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Set_Transform(const Matrix3D &m)
+void CameraClass::Set_Transform(const Matrix3D& m)
 {
 	RenderObjClass::Set_Transform(m);
 	FrustumValid = false;
@@ -282,12 +282,27 @@ void CameraClass::Set_Transform(const Matrix3D &m)
  * HISTORY:                                                                                    *
  *   5/29/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Set_Position(const Vector3 &v)
+void CameraClass::Set_Position(const Vector3& v)
 {
 	RenderObjClass::Set_Position(v);
 	FrustumValid = false;
 }
 
+
+Vector3 CameraClass::Get_Right_Dir() const
+{
+	return Get_Transform().Get_X_Vector();
+}
+
+Vector3 CameraClass::Get_Forward_Dir() const
+{
+	return -Get_Transform().Get_Z_Vector();
+}
+
+Vector3 CameraClass::Get_Up_Dir() const
+{
+	return Get_Transform().Get_Y_Vector();
+}
 
 /***********************************************************************************************
  * CameraClass::Set_View_Plane -- control over the view plane                                  *
@@ -303,7 +318,7 @@ void CameraClass::Set_Position(const Vector3 &v)
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Set_View_Plane(const Vector2 & vmin,const Vector2 & vmax)
+void CameraClass::Set_View_Plane(const Vector2& vmin, const Vector2& vmax)
 {
 	ViewPlane.Min = vmin;
 	ViewPlane.Max = vmax;
@@ -324,20 +339,21 @@ void CameraClass::Set_View_Plane(const Vector2 & vmin,const Vector2 & vmax)
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Set_View_Plane(float hfov,float vfov)
+void CameraClass::Set_View_Plane(float hfov, float vfov)
 {
-	float width_half = tan(hfov/2.0f);
+	float width_half = tan(hfov / 2.0f);
 	float height_half = 0.0f;
 
 	if (vfov == -1) {
 		height_half = (1.0f / AspectRatio) * width_half;		// use the aspect ratio
-	} else {
-		height_half = tan(vfov/2.0f);
+	}
+	else {
+		height_half = tan(vfov / 2.0f);
 		AspectRatio = width_half / height_half;					// or, initialize the aspect ratio
 	}
 
-	ViewPlane.Min.Set(-width_half,-height_half);
-	ViewPlane.Max.Set(width_half,height_half);
+	ViewPlane.Min.Set(-width_half, -height_half);
+	ViewPlane.Max.Set(width_half, height_half);
 
 	FrustumValid = false;
 }
@@ -376,7 +392,7 @@ void CameraClass::Set_Aspect_Ratio(float width_to_height)
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Get_View_Plane(Vector2 & set_min,Vector2 & set_max) const
+void CameraClass::Get_View_Plane(Vector2& set_min, Vector2& set_max) const
 {
 	set_min = ViewPlane.Min;
 	set_max = ViewPlane.Max;
@@ -399,15 +415,15 @@ void CameraClass::Get_View_Plane(Vector2 & set_min,Vector2 & set_max) const
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-CameraClass::ProjectionResType CameraClass::Project(Vector3 & dest,const Vector3 & ws_point) const
+CameraClass::ProjectionResType CameraClass::Project(Vector3& dest, const Vector3& ws_point) const
 {
 	Update_Frustum();
 
 	Vector3 cam_point;
-	Matrix3D::Transform_Vector(CameraInvTransform,ws_point,&cam_point);
+	Matrix3D::Transform_Vector(CameraInvTransform, ws_point, &cam_point);
 
 	if (cam_point.Z > -ZNear) {
-		dest.Set(0,0,0);
+		dest.Set(0, 0, 0);
 		return OUTSIDE_NEAR_CLIP;
 	}
 
@@ -445,12 +461,12 @@ CameraClass::ProjectionResType CameraClass::Project(Vector3 & dest,const Vector3
  *   11/17/2000 gth : Created.                                                                 *
  *=============================================================================================*/
 CameraClass::ProjectionResType
-CameraClass::Project_Camera_Space_Point(Vector3 & dest,const Vector3 & cam_point) const
+CameraClass::Project_Camera_Space_Point(Vector3& dest, const Vector3& cam_point) const
 {
 	Update_Frustum();
 
-	if ( cam_point.Z > -ZNear + WWMATH_EPSILON) {
-		dest.Set(0,0,0);
+	if (cam_point.Z > -ZNear + WWMATH_EPSILON) {
+		dest.Set(0, 0, 0);
 		return OUTSIDE_NEAR_CLIP;
 	}
 
@@ -488,7 +504,7 @@ CameraClass::Project_Camera_Space_Point(Vector3 & dest,const Vector3 & cam_point
  * HISTORY:                                                                                    *
  *   3/21/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Un_Project(Vector3 & dest,const Vector2 & view_point) const
+void CameraClass::Un_Project(Vector3& dest, const Vector2& view_point) const
 {
 	/*
 	** map view_point.X from -1..1 to ViewPlaneMin.X..ViewPlaneMax.X
@@ -502,7 +518,7 @@ void CameraClass::Un_Project(Vector3 & dest,const Vector2 & view_point) const
 	point.Y = ViewPlane.Min.Y + vpdy * (view_point.Y + 1.0f) * 0.5f;
 	point.Z = -1.0f;
 
-	Matrix3D::Transform_Vector(Transform,point,&dest);
+	Matrix3D::Transform_Vector(Transform, point, &dest);
 }
 
 
@@ -518,10 +534,10 @@ void CameraClass::Un_Project(Vector3 & dest,const Vector2 & view_point) const
  * HISTORY:                                                                                    *
  *   2/22/2001  gth : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Transform_To_View_Space(Vector3 & dest,const Vector3 & ws_point) const
+void CameraClass::Transform_To_View_Space(Vector3& dest, const Vector3& ws_point) const
 {
 	Update_Frustum();
-	Matrix3D::Transform_Vector(CameraInvTransform,ws_point,&dest);
+	Matrix3D::Transform_Vector(CameraInvTransform, ws_point, &dest);
 }
 
 
@@ -537,10 +553,10 @@ void CameraClass::Transform_To_View_Space(Vector3 & dest,const Vector3 & ws_poin
  * HISTORY:                                                                                    *
  *   2/22/2001  gth : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Rotate_To_View_Space(Vector3 & dest,const Vector3 & ws_vector) const
+void CameraClass::Rotate_To_View_Space(Vector3& dest, const Vector3& ws_vector) const
 {
 	Update_Frustum();
-	Matrix3D::Rotate_Vector(CameraInvTransform,ws_vector,&dest);
+	Matrix3D::Rotate_Vector(CameraInvTransform, ws_vector, &dest);
 }
 
 
@@ -557,7 +573,7 @@ void CameraClass::Rotate_To_View_Space(Vector3 & dest,const Vector3 & ws_vector)
  * HISTORY:                                                                                    *
  *   8/25/99    GTH : Created.                                                                 *
  *=============================================================================================*/
-const OBBoxClass & CameraClass::Get_Near_Clip_Bounding_Box() const
+const OBBoxClass& CameraClass::Get_Near_Clip_Bounding_Box() const
 {
 	Update_Frustum();
 	return NearClipBBox;
@@ -576,10 +592,10 @@ const OBBoxClass & CameraClass::Get_Near_Clip_Bounding_Box() const
  * HISTORY:                                                                                    *
  *   12/8/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-bool CameraClass::Cull_Box(const AABoxClass & box) const
+bool CameraClass::Cull_Box(const AABoxClass& box) const
 {
-	const FrustumClass & frustum = Get_Frustum();
-	return CollisionMath::Overlap_Test(frustum,box) == CollisionMath::OUTSIDE;
+	const FrustumClass& frustum = Get_Frustum();
+	return CollisionMath::Overlap_Test(frustum, box) == CollisionMath::OUTSIDE;
 }
 
 
@@ -599,28 +615,28 @@ void CameraClass::Update_Frustum() const
 {
 	if (FrustumValid) return;
 
-   Vector2 vpmin,vpmax;
-   float znear,zfar;
-	float znear_dist,zfar_dist;
+	Vector2 vpmin, vpmax;
+	float znear, zfar;
+	float znear_dist, zfar_dist;
 
-   Matrix3D cam_mat = Get_Transform();
-   Get_View_Plane(vpmin, vpmax); // Normalized view plane at a depth of 1.0
-   Get_Clip_Planes(znear_dist, zfar_dist);
+	Matrix3D cam_mat = Get_Transform();
+	Get_View_Plane(vpmin, vpmax); // Normalized view plane at a depth of 1.0
+	Get_Clip_Planes(znear_dist, zfar_dist);
 
-   // Forward is negative Z in our viewspace coordinate system.
-   znear = -znear_dist;
-   zfar = -zfar_dist;
+	// Forward is negative Z in our viewspace coordinate system.
+	znear = -znear_dist;
+	zfar = -zfar_dist;
 
 	// Update the frustum
 	FrustumValid = true;
-	Frustum.Init(cam_mat,vpmin,vpmax,znear,zfar);
-	ViewSpaceFrustum.Init(Matrix3D(true),vpmin,vpmax,znear,zfar);
+	Frustum.Init(cam_mat, vpmin, vpmax, znear, zfar);
+	ViewSpaceFrustum.Init(Matrix3D(true), vpmin, vpmax, znear, zfar);
 
 	// Update the OBB around the near clip rectangle
 #ifdef ALLOW_TEMPORARIES
-	NearClipBBox.Center = cam_mat * Vector3(0,0,znear);
+	NearClipBBox.Center = cam_mat * Vector3(0, 0, znear);
 #else
-	cam_mat.mulVector3(Vector3(0,0,znear), NearClipBBox.Center);
+	cam_mat.mulVector3(Vector3(0, 0, znear), NearClipBBox.Center);
 #endif
 	NearClipBBox.Extent.X = (vpmax.X - vpmin.X) * (-znear) * 0.5f;	// (near_clip_x / |znear|) == (vpmin.X / 1.0f)...
 	NearClipBBox.Extent.Y = (vpmax.Y - vpmin.Y) * (-znear) * 0.5f;
@@ -633,13 +649,14 @@ void CameraClass::Update_Frustum() const
 	// Update the projection matrix
 	if (Projection == PERSPECTIVE) {
 
-		ProjectionTransform.Init_Perspective(	vpmin.X*znear_dist, vpmax.X*znear_dist,
-															vpmin.Y*znear_dist, vpmax.Y*znear_dist,
-															znear_dist, zfar_dist );
+		ProjectionTransform.Init_Perspective(vpmin.X * znear_dist, vpmax.X * znear_dist,
+			vpmin.Y * znear_dist, vpmax.Y * znear_dist,
+			znear_dist, zfar_dist);
 
-	} else {
+	}
+	else {
 
-		ProjectionTransform.Init_Ortho( vpmin.X,vpmax.X,vpmin.Y,vpmax.Y,znear_dist,zfar_dist);
+		ProjectionTransform.Init_Ortho(vpmin.X, vpmax.X, vpmin.Y, vpmax.Y, znear_dist, zfar_dist);
 
 	}
 }
@@ -657,14 +674,14 @@ void CameraClass::Update_Frustum() const
  * HISTORY:                                                                                    *
  *   12/8/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Device_To_View_Space(const Vector2 & device_coord,Vector3 * set_view)
+void CameraClass::Device_To_View_Space(const Vector2& device_coord, Vector3* set_view)
 {
 	int res_width;
 	int res_height;
 	int res_bits;
 	bool windowed;
 
-	WW3D::Get_Render_Target_Resolution(res_width,res_height,res_bits,windowed);
+	WW3D::Get_Render_Target_Resolution(res_width, res_height, res_bits, windowed);
 
 	// convert the device coordinates into normalized device coordinates:
 	Vector2 ndev;
@@ -674,7 +691,7 @@ void CameraClass::Device_To_View_Space(const Vector2 & device_coord,Vector3 * se
 	// view space rectangle which corresponds to the viewport
 	Vector2 vs_min;
 	Vector2 vs_max;
-	Get_View_Plane(vs_min,vs_max);
+	Get_View_Plane(vs_min, vs_max);
 
 	// mapping from the viewport coordinates to view space coordinates
 	set_view->X = vs_min.X + (ndev.X - Viewport.Min.X) * (vs_max.X - vs_min.X) / (Viewport.Width());
@@ -695,11 +712,11 @@ void CameraClass::Device_To_View_Space(const Vector2 & device_coord,Vector3 * se
  * HISTORY:                                                                                    *
  *   12/8/98    GTH : Created.                                                                 *
  *=============================================================================================*/
-void CameraClass::Device_To_World_Space(const Vector2 & device_coord,Vector3 * world_coord)
+void CameraClass::Device_To_World_Space(const Vector2& device_coord, Vector3* world_coord)
 {
 	Vector3 vs;
-	Device_To_View_Space(device_coord,&vs);
-	Matrix3D::Transform_Vector(Transform,vs,world_coord);
+	Device_To_View_Space(device_coord, &vs);
+	Matrix3D::Transform_Vector(Transform, vs, world_coord);
 }
 
 
@@ -719,9 +736,9 @@ void CameraClass::Apply()
 {
 	Update_Frustum();
 
-	int width,height,bits;
+	int width, height, bits;
 	bool windowed;
-	WW3D::Get_Render_Target_Resolution(width,height,bits,windowed);
+	WW3D::Get_Render_Target_Resolution(width, height, bits, windowed);
 
 	D3DVIEWPORT8 vp;
 	vp.X = (DWORD)(Viewport.Min.X * (float)width);
@@ -734,18 +751,18 @@ void CameraClass::Apply()
 
 	Matrix4x4 d3dprojection;
 	Get_D3D_Projection_Matrix(&d3dprojection);
-	DX8Wrapper::Set_Projection_Transform_With_Z_Bias(d3dprojection,ZNear,ZFar);
-	DX8Wrapper::Set_Transform(D3DTS_VIEW,CameraInvTransform);
+	DX8Wrapper::Set_Projection_Transform_With_Z_Bias(d3dprojection, ZNear, ZFar);
+	DX8Wrapper::Set_Transform(D3DTS_VIEW, CameraInvTransform);
 }
 
-void CameraClass::Set_Clip_Planes(float znear,float zfar)
+void CameraClass::Set_Clip_Planes(float znear, float zfar)
 {
 	FrustumValid = false;
 	ZNear = znear;
 	ZFar = zfar;
 }
 
-void CameraClass::Get_Clip_Planes(float & znear,float & zfar) const
+void CameraClass::Get_Clip_Planes(float& znear, float& zfar) const
 {
 	znear = ZNear;
 	zfar = ZFar;
@@ -754,13 +771,13 @@ void CameraClass::Get_Clip_Planes(float & znear,float & zfar) const
 float CameraClass::Get_Horizontal_FOV() const
 {
 	float width = ViewPlane.Max.X - ViewPlane.Min.X;
-	return 2*WWMath::Atan2(width,2.0);
+	return 2 * WWMath::Atan2(width, 2.0);
 }
 
 float CameraClass::Get_Vertical_FOV() const
 {
 	float height = ViewPlane.Max.Y - ViewPlane.Min.Y;
-	return 2*WWMath::Atan2(height,2.0);
+	return 2 * WWMath::Atan2(height, 2.0);
 }
 
 float CameraClass::Get_Aspect_Ratio() const
@@ -768,7 +785,7 @@ float CameraClass::Get_Aspect_Ratio() const
 	return AspectRatio;
 }
 
-void CameraClass::Get_Projection_Matrix(Matrix4x4 * set_tm)
+void CameraClass::Get_Projection_Matrix(Matrix4x4* set_tm)
 {
 	WWASSERT(set_tm != nullptr);
 
@@ -776,7 +793,7 @@ void CameraClass::Get_Projection_Matrix(Matrix4x4 * set_tm)
 	*set_tm = ProjectionTransform;
 }
 
-void CameraClass::Get_D3D_Projection_Matrix(Matrix4x4 * set_tm)
+void CameraClass::Get_D3D_Projection_Matrix(Matrix4x4* set_tm)
 {
 	WWASSERT(set_tm != nullptr);
 	Update_Frustum();
@@ -788,42 +805,43 @@ void CameraClass::Get_D3D_Projection_Matrix(Matrix4x4 * set_tm)
 	*/
 	float oozdiff = 1.0 / (ZFar - ZNear);
 	if (Projection == PERSPECTIVE) {
-		(*set_tm)[2][2] = -(ZFar) * oozdiff;
-		(*set_tm)[2][3] = -(ZFar*ZNear) * oozdiff;
-	} else {
+		(*set_tm)[2][2] = -(ZFar)*oozdiff;
+		(*set_tm)[2][3] = -(ZFar * ZNear) * oozdiff;
+	}
+	else {
 		(*set_tm)[2][2] = -oozdiff;
 		(*set_tm)[2][3] = -ZNear * oozdiff;
 	}
 
 }
 
-void CameraClass::Get_View_Matrix(Matrix3D * set_tm)
+void CameraClass::Get_View_Matrix(Matrix3D* set_tm)
 {
 	WWASSERT(set_tm != nullptr);
 	Update_Frustum();
 	*set_tm = CameraInvTransform;
 }
 
-const Matrix4x4 & CameraClass::Get_Projection_Matrix()
+const Matrix4x4& CameraClass::Get_Projection_Matrix()
 {
 	Update_Frustum();
 	return ProjectionTransform;
 }
 
-const Matrix3D & CameraClass::Get_View_Matrix()
+const Matrix3D& CameraClass::Get_View_Matrix()
 {
 	Update_Frustum();
 	return CameraInvTransform;
 }
 
-void CameraClass::Convert_Old(Vector3 &pos)
+void CameraClass::Convert_Old(Vector3& pos)
 {
-	pos.X=(pos.X+1)/2;
-	pos.Y=(pos.Y+1)/2;
+	pos.X = (pos.X + 1) / 2;
+	pos.Y = (pos.Y + 1) / 2;
 }
 
-float CameraClass::Compute_Projected_Sphere_Radius(float dist,float radius)
+float CameraClass::Compute_Projected_Sphere_Radius(float dist, float radius)
 {
-	Vector4 result = ProjectionTransform * Vector4(radius,0.0f,dist,1.0f);
+	Vector4 result = ProjectionTransform * Vector4(radius, 0.0f, dist, 1.0f);
 	return result.X / result.W;
 }

@@ -340,7 +340,7 @@ public:
 	}
 
 #if defined(RTS_DEBUG)
-	virtual const char* debugGetName() { return "PartitionFilterLiveMapEnemies"; }
+	virtual const char* debugGetName() override { return "PartitionFilterLiveMapEnemies"; }
 #endif
 };
 //-----------------------------------------------------------------------------
@@ -821,8 +821,6 @@ void SpectreGunshipUpdate::disengageAndDepartAO( Object *gunship )
 
 
   cleanUp();
-
-  return;
 
 }
 

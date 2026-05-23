@@ -213,7 +213,7 @@ void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myG
 	MultiplayerColorDefinition *def = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_RANDOM);
 	Int newIndex = GadgetComboBoxAddEntry(comboArray[comboBox],
 		(isObserver)?TheGameText->fetch("GUI:None"):TheGameText->fetch("GUI:???"), def->getColor());
-	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)-1);
+	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)-1);
 
 	if (isObserver)
 	{
@@ -235,7 +235,7 @@ void PopulateColorComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myG
 			colorName.format(L"%hs", def->getTooltipName().str());
 		}
 		newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], colorName, def->getColor());
-		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)c);
 	}
 	if (wasObserver)
 		GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
@@ -252,7 +252,7 @@ void PopulatePlayerTemplateComboBox(Int comboBox, GameWindow *comboArray[], Game
 
 	MultiplayerColorDefinition *def = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_RANDOM);
 	Int newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], TheGameText->fetch("GUI:Random"), def->getColor());
-	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)PLAYERTEMPLATE_RANDOM);
+	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)PLAYERTEMPLATE_RANDOM);
 
 	std::set<AsciiString> seenSides;
 
@@ -286,7 +286,7 @@ void PopulatePlayerTemplateComboBox(Int comboBox, GameWindow *comboArray[], Game
 		seenSides.insert(side);
 
 		newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], TheGameText->fetch(side), def->getColor());
-		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)c);
 	}
 	seenSides.clear();
 
@@ -295,7 +295,7 @@ void PopulatePlayerTemplateComboBox(Int comboBox, GameWindow *comboArray[], Game
 	{
 		def = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_OBSERVER);
 		newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], TheGameText->fetch("GUI:Observer"), def->getColor());
-		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)PLAYERTEMPLATE_OBSERVER);
+		GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)PLAYERTEMPLATE_OBSERVER);
 	}
 	GadgetComboBoxSetSelectedPos(comboArray[comboBox], 0);
 
@@ -334,7 +334,7 @@ void PopulateTeamComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myGa
 
 	MultiplayerColorDefinition *def = TheMultiplayerSettings->getColor(PLAYERTEMPLATE_RANDOM);
 	Int newIndex = GadgetComboBoxAddEntry(comboArray[comboBox], TheGameText->fetch("Team:0"), def->getColor());
-	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)-1);
+	GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)-1);
 
 	if (isObserver)
 	{
@@ -349,7 +349,7 @@ void PopulateTeamComboBox(Int comboBox, GameWindow *comboArray[], GameInfo *myGa
 		teamName = TheGameText->fetch(teamStr.str());
         UnsignedInt teamColor = GetTeamUiColor(c);
         newIndex = GadgetComboBoxAddEntry(comboArray[comboBox],teamName,teamColor);
-        GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)c);
+        GadgetComboBoxSetItemData(comboArray[comboBox], newIndex, (void *)(uintptr_t)c);
     }
 }
 
@@ -368,12 +368,11 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame)
   const MultiplayerStartingMoneyList & startingCashMap = TheMultiplayerSettings->getStartingMoneyList();
   Int currentSelectionIndex = -1;
 
-  MultiplayerStartingMoneyList::const_iterator it = startingCashMap.begin();
-  for ( ; it != startingCashMap.end(); it++ )
+  for (MultiplayerStartingMoneyList::const_iterator it = startingCashMap.begin(); it != startingCashMap.end(); it++ )
   {
     Int newIndex = GadgetComboBoxAddEntry(comboBox, formatMoneyForStartingCashComboBox( *it ),
                                           comboBox->winGetEnabled() ? comboBox->winGetEnabledTextColor() : comboBox->winGetDisabledTextColor());
-    GadgetComboBoxSetItemData(comboBox, newIndex, (void *)it->countMoney());
+    GadgetComboBoxSetItemData(comboBox, newIndex, (void *)(uintptr_t)it->countMoney());
 
     if ( myGame->getStartingCash().amountEqual( *it ) )
     {
@@ -393,7 +392,7 @@ void PopulateStartingCashComboBox(GameWindow *comboBox, GameInfo *myGame)
     DEBUG_CRASH( ("Current selection for starting cash not found in list") );
     currentSelectionIndex = GadgetComboBoxAddEntry(comboBox, formatMoneyForStartingCashComboBox( myGame->getStartingCash() ),
                                           comboBox->winGetEnabled() ? comboBox->winGetEnabledTextColor() : comboBox->winGetDisabledTextColor());
-    GadgetComboBoxSetItemData(comboBox, currentSelectionIndex, (void *)it->countMoney() );
+    GadgetComboBoxSetItemData(comboBox, currentSelectionIndex, (void *)(uintptr_t)myGame->getStartingCash().countMoney() );
   }
 
   GadgetComboBoxSetSelectedPos(comboBox, currentSelectionIndex);
@@ -423,7 +422,6 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 	{
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
-	DEBUG_INFO_MAC(("[SLOT_LIST] willTransfer=%d mapInCache=%d map='%s'", willTransfer, mapData != nullptr, myGame->getMap().str()));
 
 	if (myGame)
 	{
@@ -446,10 +444,15 @@ void UpdateSlotList( GameInfo *myGame, GameWindow *comboPlayer[],
 				}
 				else
 				{
-					Bool shouldEnableUI = slot->hasMap() || willTransfer;
-					DEBUG_INFO_MAC(("[SLOT_LIST] shouldEnableUI=%d hasMap=%d willTransfer=%d isAccepted=%d", shouldEnableUI, slot->hasMap(), willTransfer, slot->isAccepted()));
-					EnableAcceptControls(shouldEnableUI, myGame, comboPlayer, comboColor, comboPlayerTemplate,
-						comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
+					if (slot->hasMap()) {
+						EnableAcceptControls(TRUE, myGame, comboPlayer, comboColor, comboPlayerTemplate,
+							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
+					}
+					else
+					{
+						EnableAcceptControls(willTransfer, myGame, comboPlayer, comboColor, comboPlayerTemplate,
+							comboTeam, buttonAccept, buttonStart, buttonMapStartPosition);
+					}
 				}
 
 			}

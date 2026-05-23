@@ -427,7 +427,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				if (m_dragSelecting)
 				{
 					// insert area selection "hint" message into stream
-					GameMessage *hintMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION_HINT );
+					GameMessage *hintMsg = TheMessageStream->appendMessage( GameMessage::MSG_BEGIN_AREA_SELECTION_HINT );
 
 					// build rectangular region defined by the drag selection
 					IRegion2D pixelRegion;
@@ -517,7 +517,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 					TheInGameUI->selectMatchingAcrossScreen();
 
 				// emit "picked" message
-				GameMessage *pickMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION );
+				GameMessage *pickMsg = TheMessageStream->appendMessage( GameMessage::MSG_END_AREA_SELECTION_HINT );
 				pickMsg->appendDrawableIDArgument( picked->getID() );  /// note we are putting in a drawable id
 
 				if (TheInGameUI->isInPreferSelectionMode() && !listOfSelectedDrawables.empty()) {
@@ -932,7 +932,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				TheInGameUI->endAreaSelectHint(nullptr);
 
 				// insert area selection message into stream
-				GameMessage *dragMsg = TheMessageStream->appendMessage( GameMessage::MSG_AREA_SELECTION );
+				GameMessage *dragMsg = TheMessageStream->appendMessage( GameMessage::MSG_END_AREA_SELECTION_HINT );
 
 				IRegion2D selectionRegion;
 				buildRegion( &m_selectFeedbackAnchor, &msg->getArgument(0)->pixel, &selectionRegion );
@@ -976,80 +976,55 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			// 3) 3-D camera position has changed
 			m_deselectFeedbackAnchor = msg->getArgument( 0 )->pixel;
 			m_lastClick = (UnsignedInt) msg->getArgument( 2 )->integer;
-			TheTacticalView->getPosition(&m_deselectDownCameraPosition);
+			m_deselectDownCameraPosition = TheTacticalView->getPosition();
 
 			break;
 		}
 
 		//-----------------------------------------------------------------------------
-		case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_UP:
-		{
-			ICoord2D delta, pixel;
-			UnsignedInt currentTime;
-			Coord3D cameraPos;
+        case GameMessage::MSG_RAW_MOUSE_RIGHT_BUTTON_UP:
+        {
+            Coord3D cameraPos = TheTacticalView->getPosition();
+            cameraPos.sub(&m_deselectDownCameraPosition);
 
-			TheTacticalView->getPosition(&cameraPos);
-			cameraPos.sub(&m_deselectDownCameraPosition);
+            ICoord2D pixel = msg->getArgument(0)->pixel;
+            UnsignedInt currentTime = (UnsignedInt)msg->getArgument(2)->integer;
 
-			pixel = msg->getArgument( 0 )->pixel;
-			currentTime = (UnsignedInt) msg->getArgument( 2 )->integer;
+            // right click behavior (not right drag)
+            if (TheMouse->isClick(&m_deselectFeedbackAnchor, &pixel, m_lastClick, currentTime))
+            {
+                //Added support to cancel the GUI command without deselecting the unit(s) involved
+                //when you right click.
+                if (TheInGameUI->getGUICommand())
+                {
+                    //Cancel GUI command mode... don't deselect units.
+                    TheInGameUI->setGUICommand(nullptr);
 
-			delta.x = m_deselectFeedbackAnchor.x - pixel.x;
-			delta.y = m_deselectFeedbackAnchor.y - pixel.y;
+                    //With a GUI command cancel, we want no other behavior.
+                    disp = DESTROY_MESSAGE;
+                    TheInGameUI->setScrolling(FALSE);
+                }
+                else
+                {
+                    //In alternate mouse mode, right click still cancels building placement.
+                    // TheSuperHackers @tweak Stubbjax 08/08/2025 Canceling building placement no longer deselects the builder.
+                    if (TheInGameUI->getPendingPlaceSourceObjectID() != INVALID_ID)
+                    {
+                        TheInGameUI->placeBuildAvailable(nullptr, nullptr);
+                        TheInGameUI->setPreventLeftClickDeselectionInAlternateMouseModeForOneClick(FALSE);
+                        disp = DESTROY_MESSAGE;
+                        TheInGameUI->setScrolling(FALSE);
+                    }
+                    else if (!TheGlobalData->m_useAlternateMouse)
+                    {
+                        //No GUI command mode, so deselect everyone if we're in regular mouse mode.
+                        deselectAll();
+                    }
+                }
+            }
 
-			Bool isClick = TRUE;
-			if (abs(delta.x) > TheMouse->m_dragTolerance || abs(delta.y) > TheMouse->m_dragTolerance)
-			{
-				isClick = FALSE;
-			}
-
-			if (isClick &&
-					currentTime - m_lastClick > TheMouse->m_dragToleranceMS)
-			{
-				isClick = FALSE;
-			}
-
-			if (isClick &&
-					cameraPos.length() > TheMouse->m_dragTolerance3D)
-			{
-				isClick = FALSE;
-			}
-
-			// right click behavior (not right drag)
-			if (isClick)
-			{
-				//Added support to cancel the GUI command without deselecting the unit(s) involved
-				//when you right click.
-				if( TheInGameUI->getGUICommand() )
-				{
-					//Cancel GUI command mode... don't deselect units.
-					TheInGameUI->setGUICommand( nullptr );
-
-					//With a GUI command cancel, we want no other behavior.
-					disp = DESTROY_MESSAGE;
-					TheInGameUI->setScrolling( FALSE );
-				}
-				else
-				{
-					//In alternate mouse mode, right click still cancels building placement.
-					// TheSuperHackers @tweak Stubbjax 08/08/2025 Canceling building placement no longer deselects the builder.
-					if (TheInGameUI->getPendingPlaceSourceObjectID() != INVALID_ID)
-					{
-						TheInGameUI->placeBuildAvailable(nullptr, nullptr);
-						TheInGameUI->setPreventLeftClickDeselectionInAlternateMouseModeForOneClick(FALSE);
-						disp = DESTROY_MESSAGE;
-						TheInGameUI->setScrolling(FALSE);
-					}
-					else if (!TheGlobalData->m_useAlternateMouse)
-					{
-						//No GUI command mode, so deselect everyone if we're in regular mouse mode.
-						deselectAll();
-					}
-				}
-			}
-
-			break;
-		}
+            break;
+        }
 
 		//-----------------------------------------------------------------------------
 		case GameMessage::MSG_META_CREATE_TEAM0:
@@ -1100,7 +1075,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			{
 				DEBUG_LOG(("META: select team %d",group));
 
-				UnsignedInt now = TheGameLogic->getFrame();
+				UnsignedInt now = timeGetTime();
 				if ( m_lastGroupSelTime == 0 )
 				{
 					m_lastGroupSelTime = now;
@@ -1109,7 +1084,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 				Bool performSelection = TRUE;
 
 				// check for double-press to jump view
-				if ( now - m_lastGroupSelTime < 20 && group == m_lastGroupSelGroup )
+				if ( now - m_lastGroupSelTime < TheGlobalData->m_doubleClickTimeMS && group == m_lastGroupSelGroup )
 				{
 					DEBUG_LOG(("META: DOUBLETAP select team %d",group));
 					// TheSuperHackers @bugfix Stubbjax 26/05/2025 Perform selection on double-press
@@ -1181,7 +1156,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 			{
 				DEBUG_LOG(("META: select team %d",group));
 
-				UnsignedInt now = TheGameLogic->getFrame();
+				UnsignedInt now = timeGetTime();
 				if ( m_lastGroupSelTime == 0 )
 				{
 					m_lastGroupSelTime = now;
@@ -1189,7 +1164,7 @@ GameMessageDisposition SelectionTranslator::translateGameMessage(const GameMessa
 
 				// check for double-press to jump view
 
-				if ( now - m_lastGroupSelTime < 20 && group == m_lastGroupSelGroup )
+				if ( now - m_lastGroupSelTime < TheGlobalData->m_doubleClickTimeMS && group == m_lastGroupSelGroup )
 				{
 					DEBUG_LOG(("META: DOUBLETAP select team %d",group));
 					Player *player = ThePlayerList->getLocalPlayer();

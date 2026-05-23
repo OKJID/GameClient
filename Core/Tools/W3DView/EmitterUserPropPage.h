@@ -49,16 +49,16 @@ public:
 	// ClassWizard generate virtual function overrides
 	//{{AFX_VIRTUAL(EmitterUserPropPageClass)
 	public:
-	virtual BOOL OnApply();
+	virtual BOOL OnApply() override;
 	protected:
-	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV support
+	virtual void DoDataExchange(CDataExchange* pDX) override;    // DDX/DDV support
 	//}}AFX_VIRTUAL
 
 // Implementation
 protected:
 	// Generated message map functions
 	//{{AFX_MSG(EmitterUserPropPageClass)
-	virtual BOOL OnInitDialog();
+	virtual BOOL OnInitDialog() override;
 	afx_msg void OnChangeProgrammerSettingsEdit();
 	afx_msg void OnSelchangeTypeCombo();
 	//}}AFX_MSG
@@ -74,12 +74,12 @@ protected:
 		//
 		//	Inline accessors
 		//
-		EmitterInstanceListClass *	Get_Emitter (void) const { return m_pEmitterList; }
+		EmitterInstanceListClass *	Get_Emitter () const { return m_pEmitterList; }
 		void								Set_Emitter (EmitterInstanceListClass *pemitter_list) { m_pEmitterList = pemitter_list; Initialize (); }
-		bool								Is_Data_Valid (void) const { return m_bValid; }
+		bool								Is_Data_Valid () const { return m_bValid; }
 
-		int								Get_Type (void) const			{ return m_iType; }
-		const CString &				Get_String (void) const			{ return m_UserString; }
+		int								Get_Type () const			{ return m_iType; }
+		const CString &				Get_String () const			{ return m_UserString; }
 		void								Set_Type (int type)				{ m_iType = type; }
 		void								Set_String (LPCTSTR string)	{ m_UserString = string; }
 
@@ -90,7 +90,7 @@ protected:
 		//
 		//	Protected methods
 		//
-		void								Initialize (void);
+		void								Initialize ();
 
 	private:
 

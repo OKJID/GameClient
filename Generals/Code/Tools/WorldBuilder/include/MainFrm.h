@@ -68,25 +68,25 @@ public:
 // Overrides
 	// ClassWizard generated virtual function overrides
 	//{{AFX_VIRTUAL(CMainFrame)
-	virtual BOOL PreCreateWindow(CREATESTRUCT& cs);
+	virtual BOOL PreCreateWindow(CREATESTRUCT& cs) override;
 	//}}AFX_VIRTUAL
 
 // Implementation
 public:
-	virtual ~CMainFrame();
+	virtual ~CMainFrame() override;
 #ifdef RTS_DEBUG
-	virtual void AssertValid() const;
-	virtual void Dump(CDumpContext& dc) const;
+	virtual void AssertValid() const override;
+	virtual void Dump(CDumpContext& dc) const override;
 #endif
 
 	static CMainFrame *GetMainFrame() { return TheMainFrame; }
 
 	void showOptionsDialog(Int dialogID);
 	void OnEditGloballightoptions();
-	void ResetWindowPositions(void);
-	void adjustWindowSize(void);
-	Bool isAutoSaving(void) {return m_autoSaving;};
-	void handleCameraChange(void);
+	void ResetWindowPositions();
+	void adjustWindowSize();
+	Bool isAutoSaving() {return m_autoSaving;};
+	void handleCameraChange();
 
 protected:  // control bar embedded members
 	CStatusBar					m_wndStatusBar;

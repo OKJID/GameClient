@@ -628,36 +628,32 @@ void SlavedUpdate::setRepairState( RepairStates repairState )
 				if( !data->m_weldingSysName.isEmpty() )
 				{
 					const ParticleSystemTemplate *tmp = TheParticleSystemManager->findTemplate( data->m_weldingSysName );
-					if( tmp )
+					ParticleSystem *weldingSys = TheParticleSystemManager->createParticleSystem(tmp);
+					if( weldingSys )
 					{
-						ParticleSystem *weldingSys = TheParticleSystemManager->createParticleSystem(tmp);
-						if( weldingSys )
+						Coord3D pos;
+						//Get the bone position
+						if( draw->getPristineBonePositions( data->m_weldingFXBone.str(), 0, &pos, nullptr, 1 ) )
 						{
-							Coord3D pos;
-							//Get the bone position
-							if( draw->getPristineBonePositions( data->m_weldingFXBone.str(), 0, &pos, nullptr, 1 ) )
-							{
-								pos.add( obj->getPosition() );
-							}
-							else
-							{
-								pos.set( obj->getPosition() );
-							}
+							pos.add( obj->getPosition() );
+						}
+						else
+						{
+							pos.set( obj->getPosition() );
+						}
 
-							weldingSys->setPosition( &pos );
-
-#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+						weldingSys->setPosition( &pos );
+						#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 							// NOTE: Don't increase the time just because the logic tick rate increased
 							Real time = (Real)(m_framesToWait * (LOGICFRAMES_PER_SECOND/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER));
 #else
 							Real time = (Real)(m_framesToWait * LOGICFRAMES_PER_SECOND);
 #endif
-							weldingSys->setLifetimeRange( time, time );
+						weldingSys->setLifetimeRange( time, time );
 
-							AudioEventRTS soundToPlay = TheAudio->getMiscAudio()->m_repairSparks;
-							soundToPlay.setPosition( &pos );
-							TheAudio->addAudioEvent( &soundToPlay );
-						}
+						AudioEventRTS soundToPlay = TheAudio->getMiscAudio()->m_repairSparks;
+						soundToPlay.setPosition( &pos );
+						TheAudio->addAudioEvent( &soundToPlay );
 					}
 				}
 

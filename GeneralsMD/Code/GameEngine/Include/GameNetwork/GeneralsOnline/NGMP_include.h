@@ -7,6 +7,12 @@ enum class ELogVerbosity
 	LOG_RELEASE = 1
 };
 
+enum class ENetworkChannel : BYTE
+{
+	NETWORK_CHANNEL_GAME = 0,
+	NETWORK_CHANNEL_AC = 1
+};
+
 #define CHECK_MAIN_THREAD assert(std::this_thread::get_id() == NGMP_OnlineServicesManager::g_MainThreadID);
 #define CHECK_WORKER_THREAD assert(std::this_thread::get_id() != NGMP_OnlineServicesManager::g_MainThreadID);
 
