@@ -164,7 +164,11 @@ class AsciiString;
 
 #else
 
-	#define DEBUG_LOG(m)						((void)0)
+#ifdef DEBUG_LOG_FLAG_V2
+	#define DEBUG_LOG(m) MAC_LOG_TAG("DEBUG_LOG_V2", m)
+#else
+	#define DEBUG_LOG(m) ((void)0)
+#endif
 	#define DEBUG_LOG_RAW(m)				((void)0)
 	#define DEBUG_LOG_LEVEL(l, m)		((void)0)
 	#define DEBUG_LOG_LEVEL_RAW(l, m)	((void)0)
@@ -281,13 +285,14 @@ public:
 	#define DEBUG_CRASH_MAC(m) ((void)0)
 #endif
 
-#define DEBUG_BUILDMAPCACHE_FLAG
-#define DEBUG_INFO_MAC_FLAG
-#define DEBUG_FILESYSTEM_MAC_FLAG
-#define DEBUG_RENDER_CORE_MAC_FLAG
-#define DEBUG_NETWORK_MAC_FLAG
-#define DEBUG_AUTH_MAC_FLAG
-#define DEBUG_EAC_MAC_FLAG
+// #define DEBUG_BUILDMAPCACHE_FLAG
+// #define DEBUG_INFO_MAC_FLAG
+// #define DEBUG_FILESYSTEM_MAC_FLAG
+// #define DEBUG_RENDER_CORE_MAC_FLAG
+// #define DEBUG_NETWORK_MAC_FLAG
+// #define DEBUG_AUTH_MAC_FLAG
+// #define DEBUG_EAC_MAC_FLAG
+// #define DEBUG_LOG_FLAG_V2
 
 #ifdef DEBUG_BUILDMAPCACHE_FLAG
 	#define DEBUG_BUILDMAPCACHE(m) MAC_LOG_TAG("DEBUG_BUILDMAPCACHE", m)

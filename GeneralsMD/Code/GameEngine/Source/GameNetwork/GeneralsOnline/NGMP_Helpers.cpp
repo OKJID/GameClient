@@ -115,8 +115,15 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	DevConsole.AddLog(strLogBuffer.c_str());
 #endif
 
+#ifdef __APPLE__
+#ifdef DEBUG_NETWORK_MAC_FLAG
+	printf("[NetworkLog] %s\n", strLogBuffer.c_str());
+	fflush(stdout);
+#endif
+#else
 	OutputDebugString(strLogBuffer.c_str());
 	OutputDebugString("\n");
+#endif
 }
 
 std::string Base64Encode(const std::vector<uint8_t>& data)

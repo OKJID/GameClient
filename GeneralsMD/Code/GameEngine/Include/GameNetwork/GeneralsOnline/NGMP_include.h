@@ -7,6 +7,15 @@ enum class ELogVerbosity
 	LOG_RELEASE = 1
 };
 
+// TODO(PS_PATH): Remove NGMP_COMPAT_OLD_CHANNEL_PROTOCOL when GO production Windows client
+// updates past commit 28c93dd89 ("Cleanup of network transport and header code", May 10 2026).
+// Production build as of May 25 2026 is from April 28 2026 — uses old 3-byte AC header [9,1,2]
+// and sends game packets WITHOUT a channel header byte.
+// grep "NGMP_COMPAT_OLD_CHANNEL_PROTOCOL" to find all affected locations.
+#ifdef __APPLE__
+#define NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
+#endif
+
 enum class ENetworkChannel : BYTE
 {
 	NETWORK_CHANNEL_GAME = 0,

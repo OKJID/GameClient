@@ -149,6 +149,92 @@ Bool NextGenTransport::doRecv(void)
             memcpy(vecDataWithHeader.data(), msg->GetData(), numBytesWithHeader);
 
             // all packets must have at least 1 byte to indicate channel
+#ifdef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
+            // TODO(PS_PATH): Old protocol compat — 3-byte AC header [9,1,2], game packets have no channel header
+            if (numBytesWithHeader >= 3)
+            {
+                BYTE b1 = (BYTE)vecDataWithHeader[0];
+                BYTE b2 = (BYTE)vecDataWithHeader[1];
+                BYTE b3 = (BYTE)vecDataWithHeader[2];
+                if (b1 == 9 && b2 == 1 && b3 == 2)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
+
+                    std::vector<uint8_t> vecDataAC;
+                    vecDataAC.resize(numBytesWithHeader - 3);
+                    memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytesWithHeader - 3);
+
+                    AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytesWithHeader - 3);
+                    msg->Release();
+                    continue;
+                }
+            }
+            else if (numBytesWithHeader > 0 && numBytesWithHeader < 3)
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
+                msg->Release();
+                continue;
+            }
+
+            // Not AC — treat as raw game packet (no channel header to strip)
+            {
+                const uint32_t numBytes = numBytesWithHeader;
+
+                NetworkLog(ELogVerbosity::LOG_DEBUG,
+                    "[GAME PACKET] Received message of size %u from user %lld",
+                    numBytes, static_cast<long long>(kvPair.second.m_userID));
+
+                if (numBytes < sizeof(TransportMessageHeader))
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Recv: Dropping packet smaller than header (%u < %zu)",
+                        numBytes, sizeof(TransportMessageHeader));
+                    msg->Release();
+                    continue;
+                }
+
+                const uint32_t maxWireSize =
+                    static_cast<uint32_t>(sizeof(TransportMessageHeader) + MAX_MESSAGE_LEN);
+
+                if (numBytes > maxWireSize)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Recv: Dropping packet too large (%u > %u)",
+                        numBytes, maxWireSize);
+                    msg->Release();
+                    continue;
+                }
+
+                std::memset(&incomingMessage, 0, sizeof(incomingMessage));
+
+                std::memcpy(&incomingMessage.header,
+                    msg->m_pData,
+                    sizeof(TransportMessageHeader));
+
+                const uint32_t payloadLen =
+                    numBytes - static_cast<uint32_t>(sizeof(TransportMessageHeader));
+
+                if (payloadLen > sizeof(incomingMessage.data))
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                        "Game Packet Recv: Dropping packet, payloadLen (%u) > incoming buffer (%zu)",
+                        payloadLen, sizeof(incomingMessage.data));
+                    msg->Release();
+                    continue;
+                }
+
+                if (payloadLen > 0)
+                {
+                    std::memcpy(incomingMessage.data,
+                        static_cast<unsigned char*>(msg->m_pData) + sizeof(TransportMessageHeader),
+                        payloadLen);
+                }
+
+                incomingMessage.length = static_cast<Int>(payloadLen);
+
+                msg->Release();
+
+#else // New protocol: 1-byte ENetworkChannel header
             if (numBytesWithHeader >= sizeof(ENetworkChannel))
             {
                 ENetworkChannel netChannel = (ENetworkChannel)vecDataWithHeader[0];
@@ -234,6 +320,7 @@ Bool NextGenTransport::doRecv(void)
 
                     msg->Release();
 
+#endif // NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
                     if (m_usePacketLoss)
                     {
@@ -254,7 +341,7 @@ Bool NextGenTransport::doRecv(void)
 
                     if (!isGenerals)
                     {
-                        DEBUG_INFO_MAC(("[NET_RECV] DROP: not a generals packet, size=%u from uid=%lld", vecPacketDataWithoutHeader.size(), (long long)kvPair.second.m_userID));
+                        DEBUG_INFO_MAC(("[NET_RECV] DROP: not a generals packet, size=%u from uid=%lld", numBytesWithHeader, (long long)kvPair.second.m_userID));
                         // Check if it's a CRC failure or magic number failure to help diagnose corruption
                         if (incomingMessage.header.magic != GENERALS_MAGIC_NUMBER)
                         {
@@ -273,12 +360,12 @@ Bool NextGenTransport::doRecv(void)
                                 static_cast<long long>(kvPair.second.m_userID), incomingMessage.length);
                         }
                         m_unknownPackets[m_statisticsSlot]++;
-                        m_unknownBytes[m_statisticsSlot] += vecPacketDataWithoutHeader.size();
+                        m_unknownBytes[m_statisticsSlot] += numBytesWithHeader;
                         continue;
                     }
 
                     m_incomingPackets[m_statisticsSlot]++;
-                    m_incomingBytes[m_statisticsSlot] += vecPacketDataWithoutHeader.size();
+                    m_incomingBytes[m_statisticsSlot] += numBytesWithHeader;
 
                     // Store into first free slot in m_inBuffer
                     bool stored = false;
@@ -355,6 +442,7 @@ Bool NextGenTransport::doRecv(void)
                         bRet = TRUE;
                     }
                 }
+#ifndef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
             }
             else if (vecDataWithHeader.size() != -1)
             {
@@ -363,6 +451,7 @@ Bool NextGenTransport::doRecv(void)
                 msg->Release();
                 continue;
             }
+#endif
         }
     }
 
