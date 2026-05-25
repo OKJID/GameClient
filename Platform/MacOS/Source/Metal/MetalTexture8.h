@@ -8,7 +8,7 @@
 class MetalDevice8;
 
 class MetalTexture8 : public IDirect3DTexture8 {
-  W3DMPO_GLUE(MetalTexture8)
+  W3DMPO_CODE(MetalTexture8)
 public:
   MetalTexture8(MetalDevice8 *device, UINT width, UINT height, UINT levels,
                 DWORD usage, D3DFORMAT format, D3DPOOL pool);

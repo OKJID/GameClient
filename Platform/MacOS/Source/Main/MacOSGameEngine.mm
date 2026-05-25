@@ -21,6 +21,8 @@
 extern MacOSKeyboard *TheMacOSKeyboard;
 extern MacOSMouse *TheMacOSMouse;
 #include "W3DDevice/Common/W3DRadar.h"
+#include "Common/Radar.h"
+#include "Common/GameAudio.h"
 #include "W3DDevice/GameClient/W3DWebBrowser.h"
 #include "GameClient/ParticleSys.h"
 #include "GameNetwork/NetworkInterface.h"
@@ -262,7 +264,13 @@ ModuleFactory* MacOSGameEngine::createModuleFactory() { return NEW W3DModuleFact
 ThingFactory* MacOSGameEngine::createThingFactory() { return NEW W3DThingFactory; }
 FunctionLexicon* MacOSGameEngine::createFunctionLexicon() { return NEW W3DFunctionLexicon; }
 NetworkInterface* MacOSGameEngine::createNetwork() { return NetworkInterface::createNetwork(); }
-Radar* MacOSGameEngine::createRadar() { return NEW W3DRadar; }
+Radar* MacOSGameEngine::createRadar(Bool dummy)
+{
+	if (dummy) {
+		return NEW RadarDummy;
+	}
+	return NEW W3DRadar;
+}
 
 ParticleSystemManager* MacOSGameEngine::createParticleSystemManager(Bool dummy)
 {
@@ -277,4 +285,52 @@ ParticleSystemManager* MacOSGameEngine::createParticleSystemManager(Bool dummy)
 LocalFileSystem* MacOSGameEngine::createLocalFileSystem() { return NEW MacOSLocalFileSystem; }
 ArchiveFileSystem* MacOSGameEngine::createArchiveFileSystem() { return NEW StdBIGFileSystem; }
 WebBrowser* MacOSGameEngine::createWebBrowser() { return nullptr; }
-AudioManager* MacOSGameEngine::createAudioManager() { return NEW MacOSAudioManager; }
+class MacOSAudioManagerDummy : public MacOSAudioManager
+{
+public:
+	virtual void init() override { AudioManager::init(); }
+	virtual void stopAudio(AudioAffect which) override {}
+	virtual void pauseAudio(AudioAffect which) override {}
+	virtual void resumeAudio(AudioAffect which) override {}
+	virtual void pauseAmbient(Bool shouldPause) override {}
+	virtual void killAudioEventImmediately(AudioHandle audioEvent) override {}
+	virtual void nextMusicTrack() override {}
+	virtual void prevMusicTrack() override {}
+	virtual Bool isMusicPlaying() const override { return FALSE; }
+	virtual Bool hasMusicTrackCompleted(const AsciiString& trackName, Int numberOfTimes) const override { return FALSE; }
+	virtual AsciiString getMusicTrackName() const override { return ""; }
+	virtual void notifyOfAudioCompletion(UnsignedInt audioCompleted, UnsignedInt flags) override {}
+	virtual UnsignedInt getProviderCount() const override { return 0; }
+	virtual AsciiString getProviderName(UnsignedInt providerNum) const override { return ""; }
+	virtual UnsignedInt getProviderIndex(AsciiString providerName) const override { return 0; }
+	virtual void selectProvider(UnsignedInt providerNdx) override {}
+	virtual void unselectProvider() override {}
+	virtual UnsignedInt getSelectedProvider() const override { return 0; }
+	virtual void setSpeakerType(UnsignedInt speakerType) override {}
+	virtual UnsignedInt getSpeakerType() override { return 0; }
+	virtual UnsignedInt getNum2DSamples() const override { return 0; }
+	virtual UnsignedInt getNum3DSamples() const override { return 0; }
+	virtual UnsignedInt getNumStreams() const override { return 0; }
+	virtual Bool doesViolateLimit(AudioEventRTS* event) const override { return FALSE; }
+	virtual Bool isPlayingLowerPriority(AudioEventRTS* event) const override { return FALSE; }
+	virtual Bool isPlayingAlready(AudioEventRTS* event) const override { return FALSE; }
+	virtual Bool isObjectPlayingVoice(UnsignedInt objID) const override { return FALSE; }
+	virtual void adjustVolumeOfPlayingAudio(AsciiString eventName, Real newVolume) override {}
+	virtual void removePlayingAudio(AsciiString eventName) override {}
+	virtual void removeAllDisabledAudio() override {}
+	virtual Bool has3DSensitiveStreamsPlaying() const override { return FALSE; }
+	virtual void* getHandleForBink() override { return nullptr; }
+	virtual void releaseHandleForBink() override {}
+	virtual void friend_forcePlayAudioEventRTS(const AudioEventRTS* eventToPlay) override {}
+	virtual void setPreferredProvider(AsciiString providerNdx) override {}
+	virtual void setPreferredSpeaker(AsciiString speakerType) override {}
+	virtual void setDeviceListenerPosition() override {}
+};
+
+AudioManager* MacOSGameEngine::createAudioManager(Bool dummy)
+{
+	if (dummy) {
+		return NEW MacOSAudioManagerDummy;
+	}
+	return NEW MacOSAudioManager;
+}

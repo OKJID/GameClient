@@ -121,7 +121,7 @@ void NGMPGame::SyncWithLobby(LobbyEntry& lobby)
 	}
 	else // fallback
 	{
-		setMap(lobby.map_path.c_str());
+		setMap(asciiMapCustom);
 		DEBUG_INFO_MAC(("[SYNC_LOBBY] Map FALLBACK (NOT FOUND): raw='%s' official='%s' custom='%s'", rawMapPath.c_str(), asciiMapOfficial.str(), asciiMapCustom.str()));
 	}
 

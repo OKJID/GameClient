@@ -582,7 +582,6 @@ Bool MacOSAudioManager::isMusicPlaying() const {
     }
     return FALSE;
 }
-Bool MacOSAudioManager::isMusicAlreadyLoaded() const { return TRUE; }
 Bool MacOSAudioManager::hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const { return FALSE; }
 AsciiString MacOSAudioManager::getMusicTrackName() const {
     for (auto &pa : m_sources) {

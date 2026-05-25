@@ -65,6 +65,7 @@ build.ninja
 
 ## Python
 __pycache__/
+*.py
 
 CRCLogs/
 

@@ -1258,7 +1258,7 @@ FontCharsClass::Get_Char_Data (WCHAR ch)
 	const FontCharsClassCharDataStruct *retval = nullptr;
 
 #ifdef __APPLE__
-	if ( ch >= 0xFFFD || (ch >= 256 && AlternateUnicodeFont == nullptr && this == AlternateUnicodeFont) )
+	if ( ch >= 0xFFFD )
 	{
 		ch = L'?';
 	}
@@ -1397,6 +1397,19 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 		xOrigin = 1;
 	}
 
+	if (GDIBitmapBits == nullptr || MemDC == nullptr) {
+		FontCharsClassCharDataStruct *char_data = W3DNEW FontCharsClassCharDataStruct;
+		char_data->Value = ch;
+		char_data->Width = 0;
+		char_data->Buffer = nullptr;
+		if ( ch < 256 ) {
+			ASCIICharArray[ch] = char_data;
+		} else {
+			UnicodeCharArray[ch - FirstUnicodeChar] = char_data;
+		}
+		return char_data;
+	}
+
     CGContextRef context = (CGContextRef)MemDC;
     CTFontRef ctFont = (CTFontRef)GDIFont;
 
@@ -1447,7 +1460,10 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 		int index = (row * stride);
 
 		for (int col = 0; col < char_size.cx; col ++) {
-			uint8 pixel_value = GDIBitmapBits[index];
+			uint8 pixel_value = 0;
+			if (GDIBitmapBits != nullptr && row < height && col < width && index < stride * height) {
+				pixel_value = GDIBitmapBits[index];
+			}
 			index += 1;
 
 			uint32 pixel_color = (pixel_value != 0) ? 0x00FFFFFF : 0;
@@ -1566,7 +1582,7 @@ FontCharsClass::Update_Current_Buffer (int char_width)
 		//	Would we extend past this buffer?
 		//
 #ifdef __APPLE__
-		int pixels_needed = char_width * CharHeight * 2;
+		int pixels_needed = (char_width + PixelOverlap) * CharHeight * 2;
 #else
 		int pixels_needed = char_width * CharHeight;
 #endif
@@ -1637,12 +1653,26 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	CGContextRef context = CGBitmapContextCreate(NULL, width, height, 8, width, colorSpace, kCGImageAlphaNone);
 	CGColorSpaceRelease(colorSpace);
 	
+	if (!context) {
+		CFRelease(ctFont);
+		GDIFont = nullptr;
+		return false;
+	}
+	
 	CGContextSetShouldSmoothFonts(context, false);
 	CGContextSetAllowsFontSmoothing(context, false);
 
 	MemDC = (HDC)context;
 	GDIBitmapBits = (uint8*)CGBitmapContextGetData(context);
 	GDIBitmapStride = CGBitmapContextGetBytesPerRow(context);
+
+	if (!GDIBitmapBits) {
+		CGContextRelease(context);
+		MemDC = nullptr;
+		CFRelease(ctFont);
+		GDIFont = nullptr;
+		return false;
+	}
 
     // Generals font uses compressed width on Windows
     CGAffineTransform matrix = CGAffineTransformIdentity;

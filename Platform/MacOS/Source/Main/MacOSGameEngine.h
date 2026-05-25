@@ -22,8 +22,8 @@ protected:
 	LocalFileSystem* createLocalFileSystem() override;
 	ArchiveFileSystem* createArchiveFileSystem() override;
 	NetworkInterface* createNetwork();
-	Radar* createRadar() override;
+	Radar* createRadar(Bool dummy) override;
 	WebBrowser* createWebBrowser() override;
-	AudioManager* createAudioManager() override;
+	AudioManager* createAudioManager(Bool dummy) override;
 	ParticleSystemManager* createParticleSystemManager(Bool dummy) override;
 };

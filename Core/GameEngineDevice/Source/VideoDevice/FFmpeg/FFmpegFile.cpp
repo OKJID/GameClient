@@ -257,6 +257,23 @@ Bool FFmpegFile::decodePacket()
 		}
 
 		// Validate the frame before passing to callback
+#ifdef __APPLE__
+		if (stream.frame == nullptr || stream.frame->data[0] == nullptr) {
+			continue;
+		}
+
+		if (stream.stream_type == AVMEDIA_TYPE_VIDEO && (stream.frame->width <= 0 || stream.frame->height <= 0)) {
+			continue;
+		}
+
+		if (stream.stream_type == AVMEDIA_TYPE_AUDIO && stream.frame->nb_samples <= 0) {
+			continue;
+		}
+
+		if (m_frameCallback != nullptr) {
+			m_frameCallback(stream.frame, stream_idx, stream.stream_type, m_userData);
+		}
+#else
 		if (stream.frame != nullptr && stream.frame->data[0] != nullptr && 
 			stream.frame->width > 0 && stream.frame->height > 0) {
 			if (m_frameCallback != nullptr) {
@@ -265,6 +282,7 @@ Bool FFmpegFile::decodePacket()
 		} else {
 			DEBUG_LOG(("Decoded frame has invalid data or dimensions"));
 		}
+#endif
 	}
 
 	return true;

@@ -34,7 +34,6 @@ public:
   virtual void nextMusicTrack() override;
   virtual void prevMusicTrack() override;
   virtual Bool isMusicPlaying() const override;
-  virtual Bool isMusicAlreadyLoaded() const override;
   virtual Bool hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const override;
   virtual AsciiString getMusicTrackName() const override;
 

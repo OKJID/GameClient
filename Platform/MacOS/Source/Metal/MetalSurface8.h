@@ -7,7 +7,7 @@ class MetalDevice8;
 class MetalTexture8;
 
 class MetalSurface8 : public IDirect3DSurface8 {
-  W3DMPO_GLUE(MetalSurface8)
+  W3DMPO_CODE(MetalSurface8)
 public:
   enum SurfaceKind { kColor, kDepth };
 

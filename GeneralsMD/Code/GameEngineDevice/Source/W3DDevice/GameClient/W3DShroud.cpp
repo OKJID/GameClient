@@ -264,7 +264,11 @@ W3DShroudLevel W3DShroud::getShroudLevel(Int x, Int y)
 {
 	DEBUG_ASSERTCRASH( m_pSrcTexture != nullptr, ("Reading empty shroud"));
 
+#ifdef __APPLE__
+	if (x >= 0 && x < m_numCellsX && y >= 0 && y < m_numCellsY)
+#else
 	if (x < m_numCellsX && y < m_numCellsY)
+#endif
 	{
 		UnsignedShort pixel=*(UnsignedShort *)((Byte *)m_srcTextureData + x*2 + y*m_srcTexturePitch);
 
@@ -288,7 +292,11 @@ void W3DShroud::setShroudLevel(Int x, Int y, W3DShroudLevel level, Bool textureO
 	if (!m_pSrcTexture)
 		return;
 
+#ifdef __APPLE__
+	if (x >= 0 && x < m_numCellsX && y >= 0 && y < m_numCellsY)
+#else
 	if (x < m_numCellsX && y < m_numCellsY)
+#endif
 	{
 		if (level < TheGlobalData->m_shroudAlpha)
 			level = TheGlobalData->m_shroudAlpha;
