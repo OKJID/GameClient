@@ -26,6 +26,12 @@ class LauncherViewModel: ObservableObject {
             ])
         }
     }
+    @Published var gameLanguage: String = SettingsDefaults.gameLanguage {
+        didSet {
+            guard !isInitializing else { return }
+            OptionsIniHelper.writeValue(value: gameLanguage, forKey: "Language")
+        }
+    }
     
     // settings.json camera settings
     @Published var cameraMinHeight: Double = SettingsDefaults.cameraMinHeight {
@@ -94,6 +100,7 @@ class LauncherViewModel: ObservableObject {
             ])
         }
         self.isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
+        self.gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
         
         // Load settings.json
         if let json = SettingsJsonHelper.readSettings() {
@@ -145,6 +152,7 @@ class LauncherViewModel: ObservableObject {
 
     func resetAllSettings() {
         isWindowedEdgeScrollEnabled = SettingsDefaults.isWindowedEdgeScrollEnabled
+        gameLanguage = SettingsDefaults.gameLanguage
         cameraMinHeight = SettingsDefaults.cameraMinHeight
         cameraMaxHeight = SettingsDefaults.cameraMaxHeight
         cameraMoveSpeed = SettingsDefaults.cameraMoveSpeed

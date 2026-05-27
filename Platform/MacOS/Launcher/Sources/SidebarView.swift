@@ -49,6 +49,8 @@ struct SidebarView: View {
                         scope: .global
                     )
                     
+                    _buildGameLanguagePicker()
+                    
                     SettingsSliderField(
                         title: L10n.settings.cameraMaxHeight,
                         value: $viewModel.cameraMaxHeight,
@@ -66,7 +68,7 @@ struct SidebarView: View {
                         step: SettingsDefaults.cameraMinHeightStep,
                         format: SettingsDefaults.cameraMinHeightFormat,
                         defaultValue: SettingsDefaults.cameraMinHeight,
-                        scope: .online
+                        scope: .global
                     )
                     
                     SettingsSliderField(
@@ -206,6 +208,45 @@ struct SidebarView: View {
         .onHover { inside in
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
+    }
+
+    private func _buildGameLanguagePicker() -> some View {
+        let zhDir: URL? = {
+            switch viewModel.activeTab {
+            case .steam: return viewModel.steamCMD.assetsDir
+            case .local: return viewModel.zhDirectoryURL
+            }
+        }()
+        let installed = zhDir.map { AssetPatcher.installedLanguages(at: $0) } ?? AssetPatcher.availableLanguages
+
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(L10n.settings.gameLanguage)
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.9))
+                ScopeChip(scope: .global)
+            }
+
+            Picker("", selection: $viewModel.gameLanguage) {
+                ForEach(installed, id: \.self) { lang in
+                    Text(lang.capitalized).tag(lang)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+
+            Text(L10n.settings.gameLanguageRestart)
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundColor(.white.opacity(0.5))
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.02))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
     }
 
     private func _buildLegendSection() -> some View {

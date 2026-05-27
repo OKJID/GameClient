@@ -80,3 +80,5 @@ Platform/MacOS/Build/Logs/
 /Dependencies/general_online_zh/
 # EAC Plugin (Private submodule/repo)
 /Dependencies/eac_plugin/
+# Community Patch Assets (locale files, maps, etc.)
+/Dependencies/GeneralsOnline-MacPatch/

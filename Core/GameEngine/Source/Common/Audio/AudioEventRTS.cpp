@@ -803,15 +803,37 @@ void AudioEventRTS::adjustForLocalization(AsciiString &strToAdjust)
 		filename = strToAdjust.str();
 	}
 
-	// try the localized version first so that we're guaranteed to get it
-	// even if the generic data directory holds a version of the file
 	AsciiString localizedFilePath = generateFilenamePrefix(m_eventInfo->m_soundType, TRUE);
 	localizedFilePath.concat(filename);
 
 	if (TheFileSystem->doesFileExist(localizedFilePath.str())) {
 		strToAdjust = localizedFilePath;
+		return;
 	}
-	// else there was no localized version, so leave the path we received unchanged
+
+	if (TheFileSystem->doesFileExist(strToAdjust.str())) {
+		return;
+	}
+
+#ifdef __APPLE__
+	if (GetRegistryLanguage().compareNoCase("english") != 0)
+	{
+		AsciiString englishPath = TheAudio->getAudioSettings()->m_audioRoot;
+		englishPath.concat("\\");
+		if (m_eventInfo->m_soundType == AT_Music)
+			englishPath.concat(TheAudio->getAudioSettings()->m_musicFolder);
+		else if (m_eventInfo->m_soundType == AT_Streaming)
+			englishPath.concat(TheAudio->getAudioSettings()->m_streamingFolder);
+		else
+			englishPath.concat(TheAudio->getAudioSettings()->m_soundsFolder);
+		englishPath.concat("\\english\\");
+		englishPath.concat(filename);
+
+		if (TheFileSystem->doesFileExist(englishPath.str())) {
+			strToAdjust = englishPath;
+		}
+	}
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------

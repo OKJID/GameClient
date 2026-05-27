@@ -293,6 +293,7 @@ public:
 // #define DEBUG_AUTH_MAC_FLAG
 // #define DEBUG_EAC_MAC_FLAG
 // #define DEBUG_LOG_FLAG_V2
+#define DEBUG_SETTINGS_MAC_FLAG
 
 #ifdef DEBUG_BUILDMAPCACHE_FLAG
 	#define DEBUG_BUILDMAPCACHE(m) MAC_LOG_TAG("DEBUG_BUILDMAPCACHE", m)
@@ -334,5 +335,11 @@ public:
 	#define DEBUG_EAC_MAC(m) MAC_LOG_TAG("DEBUG_EAC_MAC", m)
 #else
 	#define DEBUG_EAC_MAC(m) ((void)0)
+#endif
+
+#ifdef DEBUG_SETTINGS_MAC_FLAG
+	#define DEBUG_SETTINGS_MAC(m) MAC_LOG_TAG("DEBUG_SETTINGS_MAC", m)
+#else
+	#define DEBUG_SETTINGS_MAC(m) ((void)0)
 #endif
 

@@ -188,10 +188,25 @@ char const * GameFileClass::Set_Name( char const *filename )
 	// see if the file exists
 	m_fileExists = TheFileSystem->doesFileExist( m_filePath );
 
-// #ifdef __APPLE__
-// 	printf("[DIAG] GameFileClass::Set_Name('%s') try1='%s' exists=%d\n", filename, m_filePath, m_fileExists);
-// 	fflush(stdout);
-// #endif
+#ifdef __APPLE__
+	// Fallback to English localized assets if not found in the current language
+	// This fixes missing HD UI textures (which are only in 400_ControlBarHDEnglishZH.big)
+	if (m_fileExists == FALSE && GetRegistryLanguage().compareNoCase("english") != 0)
+	{
+		if (fileType == FILE_TYPE_W3D)
+		{
+			sprintf(m_filePath, "Data/english/Art/W3D/");
+			strlcat(m_filePath, filename, ARRAY_SIZE(m_filePath));
+			m_fileExists = TheFileSystem->doesFileExist(m_filePath);
+		}
+		else if (isImageFileType(fileType))
+		{
+			sprintf(m_filePath, "Data/english/Art/Textures/");
+			strlcat(m_filePath, filename, ARRAY_SIZE(m_filePath));
+			m_fileExists = TheFileSystem->doesFileExist(m_filePath);
+		}
+	}
+#endif
 
 	// Now try the main lookup of hitting local files and big files
 	if( m_fileExists == FALSE )

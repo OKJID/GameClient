@@ -849,6 +849,17 @@ void GameEngine::init()
 
 	// NGMP_CHANGE: Init our settings
 	NGMP_OnlineServicesManager::Settings.Initialize();
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
+	float camSpeed = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
+	TheWritableGlobalData->m_horizontalScrollSpeedFactor = camSpeed;
+	TheWritableGlobalData->m_verticalScrollSpeedFactor = camSpeed;
+	DEBUG_SETTINGS_MAC(("[init] Camera_MoveSpeedRatio=%.2f, FPS_Limit=%d, LimitFramerate=%d, StatsOverlay=%d",
+		camSpeed,
+		NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit(),
+		NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate() ? 1 : 0,
+		NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay() ? 1 : 0));
+#endif
 }
 
 /** -----------------------------------------------------------------------------------------------
@@ -980,15 +991,27 @@ void GameEngine::update()
 			VERIFY_CRC
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
-			// NGMP_NOTE: Lock the shellmap to 30fps until we fix everything
-			if (TheNGMPGame != nullptr && TheGameLogic->isInGame() && !TheShell->isShellActive())
 			{
-				TheFramePacer->setFramesPerSecondLimit(NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit());
-				TheWritableGlobalData->m_useFpsLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
-			}
-			else
-			{
-				TheFramePacer->setFramesPerSecondLimit(GENERALS_ONLINE_HIGH_FPS_LIMIT);
+				static bool s_fpsLogOnce = false;
+				bool inGame = TheGameLogic->isInGame();
+				bool shellActive = TheShell->isShellActive();
+				if (inGame && !shellActive)
+				{
+					int fpsLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
+					bool limitOn = NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate();
+					TheFramePacer->setFramesPerSecondLimit(fpsLimit);
+					TheFramePacer->enableFramesPerSecondLimit(limitOn);
+					TheWritableGlobalData->m_useFpsLimit = limitOn;
+					if (!s_fpsLogOnce)
+					{
+						s_fpsLogOnce = true;
+						DEBUG_SETTINGS_MAC(("[update] IN GAME: FPS_Limit=%d, LimitOn=%d", fpsLimit, limitOn ? 1 : 0));
+					}
+				}
+				else
+				{
+					TheFramePacer->setFramesPerSecondLimit(GENERALS_ONLINE_HIGH_FPS_LIMIT);
+				}
 			}
 #endif
 			

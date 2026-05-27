@@ -252,6 +252,13 @@ VideoStreamInterface*	FFmpegVideoPlayer::open( AsciiString movieTitle )
 		snprintf( localizedFilePath, ARRAY_SIZE(localizedFilePath), VIDEO_LANG_PATH_FORMAT, GetRegistryLanguage().str(), pVideo->m_filename.str(), VIDEO_EXT );
 		File* file =  TheFileSystem->openFile(localizedFilePath);
 		DEBUG_ASSERTLOG(!file, ("opened localized bink file %s", localizedFilePath));
+		if (!file && GetRegistryLanguage().compareNoCase("english") != 0)
+		{
+			char englishFilePath[ _MAX_PATH ];
+			snprintf( englishFilePath, ARRAY_SIZE(englishFilePath), VIDEO_LANG_PATH_FORMAT, "English", pVideo->m_filename.str(), VIDEO_EXT );
+			file = TheFileSystem->openFile(englishFilePath);
+			DEBUG_ASSERTLOG(!file, ("opened english bink file %s", englishFilePath));
+		}
 		if (!file)
 		{
 			char filePath[ _MAX_PATH ];

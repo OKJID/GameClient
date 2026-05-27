@@ -48,6 +48,26 @@ class AssetPatcher: ObservableObject {
         "990_DecalsZH.big"
     ]
 
+    private static let patchLocaleMarkerFiles = [
+        "Data/English/generals.csf",
+        "Data/German/generals.csf",
+        "Data/French/generals.csf",
+        "Data/Spanish/generals.csf",
+        "Data/Italian/generals.csf",
+        "Data/Korean/generals.csf",
+        "Data/Chinese/generals.csf",
+        "Data/Polish/generals.csf",
+        "Data/Brazilian/generals.csf",
+        "Data/Russian/generals.csf",
+        "Data/Ukrainian/generals.csf"
+    ]
+
+    static let availableLanguages = [
+        "english", "german", "french", "spanish", "italian",
+        "korean", "chinese", "polish", "brazilian",
+        "russian", "ukrainian"
+    ]
+
     private static let conflictingEAFiles = [
         "PatchData.big",
         "PatchINI.big",
@@ -58,12 +78,22 @@ class AssetPatcher: ObservableObject {
     // MARK: - Public API
 
     func isCommunityPatchInstalled(at zhDir: URL) -> Bool {
-        guard let files = try? FileManager.default.contentsOfDirectory(atPath: zhDir.path) else {
-            return false
+        let fm = FileManager.default
+        let allMarkers = Self.patchMarkerFiles + Self.patchLocaleMarkerFiles
+        return allMarkers.allSatisfy { marker in
+            fm.fileExists(atPath: zhDir.appendingPathComponent(marker).path)
         }
-        let lowercasedFiles = Set(files.map { $0.lowercased() })
-        return Self.patchMarkerFiles.allSatisfy { marker in
-            lowercasedFiles.contains(marker.lowercased())
+    }
+
+    static func installedLanguages(at zhDir: URL) -> [String] {
+        let fm = FileManager.default
+        return patchLocaleMarkerFiles.compactMap { relativePath in
+            let fullPath = zhDir.appendingPathComponent(relativePath).path
+            guard fm.fileExists(atPath: fullPath) else { return nil }
+
+            let components = relativePath.split(separator: "/")
+            guard components.count >= 2 else { return nil }
+            return String(components[1]).lowercased()
         }
     }
 
@@ -219,17 +249,7 @@ class AssetPatcher: ObservableObject {
         }
 
         do {
-            let items = try fm.contentsOfDirectory(atPath: sourceDir.path)
-            for item in items {
-                let src = sourceDir.appendingPathComponent(item)
-                let dst = zhDir.appendingPathComponent(item)
-
-                if fm.fileExists(atPath: dst.path) {
-                    try fm.removeItem(at: dst)
-                }
-                try fm.moveItem(at: src, to: dst)
-            }
-
+            try mergeDirectory(from: sourceDir, to: zhDir, fm: fm)
             try? fm.removeItem(at: extractDir)
 
             appendLog("[✓] Community Patch successfully applied!\n")
@@ -237,6 +257,30 @@ class AssetPatcher: ObservableObject {
         } catch {
             try? fm.removeItem(at: extractDir)
             fail("Failed to move patch files: \(error.localizedDescription)")
+        }
+    }
+
+    private func mergeDirectory(from src: URL, to dst: URL, fm: FileManager) throws {
+        if !fm.fileExists(atPath: dst.path) {
+            try fm.createDirectory(at: dst, withIntermediateDirectories: true)
+        }
+
+        let items = try fm.contentsOfDirectory(atPath: src.path)
+        for item in items {
+            let srcItem = src.appendingPathComponent(item)
+            let dstItem = dst.appendingPathComponent(item)
+
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: srcItem.path, isDirectory: &isDir)
+
+            if isDir.boolValue {
+                try mergeDirectory(from: srcItem, to: dstItem, fm: fm)
+            } else {
+                if fm.fileExists(atPath: dstItem.path) {
+                    try fm.removeItem(at: dstItem)
+                }
+                try fm.moveItem(at: srcItem, to: dstItem)
+            }
         }
     }
 

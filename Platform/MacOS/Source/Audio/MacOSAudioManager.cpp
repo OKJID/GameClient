@@ -11,12 +11,36 @@
 #include "Common/file.h"
 #include "Common/System/NativeFileSystem.h"
 #include "Common/GlobalData.h"
+#include "Common/Registry.h"
 #include "../Utils/MacDebug.h"
 #include <unistd.h>
 
 extern FileSystem *TheFileSystem;
 
 static const char* AUDIO_CACHE_DIR_FORMAT = "%sAudioCache/";
+
+static std::string applyLanguageFallback(const std::string& originalPath) {
+    std::string lowerPath = originalPath;
+    std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
+    AsciiString language = GetRegistryLanguage();
+    language.toLower();
+
+    std::string searchSpeech1 = "data\\audio\\speech\\" + std::string(language.str()) + "\\";
+    std::string searchSpeech2 = "data/audio/speech/" + std::string(language.str()) + "/";
+    std::string searchTracks1 = "data\\audio\\tracks\\" + std::string(language.str()) + "\\";
+    std::string searchTracks2 = "data/audio/tracks/" + std::string(language.str()) + "/";
+
+    if (lowerPath.find(searchSpeech1) == 0) {
+        return "Data\\Audio\\Speech\\English\\" + originalPath.substr(searchSpeech1.length());
+    } else if (lowerPath.find(searchSpeech2) == 0) {
+        return "Data/Audio/Speech/English/" + originalPath.substr(searchSpeech2.length());
+    } else if (lowerPath.find(searchTracks1) == 0) {
+        return "Data\\Audio\\Tracks\\English\\" + originalPath.substr(searchTracks1.length());
+    } else if (lowerPath.find(searchTracks2) == 0) {
+        return "Data/Audio/Tracks/English/" + originalPath.substr(searchTracks2.length());
+    }
+    return originalPath;
+}
 
 #pragma mark - WAV Loading from Engine FileSystem
 
@@ -103,9 +127,19 @@ static bool loadWavFromDisk(const std::string &pathStr, uint8_t **outData, size_
 }
 
 static bool loadWavFromBig(const std::string &originalPath, uint8_t **outData, size_t *outSize) {
-    if (!TheFileSystem || !TheFileSystem->doesFileExist(originalPath.c_str())) return false;
+    if (!TheFileSystem) return false;
 
-    File *f = TheFileSystem->openFile(originalPath.c_str(), File::READ);
+    std::string pathToTry = originalPath;
+    if (!TheFileSystem->doesFileExist(pathToTry.c_str())) {
+        std::string fallbackPath = applyLanguageFallback(pathToTry);
+        if (fallbackPath != pathToTry && TheFileSystem->doesFileExist(fallbackPath.c_str())) {
+            pathToTry = fallbackPath;
+        } else {
+            return false;
+        }
+    }
+
+    File *f = TheFileSystem->openFile(pathToTry.c_str(), File::READ);
     if (!f) return false;
 
     size_t fileSize = f->size();
@@ -307,11 +341,19 @@ std::string MacOSAudioManager::getPhysicalPathForStream(const std::string& vfsPa
         return safePath;
     }
 
-    if (!TheFileSystem || !TheFileSystem->doesFileExist(vfsPath.c_str())) {
-        return "";
+    if (!TheFileSystem) return "";
+
+    std::string pathToTry = vfsPath;
+    if (!TheFileSystem->doesFileExist(pathToTry.c_str())) {
+        std::string fallbackPath = applyLanguageFallback(pathToTry);
+        if (fallbackPath != pathToTry && TheFileSystem->doesFileExist(fallbackPath.c_str())) {
+            pathToTry = fallbackPath;
+        } else {
+            return "";
+        }
     }
 
-    File *f = TheFileSystem->openFile(vfsPath.c_str(), File::READ);
+    File *f = TheFileSystem->openFile(pathToTry.c_str(), File::READ);
     if (!f) return "";
 
     size_t fileSize = f->size();
