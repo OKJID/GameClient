@@ -1,6 +1,6 @@
 # macOS Port — Implementation Status
 
-> Updated: 2026-04-15
+> Updated: 2026-05-27
 
 ---
 
@@ -131,7 +131,8 @@
 | ✅ | `setDeviceListenerPosition` | Listener position/orientation → AVAudioEnvironmentNode |
 | ✅ | WAV loading | PCM WAV from disk + `.big` archives, stereo→mono downmix for 3D |
 | ✅ | Buffer cache | `m_bufferCache` prevents redundant disk reads |
-| ⚠️ | Music streaming | MP3/OGG streaming not implemented — music tracks are silent |
+| ✅ | Music streaming | MP3/AAC/ADPCM via `AVAudioFile` + `avbridge_playStream` |
+| ✅ | Language fallback | `adjustForLocalization()` → English fallback for speech/music in non-English locales |
 | ⚠️ | ADPCM WAV | Only PCM (format=1) supported; ADPCM files silently skipped |
 
 ---
@@ -200,11 +201,24 @@
 
 ---
 
-## 11. Launcher & Distribution
+## 11. Video
+
+| Status | Component | Note |
+|:---|:---|:---|
+| ✅ | `FFmpegVideoPlayer` | Bink → FFmpeg decoder for `.bik` playback (intro, campaign, challenge) |
+| ✅ | `MacOSVideoAudioStream` | A/V sync via `AVAudioEngine` PCM scheduling |
+| ✅ | Language fallback | `FFmpegVideoPlayer::open()` → English fallback for localized movie paths |
+
+---
+
+## 12. Launcher & Distribution
 
 | Status | Component | Note |
 |:---|:---|:---|
 | ✅ | `GeneralsLauncher` (SwiftUI) | Folder picker + game data validation + launch with env vars |
+| ✅ | Game Language picker | 11 languages, reads/writes `Options.ini`, scope `GLOBAL` |
+| ✅ | Extended settings | Camera height/speed, FPS limiter, stats overlay, network, debug |
+| ✅ | SteamCMD integration | Automatic asset download from Steam depots |
 | ✅ | `assemble_distribution.sh` | 6-step pipeline: dylib bundling, rpath cleanup, launcher compile, asset injection, README, ZIP |
 | ✅ | `dylibbundler` integration | Copies Homebrew `.dylib` deps → `Contents/Frameworks/`, rewrites `@rpath` |
 | ✅ | `Info.plist` patching | Sets `CFBundleExecutable` to `GeneralsLauncher`, injects `AppIcon.png` |

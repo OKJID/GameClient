@@ -154,6 +154,38 @@ On Windows, `GetStringFromGeneralsRegistry("", "InstallPath")` returns the Base 
 
 On macOS, `getStringFromRegistry` is wrapped with `#ifdef __APPLE__`. For the `InstallPath` key, it returns `basePath` discovered by the detector at startup.
 
+### `GetRegistryLanguage()` (Language from Options.ini)
+
+On Windows, the game language is read from the Windows registry. On macOS, `GetRegistryLanguage()` reads the `Language` key from `~/Command and Conquer Generals Zero Hour Data/Options.ini`.
+
+```
+Language = russian
+```
+
+Fallback: if the key is not found → `"english"`.
+
+> This is called **before** `OptionPreferences` initializes, so the file is parsed manually (line-by-line scan).
+
+### Localized Asset Resolution
+
+The engine uses `GetRegistryLanguage()` to build localized paths for speech, music, and video:
+
+**Audio** (`AudioEventRTS::adjustForLocalization`):
+```
+1. Data\Audio\Speech\Russian\unit.wav    ← localized (from Language)
+2. Data\Audio\Speech\unit.wav            ← base (no language subfolder)
+3. Data\Audio\Speech\English\unit.wav    ← English fallback (#ifdef __APPLE__)
+```
+
+**Video** (`FFmpegVideoPlayer::open`):
+```
+1. Data/Russian/Movies/file.bik          ← localized
+2. Data/English/Movies/file.bik          ← English fallback
+3. Data\Movies\file.bik                  ← generic
+```
+
+> Steps 3 (audio) and 2 (video) are macOS-specific additions. Without them, non-English locales have no speech or campaign videos because `.big` archives only contain files under `English/` subfolders.
+
 ## Core / Platform Duality
 
 Two `StdLocalFileSystem` implementations exist in the project:
