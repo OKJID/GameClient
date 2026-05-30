@@ -81,13 +81,7 @@
 #define PRESERVE_RETAIL_SCRIPTED_CAMERA (1) // Retain scripted camera behavior present in retail Generals 1.08 and Zero Hour 1.04
 #endif
 
-#ifndef RETAIL_COMPATIBLE_CRC
-#if defined(GENERALS_ONLINE)
-#define RETAIL_COMPATIBLE_CRC (0)
-#else
-#define RETAIL_COMPATIBLE_CRC (1) // Game is expected to be CRC compatible with retail Generals 1.08, Zero Hour 1.04
-#endif
-#endif
+// RETAIL_COMPATIBLE_CRC is default defined in BaseDefines.h
 
 #ifndef RETAIL_COMPATIBLE_XFER_SAVE
 #if defined(GENERALS_ONLINE)

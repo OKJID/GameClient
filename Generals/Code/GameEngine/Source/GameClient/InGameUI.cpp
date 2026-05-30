@@ -1591,6 +1591,13 @@ void InGameUI::handleBuildPlacements()
 				v.y = worldEnd.y - worldStart.y;
 				angle = v.toAngle();
 
+				// TheSuperHackers @tweak Stubbjax 04/08/2025 Snap angle to nearest 45 degrees
+				// while using force attack mode for convenience.
+				if (isInForceAttackMode())
+				{
+					const Real snapRadians = DEG_TO_RADF(45);
+					angle = WWMath::Roundf(angle / snapRadians) * snapRadians;
+				}
 			}
 
 		}
