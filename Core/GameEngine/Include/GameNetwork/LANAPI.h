@@ -274,6 +274,70 @@ static_assert(sizeof(LANMessage) <= MAX_LANAPI_PACKET_SIZE, "LANMessage struct c
 // This causes LANMessage struct size to exceed MAX_LANAPI_PACKET_SIZE.
 // We disable the assert for now, but cross-platform LAN play serialization must be fixed.
 static_assert(sizeof(LANMessage) <= MAX_LANAPI_PACKET_SIZE + 512, "LANMessage struct exceeds even macOS padded size limit");
+
+#pragma pack(push, 1)
+struct LANMessageWire
+{
+    UnsignedInt messageType;
+
+    uint16_t name[g_lanPlayerNameLength + 1];
+    char userName[g_lanLoginNameLength + 1];
+    char hostName[g_lanHostNameLength + 1];
+
+    union
+    {
+        struct { Int seconds; } StartTimer;
+        struct { uint16_t gameName[g_lanGameNameLength + 1]; } GameToLeave;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            Bool inProgress;
+            char options[m_lanMaxOptionsLength + 1];
+            Bool isDirectConnect;
+        } GameInfo;
+        struct {
+            UnsignedInt ip;
+            uint16_t playerName[g_lanPlayerNameLength + 1];
+        } PlayerInfo;
+        struct {
+            UnsignedInt gameIP;
+            UnsignedInt exeCRC;
+            UnsignedInt iniCRC;
+            char serial[g_maxSerialLength];
+        } GameToJoin;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            UnsignedInt gameIP;
+            UnsignedInt playerIP;
+            Int slotPosition;
+        } GameJoined;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            UnsignedInt gameIP;
+            UnsignedInt playerIP;
+            LANAPIInterface::ReturnType reason;
+        } GameNotJoined;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            Bool isAccepted;
+        } Accept;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            UnsignedInt mapCRC;
+            Bool hasMap;
+        } MapStatus;
+        struct {
+            uint16_t gameName[g_lanGameNameLength + 1];
+            LANAPIInterface::ChatType chatType;
+            uint16_t message[g_lanMaxChatLength + 1];
+        } Chat;
+        struct { char options[m_lanMaxOptionsLength+1]; } GameOptions;
+    };
+};
+#pragma pack(pop)
+
+void ConvertWireToLANMessage(const LANMessageWire* wire, LANMessage* msg);
+void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire);
+
 #endif
 
 
