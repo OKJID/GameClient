@@ -1258,7 +1258,7 @@ FontCharsClass::Get_Char_Data (WCHAR ch)
 	const FontCharsClassCharDataStruct *retval = nullptr;
 
 #ifdef __APPLE__
-	if ( ch >= 0xFFFD )
+	if ( ch >= 0xFFFD || ch < 0 )
 	{
 		ch = L'?';
 	}
