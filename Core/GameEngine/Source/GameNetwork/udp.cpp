@@ -156,7 +156,13 @@ Int UDP::Bind(UnsignedInt IP,UnsignedShort Port)
 
   addr.sin_family=AF_INET;
   addr.sin_port=Port;
+#ifdef __APPLE__
+  // On macOS, binding to a specific IP means the socket will NOT receive broadcasts sent to 255.255.255.255.
+  // We must bind to INADDR_ANY to receive lobby discovery broadcasts.
+  addr.sin_addr.s_addr = htonl(INADDR_ANY);
+#else
   addr.sin_addr.s_addr=IP;
+#endif
   fd=socket(AF_INET,SOCK_DGRAM,DEFAULT_PROTOCOL);
   #ifdef _WIN32
   if (fd==SOCKET_ERROR)
@@ -188,7 +194,11 @@ Int UDP::Bind(UnsignedInt IP,UnsignedShort Port)
 #endif
   getsockname(fd, (struct sockaddr *)&addr, &namelen);
 
+#ifdef __APPLE__
+  myIP = IP;
+#else
   myIP=ntohl(addr.sin_addr.s_addr);
+#endif
   myPort=ntohs(addr.sin_port);
 
   retval=SetBlocking(FALSE);

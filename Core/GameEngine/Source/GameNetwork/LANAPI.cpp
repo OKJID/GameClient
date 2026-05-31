@@ -185,10 +185,10 @@ void LANAPI::sendMessage(LANMessage* msg, UnsignedInt ip /* = 0 */)
 	LANMessageWire wireMsg;
 	ConvertLANMessageToWire(msg, &wireMsg);
 	unsigned char* payload = (unsigned char*)&wireMsg;
-	size_t payloadSize = sizeof(LANMessageWire);
+	int payloadSize = (int)sizeof(LANMessageWire);
 #else
 	unsigned char* payload = (unsigned char*)msg;
-	size_t payloadSize = sizeof(LANMessage);
+	int payloadSize = (int)sizeof(LANMessage);
 #endif
 
 	if (ip != 0)
@@ -360,17 +360,26 @@ void LANAPI::update()
 			UnsignedInt senderIP = m_transport->m_inBuffer[i].addr;
 			if (senderIP == m_localIP)
 			{
+#ifdef __APPLE__
+				printf("MAC_LANAPI: Dropping packet from senderIP %08X because it matches m_localIP!\n", senderIP);
+				fflush(stdout);
+#endif
 				m_transport->m_inBuffer[i].length = 0;
 				continue;
 			}
 
-#ifdef __APPLE__
 			LANMessage msgBuffer;
+#ifdef __APPLE__
 			LANMessageWire* wireMsg = (LANMessageWire*)(m_transport->m_inBuffer[i].data);
 			ConvertWireToLANMessage(wireMsg, &msgBuffer);
-			LANMessage* msg = &msgBuffer;
 #else
-			LANMessage* msg = (LANMessage*)(m_transport->m_inBuffer[i].data);
+			memcpy(&msgBuffer, m_transport->m_inBuffer[i].data, sizeof(LANMessage));
+#endif
+			LANMessage* msg = &msgBuffer;
+
+#ifdef __APPLE__
+			printf("MAC_LANAPI: Processing messageType %d from %08X\n", msg->messageType, senderIP);
+			fflush(stdout);
 #endif
 
 			//DEBUG_LOG(("LAN message type %s from %ls (%s@%s)", GetMessageTypeString(msg->messageType).str(),
@@ -1347,9 +1356,9 @@ void ConvertWireToLANMessage(const LANMessageWire* wire, LANMessage* msg) {
             break;
         case LANMessage::MSG_GAME_ANNOUNCE:
             CopyWireToWide(msg->GameInfo.gameName, wire->GameInfo.gameName, ARRAY_SIZE(wire->GameInfo.gameName));
-            msg->GameInfo.inProgress = wire->GameInfo.inProgress;
+            msg->GameInfo.inProgress = (Bool)wire->GameInfo.inProgress;
             memcpy(msg->GameInfo.options, wire->GameInfo.options, sizeof(wire->GameInfo.options));
-            msg->GameInfo.isDirectConnect = wire->GameInfo.isDirectConnect;
+            msg->GameInfo.isDirectConnect = (Bool)wire->GameInfo.isDirectConnect;
             break;
         case LANMessage::MSG_REQUEST_GAME_INFO:
             msg->PlayerInfo.ip = wire->PlayerInfo.ip;
@@ -1371,20 +1380,20 @@ void ConvertWireToLANMessage(const LANMessageWire* wire, LANMessage* msg) {
             CopyWireToWide(msg->GameNotJoined.gameName, wire->GameNotJoined.gameName, ARRAY_SIZE(wire->GameNotJoined.gameName));
             msg->GameNotJoined.gameIP = wire->GameNotJoined.gameIP;
             msg->GameNotJoined.playerIP = wire->GameNotJoined.playerIP;
-            msg->GameNotJoined.reason = wire->GameNotJoined.reason;
+            msg->GameNotJoined.reason = (LANAPIInterface::ReturnType)wire->GameNotJoined.reason;
             break;
         case LANMessage::MSG_SET_ACCEPT:
             CopyWireToWide(msg->Accept.gameName, wire->Accept.gameName, ARRAY_SIZE(wire->Accept.gameName));
-            msg->Accept.isAccepted = wire->Accept.isAccepted;
+            msg->Accept.isAccepted = (Bool)wire->Accept.isAccepted;
             break;
         case LANMessage::MSG_MAP_AVAILABILITY:
             CopyWireToWide(msg->MapStatus.gameName, wire->MapStatus.gameName, ARRAY_SIZE(wire->MapStatus.gameName));
             msg->MapStatus.mapCRC = wire->MapStatus.mapCRC;
-            msg->MapStatus.hasMap = wire->MapStatus.hasMap;
+            msg->MapStatus.hasMap = (Bool)wire->MapStatus.hasMap;
             break;
         case LANMessage::MSG_CHAT:
             CopyWireToWide(msg->Chat.gameName, wire->Chat.gameName, ARRAY_SIZE(wire->Chat.gameName));
-            msg->Chat.chatType = wire->Chat.chatType;
+            msg->Chat.chatType = (LANAPIInterface::ChatType)wire->Chat.chatType;
             CopyWireToWide(msg->Chat.message, wire->Chat.message, ARRAY_SIZE(wire->Chat.message));
             break;
         case LANMessage::MSG_GAME_OPTIONS:
@@ -1395,7 +1404,7 @@ void ConvertWireToLANMessage(const LANMessageWire* wire, LANMessage* msg) {
 
 void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire) {
     memset(wire, 0, sizeof(LANMessageWire));
-    wire->messageType = msg->messageType;
+    wire->messageType = (uint32_t)msg->messageType;
     CopyWideToWire(wire->name, msg->name, ARRAY_SIZE(msg->name));
     memcpy(wire->userName, msg->userName, sizeof(msg->userName));
     memcpy(wire->hostName, msg->hostName, sizeof(msg->hostName));
@@ -1409,9 +1418,9 @@ void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire) {
             break;
         case LANMessage::MSG_GAME_ANNOUNCE:
             CopyWideToWire(wire->GameInfo.gameName, msg->GameInfo.gameName, ARRAY_SIZE(msg->GameInfo.gameName));
-            wire->GameInfo.inProgress = msg->GameInfo.inProgress;
+            wire->GameInfo.inProgress = msg->GameInfo.inProgress ? 1 : 0;
             memcpy(wire->GameInfo.options, msg->GameInfo.options, sizeof(msg->GameInfo.options));
-            wire->GameInfo.isDirectConnect = msg->GameInfo.isDirectConnect;
+            wire->GameInfo.isDirectConnect = msg->GameInfo.isDirectConnect ? 1 : 0;
             break;
         case LANMessage::MSG_REQUEST_GAME_INFO:
             wire->PlayerInfo.ip = msg->PlayerInfo.ip;
@@ -1433,20 +1442,20 @@ void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire) {
             CopyWideToWire(wire->GameNotJoined.gameName, msg->GameNotJoined.gameName, ARRAY_SIZE(msg->GameNotJoined.gameName));
             wire->GameNotJoined.gameIP = msg->GameNotJoined.gameIP;
             wire->GameNotJoined.playerIP = msg->GameNotJoined.playerIP;
-            wire->GameNotJoined.reason = msg->GameNotJoined.reason;
+            wire->GameNotJoined.reason = (int32_t)msg->GameNotJoined.reason;
             break;
         case LANMessage::MSG_SET_ACCEPT:
             CopyWideToWire(wire->Accept.gameName, msg->Accept.gameName, ARRAY_SIZE(msg->Accept.gameName));
-            wire->Accept.isAccepted = msg->Accept.isAccepted;
+            wire->Accept.isAccepted = msg->Accept.isAccepted ? 1 : 0;
             break;
         case LANMessage::MSG_MAP_AVAILABILITY:
             CopyWideToWire(wire->MapStatus.gameName, msg->MapStatus.gameName, ARRAY_SIZE(msg->MapStatus.gameName));
             wire->MapStatus.mapCRC = msg->MapStatus.mapCRC;
-            wire->MapStatus.hasMap = msg->MapStatus.hasMap;
+            wire->MapStatus.hasMap = msg->MapStatus.hasMap ? 1 : 0;
             break;
         case LANMessage::MSG_CHAT:
             CopyWideToWire(wire->Chat.gameName, msg->Chat.gameName, ARRAY_SIZE(msg->Chat.gameName));
-            wire->Chat.chatType = msg->Chat.chatType;
+            wire->Chat.chatType = (int32_t)msg->Chat.chatType;
             CopyWideToWire(wire->Chat.message, msg->Chat.message, ARRAY_SIZE(msg->Chat.message));
             break;
         case LANMessage::MSG_GAME_OPTIONS:
@@ -1455,4 +1464,3 @@ void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire) {
     }
 }
 #endif
-

@@ -275,62 +275,66 @@ static_assert(sizeof(LANMessage) <= MAX_LANAPI_PACKET_SIZE, "LANMessage struct c
 // We disable the assert for now, but cross-platform LAN play serialization must be fixed.
 static_assert(sizeof(LANMessage) <= MAX_LANAPI_PACKET_SIZE + 512, "LANMessage struct exceeds even macOS padded size limit");
 
+#include <stdint.h>
 #pragma pack(push, 1)
-struct LANMessageWire
-{
-    UnsignedInt messageType;
-
-    uint16_t name[g_lanPlayerNameLength + 1];
-    char userName[g_lanLoginNameLength + 1];
-    char hostName[g_lanHostNameLength + 1];
-
-    union
-    {
-        struct { Int seconds; } StartTimer;
-        struct { uint16_t gameName[g_lanGameNameLength + 1]; } GameToLeave;
+struct LANMessageWire {
+    uint32_t messageType;
+    uint16_t name[13];
+    char userName[2];
+    char hostName[2];
+    
+    union {
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            Bool inProgress;
+            int32_t seconds;
+        } StartTimer;
+        struct {
+            uint16_t gameName[17];
+        } GameToLeave;
+        struct {
+            uint16_t gameName[17];
+            uint8_t inProgress;
             char options[m_lanMaxOptionsLength + 1];
-            Bool isDirectConnect;
+            uint8_t isDirectConnect;
         } GameInfo;
         struct {
-            UnsignedInt ip;
-            uint16_t playerName[g_lanPlayerNameLength + 1];
+            uint32_t ip;
+            uint16_t playerName[13];
         } PlayerInfo;
         struct {
-            UnsignedInt gameIP;
-            UnsignedInt exeCRC;
-            UnsignedInt iniCRC;
+            uint32_t gameIP;
+            uint32_t exeCRC;
+            uint32_t iniCRC;
             char serial[g_maxSerialLength];
         } GameToJoin;
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            UnsignedInt gameIP;
-            UnsignedInt playerIP;
-            Int slotPosition;
+            uint16_t gameName[17];
+            uint32_t gameIP;
+            uint32_t playerIP;
+            int32_t slotPosition;
         } GameJoined;
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            UnsignedInt gameIP;
-            UnsignedInt playerIP;
-            LANAPIInterface::ReturnType reason;
+            uint16_t gameName[17];
+            uint32_t gameIP;
+            uint32_t playerIP;
+            int32_t reason;
         } GameNotJoined;
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            Bool isAccepted;
+            uint16_t gameName[17];
+            uint8_t isAccepted;
         } Accept;
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            UnsignedInt mapCRC;
-            Bool hasMap;
+            uint16_t gameName[17];
+            uint32_t mapCRC;
+            uint8_t hasMap;
         } MapStatus;
         struct {
-            uint16_t gameName[g_lanGameNameLength + 1];
-            LANAPIInterface::ChatType chatType;
-            uint16_t message[g_lanMaxChatLength + 1];
+            uint16_t gameName[17];
+            int32_t chatType;
+            uint16_t message[101];
         } Chat;
-        struct { char options[m_lanMaxOptionsLength+1]; } GameOptions;
+        struct {
+            char options[m_lanMaxOptionsLength+1];
+        } GameOptions;
     };
 };
 #pragma pack(pop)
@@ -339,7 +343,6 @@ void ConvertWireToLANMessage(const LANMessageWire* wire, LANMessage* msg);
 void ConvertLANMessageToWire(const LANMessage* msg, LANMessageWire* wire);
 
 #endif
-
 
 /**
  * The LANAPI class is used to instantiate a singleton which

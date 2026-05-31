@@ -40,6 +40,10 @@
 #include "GameNetwork/LANAPICallbacks.h"
 #include "GameClient/MapUtil.h"
 
+#ifdef __APPLE__
+#include <ifaddrs.h>
+#endif
+
 void LANAPI::handleRequestLocations( LANMessage *msg, UnsignedInt senderIP )
 {
 	if (m_inLobby)
@@ -424,7 +428,26 @@ void LANAPI::handleRequestJoin( LANMessage *msg, UnsignedInt senderIP )
 
 void LANAPI::handleJoinAccept( LANMessage *msg, UnsignedInt senderIP )
 {
-	if (msg->GameJoined.playerIP == m_localIP) // Is it for us?
+	bool isForMe = (msg->GameJoined.playerIP == m_localIP);
+#ifdef __APPLE__
+	if (!isForMe) {
+		struct ifaddrs *interfaces = nullptr;
+		if (getifaddrs(&interfaces) == 0) {
+			for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
+				if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
+					struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
+					if (ntohl(addr->sin_addr.s_addr) == msg->GameJoined.playerIP) {
+						isForMe = true;
+						break;
+					}
+				}
+			}
+			freeifaddrs(interfaces);
+		}
+	}
+#endif
+
+	if (isForMe) // Is it for us?
 	{
 		if (m_pendingAction == ACT_JOIN) // Are we trying to join?
 		{
@@ -437,6 +460,15 @@ void LANAPI::handleJoinAccept( LANMessage *msg, UnsignedInt senderIP )
 			}
 			else
 			{
+#ifdef __APPLE__
+				// The host told us our actual IP from its perspective.
+				// Since we have multiple interfaces (e.g. Parallels, VPNs), we must use the IP
+				// the host sees to correctly identify ourselves in the slot list during MSG_GAME_OPTIONS.
+				m_localIP = msg->GameJoined.playerIP;
+				printf("MAC_LANAPI: Updated m_localIP to %08X from host's MSG_JOIN_ACCEPT\n", m_localIP);
+				fflush(stdout);
+#endif
+
 				m_inLobby = false;
 				AsciiString options = GameInfoToAsciiString(m_currentGame);
 				m_currentGame->enterGame();
@@ -453,6 +485,8 @@ void LANAPI::handleJoinAccept( LANMessage *msg, UnsignedInt senderIP )
 				slot.setHost(m_hostName);
 				m_currentGame->setSlot(pos, slot);
 
+				m_currentGame->getLANSlot(0)->setState(SLOT_PLAYER, msg->name);
+				m_currentGame->getLANSlot(0)->setIP(msg->GameJoined.gameIP);
 				m_currentGame->getLANSlot(0)->setHost(msg->hostName);
 				m_currentGame->getLANSlot(0)->setLogin(msg->userName);
 
@@ -474,7 +508,26 @@ void LANAPI::handleJoinAccept( LANMessage *msg, UnsignedInt senderIP )
 
 void LANAPI::handleJoinDeny( LANMessage *msg, UnsignedInt senderIP )
 {
-	if (msg->GameJoined.playerIP == m_localIP) // Is it for us?
+	bool isForMe = (msg->GameJoined.playerIP == m_localIP);
+#ifdef __APPLE__
+	if (!isForMe) {
+		struct ifaddrs *interfaces = nullptr;
+		if (getifaddrs(&interfaces) == 0) {
+			for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
+				if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
+					struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
+					if (ntohl(addr->sin_addr.s_addr) == msg->GameJoined.playerIP) {
+						isForMe = true;
+						break;
+					}
+				}
+			}
+			freeifaddrs(interfaces);
+		}
+	}
+#endif
+
+	if (isForMe) // Is it for us?
 	{
 		if (m_pendingAction == ACT_JOIN) // Are we trying to join?
 		{

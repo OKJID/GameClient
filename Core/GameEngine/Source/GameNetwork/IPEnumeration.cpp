@@ -35,6 +35,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <errno.h>
+#include <ifaddrs.h>
 #define WSAGetLastError() (errno)
 #define closesocket close
 #define HOSTENT struct hostent
@@ -89,6 +90,32 @@ EnumeratedIP * IPEnumeration::getAddresses()
 		m_isWinsockInitialized = true;
 	}
 
+#ifdef __APPLE__
+	struct ifaddrs *interfaces = nullptr;
+	if (getifaddrs(&interfaces) == 0) {
+		for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
+			if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
+				struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
+				UnsignedInt ip = ntohl(addr->sin_addr.s_addr);
+				// Skip loopback (127.x.x.x) unless we have nothing else, 
+				// but typically we want the actual LAN address.
+				if ((ip & 0xFF000000) != 0x7F000000) {
+					addNewIP(
+						(UnsignedByte)(ip >> 24),
+						(UnsignedByte)(ip >> 16),
+						(UnsignedByte)(ip >> 8),
+						(UnsignedByte)(ip));
+				}
+			}
+		}
+		freeifaddrs(interfaces);
+	}
+	
+	// Fallback if no non-loopback IPs found
+	if (!m_IPlist) {
+		addNewIP(127, 0, 0, 1);
+	}
+#else
 	// get the local machine's host name
 	char hostname[256];
 	if (gethostname(hostname, sizeof(hostname)))
@@ -135,6 +162,7 @@ EnumeratedIP * IPEnumeration::getAddresses()
 			(UnsignedByte)entry[2],
 			(UnsignedByte)entry[3]);
 	}
+#endif
 
 	return m_IPlist;
 }

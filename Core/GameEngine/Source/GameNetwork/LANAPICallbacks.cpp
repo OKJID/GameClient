@@ -284,8 +284,16 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 			updateGameOptions();
 		}
 		Bool booted = true;
+#ifdef __APPLE__
+		printf("MAC_LANAPI: OnGameOptions: m_localIP=0x%08X, options string: %s\n", m_localIP, options.str());
+		fflush(stdout);
+#endif
 		for(Int player = 1; player< MAX_SLOTS; player++)
 		{
+#ifdef __APPLE__
+			printf("MAC_LANAPI: OnGameOptions check: slot %d IP=0x%08X\n", player, m_currentGame->getIP(player));
+			fflush(stdout);
+#endif
 			if(m_currentGame->getIP(player) == m_localIP)
 			{
 				booted = false;
@@ -294,6 +302,10 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 		}
 		if(booted)
 		{
+#ifdef __APPLE__
+			printf("MAC_LANAPI: OnGameOptions: Booted! Could not find m_localIP in the parsed game options.\n");
+			fflush(stdout);
+#endif
 			// restore the options with us in so we can save prefs
 			ParseGameOptionsString(m_currentGame, oldOptions);
 			OnPlayerLeave(m_name);

@@ -29,6 +29,10 @@
 #include "GameNetwork/Transport.h"
 #include "GameNetwork/NetworkInterface.h"
 
+#ifdef __APPLE__
+#include <ifaddrs.h>
+#endif
+
 
 //--------------------------------------------------------------------------
 // Packet-level encryption is an XOR operation, for speed reasons.  To get
@@ -303,6 +307,28 @@ Bool UDPTransport::doRecv()
 		}
 #endif
 
+#ifdef __APPLE__
+		// ROBST SELF-PACKET FILTERING FOR MACOS
+		// Ignore packets originating from ANY of our local network interfaces.
+		bool isSelf = false;
+		struct ifaddrs *interfaces = nullptr;
+		if (getifaddrs(&interfaces) == 0) {
+			for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
+				if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
+					struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
+					if (ntohl(from.sin_addr.s_addr) == ntohl(addr->sin_addr.s_addr)) {
+						isSelf = true;
+						break;
+					}
+				}
+			}
+			freeifaddrs(interfaces);
+		}
+		if (isSelf) {
+			continue;
+		}
+#endif
+
 		//		DEBUG_LOG(("UDPTransport::doRecv - Got something! len = %d", len));
 				// Decrypt the packet
 		//		DEBUG_LOG_RAW(("buffer = "));
@@ -313,6 +339,9 @@ Bool UDPTransport::doRecv()
 		decryptBuf(buf, len);
 
 		incomingMessage.length = len - sizeof(TransportMessageHeader);
+
+        printf("MAC_UDP: Received %d bytes from %08X, magic=%04X, crc=%08X\n", len, ntohl(from.sin_addr.s_addr), incomingMessage.header.magic, incomingMessage.header.crc);
+        if (!isGeneralsPacket(&incomingMessage)) printf("MAC_UDP: isGeneralsPacket FAILED!\n");
 
 		if (len <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
 		{
