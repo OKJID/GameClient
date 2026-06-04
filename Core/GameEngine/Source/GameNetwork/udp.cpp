@@ -171,6 +171,16 @@ Int UDP::Bind(UnsignedInt IP,UnsignedShort Port)
   if (fd==-1)
     return(UNKNOWN);
 
+#ifdef __APPLE__
+  {
+    int reuse = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(reuse));
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    int rcvbuf = 512 * 1024;
+    setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+  }
+#endif
+
   retval=bind(fd,(struct sockaddr *)&addr,sizeof(addr));
 
   #ifdef _WIN32
@@ -305,6 +315,18 @@ Int UDP::Read(unsigned char *msg,UnsignedInt len,sockaddr_in *from)
 				retval = 0;
 			}
 		}
+    #elif defined(__APPLE__) || defined(_UNIX)
+    if (retval == -1)
+    {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
+        retval = 0;
+      }
+      else
+      {
+        m_lastError = errno;
+      }
+    }
     #endif
   }
   else
@@ -326,6 +348,18 @@ Int UDP::Read(unsigned char *msg,UnsignedInt len,sockaddr_in *from)
 				retval = 0;
 			}
 		}
+    #elif defined(__APPLE__) || defined(_UNIX)
+    if (retval == -1)
+    {
+      if (errno == EAGAIN || errno == EWOULDBLOCK)
+      {
+        retval = 0;
+      }
+      else
+      {
+        m_lastError = errno;
+      }
+    }
     #endif
   }
   return(retval);

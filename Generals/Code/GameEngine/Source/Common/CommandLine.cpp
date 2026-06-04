@@ -54,6 +54,7 @@ Bool g_crcModuleDataFromClient = FALSE;
 Bool g_verifyClientCRC = FALSE; // verify that GameLogic CRC doesn't change from client
 Bool g_clientDeepCRC = FALSE;
 Bool g_logObjectCRCs = FALSE;
+Bool g_logRandom = FALSE;
 #endif
 
 #if defined(RTS_DEBUG)
@@ -307,6 +308,12 @@ Int parseLogObjectCRCs(char *args[], int argc)
 #ifdef DEBUG_CRC
 	g_logObjectCRCs = TRUE;
 #endif
+	return 1;
+}
+
+Int parseLogRandom(char *args[], int argc)
+{
+	g_logRandom = TRUE;
 	return 1;
 }
 
@@ -1223,6 +1230,7 @@ static CommandLineParam paramsForEngineInit[] =
 
 	// Log CRC of Objects and Weapons (See Object::crc and Weapon::crc)
 	{ "-LogObjectCRCs", parseLogObjectCRCs },
+	{ "-logRandom", parseLogRandom },
 
 	// Number of frames between each CRC check between all players in multiplayer games
 	// (if not all crcs are equal, mismatch occurs).

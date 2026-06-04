@@ -706,6 +706,13 @@ void LANAPI::handleChat( LANMessage *msg, UnsignedInt senderIP )
 
 void LANAPI::handleGameStart( LANMessage *msg, UnsignedInt senderIP )
 {
+#ifdef __APPLE__
+	printf("MAC_LANAPI: handleGameStart RECEIVED from %08X, inLobby=%d, hasGame=%d, hostIP=%08X, inProgress=%d\n",
+		senderIP, m_inLobby, m_currentGame != nullptr,
+		m_currentGame ? m_currentGame->getIP(0) : 0,
+		m_currentGame ? m_currentGame->isGameInProgress() : -1);
+	fflush(stdout);
+#endif
 	if (!m_inLobby && m_currentGame && m_currentGame->getIP(0) == senderIP && !m_currentGame->isGameInProgress())
 	{
 		OnGameStart();

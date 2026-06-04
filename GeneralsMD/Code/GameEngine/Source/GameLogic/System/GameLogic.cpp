@@ -124,6 +124,8 @@ struct QuitGameException {};
 
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
+FILE* g_diagLog = nullptr;
+
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 // If defined, the game times various units.
 #ifdef DO_UNIT_TIMINGS
@@ -843,9 +845,30 @@ static void populateRandomSideAndColor(GameInfo* game)
 		// clean up random factions
 		Int playerTemplateIdx = slot->getPlayerTemplate();
 		DEBUG_LOG(("Player %d has playerTemplate index %d", i, playerTemplateIdx));
+		CRCGEN_LOG(("Slot %d logic start: isOccupied=%d, isHuman=%d, isAI=%d, playerTemplate=%d, count=%d",
+			i, slot->isOccupied(), slot->isHuman(), slot->isAI(), playerTemplateIdx, ThePlayerTemplateStore->getPlayerTemplateCount()));
+#ifdef __APPLE__
+		printf("MAC_LOGIC: populateRandomSideAndColor: slot=%d, playerTemplate=%d, color=%d\n",
+			i, playerTemplateIdx, slot->getColor());
+		fflush(stdout);
+#endif
+		if (g_logRandom)
+		{
+			addCRCRandomLine("Slot %d side logic check, playerTemplateIdx=%d", i, playerTemplateIdx);
+		}
+
 		while (playerTemplateIdx != PLAYERTEMPLATE_OBSERVER && (playerTemplateIdx < 0 || playerTemplateIdx >= ThePlayerTemplateStore->getPlayerTemplateCount()))
 		{
 			DEBUG_ASSERTCRASH(playerTemplateIdx == PLAYERTEMPLATE_RANDOM, ("Non-random bad playerTemplate %d in slot %d", playerTemplateIdx, i));
+			CRCGEN_LOG(("Slot %d entering RANDOM generation loop", i));
+#ifdef __APPLE__
+			printf("MAC_LOGIC: Slot %d entering RANDOM generation loop (playerTemplate=%d)\n", i, playerTemplateIdx);
+			fflush(stdout);
+#endif
+			if (g_logRandom)
+			{
+				addCRCRandomLine("Slot %d entering RANDOM generation loop", i);
+			}
 #ifdef MORE_RANDOM
 			// our RNG is basically shit -- horribly nonrandom at the start of the sequence.
 			// get a few values at random to get rid of the dreck.
@@ -879,6 +902,10 @@ static void populateRandomSideAndColor(GameInfo* game)
 		if (colorIdx < 0 || colorIdx >= TheMultiplayerSettings->getNumColors())
 		{
 			DEBUG_ASSERTCRASH(colorIdx == -1, ("Non-random bad color %d in slot %d", colorIdx, i));
+#ifdef __APPLE__
+			printf("MAC_LOGIC: Slot %d entering RANDOM color loop (color=%d)\n", i, colorIdx);
+			fflush(stdout);
+#endif
 			while (colorIdx == -1)
 			{
 				colorIdx = GameLogicRandomValue(0, TheMultiplayerSettings->getNumColors() - 1);
@@ -888,6 +915,10 @@ static void populateRandomSideAndColor(GameInfo* game)
 			DEBUG_LOG(("Setting color %d to %d", i, colorIdx));
 			slot->setColor(colorIdx);
 		}
+#ifdef __APPLE__
+		printf("MAC_LOGIC: Slot %d FINAL: playerTemplate=%d, color=%d\n", i, slot->getPlayerTemplate(), slot->getColor());
+		fflush(stdout);
+#endif
 	}
 }
 
@@ -3121,7 +3152,9 @@ inline Bool isLowerPriority(const UpdateModulePtr a, const UpdateModulePtr b)
 	DEBUG_ASSERTCRASH(a && b, ("these may no longer be null"));
 	UnsignedInt f1 = a->friend_getPriority();
 	UnsignedInt f2 = b->friend_getPriority();
-	return f1 > f2;
+	if (f1 != f2)
+		return f1 > f2;
+	return a->friend_getObject()->getID() > b->friend_getObject()->getID();
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -3919,6 +3952,12 @@ void GameLogic::update()
 #endif
 
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
+
+	{
+		static int diagLastFrame = -1;
+		if (m_frame == 1 && diagLastFrame != 1) { if (g_diagLog) fclose(g_diagLog); g_diagLog = fopen("/Users/okji/dev/games/GameClient/CRCLogs2/DiagLog.txt", "w"); }
+		diagLastFrame = m_frame;
+	}
 #ifdef DO_UNIT_TIMINGS
 	unitTimings();
 #endif
@@ -3939,6 +3978,7 @@ void GameLogic::update()
 		Profile::StartRange("map_load");
 #endif
 		startNewGame(FALSE);
+		DEBUG_INFO_MAC(("[FRAME_TRACK] startNewGame done, m_frame=%d m_startNewGame=%d", m_frame, m_startNewGame));
 #ifdef RTS_PROFILE_LEGACY
 		Profile::StopRange("map_load");
 #endif
@@ -4068,6 +4108,14 @@ void GameLogic::update()
 #endif
 
 	{
+		{
+			extern FILE* g_diagLog;
+			if (g_diagLog) {
+				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
+				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
+				fflush(g_diagLog);
+			}
+		}
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
@@ -4115,6 +4163,11 @@ void GameLogic::update()
 			// else defer it till next frame and re-push it
 			u->friend_setNextCallFrame(now + sleepLen);
 			rebalanceSleepyUpdate(0);
+
+			{
+				extern FILE* g_diagLog;
+				if (g_diagLog) { fprintf(g_diagLog, "SLEEPY f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(g_diagLog); }
+			}
 		}
 	}
 
@@ -4217,6 +4270,7 @@ void GameLogic::update()
 	if (!m_startNewGame)
 	{
 		m_frame++;
+		DEBUG_INFO_MAC(("[FRAME_TRACK] m_frame++ -> %d", m_frame));
 		m_hasUpdated = TRUE;
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 		if (m_frame % 2 == 0)
@@ -4314,8 +4368,13 @@ void GameLogic::registerObject(Object* obj)
 	UnsignedInt now = TheGameLogic->getFrame();
 	if (now == 0)
 		now = 1;
+
+	int regCount = 0;
+	int totalBehaviors = 0;
+
 	for (BehaviorModule** b = obj->getBehaviorModules(); *b; ++b)
 	{
+		totalBehaviors++;
 #ifdef DIRECT_UPDATEMODULE_ACCESS
 		// evil, but necessary at this point. (srj)
 		UpdateModulePtr u = (UpdateModulePtr)((*b)->getUpdate());
@@ -4325,6 +4384,12 @@ void GameLogic::registerObject(Object* obj)
 		if (!u)
 			continue;
 
+		regCount++;
+		{
+			extern FILE* g_diagLog;
+			if (!g_diagLog) { g_diagLog = fopen("/Users/okji/dev/games/GameClient/CRCLogs2/DiagLog.txt", "w"); }
+			if (g_diagLog && now == 1) { fprintf(g_diagLog, "REGMOD id=%d mod=%s wake=%d\n", obj->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame()); fflush(g_diagLog); }
+		}
 		UnsignedInt when = u->friend_getNextCallFrame();
 #ifdef ALLOW_NONSLEEPY_UPDATES
 		if (when == 0)
@@ -4344,6 +4409,11 @@ void GameLogic::registerObject(Object* obj)
 			DEBUG_ASSERTCRASH(u->friend_getNextCallFrame() >= now, ("you may not specify a zero initial sleep time for sleepy modules (%d %d)", u->friend_getNextCallFrame(), now));
 			pushSleepyUpdate(u);
 		}
+	}
+
+	{
+		extern FILE* g_diagLog;
+		if (g_diagLog) { fprintf(g_diagLog, "REG id=%d beh=%d slp=%d f=%d\n", obj->getID(), totalBehaviors, regCount, now); fflush(g_diagLog); }
 	}
 
 }

@@ -331,7 +331,11 @@ void LANAPI::update()
 {
 	if (LANbuttonPushed)
 		return;
+#ifdef __APPLE__
+	static const UnsignedInt LANAPIUpdateDelay = 33;
+#else
 	static const UnsignedInt LANAPIUpdateDelay = 200;
+#endif
 	UnsignedInt now = timeGetTime();
 
 	if (now > m_lastUpdate + LANAPIUpdateDelay)

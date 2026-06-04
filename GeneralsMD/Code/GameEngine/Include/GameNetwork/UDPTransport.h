@@ -37,6 +37,10 @@
 #include "GameNetwork/udp.h"
 #include "GameNetwork/NetworkDefs.h"
 
+#ifdef __APPLE__
+#include <vector>
+#endif
+
 /**
  * The transport layer handles the UDP socket for the game, and will packetize and
  * de-packetize multiple ACK/CommandPacket/etc packets into larger aggregates.
@@ -68,6 +72,11 @@ public:
 private:
 	Bool m_winsockInit;
 	UDP *m_udpsock;
+
+#ifdef __APPLE__
+	std::vector<UnsignedInt> m_localIPs;
+	void refreshLocalIPs();
+#endif
 };
 
 #endif // _UDPTRANSPORT_H_

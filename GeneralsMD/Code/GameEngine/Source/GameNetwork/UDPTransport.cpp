@@ -31,6 +31,7 @@
 
 #ifdef __APPLE__
 #include <ifaddrs.h>
+#include "GameNetwork/UDPTransport.h"
 #endif
 
 
@@ -162,8 +163,29 @@ Bool UDPTransport::init(UnsignedInt ip, UnsignedShort port)
 		m_usePacketLoss = true;
 #endif
 
+#ifdef __APPLE__
+	refreshLocalIPs();
+#endif
+
 	return true;
 }
+
+#ifdef __APPLE__
+void UDPTransport::refreshLocalIPs() {
+	m_localIPs.clear();
+	struct ifaddrs *interfaces = nullptr;
+	if (getifaddrs(&interfaces) != 0) {
+		return;
+	}
+	for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
+		if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
+			struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
+			m_localIPs.push_back(ntohl(addr->sin_addr.s_addr));
+		}
+	}
+	freeifaddrs(interfaces);
+}
+#endif
 
 void UDPTransport::reset(void)
 {
@@ -308,24 +330,18 @@ Bool UDPTransport::doRecv()
 #endif
 
 #ifdef __APPLE__
-		// ROBST SELF-PACKET FILTERING FOR MACOS
-		// Ignore packets originating from ANY of our local network interfaces.
-		bool isSelf = false;
-		struct ifaddrs *interfaces = nullptr;
-		if (getifaddrs(&interfaces) == 0) {
-			for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
-				if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
-					struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
-					if (ntohl(from.sin_addr.s_addr) == ntohl(addr->sin_addr.s_addr)) {
-						isSelf = true;
-						break;
-					}
+		{
+			UnsignedInt srcIP = ntohl(from.sin_addr.s_addr);
+			bool isSelf = false;
+			for (UnsignedInt localIP : m_localIPs) {
+				if (srcIP == localIP) {
+					isSelf = true;
+					break;
 				}
 			}
-			freeifaddrs(interfaces);
-		}
-		if (isSelf) {
-			continue;
+			if (isSelf) {
+				continue;
+			}
 		}
 #endif
 
@@ -356,7 +372,8 @@ Bool UDPTransport::doRecv()
 		m_incomingPackets[m_statisticsSlot]++;
 		m_incomingBytes[m_statisticsSlot] += len;
 
-		for (int i = 0; i < MAX_MESSAGES; ++i)
+		int i;
+		for (i = 0; i < MAX_MESSAGES; ++i)
 		{
 #if defined(RTS_DEBUG)
 			// Latency simulation
@@ -392,7 +409,9 @@ Bool UDPTransport::doRecv()
 			}
 #endif
 		}
-		//DEBUG_ASSERTCRASH(i<MAX_MESSAGES, ("Message lost!"));
+		if (i >= MAX_MESSAGES) {
+			printf("MAC_UDP: DROPPED packet (inBuffer full, %d slots)\n", MAX_MESSAGES);
+		}
 	}
 
 	if (len == -1) {

@@ -8,7 +8,7 @@
 #   sh build_run_mac.sh --test                # build + run tests
 #   sh build_run_mac.sh --lldb                # build + run with lldb
 #   sh build_run_mac.sh --release             # configure/build game with debug logging/crashing
-#   sh build_run_mac.sh --full_logs           # build + run with full logs
+#   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -26,7 +26,7 @@ DO_CLEAN=false
 DO_SCREENSHOT=false
 DO_TEST=false
 DO_LLDB=false
-DO_FULL_LOGS=false
+DO_CRC_LOGS=false
 DO_DEBUG=true
 TEST_FILTER=""
 SCREENSHOT_DELAY=""
@@ -56,8 +56,8 @@ for arg in "$@"; do
         --release)
             DO_DEBUG=false
             ;;
-        --full_logs)
-            DO_FULL_LOGS=true
+        --crc_logs)
+            DO_CRC_LOGS=true
             ;;
     esac
 done
@@ -127,8 +127,8 @@ killall -9 lldb 2>/dev/null
 
 sleep 1
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"
@@ -156,7 +156,7 @@ GAME_ARGS=""
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
-[ "$DO_FULL_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame /Users/okji/dev/games/GameClient/CRCLogs"
+[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame /Users/okji/dev/games/GameClient/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
 
 GAME_CMD="build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH"
 
