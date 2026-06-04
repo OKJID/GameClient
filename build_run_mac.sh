@@ -127,8 +127,16 @@ killall -9 lldb 2>/dev/null
 
 sleep 1
 
-# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+if [ "$DO_CRC_LOGS" = true ]; then
+    echo "Clearing old CRC logs..."
+    rm -rf "$PWD/CRCLogs"/* 2>/dev/null
+    rm -rf "$PWD/CRCLogs2"/* 2>/dev/null
+    mkdir -p "$PWD/CRCLogs"
+    mkdir -p "$PWD/CRCLogs2"
+fi
+
+export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"
@@ -156,7 +164,7 @@ GAME_ARGS=""
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
-[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame /Users/okji/dev/games/GameClient/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
+[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
 
 GAME_CMD="build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH"
 
