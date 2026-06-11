@@ -129,10 +129,11 @@ sleep 1
 
 if [ "$DO_CRC_LOGS" = true ]; then
     echo "Clearing old CRC logs..."
-    rm -rf "$PWD/CRCLogs"/* 2>/dev/null
-    rm -rf "$PWD/CRCLogs2"/* 2>/dev/null
-    mkdir -p "$PWD/CRCLogs"
-    mkdir -p "$PWD/CRCLogs2"
+    mkdir -p "$PWD/.agent/temp_mac_logs"
+    rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"/* 2>/dev/null
+    rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs2"/* 2>/dev/null
+    mkdir -p "$PWD/.agent/temp_mac_logs/CRCLogs"
+    mkdir -p "$PWD/.agent/temp_mac_logs/CRCLogs2"
 fi
 
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
@@ -164,7 +165,7 @@ GAME_ARGS=""
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
-[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
+[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/.agent/temp_mac_logs/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
 
 GAME_CMD="build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH"
 
@@ -203,4 +204,17 @@ else
     else
         open -W -n "build/macos/GeneralsMD/GeneralsOnlineZH.app" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
     fi
+fi
+
+if [ "$DO_CRC_LOGS" = true ]; then
+    echo "Gathering diagnostic logs from $GENERALS_INSTALL_PATH to .agent/temp_mac_logs/..."
+    mkdir -p "$PWD/.agent/temp_mac_logs"
+    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" \) -exec mv {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
+    
+    if [ -d "$PWD/CRCLogs" ]; then
+        rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"
+        mv "$PWD/CRCLogs" "$PWD/.agent/temp_mac_logs/"
+    fi
+    
+    echo "Logs successfully collected into .agent/temp_mac_logs/"
 fi

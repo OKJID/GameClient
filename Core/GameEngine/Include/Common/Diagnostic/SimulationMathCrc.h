@@ -19,7 +19,7 @@
 #pragma once
 
 // Flags for diagnostic math benchmarks
-#define RUN_MATH_BENCHMARK_REPLAY400_FLAG (0)
+#define RUN_MATH_BENCHMARK_REPLAY400_FLAG (1)
 
 class SimulationMathCrc
 {

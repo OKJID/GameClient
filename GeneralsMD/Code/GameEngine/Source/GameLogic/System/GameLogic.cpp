@@ -580,6 +580,8 @@ void GameLogic::reset()
 	TheWeatherSetting = (WeatherSetting*)ws->deleteOverrides();
 
 	m_rankPointsToAddAtGameStart = 0;
+
+	if (g_diagLog) { fclose(g_diagLog); g_diagLog = nullptr; }
 }
 
 static Object* placeObjectAtPosition(Int slotNum, AsciiString objectTemplateName, Coord3D& pos, Player* pPlayer,
@@ -3954,9 +3956,17 @@ void GameLogic::update()
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
 
 	{
-		static int diagLastFrame = -1;
-		if (m_frame == 1 && diagLastFrame != 1) { if (g_diagLog) fclose(g_diagLog); g_diagLog = fopen("/Users/okji/dev/games/GameClient/CRCLogs2/DiagLog.txt", "w"); }
-		diagLastFrame = m_frame;
+		if (m_frame <= 1 && !g_diagLog && getGameMode() != GAME_SHELL) {
+			const char* installPath = getenv("GENERALS_INSTALL_PATH");
+			if (installPath) {
+				char diagPath[512];
+				snprintf(diagPath, sizeof(diagPath), "%s/DiagLog.txt", installPath);
+				g_diagLog = fopen(diagPath, "w");
+			}
+			if (!g_diagLog) {
+				g_diagLog = fopen("DiagLog.txt", "w");
+			}
+		}
 	}
 #ifdef DO_UNIT_TIMINGS
 	unitTimings();
@@ -4114,6 +4124,27 @@ void GameLogic::update()
 				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
 				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
 				fflush(g_diagLog);
+			}
+
+			static FILE* s_mtxFile = NULL;
+			static bool s_mtxTried = false;
+			if (!s_mtxTried && getGameMode() != GAME_SHELL) {
+				s_mtxTried = true;
+				s_mtxFile = fopen("MtxDiag.txt", "w");
+			}
+			if (s_mtxFile && getGameMode() != GAME_SHELL) {
+				for (Object *obj = getFirstObject(); obj; obj = obj->getNextObject()) {
+					const Matrix3D *mtx = obj->getTransformMatrix();
+					const float *f = (const float*)mtx;
+					unsigned int hx, hy, hz, hr0;
+					memcpy(&hx, &f[3], 4);
+					memcpy(&hy, &f[7], 4);
+					memcpy(&hz, &f[11], 4);
+					memcpy(&hr0, &f[0], 4);
+					fprintf(s_mtxFile, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
+						now, obj->getID(), hx, hy, hz, hr0);
+				}
+				fflush(s_mtxFile);
 			}
 		}
 		while (!m_sleepyUpdates.empty())
@@ -4387,7 +4418,6 @@ void GameLogic::registerObject(Object* obj)
 		regCount++;
 		{
 			extern FILE* g_diagLog;
-			if (!g_diagLog) { g_diagLog = fopen("/Users/okji/dev/games/GameClient/CRCLogs2/DiagLog.txt", "w"); }
 			if (g_diagLog && now == 1) { fprintf(g_diagLog, "REGMOD id=%d mod=%s wake=%d\n", obj->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame()); fflush(g_diagLog); }
 		}
 		UnsignedInt when = u->friend_getNextCallFrame();
