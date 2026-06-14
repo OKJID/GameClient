@@ -234,6 +234,30 @@ void ActiveBody::setCorrectDamageState()
 //-------------------------------------------------------------------------------------------------
 void ActiveBody::setDamageState( BodyDamageType newState )
 {
+	if (TheGameLogic)
+	{
+		static FILE* s_diagFile = NULL;
+		static bool s_triedDiag = false;
+		if (!s_triedDiag && TheGameLogic->getFrame() > 0)
+		{
+			s_triedDiag = true;
+			s_diagFile = fopen("DamageStateDiag.txt", "w");
+		}
+		
+		if (s_diagFile)
+		{
+			fprintf(s_diagFile, "TAG f%d obj=%d oldState=%d newState=%d health=%f max=%f\n", 
+				TheGameLogic->getFrame(), 
+				getObject()->getID(), 
+				m_curDamageState, 
+				newState, 
+				m_currentHealth, 
+				m_maxHealth);
+				
+			fflush(s_diagFile);
+		}
+	}
+
 	Real ratio = 1.0f;
 	if( newState == BODY_PRISTINE )
 	{

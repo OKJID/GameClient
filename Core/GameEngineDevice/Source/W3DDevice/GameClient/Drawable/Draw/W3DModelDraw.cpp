@@ -589,6 +589,45 @@ void ModelConditionInfo::validateStuff(RenderObjClass* robj, Real scale, const s
 //-------------------------------------------------------------------------------------------------
 void ModelConditionInfo::validateCachedBones(RenderObjClass* robj, Real scale) const
 {
+	static unsigned int s_validateCallCount = 0;
+	s_validateCallCount++;
+
+	if (TheGameLogic)
+	{
+		static FILE* s_diagFile = NULL;
+		static bool s_triedDiag = false;
+		if (!s_triedDiag && TheGameLogic->getFrame() > 0)
+		{
+			s_triedDiag = true;
+			s_diagFile = fopen("ValidateCachedBonesDiag.txt", "w");
+		}
+		
+		if (s_diagFile)
+		{
+			fprintf(s_diagFile, "TAG f%d call=%u isLogic=%d validStuff=%08X pristineCount=%d model=%s\n", 
+				TheGameLogic->getFrame(), 
+				s_validateCallCount, 
+				isValidTimeToCalcLogicStuff() ? 1 : 0, 
+				m_validStuff, 
+				(int)m_pristineBones.size(),
+				m_modelName.isEmpty() ? "none" : m_modelName.str());
+				
+			for (PristineBoneInfoMap::const_iterator it = m_pristineBones.begin(); it != m_pristineBones.end(); ++it)
+			{
+				fprintf(s_diagFile, "  BONE hash=%u str='%s' idx=%d x=%f y=%f z=%f\n", 
+					it->first,
+					KEYNAME(it->first).str(),
+					it->second.boneIndex,
+					it->second.mtx.Get_X_Translation(),
+					it->second.mtx.Get_Y_Translation(),
+					it->second.mtx.Get_Z_Translation()
+				);
+			}
+				
+			fflush(s_diagFile);
+		}
+	}
+
 	//DEBUG_ASSERTCRASH(isValidTimeToCalcLogicStuff(), ("calling validateCachedBones() from in GameClient!"));
 	if (m_validStuff & PRISTINE_BONES_VALID)
 		return;

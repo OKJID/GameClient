@@ -179,10 +179,67 @@ Int SlowDeathBehavior::getProbabilityModifier( const DamageInfo *damageInfo ) co
 	// severely killed, and more sedate ones when only slightly killed.
 	// eg ( 200 hp max, had 10 left, took 50 damage, 40 overkill, (40/200) * 100 = 20 overkill %)
 	Int overkillDamage = damageInfo->out.m_actualDamageDealt - damageInfo->out.m_actualDamageClipped;
-	Real overkillPercent = (float)overkillDamage / (float)getObject()->getBodyModule()->getMaxHealth();
-	Int overkillModifier = overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
+	Real maxHealth = getObject()->getBodyModule()->getMaxHealth();
+	Real overkillPercent = (float)overkillDamage / maxHealth;
+	Real overkillBonusFloat = overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
 
-	return max( getSlowDeathBehaviorModuleData()->m_probabilityModifier + overkillModifier, 1 );
+	Int overkillModifier;
+#ifdef __APPLE__
+	if (overkillBonusFloat != overkillBonusFloat) { // NaN check
+		overkillModifier = (Int)0x80000000; // Emulate x86 float-to-int cast of NaN
+	} else {
+		overkillModifier = (Int)overkillBonusFloat;
+	}
+#else
+	overkillModifier = (Int)overkillBonusFloat;
+#endif
+	Int result = max( getSlowDeathBehaviorModuleData()->m_probabilityModifier + overkillModifier, 1 );
+
+	static FILE* s_sdFile = nullptr;
+	static bool s_sdTried = false;
+	if (!s_sdTried && TheGameLogic && TheGameLogic->getGameMode() != GAME_SHELL)
+	{
+		s_sdTried = true;
+		s_sdFile = fopen("SlowDeathDiag.txt", "w");
+	}
+	if (s_sdFile)
+	{
+		unsigned int hexActualDamageDealt;
+		float tmpDealt = damageInfo->out.m_actualDamageDealt;
+		memcpy(&hexActualDamageDealt, &tmpDealt, 4);
+
+		unsigned int hexActualDamageClipped;
+		float tmpClipped = damageInfo->out.m_actualDamageClipped;
+		memcpy(&hexActualDamageClipped, &tmpClipped, 4);
+
+		unsigned int hexMaxHealth;
+		memcpy(&hexMaxHealth, &maxHealth, 4);
+
+		unsigned int hexOverkillPercent;
+		memcpy(&hexOverkillPercent, &overkillPercent, 4);
+
+		unsigned int hexBonusPercent;
+		float tmpBonus = getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
+		memcpy(&hexBonusPercent, &tmpBonus, 4);
+
+		fprintf(s_sdFile, "SDM f%u obj=%u name=%s dealt=%08X clipped=%08X overkillDamage=%d maxHealth=%08X overkillPercent=%08X bonus=%08X probMod=%d overkillMod=%d res=%d\n",
+			TheGameLogic->getFrame(),
+			getObject()->getID(),
+			getObject()->getTemplate() ? getObject()->getTemplate()->getName().str() : "unknown",
+			hexActualDamageDealt,
+			hexActualDamageClipped,
+			overkillDamage,
+			hexMaxHealth,
+			hexOverkillPercent,
+			hexBonusPercent,
+			getSlowDeathBehaviorModuleData()->m_probabilityModifier,
+			overkillModifier,
+			result
+		);
+		fflush(s_sdFile);
+	}
+
+	return result;
 }
 
 //-------------------------------------------------------------------------------------------------

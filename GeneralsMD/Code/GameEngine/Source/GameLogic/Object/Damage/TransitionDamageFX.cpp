@@ -285,6 +285,27 @@ static Coord3D getLocalEffectPos( const FXLocInfo *locInfo, Drawable *draw )
 			Int boneCount;
 			boneCount = draw->getPristineBonePositions( locInfo->boneName.str(), 1, positions, nullptr, MAX_BONES );
 
+			if (TheGameLogic)
+			{
+				static FILE* s_diagFile = NULL;
+				static bool s_triedDiag = false;
+				if (!s_triedDiag && TheGameLogic->getFrame() > 0)
+				{
+					s_triedDiag = true;
+					s_diagFile = fopen("TransitionFXDiag.txt", "a");
+				}
+				
+				if (s_diagFile)
+				{
+					fprintf(s_diagFile, "TAG f%d GetLoc boneName='%s' boneCount=%d\n", 
+						TheGameLogic->getFrame(), 
+						locInfo->boneName.str(), 
+						boneCount);
+						
+					fflush(s_diagFile);
+				}
+			}
+
 			// sanity, if bone not found revert back to location defined in struct (which is 0,0,0)
 			if( boneCount == 0 )
 				return locInfo->loc;
@@ -308,6 +329,29 @@ void TransitionDamageFX::onBodyDamageStateChange( const DamageInfo* damageInfo,
 																									BodyDamageType oldState,
 																									BodyDamageType newState )
 {
+	if (TheGameLogic)
+	{
+		static FILE* s_diagFile = NULL;
+		static bool s_triedDiag = false;
+		if (!s_triedDiag && TheGameLogic->getFrame() > 0)
+		{
+			s_triedDiag = true;
+			s_diagFile = fopen("TransitionFXDiag.txt", "w");
+		}
+		
+		if (s_diagFile)
+		{
+			fprintf(s_diagFile, "TAG f%d Transition obj=%d old=%d new=%d isWorse=%d\n", 
+				TheGameLogic->getFrame(), 
+				getObject()->getID(), 
+				oldState, 
+				newState, 
+				IS_CONDITION_WORSE(newState, oldState) ? 1 : 0);
+				
+			fflush(s_diagFile);
+		}
+	}
+
 	Object *damageSource = nullptr;
 	Int i;
 	Drawable *draw = getObject()->getDrawable();
