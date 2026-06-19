@@ -215,6 +215,13 @@ if [ "$DO_CRC_LOGS" = true ]; then
         rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"
         mv "$PWD/CRCLogs" "$PWD/.agent/temp_mac_logs/"
     fi
+
+    GENERALS_DATA_DIR="$HOME/Command and Conquer Generals Zero Hour Data"
+    REPLAY_FILE="$GENERALS_DATA_DIR/Replays/00000000.rep"
+    if [ -f "$REPLAY_FILE" ]; then
+        cp -f "$REPLAY_FILE" "$PWD/.agent/temp_mac_logs/00000000.rep"
+        echo "Copied last replay: 00000000.rep"
+    fi
     
     echo "Logs successfully collected into .agent/temp_mac_logs/"
 fi

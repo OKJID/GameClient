@@ -426,12 +426,28 @@ void HRawAnimClass::add_bit_channel(BitChannelClass * newchan)
  * HISTORY:                                                                                    *
  *   08/11/1997 GH  : Created.                                                                 *
  *=============================================================================================*/
+extern bool g_okji_EngineReady;
+extern int g_okji_GameFrame;
+
 void HRawAnimClass::Get_Translation(Vector3& trans, int pividx, float frame ) const
 {
+	static FILE* s_hrawDiag = NULL;
+	static bool s_hrawTried = false;
+	if (g_okji_EngineReady && !s_hrawTried) {
+		s_hrawTried = true;
+		s_hrawDiag = fopen("HRawAnimDiag.txt", "w");
+	}
+
 	struct NodeMotionStruct * motion = &NodeMotion[pividx];
 
 	if ( (motion->X == nullptr) && (motion->Y == nullptr) && (motion->Z == nullptr) ) {
 		 trans.Set(0.0f,0.0f,0.0f);
+		 
+		 // OKJI DEBUG
+		 if (s_hrawDiag) {
+			 fprintf(s_hrawDiag, "TAG f%d HRawAnim NULL pividx=%d frame=%.2f\n", g_okji_GameFrame, pividx, frame);
+			 fflush(s_hrawDiag);
+		 }
 		return;
 	}
 
@@ -461,6 +477,12 @@ void HRawAnimClass::Get_Translation(Vector3& trans, int pividx, float frame ) co
 
 	if ( ratio == 0.0f ) {
 		trans=trans0;
+		// OKJI DEBUG
+		if (s_hrawDiag) {
+			fprintf(s_hrawDiag, "TAG f%d HRawAnim trans pividx=%d frame=%.2f ratio=0 out=(%.3f, %.3f, %.3f)\n", 
+					g_okji_GameFrame, pividx, frame, trans.X, trans.Y, trans.Z);
+			fflush(s_hrawDiag);
+		}
 		return;
 	}
 
@@ -477,6 +499,13 @@ void HRawAnimClass::Get_Translation(Vector3& trans, int pividx, float frame ) co
 	}
 
 	Vector3::Lerp( trans0, trans1, ratio, &trans );
+	
+	// OKJI DEBUG
+	if (s_hrawDiag) {
+		fprintf(s_hrawDiag, "TAG f%d HRawAnim trans pividx=%d frame=%.2f ratio=%.2f out=(%.3f, %.3f, %.3f)\n", 
+				g_okji_GameFrame, pividx, frame, ratio, trans.X, trans.Y, trans.Z);
+		fflush(s_hrawDiag);
+	}
 }
 
 /***********************************************************************************************

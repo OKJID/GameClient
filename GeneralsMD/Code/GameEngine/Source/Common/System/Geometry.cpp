@@ -34,6 +34,7 @@
 #include "Common/Geometry.h"
 #include "Common/INI.h"
 #include "Common/RandomValue.h"
+#include "GameClient/ClientRandomValue.h"
 #include "Common/Xfer.h"
 
 
@@ -409,6 +410,42 @@ void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt) const
 		{
 			pt.x = GameLogicRandomValueReal(-m_majorRadius, m_majorRadius);
 			pt.y = GameLogicRandomValueReal(-m_minorRadius, m_minorRadius);
+			pt.z = 0.0f;
+			break;
+		}
+	};
+}
+
+//=============================================================================
+void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt, Bool useClientRandom) const
+{
+	if (!useClientRandom)
+	{
+		makeRandomOffsetWithinFootprint(pt);
+		return;
+	}
+
+	switch(m_type)
+	{
+		case GEOMETRY_SPHERE:
+		case GEOMETRY_CYLINDER:
+		{
+			Real maxDistSqr = sqr(m_majorRadius);
+			Real distSqr;
+			do
+			{
+				pt.x = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
+				pt.y = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
+				pt.z = 0.0f;
+				distSqr = sqr(pt.x) + sqr(pt.y);
+			} while (distSqr > maxDistSqr);
+			break;
+		}
+
+		case GEOMETRY_BOX:
+		{
+			pt.x = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
+			pt.y = GameClientRandomValueReal(-m_minorRadius, m_minorRadius);
 			pt.z = 0.0f;
 			break;
 		}

@@ -115,9 +115,25 @@ HAnimManagerClass::~HAnimManagerClass()
  * HISTORY:                                                                                    *
  *   08/11/1997 GH  : Created.                                                                 *
  *=============================================================================================*/
+static FILE* s_animLoadDiag = NULL;
+static bool s_animLoadDiagTried = false;
+
+static void ensureAnimLoadDiag() {
+	if (!s_animLoadDiagTried) {
+		s_animLoadDiagTried = true;
+		s_animLoadDiag = fopen("AnimLoadDiag.txt", "w");
+	}
+}
+
 int HAnimManagerClass::Load_Anim(ChunkLoadClass & cload)
 {
 	WWMEMLOG(MEM_ANIMATION);
+	ensureAnimLoadDiag();
+
+	if (s_animLoadDiag) {
+		fprintf(s_animLoadDiag, "TAG Load_Anim chunkID=0x%08X\n", cload.Cur_Chunk_ID());
+		fflush(s_animLoadDiag);
+	}
 
 	switch (cload.Cur_Chunk_ID())
 	{
@@ -198,20 +214,22 @@ int HAnimManagerClass::Load_Raw_Anim(ChunkLoadClass & cload)
 	HRawAnimClass * newanim = W3DNEW HRawAnimClass;
 
 	if (newanim == nullptr) {
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Raw ALLOC_FAIL\n"); fflush(s_animLoadDiag); }
 		goto Error;
 	}
 
 	SET_REF_OWNER( newanim );
 
 	if (newanim->Load_W3D(cload) != HRawAnimClass::OK) {
-		// load failed!
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Raw LOAD_FAIL name=%s\n", newanim->Get_Name() ? newanim->Get_Name() : "(null)"); fflush(s_animLoadDiag); }
 		newanim->Release_Ref();
 		goto Error;
 	} else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
-		// duplicate exists!
-		newanim->Release_Ref();	// Release the one we just loaded
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Raw DUP name=%s\n", newanim->Get_Name()); fflush(s_animLoadDiag); }
+		newanim->Release_Ref();
 		goto Error;
 	} else {
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Raw OK name=%s numPiv=%d numFrames=%d classID=%d\n", newanim->Get_Name(), newanim->Get_Num_Pivots(), newanim->Get_Num_Frames(), newanim->Class_ID()); fflush(s_animLoadDiag); }
 		Add_Anim( newanim );
 		newanim->Release_Ref();
 	}
@@ -241,20 +259,22 @@ int HAnimManagerClass::Load_Compressed_Anim(ChunkLoadClass & cload)
 	HCompressedAnimClass * newanim = W3DNEW HCompressedAnimClass;
 
 	if (newanim == nullptr) {
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Compressed ALLOC_FAIL\n"); fflush(s_animLoadDiag); }
 		goto Error;
 	}
 
 	SET_REF_OWNER( newanim );
 
 	if (newanim->Load_W3D(cload) != HCompressedAnimClass::OK) {
-		// load failed!
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Compressed LOAD_FAIL name=%s\n", newanim->Get_Name() ? newanim->Get_Name() : "(null)"); fflush(s_animLoadDiag); }
 		newanim->Release_Ref();
 		goto Error;
 	} else if (Peek_Anim(newanim->Get_Name()) != nullptr) {
-		// duplicate exists!
-		newanim->Release_Ref();	// Release the one we just loaded
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Compressed DUP name=%s\n", newanim->Get_Name()); fflush(s_animLoadDiag); }
+		newanim->Release_Ref();
 		goto Error;
 	} else {
+		if (s_animLoadDiag) { fprintf(s_animLoadDiag, "TAG Compressed OK name=%s numPiv=%d numFrames=%d classID=%d\n", newanim->Get_Name(), newanim->Get_Num_Pivots(), newanim->Get_Num_Frames(), newanim->Class_ID()); fflush(s_animLoadDiag); }
 		Add_Anim( newanim );
 		newanim->Release_Ref();
 	}

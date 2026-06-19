@@ -336,6 +336,12 @@ int HCompressedAnimClass::Load_W3D(ChunkLoadClass & cload)
 							// GTH 09-25-2000: print a warning and survive this error
 							delete ad_chan;
 							WWDEBUG_SAY(("ERROR! animation %s indexes a bone not present in the model. Please re-export!",Name));
+							
+							FILE* f = fopen("HCAnimDiag.txt", "a");
+							if (f) {
+								fprintf(f, "HCAnim ERROR deleted ad_chan for %s, Pivot=%d NumNodes=%d\n", Name, ad_chan->Get_Pivot(), NumNodes);
+								fclose(f);
+							}
 						}
 						break;
 				}
@@ -527,8 +533,18 @@ void HCompressedAnimClass::add_bit_channel(TimeCodedBitChannelClass * newchan)
  * HISTORY:                                                                                    *
  *   08/11/1997 GH  : Created.                                                                 *
  *=============================================================================================*/
+extern bool g_okji_EngineReady;
+extern int g_okji_GameFrame;
+
 void HCompressedAnimClass::Get_Translation( Vector3& trans, int pividx, float frame ) const
 {
+	static FILE* s_hcanimDiag = NULL;
+	static bool s_hcanimTried = false;
+	if (g_okji_EngineReady && !s_hcanimTried) {
+		s_hcanimTried = true;
+		s_hcanimDiag = fopen("HCAnimDiag.txt", "w");
+	}
+
 	struct NodeCompressedMotionStruct * motion = &NodeMotion[pividx];
 
 	trans=Vector3(0,0,0);
@@ -543,6 +559,13 @@ void HCompressedAnimClass::Get_Translation( Vector3& trans, int pividx, float fr
 			if (motion->ad.X) motion->ad.X->Get_Vector(frame, &(trans[0]));
 			if (motion->ad.Y) motion->ad.Y->Get_Vector(frame, &(trans[1]));
 			if (motion->ad.Z) motion->ad.Z->Get_Vector(frame, &(trans[2]));
+			
+			// OKJI DEBUG
+			if (s_hcanimDiag) {
+				fprintf(s_hcanimDiag, "TAG f%d HCAnim pividx=%d frame=%.2f -> cached out=(%.3f, %.3f, %.3f)\n", 
+						g_okji_GameFrame, pividx, frame, trans.X, trans.Y, trans.Z);
+				fflush(s_hcanimDiag);
+			}
 			break;
 		default:
 			WWASSERT(0);	// unknown flavor

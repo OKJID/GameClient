@@ -3170,6 +3170,35 @@ void Weapon::processRequestAssistance( const Object *requestingObject, Object *v
 		launcherPhys->transferVelocityTo(missilePhys);
 		missilePhys->setIgnoreCollisionsWith(launcher);
 	}
+
+	if (TheGameLogic)
+	{
+		static FILE* s_detachLog = NULL;
+		static bool s_triedDetach = false;
+		if (!s_triedDetach)
+		{
+			s_triedDetach = true;
+			s_detachLog = fopen("RocketDetachLog.txt", "w");
+		}
+		
+		if (s_detachLog)
+		{
+			unsigned int hx, hy, hz;
+			float px = worldPos.x;
+			float py = worldPos.y;
+			float pz = worldPos.z;
+			memcpy(&hx, &px, 4);
+			memcpy(&hy, &py, 4);
+			memcpy(&hz, &pz, 4);
+
+			fprintf(s_detachLog, "TAG f%d obj=%u proj=%u x=%08X y=%08X z=%08X\n",
+				TheGameLogic->getFrame(),
+				launcher->getID(),
+				projectile->getID(),
+				hx, hy, hz);
+			fflush(s_detachLog);
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

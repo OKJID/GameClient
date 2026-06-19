@@ -34,6 +34,7 @@
 #include "Common/ThingTemplate.h"
 #include "Common/INI.h"
 #include "Common/RandomValue.h"
+#include "GameClient/ClientRandomValue.h"
 #include "Common/Player.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/EMPUpdate.h"
@@ -315,8 +316,8 @@ void EMPUpdate::doDisableAttack()
 						if (sys)
 						{
 							Coord3D offs = {0,0,0};
-							curVictim->getGeometryInfo().makeRandomOffsetWithinFootprint( offs );
-							offs.z = GameLogicRandomValue(3, victimHeight);
+							curVictim->getGeometryInfo().makeRandomOffsetWithinFootprint( offs, TRUE );
+							offs.z = GameClientRandomValue(3, victimHeight);
 
 							//This puts all the sparks within a quadrahemicycloid (rectangular dome) volume
 							//The same shape as a four cornered camping dome tent, for those with less Greek
@@ -334,10 +335,10 @@ void EMPUpdate::doDisableAttack()
 							sys->setPosition( &offs );
 							#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 							sys->setSystemLifetime(MAX(0, (data->m_disabledDuration/ GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER) - 240));
-							sys->setInitialDelay(GameLogicRandomValue(1, 100) / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+							sys->setInitialDelay(GameClientRandomValue(1, 100) / GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
 							#else
 							sys->setSystemLifetime(MAX(0, data->m_disabledDuration - 30));
-							sys->setInitialDelay(GameLogicRandomValue(1, 100));
+							sys->setInitialDelay(GameClientRandomValue(1, 100));
 							#endif
 						}
 					}

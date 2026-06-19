@@ -558,6 +558,15 @@ void HTreeClass::Base_Update(const Matrix3D & root)
  *=============================================================================================*/
 void HTreeClass::Anim_Update(const Matrix3D & root,HAnimClass * motion,float frame)
 {
+	static FILE* s_animDiag = NULL;
+	static bool s_animDiagTried = false;
+	static int s_animDiagCallCount = 0;
+	if (!s_animDiagTried) {
+		s_animDiagTried = true;
+		s_animDiag = fopen("AnimUpdateDiag.txt", "w");
+	}
+	s_animDiagCallCount++;
+
 	PivotClass *pivot;
 	Matrix3D mtx;
 
@@ -585,14 +594,71 @@ void HTreeClass::Anim_Update(const Matrix3D & root,HAnimClass * motion,float fra
 			motion->Get_Orientation(q,piv_idx,frame);
 			::Build_Matrix3D(q,mtx);
 
+			if (s_animDiag && piv_idx == 18 && s_animDiagCallCount <= 5000) {
+				unsigned int hqx, hqy, hqz, hqw, hframe;
+				float fqx = q[0], fqy = q[1], fqz = q[2], fqw = q[3];
+				memcpy(&hqx, &fqx, 4);
+				memcpy(&hqy, &fqy, 4);
+				memcpy(&hqz, &fqz, 4);
+				memcpy(&hqw, &fqw, 4);
+				memcpy(&hframe, &frame, 4);
+				float bx = pivot->BaseTransform.Get_X_Translation();
+				float by = pivot->BaseTransform.Get_Y_Translation();
+				float bz = pivot->BaseTransform.Get_Z_Translation();
+				unsigned int hbx, hby, hbz;
+				memcpy(&hbx, &bx, 4);
+				memcpy(&hby, &by, 4);
+				memcpy(&hbz, &bz, 4);
+				float tx = pivot->Transform.Get_X_Translation();
+				float ty = pivot->Transform.Get_Y_Translation();
+				float tz = pivot->Transform.Get_Z_Translation();
+				unsigned int htx, hty, htz;
+				memcpy(&htx, &tx, 4);
+				memcpy(&hty, &ty, 4);
+				memcpy(&htz, &tz, 4);
+				fprintf(s_animDiag, "TAG call=%d piv=18 numAnimPiv=%d numPiv=%d frame=%08X classID=%d q=%08X,%08X,%08X,%08X base=%08X,%08X,%08X pre=%08X,%08X,%08X\n",
+					s_animDiagCallCount, num_anim_pivots, NumPivots, hframe,
+					motion->Class_ID(),
+					hqx, hqy, hqz, hqw,
+					hbx, hby, hbz,
+					htx, hty, htz);
+				fflush(s_animDiag);
+			}
+
 #ifdef ALLOW_TEMPORARIES
 			pivot->Transform = pivot->Transform * mtx;
 #else
 			pivot->Transform.postMul(mtx);
 #endif
 
+			if (s_animDiag && piv_idx == 18 && s_animDiagCallCount <= 5000) {
+				float px = pivot->Transform.Get_X_Translation();
+				float py = pivot->Transform.Get_Y_Translation();
+				float pz = pivot->Transform.Get_Z_Translation();
+				unsigned int hpx, hpy, hpz;
+				memcpy(&hpx, &px, 4);
+				memcpy(&hpy, &py, 4);
+				memcpy(&hpz, &pz, 4);
+				fprintf(s_animDiag, "TAG call=%d piv=18 post=%08X,%08X,%08X\n",
+					s_animDiagCallCount, hpx, hpy, hpz);
+				fflush(s_animDiag);
+			}
+
 			// visibility
 			pivot->IsVisible = motion->Get_Visibility(piv_idx,frame);
+		} else {
+			if (s_animDiag && piv_idx == 18 && s_animDiagCallCount <= 5000) {
+				float tx = pivot->Transform.Get_X_Translation();
+				float ty = pivot->Transform.Get_Y_Translation();
+				float tz = pivot->Transform.Get_Z_Translation();
+				unsigned int htx, hty, htz;
+				memcpy(&htx, &tx, 4);
+				memcpy(&hty, &ty, 4);
+				memcpy(&htz, &tz, 4);
+				fprintf(s_animDiag, "TAG call=%d piv=18 SKIPPED numAnimPiv=%d numPiv=%d basePose=%08X,%08X,%08X\n",
+					s_animDiagCallCount, num_anim_pivots, NumPivots, htx, hty, htz);
+				fflush(s_animDiag);
+			}
 		}
 
 		if (pivot->Is_Captured())
