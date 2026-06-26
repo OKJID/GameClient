@@ -114,8 +114,6 @@ Int lastCRCDebugFrame = 0;
 Int lastCRCDebugIndex = 0;
 extern Bool inCRCGen;
 
-static void outputCRCDebugLinesPerFrame();
-
 void CRCDebugStartNewGame()
 {
 	if (TheGameLogic->isInShellGame())
@@ -133,21 +131,9 @@ void CRCDebugStartNewGame()
 		FilenameList::iterator it;
 		for (it = files.begin(); it != files.end(); ++it)
 		{
-			// TheSuperHackers @fix Preserve the pre-game log (InitRandom, etc.)
-			// if it was already created in an earlier phase of the current startup sequence.
-			if (strstr(it->str(), "-00001") == nullptr)
-			{
-				DeleteFile(it->str());
-			}
+			DeleteFile(it->str());
 		}
 	}
-
-	if (numDebugStrings > 0)
-	{
-		lastCRCDebugFrame = -1;
-		outputCRCDebugLinesPerFrame();
-	}
-
 	nextDebugString = 0;
 	numDebugStrings = 0;
 	lastCRCDebugFrame = 0;
@@ -264,40 +250,6 @@ void addCRCDebugLineNoCounter(const char *fmt, ...)
     addCRCDebugLineInternal(false, fmt, args);
     va_end(args);
 }
-
-void addCRCRandomLine(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    
-	if (lastCRCDebugFrame != (TheGameLogic ? TheGameLogic->getFrame() : -1))
-	{
-		outputCRCDebugLinesPerFrame();
-		lastCRCDebugFrame = (TheGameLogic ? TheGameLogic->getFrame() : -1);
-		lastCRCDebugIndex = 0;
-	}
-
-	DebugStrings[nextDebugString][0] = 0;
-	Int len = 0;
-
-	vsnprintf(DebugStrings[nextDebugString]+len, MaxStringLen-len, fmt, args);
-
-	char *tmp = DebugStrings[nextDebugString];
-	while (tmp && *tmp)
-	{
-		if (*tmp == '\r' || *tmp == '\n')
-			*tmp = ' ';
-		++tmp;
-	}
-
-	++nextDebugString;
-	++numDebugStrings;
-	if (nextDebugString == MaxStrings)
-		nextDebugString = 0;
-
-    va_end(args);
-}
-
 
 void addCRCGenLine(const char *fmt, ...)
 {

@@ -465,8 +465,6 @@ void LANAPI::handleJoinAccept( LANMessage *msg, UnsignedInt senderIP )
 				// Since we have multiple interfaces (e.g. Parallels, VPNs), we must use the IP
 				// the host sees to correctly identify ourselves in the slot list during MSG_GAME_OPTIONS.
 				m_localIP = msg->GameJoined.playerIP;
-				printf("MAC_LANAPI: Updated m_localIP to %08X from host's MSG_JOIN_ACCEPT\n", m_localIP);
-				fflush(stdout);
 #endif
 
 				m_inLobby = false;
@@ -706,13 +704,6 @@ void LANAPI::handleChat( LANMessage *msg, UnsignedInt senderIP )
 
 void LANAPI::handleGameStart( LANMessage *msg, UnsignedInt senderIP )
 {
-#ifdef __APPLE__
-	printf("MAC_LANAPI: handleGameStart RECEIVED from %08X, inLobby=%d, hasGame=%d, hostIP=%08X, inProgress=%d\n",
-		senderIP, m_inLobby, m_currentGame != nullptr,
-		m_currentGame ? m_currentGame->getIP(0) : 0,
-		m_currentGame ? m_currentGame->isGameInProgress() : -1);
-	fflush(stdout);
-#endif
 	if (!m_inLobby && m_currentGame && m_currentGame->getIP(0) == senderIP && !m_currentGame->isGameInProgress())
 	{
 		OnGameStart();

@@ -654,34 +654,12 @@ const Matrix3D &	Animatable3DObjClass::Get_Bone_Transform(int boneindex)
 	Validate_Transform();
 
 	if (HTree) {
-		static FILE* s_gbtFile = NULL;
-		static bool s_gbtTried = false;
-		static int s_gbtCount = 0;
-		if (!s_gbtTried) {
-			s_gbtTried = true;
-			s_gbtFile = fopen("GetBoneTransformDiag.txt", "w");
-		}
-
-		bool wasValid = Is_Hierarchy_Valid();
-		if (!wasValid) {
+		/*
+		** If our hierarchy isn't valid, we just need to evaluate our animation
+		** state.
+		*/
+		if (!Is_Hierarchy_Valid()) {
 			Update_Sub_Object_Transforms();
-		}
-
-		s_gbtCount++;
-		if (s_gbtFile && s_gbtCount <= 2000) {
-			const Matrix3D& result = HTree->Get_Transform(boneindex);
-			float rx = result.Get_X_Translation();
-			float ry = result.Get_Y_Translation();
-			float rz = result.Get_Z_Translation();
-			unsigned int hx, hy, hz;
-			memcpy(&hx, &rx, 4);
-			memcpy(&hy, &ry, 4);
-			memcpy(&hz, &rz, 4);
-			fprintf(s_gbtFile, "TAG gbt=%d bone=%d wasValid=%d mode=%d numPiv=%d x=%08X y=%08X z=%08X\n",
-				s_gbtCount, boneindex, wasValid ? 1 : 0,
-				CurMotionMode, HTree->Num_Pivots(),
-				hx, hy, hz);
-			fflush(s_gbtFile);
 		}
 
 		return HTree->Get_Transform(boneindex);
@@ -795,33 +773,11 @@ void Animatable3DObjClass::Control_Bone(int bindex,const Matrix3D & objtm,bool w
  *=============================================================================================*/
 void Animatable3DObjClass::Update_Sub_Object_Transforms()
 {
-	static FILE* s_usoFile = NULL;
-	static bool s_usoTried = false;
-	static int s_usoCount = 0;
-	if (!s_usoTried) {
-		s_usoTried = true;
-		s_usoFile = fopen("USODiag.txt", "w");
-	}
-	s_usoCount++;
-
 	/*
 	** The RenderObj implementation will cause our 'container'
 	** to update if we are not valid yet
 	*/
 	CompositeRenderObjClass::Update_Sub_Object_Transforms();
-
-	if (s_usoFile && s_usoCount <= 2000) {
-		int numPivots = HTree ? HTree->Num_Pivots() : -1;
-		int motionClassID = -999;
-		int motionNumPivots = -1;
-		if (CurMotionMode == SINGLE_ANIM && ModeAnim.Motion) {
-			motionClassID = ModeAnim.Motion->Class_ID();
-			motionNumPivots = ModeAnim.Motion->Get_Num_Pivots();
-		}
-		fprintf(s_usoFile, "TAG uso=%d mode=%d numPiv=%d motionClassID=%d motionNumPiv=%d htree=%d\n",
-			s_usoCount, CurMotionMode, numPivots, motionClassID, motionNumPivots, HTree ? 1 : 0);
-		fflush(s_usoFile);
-	}
 
 	/*
 	** Update the transforms

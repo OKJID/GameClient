@@ -32,7 +32,6 @@
 #include "Common/RandomValue.h"
 #include "Common/crc.h"
 #include "Common/Debug.h"
-#include "Common/CRCDebug.h"
 #include "GameLogic/GameLogic.h"
 
 #undef DEBUG_RANDOM_AUDIO
@@ -116,9 +115,6 @@ void InitRandom()
 
 void InitRandom( UnsignedInt seed )
 {
-#ifdef DEBUG_CRC
-	CRCGEN_LOG(("InitRandom called with seed: %u", seed));
-#endif
 #ifdef DETERMINISTIC
 	seed = 0;
 #endif
@@ -128,10 +124,6 @@ void InitRandom( UnsignedInt seed )
 	seedRandom(seed, theGameLogicSeed);
 	theGameLogicBaseSeed = seed;
 
-if (g_logRandom)
-	{
-		addCRCRandomLine("InitRandom %08lx", seed);
-	}
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(("InitRandom %08lx", seed));
 #endif
@@ -288,10 +280,6 @@ Int GetGameLogicRandomValue( int lo, int hi, const char *file, int line )
 
 	const Int rval = ((Int)(randomValue(theGameLogicSeed) % delta)) + lo;
 
-if (g_logRandom)
-	{
-		addCRCRandomLine("%d: GetGameLogicRandomValue = %d (%d - %d), %s line %d", TheGameLogic ? TheGameLogic->getFrame() : -1, rval, lo, hi, file, line);
-	}
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValue = %d (%d - %d), %s line %d",
 		TheGameLogic->getFrame(), rval, lo, hi, file, line ));
@@ -319,10 +307,6 @@ Real GetGameLogicRandomValueReal( Real lo, Real hi, const char *file, int line )
 
 	const Real rval = ((Real)(randomValue(theGameLogicSeed)) * theMultFactor) * delta + lo;
 
-if (g_logRandom)
-	{
-		addCRCRandomLine("%d: GetGameLogicRandomValueReal = %f, %s line %d", TheGameLogic ? TheGameLogic->getFrame() : -1, rval, file, line);
-	}
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValueReal = %f, %s line %d",
 		TheGameLogic->getFrame(), rval, file, line ));
@@ -353,10 +337,6 @@ Int GetGameLogicRandomValueUnchanged( int lo, int hi, const char *file, int line
 	const UnsignedInt delta = hi - lo + 1;
 	const Int rval = ((Int)(randomValue(seed) % delta)) + lo;
 
-if (g_logRandom)
-	{
-		addCRCRandomLine("%d: GetGameLogicRandomValueUnchanged = %d (%d - %d), %s line %d", TheGameLogic ? TheGameLogic->getFrame() : -1, rval, lo, hi, file, line);
-	}
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValueUnchanged = %d (%d - %d), %s line %d",
 		TheGameLogic->getFrame(), rval, lo, hi, file, line ));
@@ -387,10 +367,6 @@ Real GetGameLogicRandomValueRealUnchanged( Real lo, Real hi, const char *file, i
 	const Real delta = hi - lo;
 	const Real rval = ((Real)(randomValue(seed)) * theMultFactor) * delta + lo;
 
-if (g_logRandom)
-	{
-		addCRCRandomLine("%d: GetGameLogicRandomValueRealUnchanged = %f, %s line %d", TheGameLogic ? TheGameLogic->getFrame() : -1, rval, file, line);
-	}
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValueRealUnchanged = %f, %s line %d",
 		TheGameLogic->getFrame(), rval, file, line ));

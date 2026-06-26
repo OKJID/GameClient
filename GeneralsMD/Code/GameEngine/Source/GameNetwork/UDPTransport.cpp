@@ -356,9 +356,6 @@ Bool UDPTransport::doRecv()
 
 		incomingMessage.length = len - sizeof(TransportMessageHeader);
 
-        printf("MAC_UDP: Received %d bytes from %08X, magic=%04X, crc=%08X\n", len, ntohl(from.sin_addr.s_addr), incomingMessage.header.magic, incomingMessage.header.crc);
-        if (!isGeneralsPacket(&incomingMessage)) printf("MAC_UDP: isGeneralsPacket FAILED!\n");
-
 		if (len <= sizeof(TransportMessageHeader) || !isGeneralsPacket(&incomingMessage))
 		{
 			DEBUG_LOG(("UDPTransport::doRecv - unknownPacket! len = %d", len));
@@ -410,7 +407,6 @@ Bool UDPTransport::doRecv()
 #endif
 		}
 		if (i >= MAX_MESSAGES) {
-			printf("MAC_UDP: DROPPED packet (inBuffer full, %d slots)\n", MAX_MESSAGES);
 		}
 	}
 

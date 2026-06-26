@@ -189,21 +189,6 @@ void LANAPI::OnGameStart()
 
 	if (m_currentGame)
 	{
-#ifdef __APPLE__
-		printf("MAC_LANAPI: === OnGameStart === amIHost=%d, localSlot=%d, seed=%u\n",
-			m_currentGame->amIHost(), m_currentGame->getLocalSlotNum(), m_currentGame->getSeed());
-		for (Int dbgSlot = 0; dbgSlot < MAX_SLOTS; ++dbgSlot)
-		{
-			GameSlot *dbgS = m_currentGame->getSlot(dbgSlot);
-			if (dbgS && dbgS->isOccupied())
-			{
-				printf("MAC_LANAPI:   Slot %d: human=%d, ai=%d, playerTemplate=%d, color=%d, startPos=%d, team=%d, IP=0x%08X\n",
-					dbgSlot, dbgS->isHuman(), dbgS->isAI(), dbgS->getPlayerTemplate(),
-					dbgS->getColor(), dbgS->getStartPos(), dbgS->getTeamNumber(), dbgS->getIP());
-			}
-		}
-		fflush(stdout);
-#endif
 		LANPreferences pref;
 		AsciiString option;
 		option.format("%d", m_currentGame->getLANSlot( m_currentGame->getLocalSlotNum() )->getPlayerTemplate());
@@ -299,16 +284,8 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 			updateGameOptions();
 		}
 		Bool booted = true;
-#ifdef __APPLE__
-		printf("MAC_LANAPI: OnGameOptions: m_localIP=0x%08X, options string: %s\n", m_localIP, options.str());
-		fflush(stdout);
-#endif
 		for(Int player = 1; player< MAX_SLOTS; player++)
 		{
-#ifdef __APPLE__
-			printf("MAC_LANAPI: OnGameOptions check: slot %d IP=0x%08X\n", player, m_currentGame->getIP(player));
-			fflush(stdout);
-#endif
 			if(m_currentGame->getIP(player) == m_localIP)
 			{
 				booted = false;
@@ -317,10 +294,6 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 		}
 		if(booted)
 		{
-#ifdef __APPLE__
-			printf("MAC_LANAPI: OnGameOptions: Booted! Could not find m_localIP in the parsed game options.\n");
-			fflush(stdout);
-#endif
 			// restore the options with us in so we can save prefs
 			ParseGameOptionsString(m_currentGame, oldOptions);
 			OnPlayerLeave(m_name);
@@ -355,11 +328,6 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 		// Parse player requests (side, color, etc)
 		if( AmIHost() && m_localIP != playerIP)
 		{
-#ifdef __APPLE__
-			printf("MAC_LANAPI: [HOST] received options from slot %d (IP=0x%08X): \"%s\"\n",
-				playerSlot, playerIP, options.str());
-			fflush(stdout);
-#endif
 			if (options.compare("HELLO") == 0)
 			{
 				m_currentGame->setPlayerLastHeard(playerSlot, timeGetTime());
@@ -486,12 +454,6 @@ void LANAPI::OnGameOptions( UnsignedInt playerIP, Int playerSlot, AsciiString op
 					DEBUG_LOG(("Slot value is color=%d, PlayerTemplate=%d, startPos=%d, team=%d",
 						slot->getColor(), slot->getPlayerTemplate(), slot->getStartPos(), slot->getTeamNumber()));
 					DEBUG_LOG(("Slot list updated to %s", GenerateGameOptionsString().str()));
-#ifdef __APPLE__
-					printf("MAC_LANAPI: [HOST] applied change for slot %d: color=%d, playerTemplate=%d, startPos=%d, team=%d\n",
-						playerSlot, slot->getColor(), slot->getPlayerTemplate(), slot->getStartPos(), slot->getTeamNumber());
-					printf("MAC_LANAPI: [HOST] broadcasting: %s\n", GenerateGameOptionsString().str());
-					fflush(stdout);
-#endif
 				}
 			}
 		}
@@ -549,11 +511,6 @@ void LANAPI::OnGameJoin( ReturnType ret, LANGameInfo *theGame )
 
 		LANPreferences pref;
 		AsciiString options;
-#ifdef __APPLE__
-		printf("MAC_LANAPI: OnGameJoin OK: preferredFaction=%d, preferredColor=%d\n",
-			pref.getPreferredFaction(), pref.getPreferredColor());
-		fflush(stdout);
-#endif
 		options.format("PlayerTemplate=%d", pref.getPreferredFaction());
 		RequestGameOptions(options, true);
 		options.format("Color=%d", pref.getPreferredColor());

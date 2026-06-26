@@ -458,11 +458,6 @@ static void handlePlayerTemplateSelection(int index)
 	if (myGame)
 	{
 		LANGameSlot * slot = myGame->getLANSlot(index);
-#ifdef __APPLE__
-		printf("MAC_UI: handlePlayerTemplateSelection: slot=%d, old=%d, new=%d, amIHost=%d\n",
-			index, slot->getPlayerTemplate(), playerTemplate, myGame->amIHost());
-		fflush(stdout);
-#endif
 		if (playerTemplate == slot->getPlayerTemplate())
 			return;
 

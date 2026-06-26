@@ -364,10 +364,6 @@ void LANAPI::update()
 			UnsignedInt senderIP = m_transport->m_inBuffer[i].addr;
 			if (senderIP == m_localIP)
 			{
-#ifdef __APPLE__
-				printf("MAC_LANAPI: Dropping packet from senderIP %08X because it matches m_localIP!\n", senderIP);
-				fflush(stdout);
-#endif
 				m_transport->m_inBuffer[i].length = 0;
 				continue;
 			}
@@ -381,10 +377,7 @@ void LANAPI::update()
 #endif
 			LANMessage* msg = &msgBuffer;
 
-#ifdef __APPLE__
-			printf("MAC_LANAPI: Processing messageType %d from %08X\n", msg->messageType, senderIP);
-			fflush(stdout);
-#endif
+
 
 			//DEBUG_LOG(("LAN message type %s from %ls (%s@%s)", GetMessageTypeString(msg->messageType).str(),
 			//	msg->name, msg->userName, msg->hostName));

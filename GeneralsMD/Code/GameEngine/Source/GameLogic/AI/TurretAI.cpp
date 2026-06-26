@@ -417,25 +417,6 @@ Bool TurretAI::friend_turnTowardsAngle(Real desiredAngle, Real rateModifier, Rea
 
 	Bool aligned = WWMath::Fabs(m_angle - desiredAngle) <= relThresh;
 
-	{
-		extern FILE* g_diagLog;
-		if (g_diagLog && getOwner()->getID() == 294) {
-			unsigned int hOrig, hDesired, hAngle, hDiff, hRate, hFinal;
-			memcpy(&hOrig, &origAngle, 4);
-			memcpy(&hDesired, &desiredAngle, 4);
-			memcpy(&hAngle, &m_angle, 4);
-			memcpy(&hDiff, &angleDiff, 4);
-			memcpy(&hRate, &turnRate, 4);
-			Real finalDiff = m_angle - desiredAngle;
-			memcpy(&hFinal, &finalDiff, 4);
-			fprintf(g_diagLog, "TURNHEX f%d obj=294 orig=%08X desired=%08X angle=%08X diff=%08X rate=%08X finalDiff=%08X aligned=%d thresh=%08X\n",
-				TheGameLogic->getFrame(),
-				hOrig, hDesired, hAngle, hDiff, hRate, hFinal, aligned ? 1 : 0,
-				*(unsigned int*)&relThresh);
-			fflush(g_diagLog);
-		}
-	}
-
 	return aligned;
 }
 
@@ -717,16 +698,7 @@ UpdateSleepTime TurretAI::updateTurretAI()
 	UnsignedInt now = TheGameLogic->getFrame();
 	if (m_sleepUntil != 0 && now < m_sleepUntil)
 	{
-		UpdateSleepTime earlyRet = UPDATE_SLEEP(m_sleepUntil - now);
-		{
-			extern FILE* g_diagLog;
-			if (g_diagLog) {
-				fprintf(g_diagLog, "TURDIAG f%d obj=%d EARLY sleepUntil=%d now=%d ret=%d\n",
-					now, getOwner()->getID(), m_sleepUntil, now, (int)earlyRet);
-				fflush(g_diagLog);
-			}
-		}
-		return earlyRet;
+		return UPDATE_SLEEP(m_sleepUntil - now);
 	}
 
 	//DEBUG_LOG(("updateTurretAI frame %d: %08lx",TheGameLogic->getFrame(),getOwner()));
@@ -772,29 +744,6 @@ UpdateSleepTime TurretAI::updateTurretAI()
 			subMachineSleep = UPDATE_SLEEP_NONE;
 		}
 
-		{
-			extern FILE* g_diagLog;
-			if (g_diagLog) {
-				fprintf(g_diagLog, "TURDIAG f%d obj=%d SM stRet=%d stateID=%d isSleep=%d sleep=%d enabled=%d\n",
-					now, getOwner()->getID(),
-					(int)stRet, (int)m_turretStateMachine->getCurrentStateID(),
-					IS_STATE_SLEEP(stRet) ? 1 : 0, (int)subMachineSleep,
-					m_enabled ? 1 : 0);
-				fflush(g_diagLog);
-			}
-		}
-
-	}
-	else
-	{
-		extern FILE* g_diagLog;
-		if (g_diagLog) {
-			fprintf(g_diagLog, "TURDIAG f%d obj=%d SKIP enabled=%d stateID=%d sleep=FOREVER\n",
-				now, getOwner()->getID(),
-				m_enabled ? 1 : 0,
-				(int)m_turretStateMachine->getCurrentStateID());
-			fflush(g_diagLog);
-		}
 	}
 
 	m_sleepUntil = now + subMachineSleep;

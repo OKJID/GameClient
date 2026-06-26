@@ -70,7 +70,6 @@
 
 	void addCRCDebugLine(const char *fmt, ...);
 	void addCRCDebugLineNoCounter(const char *fmt, ...);
-	void addCRCRandomLine(const char *fmt, ...);
 	void addCRCDumpLine(const char *fmt, ...);
 	void addCRCGenLine(const char *fmt, ...);
 	#define CRCDEBUG_LOG(x) addCRCDebugLine x
@@ -101,7 +100,6 @@
 	extern AsciiString g_saveDebugCRCPerFrameDir;
 
 	extern Bool g_logObjectCRCs;
-	extern Bool g_logRandom;
 
 #else // DEBUG_CRC
 

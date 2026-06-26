@@ -124,7 +124,7 @@ struct QuitGameException {};
 
 DECLARE_PERF_TIMER(SleepyMaintenance)
 
-FILE* g_diagLog = nullptr;
+
 
 #include "Common/UnitTimings.h" //Contains the DO_UNIT_TIMINGS define jba.
 // If defined, the game times various units.
@@ -581,7 +581,7 @@ void GameLogic::reset()
 
 	m_rankPointsToAddAtGameStart = 0;
 
-	if (g_diagLog) { fclose(g_diagLog); g_diagLog = nullptr; }
+
 }
 
 static Object* placeObjectAtPosition(Int slotNum, AsciiString objectTemplateName, Coord3D& pos, Player* pPlayer,
@@ -847,30 +847,10 @@ static void populateRandomSideAndColor(GameInfo* game)
 		// clean up random factions
 		Int playerTemplateIdx = slot->getPlayerTemplate();
 		DEBUG_LOG(("Player %d has playerTemplate index %d", i, playerTemplateIdx));
-		CRCGEN_LOG(("Slot %d logic start: isOccupied=%d, isHuman=%d, isAI=%d, playerTemplate=%d, count=%d",
-			i, slot->isOccupied(), slot->isHuman(), slot->isAI(), playerTemplateIdx, ThePlayerTemplateStore->getPlayerTemplateCount()));
-#ifdef __APPLE__
-		printf("MAC_LOGIC: populateRandomSideAndColor: slot=%d, playerTemplate=%d, color=%d\n",
-			i, playerTemplateIdx, slot->getColor());
-		fflush(stdout);
-#endif
-		if (g_logRandom)
-		{
-			addCRCRandomLine("Slot %d side logic check, playerTemplateIdx=%d", i, playerTemplateIdx);
-		}
 
 		while (playerTemplateIdx != PLAYERTEMPLATE_OBSERVER && (playerTemplateIdx < 0 || playerTemplateIdx >= ThePlayerTemplateStore->getPlayerTemplateCount()))
 		{
 			DEBUG_ASSERTCRASH(playerTemplateIdx == PLAYERTEMPLATE_RANDOM, ("Non-random bad playerTemplate %d in slot %d", playerTemplateIdx, i));
-			CRCGEN_LOG(("Slot %d entering RANDOM generation loop", i));
-#ifdef __APPLE__
-			printf("MAC_LOGIC: Slot %d entering RANDOM generation loop (playerTemplate=%d)\n", i, playerTemplateIdx);
-			fflush(stdout);
-#endif
-			if (g_logRandom)
-			{
-				addCRCRandomLine("Slot %d entering RANDOM generation loop", i);
-			}
 #ifdef MORE_RANDOM
 			// our RNG is basically shit -- horribly nonrandom at the start of the sequence.
 			// get a few values at random to get rid of the dreck.
@@ -904,10 +884,6 @@ static void populateRandomSideAndColor(GameInfo* game)
 		if (colorIdx < 0 || colorIdx >= TheMultiplayerSettings->getNumColors())
 		{
 			DEBUG_ASSERTCRASH(colorIdx == -1, ("Non-random bad color %d in slot %d", colorIdx, i));
-#ifdef __APPLE__
-			printf("MAC_LOGIC: Slot %d entering RANDOM color loop (color=%d)\n", i, colorIdx);
-			fflush(stdout);
-#endif
 			while (colorIdx == -1)
 			{
 				colorIdx = GameLogicRandomValue(0, TheMultiplayerSettings->getNumColors() - 1);
@@ -917,10 +893,6 @@ static void populateRandomSideAndColor(GameInfo* game)
 			DEBUG_LOG(("Setting color %d to %d", i, colorIdx));
 			slot->setColor(colorIdx);
 		}
-#ifdef __APPLE__
-		printf("MAC_LOGIC: Slot %d FINAL: playerTemplate=%d, color=%d\n", i, slot->getPlayerTemplate(), slot->getColor());
-		fflush(stdout);
-#endif
 	}
 }
 
@@ -3955,19 +3927,8 @@ void GameLogic::update()
 
 	LatchRestore<Bool> inUpdateLatch(m_isInUpdate, TRUE);
 
-	{
-		if (m_frame <= 1 && !g_diagLog && getGameMode() != GAME_SHELL) {
-			const char* installPath = getenv("GENERALS_INSTALL_PATH");
-			if (installPath) {
-				char diagPath[512];
-				snprintf(diagPath, sizeof(diagPath), "%s/DiagLog.txt", installPath);
-				g_diagLog = fopen(diagPath, "w");
-			}
-			if (!g_diagLog) {
-				g_diagLog = fopen("DiagLog.txt", "w");
-			}
-		}
-	}
+
+
 #ifdef DO_UNIT_TIMINGS
 	unitTimings();
 #endif
@@ -4118,35 +4079,6 @@ void GameLogic::update()
 #endif
 
 	{
-		{
-			extern FILE* g_diagLog;
-			if (g_diagLog) {
-				UnsignedInt topWake = m_sleepyUpdates.empty() ? 0 : m_sleepyUpdates.front()->friend_getNextCallFrame();
-				fprintf(g_diagLog, "HEAP f%d size=%d topWake=%d\n", now, (int)m_sleepyUpdates.size(), topWake);
-				fflush(g_diagLog);
-			}
-
-			static FILE* s_mtxFile = NULL;
-			static bool s_mtxTried = false;
-			if (!s_mtxTried && getGameMode() != GAME_SHELL) {
-				s_mtxTried = true;
-				s_mtxFile = fopen("MtxDiag.txt", "w");
-			}
-			if (s_mtxFile && getGameMode() != GAME_SHELL) {
-				for (Object *obj = getFirstObject(); obj; obj = obj->getNextObject()) {
-					const Matrix3D *mtx = obj->getTransformMatrix();
-					const float *f = (const float*)mtx;
-					unsigned int hx, hy, hz, hr0;
-					memcpy(&hx, &f[3], 4);
-					memcpy(&hy, &f[7], 4);
-					memcpy(&hz, &f[11], 4);
-					memcpy(&hr0, &f[0], 4);
-					fprintf(s_mtxFile, "MTX f%d o=%d x=%08X y=%08X z=%08X r=%08X\n",
-						now, obj->getID(), hx, hy, hz, hr0);
-				}
-				fflush(s_mtxFile);
-			}
-		}
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
@@ -4194,11 +4126,6 @@ void GameLogic::update()
 			// else defer it till next frame and re-push it
 			u->friend_setNextCallFrame(now + sleepLen);
 			rebalanceSleepyUpdate(0);
-
-			{
-				extern FILE* g_diagLog;
-				if (g_diagLog) { fprintf(g_diagLog, "SLEEPY f%d obj=%d mod=%s wake=%d sleep=%d\n", now, u->friend_getObject()->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame(), sleepLen); fflush(g_diagLog); }
-			}
 		}
 	}
 
@@ -4416,10 +4343,6 @@ void GameLogic::registerObject(Object* obj)
 			continue;
 
 		regCount++;
-		{
-			extern FILE* g_diagLog;
-			if (g_diagLog && now == 1) { fprintf(g_diagLog, "REGMOD id=%d mod=%s wake=%d\n", obj->getID(), KEYNAME(u->getModuleNameKey()).str(), u->friend_getNextCallFrame()); fflush(g_diagLog); }
-		}
 		UnsignedInt when = u->friend_getNextCallFrame();
 #ifdef ALLOW_NONSLEEPY_UPDATES
 		if (when == 0)
@@ -4441,10 +4364,7 @@ void GameLogic::registerObject(Object* obj)
 		}
 	}
 
-	{
-		extern FILE* g_diagLog;
-		if (g_diagLog) { fprintf(g_diagLog, "REG id=%d beh=%d slp=%d f=%d\n", obj->getID(), totalBehaviors, regCount, now); fflush(g_diagLog); }
-	}
+
 
 }
 
