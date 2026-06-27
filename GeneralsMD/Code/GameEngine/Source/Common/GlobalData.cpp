@@ -99,8 +99,9 @@ GlobalData* GlobalData::m_theOriginal = nullptr;
 	{ "StretchTerrain",						INI::parseBool,				nullptr,			offsetof( GlobalData, m_stretchTerrain ) },
 	{ "UseHalfHeightMap",					INI::parseBool,				nullptr,			offsetof( GlobalData, m_useHalfHeightMap ) },
 
-
+#if !defined(GENERALS_ONLINE_TEMP_FIX_DRAW_ENTIRE_TERRAIN)
 	{ "DrawEntireTerrain",					INI::parseBool,				nullptr,			offsetof( GlobalData, m_drawEntireTerrain ) },
+#endif
 	{ "TerrainLOD",									INI::parseIndexList,	TerrainLODNames,	offsetof( GlobalData, m_terrainLOD ) },
 	{ "TerrainLODTargetTimeMS",			INI::parseInt,				nullptr,			offsetof( GlobalData, m_terrainLODTargetTimeMS ) },
 	{ "RightMouseAlwaysScrolls",		INI::parseBool,				nullptr,			offsetof( GlobalData, m_rightMouseAlwaysScrolls ) },
@@ -944,8 +945,11 @@ GlobalData::GlobalData()
 	m_standardPublicBones.clear();
 
 	m_antiAliasLevel = WW3D::MultiSampleModeEnum::MULTISAMPLE_MODE_NONE;
+
+#if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)
 	m_textureFilteringMode = TextureFilterClass::TextureFilterMode::TEXTURE_FILTER_BILINEAR;
 	m_textureAnisotropyLevel = TextureFilterClass::AnisotropicFilterMode::TEXTURE_FILTER_ANISOTROPIC_2X;
+#endif
 
 //	m_languageFilterPref = false;
 	m_languageFilterPref = true;
@@ -968,6 +972,9 @@ GlobalData::GlobalData()
 
 	m_observerStatsFontSize = 7;
 	m_observerNotificationFontSize = 10;
+	m_observerNotificationSpecialPowerUsage = TRUE;
+	m_observerNotificationSpecialPowerPurchase = TRUE;
+	m_observerNotificationMilestone = TRUE;
 
 	m_showMoneyPerMinute = FALSE;
 	m_allowMoneyPerMinuteForPlayer = FALSE;
@@ -1264,10 +1271,16 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_showMoneyPerMinute = optionPref.getShowMoneyPerMinute();
 	TheWritableGlobalData->m_observerStatsFontSize = optionPref.getObserverStatsFontSize();
 	TheWritableGlobalData->m_observerNotificationFontSize = optionPref.getObserverNotificationFontSize();
+	TheWritableGlobalData->m_observerNotificationSpecialPowerUsage = optionPref.getObserverNotificationSpecialPowerUsage();
+	TheWritableGlobalData->m_observerNotificationSpecialPowerPurchase = optionPref.getObserverNotificationSpecialPowerPurchase();
+	TheWritableGlobalData->m_observerNotificationMilestone = optionPref.getObserverNotificationMilestone();
 
 	TheWritableGlobalData->m_antiAliasLevel = optionPref.getAntiAliasing();
+
+#if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)
 	TheWritableGlobalData->m_textureFilteringMode = optionPref.getTextureFilterMode();
 	TheWritableGlobalData->m_textureAnisotropyLevel = optionPref.getTextureAnisotropyLevel();
+#endif
 
 	Int val=optionPref.getGammaValue();
 	//generate a value between 0.6 and 2.0.

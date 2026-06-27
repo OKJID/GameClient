@@ -21298,7 +21298,7 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
     string_t dump(const int indent = -1,
                   const char indent_char = ' ',
                   const bool ensure_ascii = false,
-                  const error_handler_t error_handler = error_handler_t::strict) const
+                  const error_handler_t error_handler = error_handler_t::replace) const
     {
         string_t result;
         serializer s(detail::output_adapter<char, string_t>(result), indent_char, error_handler);

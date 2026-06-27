@@ -2364,7 +2364,15 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 		TheNetwork->liteupdate();
 	}
 
+#if defined(GENERALS_ONLINE)
+	// set a minimum display time for the load screen on GO to allow players to read ELO, army, stats, etc.
+	const UnsignedInt minLoadScreenDisplayTime = 2000;
+	UnsignedInt minLoadScreenEndTime = isInInternetGame() ? (timeGetTime() + minLoadScreenDisplayTime) : 0;
+
+	while (!isProgressComplete() || (minLoadScreenEndTime != 0 && timeGetTime() < minLoadScreenEndTime))
+#else
 	while (!isProgressComplete())
+#endif
 	{
 		updateLoadProgress(101); // keep greater then 100
 		testTimeOut();

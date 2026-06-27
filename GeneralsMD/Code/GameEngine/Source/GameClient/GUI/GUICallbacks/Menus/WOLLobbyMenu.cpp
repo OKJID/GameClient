@@ -1387,8 +1387,6 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	}
 	*/
 
-	// Set Keyboard to chat window
-	TheWindowManager->winSetFocus( textEntryChat );
 	raiseMessageBoxes = true;
 
 	TheLobbyQueuedUTMs.clear();
@@ -1737,6 +1735,7 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 		{
 			TheTransitionHandler->remove("MainMenuDefaultMenuLogoFade");
 			TheTransitionHandler->setGroup("WOLCustomLobbyFade");
+			TheWindowManager->winSetFocus(textEntryChat);
 			initialGadgetDelay = 2;
 			justEntered = FALSE;
 		}

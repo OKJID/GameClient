@@ -449,6 +449,18 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 
 		uint64_t currentMatchID = pLobbyInterface->GetCurrentMatchID();
 
+		int resolvedSide = -1;
+		NGMPGame* myGame = pLobbyInterface->GetCurrentGame();
+
+		    if (myGame != nullptr)
+			{
+				GameSlot* pLocalSlot = myGame->getSlot(myGame->getLocalSlotNum());
+				if (pLocalSlot != nullptr)
+				{
+					resolvedSide = pLocalSlot->getPlayerTemplate();
+				}
+            }
+
 		nlohmann::json j;
 		j["buildings_built"] = buildingsBuilt;
 		j["buildings_killed"] = buildingsDestroyed;
@@ -459,6 +471,7 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 		j["total_money"] = totalMoney;
 		j["won"] = bWon;
 		j["match_id"] = currentMatchID;
+		j["side"] = resolvedSide;
 
 		std::string strPostData = j.dump();
 	

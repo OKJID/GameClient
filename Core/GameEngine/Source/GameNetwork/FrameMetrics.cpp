@@ -84,7 +84,11 @@ FrameMetrics::~FrameMetrics() {
 }
 
 void FrameMetrics::init() {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+	m_averageFps = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#else
 	m_averageFps = 30;
+#endif
 
 #if defined(GENERALS_ONLINE)
 	// NGMP_NOTE: Don't start with the assumption that we have latency. Connections are now formed earlier, so we have latency data earlier too.
@@ -113,7 +117,11 @@ void FrameMetrics::init() {
 
 	UnsignedInt i = 0;
 	for (; i < TheGlobalData->m_networkFPSHistoryLength; ++i) {
+#if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
+		m_fpsList[i] = GENERALS_ONLINE_HIGH_FPS_LIMIT;
+#else
 		m_fpsList[i] = 30.0;
+#endif
 	}
 	m_fpsListIndex = 0;
 	for (i = 0; i < TheGlobalData->m_networkLatencyHistoryLength; ++i)

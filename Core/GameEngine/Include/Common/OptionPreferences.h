@@ -131,4 +131,7 @@ public:
 
     Int getObserverStatsFontSize(void);
     Int getObserverNotificationFontSize(void);
+	Bool getObserverNotificationSpecialPowerUsage(void);
+	Bool getObserverNotificationSpecialPowerPurchase(void);
+	Bool getObserverNotificationMilestone(void);
 };

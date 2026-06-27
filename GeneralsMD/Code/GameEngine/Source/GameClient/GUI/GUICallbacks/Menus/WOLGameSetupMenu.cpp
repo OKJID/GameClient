@@ -2150,9 +2150,9 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 	enterTime = timeGetTime();
 
 	// Set Keyboard to chat entry
-	TheWindowManager->winSetFocus( textEntryChat );
 	raiseMessageBoxes = true;
 	TheTransitionHandler->setGroup("GameSpyGameOptionsMenuFade");
+	TheWindowManager->winSetFocus(textEntryChat);
 
 #if defined(GENERALS_ONLINE)
 // NGMP: Did we just enter a lobby with modified camera height?
@@ -2510,6 +2510,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				// are we done?
 				if (secondsRemaining <= 0)
 				{
+					s_matchStartCountdownWasRunning = false;
 					// stop countdown
 					TheNGMPGame->StopCountdown();
 
@@ -3896,12 +3897,8 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 								NGMPGameSlot* pSlot = (NGMPGameSlot*)myGame->getSlot(i);
 								int64_t userBeingKicked = pSlot->m_userID;
 
-								NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
-								if (pLobbyInterface != nullptr)
-								{
-									pLobbyInterface->UpdateCurrentLobby_KickUser(userBeingKicked, name);
-								}
-
+								pLobbyInterface->UpdateCurrentLobby_KickUser(userBeingKicked, name);
+								pLobbyInterface->UpdateCurrentLobby_SetSlotState(i, SlotState(pos));  // use what host selected
 								myGame->getSlot(i)->setState(SlotState(pos));
 								myGame->resetAccepted();
 

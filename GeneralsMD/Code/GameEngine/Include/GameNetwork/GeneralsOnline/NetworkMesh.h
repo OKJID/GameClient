@@ -6,18 +6,9 @@
 #endif
 #include <mutex>
 #include "ValveNetworkingSockets/steam/steamnetworkingcustomsignaling.h"
+#include "PluginInterfaces.h"
 
 class NetRoom_ChatMessagePacket;
-
-enum class EConnectionState
-{
-	NOT_CONNECTED,
-	CONNECTING_DIRECT,
-	FINDING_ROUTE,
-	CONNECTED_DIRECT,
-	CONNECTION_FAILED,
-	CONNECTION_DISCONNECTED
-};
 
 // trivial signalling client interface
 class ISignalingClient
@@ -31,16 +22,26 @@ public:
 	virtual void Release() = 0;
 };
 
+enum class EConnectionType
+{
+	Unknown = -1,
+	BuiltIn_ValveSockets = 0,
+	MiddlewarePluginGeneric = 1
+};
+
 class NetworkMesh;
 class PlayerConnection
 {
 public:
-	PlayerConnection()
-	{
-		
-	}
+ 	PlayerConnection()
+ 	{
+		m_ConnectionType = EConnectionType::Unknown;
+        m_hSteamConnection = k_HSteamNetConnection_Invalid;
+        m_strMiddlewareID = std::string("NOT SET");
+ 	}
 
 	PlayerConnection(int64_t userID, HSteamNetConnection hSteamConnection);
+	PlayerConnection(int64_t userID, const char* szMiddlewareID);
 
 	EConnectionState GetState() const { return m_State; }
 
@@ -50,11 +51,20 @@ public:
 
 	void UpdateLatencyHistogram();
 
+	void Close();
+
 	bool IsIPV4();
 	bool IsDirect()
 	{
 		std::string strConnectionType = GetConnectionType();
 		return strConnectionType.find("Relayed") == std::string::npos;
+	}
+
+	bool IsValid() const
+	{
+		return m_State != EConnectionState::NOT_CONNECTED && 
+		       m_State != EConnectionState::CONNECTION_FAILED && 
+		       m_State != EConnectionState::CONNECTION_DISCONNECTED;
 	}
 
 	int Recv(SteamNetworkingMessage_t** pMsg);
@@ -83,6 +93,7 @@ public:
 	void SetDisconnected(bool bWasError, NetworkMesh* pOwningMesh, bool bIsRetrying);
 	
 	int64_t m_userID = -1;
+	EConnectionType m_ConnectionType = EConnectionType::Unknown;
 
 	EConnectionState m_State = EConnectionState::NOT_CONNECTED;
 	
@@ -95,7 +106,11 @@ public:
 	float GetConnectionQuality();
 	int ComputeConnectionScore();
 
+	// Only set for Steam connections
 	HSteamNetConnection m_hSteamConnection = k_HSteamNetConnection_Invalid;
+
+	// Only set for MW connections
+	std::string m_strMiddlewareID = std::string("NOT SET");
 
 	void LiteUpdateForAC();
 };
@@ -177,7 +192,7 @@ public:
 
 	void SendACPacket(uint32_t userID, const void* pData, uint32_t dataLen);
 
-	void StartConnectionSignalling(int64_t remoteUserID, uint16_t preferredPort);
+	void StartConnectionSignalling(const char* szMiddlewareID, int64_t remoteUserID, uint16_t preferredPort);
 	void DisconnectUser(int64_t remoteUserID);
 	void Disconnect();
 

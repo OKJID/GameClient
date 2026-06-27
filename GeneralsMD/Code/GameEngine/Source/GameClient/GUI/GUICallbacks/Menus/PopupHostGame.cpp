@@ -395,7 +395,7 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
   GadgetCheckBoxSetChecked( checkBoxLimitArmies, usingStats? FALSE : customPref.getFactionsLimited() );
 #endif
 
-	TheWindowManager->winSetFocus( parentPopup );
+	TheWindowManager->winSetFocus(textEntryGameName);
 	TheWindowManager->winSetModal( parentPopup );
 
 #if defined(GENERALS_ONLINE)

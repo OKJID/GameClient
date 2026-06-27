@@ -1,5 +1,30 @@
 #pragma once
 
+enum class EConnectionState : uint8_t
+{
+    NOT_CONNECTED,
+    CONNECTING_DIRECT,
+    FINDING_ROUTE,
+    CONNECTED_DIRECT,
+    CONNECTION_FAILED,
+    CONNECTION_DISCONNECTED
+};
+
+enum class ENetworkChannels : uint8_t
+{
+    Game = 0,
+    Anticheat,
+    Signalling
+};
+
+enum class EPacketReliability : int32_t
+{
+    PACKET_RELIABILITY_UNRELIABLE_UNORDERED = 0,
+    PACKET_RELIABILITY_RELIABLE_UNORDERED = 1,
+    PACKET_RELIABILITY_RELIABLE_ORDERED = 2
+};
+
+
 
 enum class EAnticheatActionType : int32_t
 {
@@ -22,6 +47,8 @@ enum class EAnticheatActionReason : int32_t
     PermaBanned = 10
 };
 
+#if defined(GENERALS_ONLINE_USE_PLUGINS_INTERFACE)
+#define AC_ENABLED 1
 
 class AnticheatPlugInterface
 {
@@ -41,6 +68,8 @@ public:
 
     static int GetAnticheatIdentifier();
 
+    static int GetConnectionLatencyForUser(std::string mwUserID, uint32_t goUserID);
+
     static void LoadPlugin(const char* szPluginName);
     static void Authenticate();
     static void UnloadPlugin();
@@ -54,6 +83,26 @@ public:
     static void BeginSession();
     static void EndSession();
 
+    // transport related
+    static bool DoesACPluginProvideSecureGameTransport();
+    static void SendPacket(const char* szMiddlewareUserID, uint64_t targetGoUserID, void* pData, int numBytes, ENetworkChannels channel, EPacketReliability reliability);
+    static void StartSignalling(const char* szMiddlewareUserID, uint64_t goUserID);
+    static int GetNextRecvPacketSize(uint8_t channelToReceiveOn);
+    static bool RecvPacket(uint8_t** pOutData, uint8_t channelToReceiveOn);
+
+    static void DisconnectPlayer(const char* szMiddlewareUserID, uint64_t goUserID);
+    static void DisconnectAll();
+
+#if defined(AC_ENABLED)
+    typedef void (*FuncDefStartSignalling)(const char* szMiddlewareUserID, uint64_t goUserID);
+    typedef void (*FuncDefSendPacket)(const char* szMiddlewareUserID, uint64_t targetGoUserID, void* pData, int numBytes, ENetworkChannels channel, EPacketReliability reliability);
+    typedef bool (*FuncDefDoesACPluginProvideSecureGameTransport)(void);
+    typedef int (*FuncDefGetNextRecvPacketSize)(uint8_t channelToReceiveOn);
+    typedef bool (*FuncDefRecvPacket)(uint8_t** pOutData, uint8_t channelToReceiveOn);
+    typedef void (*FuncDefFreePacket)(void* pPacketData);
+    typedef void (*FuncDefDisconnectPlayer)(const char* szMiddlewareUserID, uint64_t goUserID);
+    typedef void (*FuncDefDisconnectAll)();
+
     // Callbacks from plugin
     typedef void (*LoginCallback)(bool bSuccess);
     typedef void (*LoggingFunc)(const char*);
@@ -66,10 +115,13 @@ public:
 
     // Func defs
     typedef void (*FuncDefSetLoggingFunction)(LoggingFunc);
-    typedef int (*FuncDefInitialize)(void);
+
+    typedef void (*OnConnectionStateChangedCallbackFunc)(const char*, uint64_t, EConnectionState);
+    typedef int (*FuncDefInitialize)(OnConnectionStateChangedCallbackFunc connectionStateChangedCB);
     typedef bool (*FuncDefIsExternalProcessRunning)(void);
 
     typedef int (*FuncDefGetAnticheatIdentifier)(void);
+    typedef int (*FuncDefGetConnectionLatencyForUser)(const char* szMiddlewareUserID, uint32_t goUserID);
     
     typedef void (*FuncDefSetSendMessageViaTransportCallback)(SendMessageViaTransportCallbackFunc);
     typedef void (*FuncDefACMessageArrivedViaTransport)(uint32_t, void*, uint32_t);
@@ -105,8 +157,33 @@ public:
         FuncDefDeregisterPlayer fnDeregisterPlayer = nullptr;
         FuncDefTick fnTick = nullptr;
         FuncDefShutdown fnShutdown = nullptr;
+
+        // transport related
+        FuncDefDoesACPluginProvideSecureGameTransport fnDoesACPluginProvideSecureGameTransport = nullptr;
+        FuncDefStartSignalling fnStartSignalling = nullptr;
+        FuncDefSendPacket fnSendPacket = nullptr;
+        FuncDefGetNextRecvPacketSize fnGetNextRecvPacketSize = nullptr;
+        FuncDefRecvPacket fnRecvPacket = nullptr;
+
+        FuncDefGetConnectionLatencyForUser fnGetConnectionLatencyForUser = nullptr;
+
+        FuncDefDisconnectPlayer fnDisconnectPlayer = nullptr;
+        FuncDefDisconnectAll fnDisconnectAll = nullptr;
     };
     static AnticheatPluginFunctionPtrs Functions;
+#else
+    typedef bool (*FuncDefIsExternalProcessRunning)(void);
+    typedef int (*FuncDefGetAnticheatIdentifier)(void);
+    typedef int (*FuncDefInitialize)();
+
+    struct AnticheatPluginFunctionPtrs
+    {
+        FuncDefIsExternalProcessRunning fnIsExternalProcessRunning = nullptr;
+        FuncDefGetAnticheatIdentifier fnGetAnticheatIdentifier = nullptr;
+        FuncDefInitialize fnInitialize = nullptr;
+    };
+    static AnticheatPluginFunctionPtrs Functions;
+#endif
 
     // Module
 #ifdef __APPLE__
@@ -122,3 +199,121 @@ public:
 #ifndef __APPLE__
 extern HWND ApplicationHWnd;
 #endif
+
+#else // !GENERALS_ONLINE_USE_PLUGINS_INTERFACE
+
+class AnticheatPlugInterface
+{
+public:
+    static bool g_bPendingExitLobby;
+
+    static void AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen)
+    {
+
+    }
+
+    static bool DidPluginFailToLoad() { return false; }
+
+    static bool IsPluginLoaded()
+    {
+        return true;
+    }
+
+    static bool IsExternalProcessRunning()
+    {
+        return true;
+    }
+
+    static int GetAnticheatIdentifier()
+    {
+        return 0;
+    }
+
+    static int GetConnectionLatencyForUser(std::string mwUserID, uint32_t goUserID)
+    {
+        return 0;
+    }
+
+    static void LoadPlugin(const char* szPluginName)
+    {
+
+    }
+
+    static void Authenticate()
+    {
+
+    }
+
+    static void UnloadPlugin()
+    {
+
+    }
+
+    static void Tick()
+    {
+
+    }
+
+    static void RefreshToken()
+    {
+
+    }
+
+    static bool RegisterPlayer(std::string mwUserID, uint32_t goUserID)
+    {
+        return true;
+    }
+
+    static bool DeregisterPlayer(std::string mwUserID, uint32_t goUserID)
+    {
+        return true;
+    }
+
+    static void BeginSession()
+    {
+
+    }
+
+    static void EndSession()
+    {
+
+    }
+
+    static bool DoesACPluginProvideSecureGameTransport()
+    {
+        return false;
+    }
+
+    static void SendPacket(const char* szMiddlewareUserID, uint64_t targetGoUserID, void* pData, int numBytes, ENetworkChannels channel, EPacketReliability reliability)
+    {
+
+    }
+
+    static void StartSignalling(const char* szMiddlewareUserID, uint64_t goUserID)
+    {
+
+    }
+
+    static int GetNextRecvPacketSize(uint8_t channelToReceiveOn)
+    {
+        return 0;
+    }
+
+    static bool RecvPacket(uint8_t** pOutData, uint8_t channelToReceiveOn)
+    {
+        *pOutData = nullptr;
+        return false;
+    }
+
+    static void DisconnectPlayer(const char* szMiddlewareUserID, uint64_t goUserID)
+    {
+
+    }
+
+    static void DisconnectAll()
+    {
+
+    }
+};
+
+#endif // GENERALS_ONLINE_USE_PLUGINS_INTERFACE

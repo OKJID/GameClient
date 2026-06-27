@@ -405,8 +405,11 @@ public:
 																			 smaller area within the rectangle to order the gather. */
 
 	UnsignedInt m_antiAliasLevel;          ///< value of selected antialias level in the game options
+
+#if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)
 	UnsignedInt m_textureFilteringMode;       ///< value related to TextureFilterClass::TextureFilterModeEnum
 	UnsignedInt m_textureAnisotropyLevel;     ///< value related to TextureFilterClass::AnisotropicFilterMode
+#endif
 
 	Bool m_languageFilterPref;        ///< Bool if user wants to filter language
 	Bool m_loadScreenDemo;						///< Bool if true, run the loadscreen demo movie
@@ -437,6 +440,9 @@ public:
 
 	// Generals Online @feature 16/1/2025 allow the observer notification font size to be set, a size of zero disables it
 	Int m_observerNotificationFontSize;
+	Bool m_observerNotificationSpecialPowerUsage;
+	Bool m_observerNotificationSpecialPowerPurchase;
+	Bool m_observerNotificationMilestone;
 
 	Real m_shakeSubtleIntensity;			///< Intensity for shaking a camera with SHAKE_SUBTLE
 	Real m_shakeNormalIntensity;			///< Intensity for shaking a camera with SHAKE_NORMAL

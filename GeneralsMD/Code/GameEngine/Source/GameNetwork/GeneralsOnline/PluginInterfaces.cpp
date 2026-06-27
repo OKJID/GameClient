@@ -9,6 +9,10 @@
 #include "Common/System/NativeFileSystem.h"
 #endif
 
+bool AnticheatPlugInterface::g_bPendingExitLobby = false;
+
+#if defined(GENERALS_ONLINE_USE_PLUGINS_INTERFACE)
+
 #ifdef __APPLE__
 #define AC_PLUGIN_LOAD_FUNCTION(funcName) \
     AnticheatPlugInterface::Functions.fn##funcName = (FuncDef##funcName)dlsym(g_hACPluginModule, #funcName); \
@@ -51,8 +55,25 @@ int AnticheatPlugInterface::GetAnticheatIdentifier()
     return 0;
 }
 
+int AnticheatPlugInterface::GetConnectionLatencyForUser(std::string mwUserID, uint32_t goUserID)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnGetConnectionLatencyForUser != nullptr)
+    {
+        return Functions.fnGetConnectionLatencyForUser(mwUserID.c_str(), goUserID);
+    }
+#endif
+
+    return 0;
+}
+
 void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 {
+    if (g_hACPluginModule != nullptr || IsPluginLoaded())
+    {
+        return;
+    }
+
     if (szPluginName == nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Plugin name is null");
@@ -61,6 +82,10 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
     }
 
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Attempting to load plugin from %s", szPluginName);
+
+#if defined(_DEBUG)
+    szPluginName = "F:\\gen\\ACPlugin_EAC\\build\\Debug\\easyanticheat.dll";
+#endif
 
     m_bPluginLoadFailed = false;
 #ifdef __APPLE__
@@ -87,6 +112,7 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 #endif
     else
     {
+#if defined(AC_ENABLED)
         // set logger 
         AC_PLUGIN_LOAD_FUNCTION(SetLoggingFunction);
 
@@ -99,7 +125,21 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         // Initialize AC
         AC_PLUGIN_LOAD_FUNCTION(Initialize);
 
-        int result = Functions.fnInitialize();
+        int result = Functions.fnInitialize([](const char* szMiddlewareID, uint64_t goUserID, EConnectionState newState) // on connection state changed callback
+            {
+                NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+                if (pMesh != nullptr)
+                {
+                    std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
+                    for (auto& kvPair : connections)
+                    {
+                        if (kvPair.first == goUserID)
+                        {
+                            kvPair.second.UpdateState(newState, pMesh);
+                        }
+                    }
+                }
+            });
         NetworkLog(ELogVerbosity::LOG_RELEASE, "Initialize result = %d", result);
 
         // check loaded
@@ -187,15 +227,27 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
                 // prefer websocket if we have it, otherwise fall back to p2p mesh
                 bool bFallbackToP2P = false;
-                std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
-                if (pWS != nullptr)
+
+                if (AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
                 {
-                    if (pWS->IsConnected())
+                    bFallbackToP2P = true;
+                }
+                else
+                {
+                    std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
+                    if (pWS != nullptr)
                     {
-                        if (dataLen > 0)
+                        if (pWS->IsConnected())
                         {
-                            std::vector<uint8_t> vecPayload((uint8_t*)pData, (uint8_t*)pData + dataLen);
-                            pWS->SendData_ACMessage(goUserID, vecPayload);
+                            if (dataLen > 0)
+                            {
+                                std::vector<uint8_t> vecPayload((uint8_t*)pData, (uint8_t*)pData + dataLen);
+                                pWS->SendData_ACMessage(goUserID, vecPayload);
+                            }
+                            else
+                            {
+                                bFallbackToP2P = true;
+                            }
                         }
                         else
                         {
@@ -206,10 +258,6 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
                     {
                         bFallbackToP2P = true;
                     }
-                }
-                else
-                {
-                    bFallbackToP2P = true;
                 }
 
                 if (bFallbackToP2P)
@@ -230,6 +278,17 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
         // AC network message arrived callback
         AC_PLUGIN_LOAD_FUNCTION(ACMessageArrivedViaTransport);
 
+        // transport funcs
+        AC_PLUGIN_LOAD_FUNCTION(DoesACPluginProvideSecureGameTransport);
+        AC_PLUGIN_LOAD_FUNCTION(StartSignalling);
+        AC_PLUGIN_LOAD_FUNCTION(SendPacket);
+        AC_PLUGIN_LOAD_FUNCTION(GetNextRecvPacketSize);
+        AC_PLUGIN_LOAD_FUNCTION(RecvPacket);
+        AC_PLUGIN_LOAD_FUNCTION(GetConnectionLatencyForUser);
+
+        AC_PLUGIN_LOAD_FUNCTION(DisconnectPlayer);
+        AC_PLUGIN_LOAD_FUNCTION(DisconnectAll);
+
         // Login funcs
         AC_PLUGIN_LOAD_FUNCTION(Login);
         AC_PLUGIN_LOAD_FUNCTION(RefreshToken);
@@ -246,13 +305,22 @@ void AnticheatPlugInterface::LoadPlugin(const char* szPluginName)
 
         AC_PLUGIN_LOAD_FUNCTION(Tick);
         AC_PLUGIN_LOAD_FUNCTION(Shutdown);
+#else
+    // Initialize AC
+    AC_PLUGIN_LOAD_FUNCTION(Initialize);
+
+    int result = Functions.fnInitialize();
+    NetworkLog(ELogVerbosity::LOG_RELEASE, "Initialize result = %d", result);
+
+       AC_PLUGIN_LOAD_FUNCTION(IsExternalProcessRunning);
+        AC_PLUGIN_LOAD_FUNCTION(GetAnticheatIdentifier);
+#endif
     }
 }
 
-bool AnticheatPlugInterface::g_bPendingExitLobby = false;
-
 void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* pData, uint32_t dataLen)
 {
+#if defined(AC_ENABLED)
     if (pData == nullptr || dataLen == 0)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: AC_NetworkMessageArrived received null/empty data");
@@ -265,11 +333,13 @@ void AnticheatPlugInterface::AC_NetworkMessageArrived(uint32_t goUserID, void* p
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] fnOnMessageArrivedViaTransport");
         Functions.fnACMessageArrivedViaTransport(goUserID, pData, dataLen);
     }
+#endif
 }
 
 
 void AnticheatPlugInterface::Authenticate()
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded() && Functions.fnLogin != nullptr && Functions.fnIsLoggedIn != nullptr)
     {
         NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
@@ -321,12 +391,14 @@ void AnticheatPlugInterface::Authenticate()
                 
             });
     }
+#endif
 }
 
 bool g_bSessionStarted = false;
 
 void AnticheatPlugInterface::BeginSession()
 {
+#if defined(AC_ENABLED)
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] BeginSession() called");
     NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] IsPluginLoaded=%d, fnBeginSession=%p", IsPluginLoaded(), Functions.fnBeginSession);
     
@@ -341,15 +413,94 @@ void AnticheatPlugInterface::BeginSession()
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] ERROR: Cannot call fnBeginSession - plugin not loaded or function pointer is null");
     }
+#endif
 }
 
 void AnticheatPlugInterface::EndSession()
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded() && Functions.fnEndSession != nullptr)
     {
         Functions.fnEndSession();
         g_bSessionStarted = false;
     }
+#endif
+}
+
+bool AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport()
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnDoesACPluginProvideSecureGameTransport != nullptr)
+    {
+        return Functions.fnDoesACPluginProvideSecureGameTransport();
+    }
+#endif
+
+    return false;
+}
+
+void AnticheatPlugInterface::SendPacket(const char* szMiddlewareUserID, uint64_t targetGoUserID, void* pData, int numBytes, ENetworkChannels channel, EPacketReliability reliability)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnSendPacket != nullptr)
+    {
+        Functions.fnSendPacket(szMiddlewareUserID, targetGoUserID, pData, numBytes, channel, reliability);
+    }
+#endif
+}
+
+void AnticheatPlugInterface::StartSignalling(const char* szMiddlewareUserID, uint64_t goUserID)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnStartSignalling != nullptr)
+    {
+        Functions.fnStartSignalling(szMiddlewareUserID, goUserID);
+    }
+#endif
+}
+
+int AnticheatPlugInterface::GetNextRecvPacketSize(uint8_t channelToReceiveOn)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnGetNextRecvPacketSize != nullptr)
+    {
+        return Functions.fnGetNextRecvPacketSize(channelToReceiveOn);
+    }
+#endif
+
+    return 0;
+}
+
+bool AnticheatPlugInterface::RecvPacket(uint8_t** pOutData, uint8_t channelToReceiveOn)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnRecvPacket != nullptr)
+    {
+        return Functions.fnRecvPacket(pOutData, channelToReceiveOn);
+    }
+#endif
+
+    return false;
+}
+
+void AnticheatPlugInterface::DisconnectPlayer(const char* szMiddlewareUserID, uint64_t goUserID)
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnDisconnectPlayer != nullptr)
+    {
+        Functions.fnDisconnectPlayer(szMiddlewareUserID, goUserID);
+    }
+#endif
+}
+
+void AnticheatPlugInterface::DisconnectAll()
+{
+#if defined(AC_ENABLED)
+    if (IsPluginLoaded() && Functions.fnDisconnectAll != nullptr)
+    {
+        Functions.fnDisconnectAll();
+    }
+#endif
 }
 
 AnticheatPlugInterface::AnticheatPluginFunctionPtrs AnticheatPlugInterface::Functions;
@@ -365,6 +516,7 @@ int64_t AnticheatPlugInterface::m_tokenCreationTime = -1;
 
 bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUserID)
 {
+#if defined(AC_ENABLED)
     if (!g_bSessionStarted) // TODO_AC: This is hacky, it's because on lobby join, the server can send AC_REGISTER_PLAYER before we join the lobby, so we didnt actually start the session yet. We should buffer these messages until session start or something instead of relying on this hacky global
     {
         AnticheatPlugInterface::BeginSession();
@@ -380,11 +532,15 @@ bool AnticheatPlugInterface::RegisterPlayer(std::string mwUserID, uint32_t goUse
     }
 
     return false;
+#else
+    return true;
+#endif
 }
 
 
 bool AnticheatPlugInterface::DeregisterPlayer(std::string mwUserID, uint32_t goUserID)
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded() && Functions.fnDeregisterPlayer != nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "DeregisterPlayer: %s to %" PRIu32, mwUserID.c_str(), goUserID);
@@ -395,10 +551,14 @@ bool AnticheatPlugInterface::DeregisterPlayer(std::string mwUserID, uint32_t goU
     }
 
     return false;
+#else
+    return true;
+#endif
 }
 
 void AnticheatPlugInterface::Tick()
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded() && Functions.fnTick != nullptr)
     {
         Functions.fnTick();
@@ -418,10 +578,12 @@ void AnticheatPlugInterface::Tick()
             }
         }
     }
+#endif
 }
 
 void AnticheatPlugInterface::RefreshToken()
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded() && Functions.fnRefreshToken != nullptr && Functions.fnIsLoggedIn != nullptr)
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Refreshing token");
@@ -450,10 +612,12 @@ void AnticheatPlugInterface::RefreshToken()
                 }
             });
     }
+#endif
 }
 
 void AnticheatPlugInterface::UnloadPlugin()
 {
+#if defined(AC_ENABLED)
     if (IsPluginLoaded())
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Starting Shutdown");
@@ -473,4 +637,7 @@ void AnticheatPlugInterface::UnloadPlugin()
         g_hACPluginModule = nullptr;
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Unloaded plugin");
     }
+#endif
 }
+
+#endif

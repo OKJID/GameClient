@@ -1037,6 +1037,7 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 									UpdateCurrentLobby_HasMap();
 								}
 
+								std::scoped_lock<std::mutex> lock(m_rosterCallbackMutex);
 								if (m_RosterNeedsRefreshCallback != nullptr)
 								{
 									m_RosterNeedsRefreshCallback();
@@ -1480,8 +1481,6 @@ void NGMP_OnlineServices_LobbyInterface::OnJoinedOrCreatedLobby(bool bAlreadyUpd
 {
 	// begin AC
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0");
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0: %d", AnticheatPlugInterface::IsPluginLoaded());
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session 0: %d", AnticheatPlugInterface::Functions.fnBeginSession);
 
 	AnticheatPlugInterface::BeginSession();
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Begin Session End");

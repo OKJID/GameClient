@@ -114,160 +114,41 @@ Bool NextGenTransport::doRecv(void)
         return FALSE;
     }
 
-    std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
-    for (auto& kvPair : connections)
+    if (AnticheatPlugInterface::DoesACPluginProvideSecureGameTransport())
     {
-        SteamNetworkingMessage_t* pMsg[255] = { nullptr };
-        int numPackets = kvPair.second.Recv(pMsg);
-
-        if (numPackets <= 0)
-            continue;
-
-        if (numPackets > static_cast<int>(std::size(pMsg)))
+        // TODO_EOS: Just have a "has" function instead
+        while (AnticheatPlugInterface::GetNextRecvPacketSize(static_cast<uint8_t>(ENetworkChannels::Game)) > 0)
         {
-            NetworkLog(ELogVerbosity::LOG_RELEASE,
-                "Game Packet Recv: numPackets (%d) > pMsg capacity (%zu), clamping",
-                numPackets, std::size(pMsg));
-            numPackets = static_cast<int>(std::size(pMsg));
-        }
+            int64_t userID = -1; // TODO_EOS
+            uint32_t numBytes = AnticheatPlugInterface::GetNextRecvPacketSize(static_cast<uint8_t>(ENetworkChannels::Game));
 
-        for (int iPacket = 0; iPacket < numPackets; ++iPacket)
-        {
-            SteamNetworkingMessage_t* msg = pMsg[iPacket];
-            if (!msg)
-                continue;
+            std::vector<uint8_t> vecPacketData;
+            vecPacketData.resize(numBytes);
 
-            const uint32_t numBytesWithHeader = msg->m_cbSize;
-
-            // is it an AC packet?
-#ifdef __APPLE__
-            std::vector<uint8_t> vecDataWithHeader;
-#else
-            std::vector<byte> vecDataWithHeader;
-#endif
-            vecDataWithHeader.resize(numBytesWithHeader);
-            memcpy(vecDataWithHeader.data(), msg->GetData(), numBytesWithHeader);
-
-            // all packets must have at least 1 byte to indicate channel
-#ifdef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
-            // TODO(PS_PATH): Old protocol compat — 3-byte AC header [9,1,2], game packets have no channel header
-            if (numBytesWithHeader >= 3)
+            uint8_t* pPacketData = vecPacketData.data();
+            bool bSuccess = AnticheatPlugInterface::RecvPacket(&pPacketData, static_cast<uint8_t>(ENetworkChannels::Game));
+            if (bSuccess && pPacketData != nullptr)
             {
-                BYTE b1 = (BYTE)vecDataWithHeader[0];
-                BYTE b2 = (BYTE)vecDataWithHeader[1];
-                BYTE b3 = (BYTE)vecDataWithHeader[2];
-                if (b1 == 9 && b2 == 1 && b3 == 2)
+                // TODO_EOS: Impl
+                bool bIsACPacket = false;
+
+                if (bIsACPacket)
                 {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
-
-                    std::vector<uint8_t> vecDataAC;
-                    vecDataAC.resize(numBytesWithHeader - 3);
-                    memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytesWithHeader - 3);
-
-                    AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytesWithHeader - 3);
-                    msg->Release();
-                    continue;
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Received AC message of size %u from user %lld", numBytes, static_cast<long long>(userID));
+                    AnticheatPlugInterface::AC_NetworkMessageArrived(userID, pPacketData, numBytes - 3);
                 }
-            }
-            else if (numBytesWithHeader > 0 && numBytesWithHeader < 3)
-            {
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
-                msg->Release();
-                continue;
-            }
-
-            // Not AC — treat as raw game packet (no channel header to strip)
-            {
-                const uint32_t numBytes = numBytesWithHeader;
-
-                NetworkLog(ELogVerbosity::LOG_DEBUG,
-                    "[GAME PACKET] Received message of size %u from user %lld",
-                    numBytes, static_cast<long long>(kvPair.second.m_userID));
-
-                if (numBytes < sizeof(TransportMessageHeader))
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Recv: Dropping packet smaller than header (%u < %zu)",
-                        numBytes, sizeof(TransportMessageHeader));
-                    msg->Release();
-                    continue;
-                }
-
-                const uint32_t maxWireSize =
-                    static_cast<uint32_t>(sizeof(TransportMessageHeader) + MAX_MESSAGE_LEN);
-
-                if (numBytes > maxWireSize)
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Recv: Dropping packet too large (%u > %u)",
-                        numBytes, maxWireSize);
-                    msg->Release();
-                    continue;
-                }
-
-                std::memset(&incomingMessage, 0, sizeof(incomingMessage));
-
-                std::memcpy(&incomingMessage.header,
-                    msg->m_pData,
-                    sizeof(TransportMessageHeader));
-
-                const uint32_t payloadLen =
-                    numBytes - static_cast<uint32_t>(sizeof(TransportMessageHeader));
-
-                if (payloadLen > sizeof(incomingMessage.data))
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,
-                        "Game Packet Recv: Dropping packet, payloadLen (%u) > incoming buffer (%zu)",
-                        payloadLen, sizeof(incomingMessage.data));
-                    msg->Release();
-                    continue;
-                }
-
-                if (payloadLen > 0)
-                {
-                    std::memcpy(incomingMessage.data,
-                        static_cast<unsigned char*>(msg->m_pData) + sizeof(TransportMessageHeader),
-                        payloadLen);
-                }
-
-                incomingMessage.length = static_cast<Int>(payloadLen);
-
-                msg->Release();
-
-#else // New protocol: 1-byte ENetworkChannel header
-            if (numBytesWithHeader >= sizeof(ENetworkChannel))
-            {
-                ENetworkChannel netChannel = (ENetworkChannel)vecDataWithHeader[0];
-
-#ifdef __APPLE__
-                std::vector<uint8_t> vecPacketDataWithoutHeader;
-#else
-                std::vector<byte> vecPacketDataWithoutHeader;
-#endif
-                vecPacketDataWithoutHeader.resize(numBytesWithHeader - sizeof(ENetworkChannel));
-                memcpy(vecPacketDataWithoutHeader.data(), (char*)msg->GetData() + sizeof(ENetworkChannel), numBytesWithHeader - sizeof(ENetworkChannel));
-
-                if (netChannel == ENetworkChannel::NETWORK_CHANNEL_AC)
-                {
-                    NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", vecPacketDataWithoutHeader.size(), static_cast<long long>(kvPair.second.m_userID));
-
-                    AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecPacketDataWithoutHeader.data(), vecPacketDataWithoutHeader.size());
-                    msg->Release();
-                    continue;
-                }
-                else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_GAME)
+                else
                 {
                     NetworkLog(ELogVerbosity::LOG_DEBUG,
                         "[GAME PACKET] Received message of size %u from user %lld",
-                        vecPacketDataWithoutHeader.size(), static_cast<long long>(kvPair.second.m_userID));
+                        numBytes, static_cast<long long>(userID));
 
                     // Must at least contain the header
-                    if (vecPacketDataWithoutHeader.size() < sizeof(TransportMessageHeader))
+                    if (numBytes < sizeof(TransportMessageHeader))
                     {
                         NetworkLog(ELogVerbosity::LOG_RELEASE,
                             "Game Packet Recv: Dropping packet smaller than header (%u < %zu)",
-                            vecPacketDataWithoutHeader.size(), sizeof(TransportMessageHeader));
-                        msg->Release();
+                            numBytes, sizeof(TransportMessageHeader));
                         continue;
                     }
 
@@ -276,12 +157,11 @@ Bool NextGenTransport::doRecv(void)
                     const uint32_t maxWireSize =
                         static_cast<uint32_t>(sizeof(TransportMessageHeader) + MAX_MESSAGE_LEN);
 
-                    if (vecPacketDataWithoutHeader.size() > maxWireSize)
+                    if (numBytes > maxWireSize)
                     {
                         NetworkLog(ELogVerbosity::LOG_RELEASE,
                             "Game Packet Recv: Dropping packet too large (%u > %u)",
-                            vecPacketDataWithoutHeader.size(), maxWireSize);
-                        msg->Release();
+                            numBytes, maxWireSize);
                         continue;
                     }
 
@@ -290,12 +170,12 @@ Bool NextGenTransport::doRecv(void)
 
                     // Copy header safely
                     std::memcpy(&incomingMessage.header,
-                        vecPacketDataWithoutHeader.data(),
+                        pPacketData,
                         sizeof(TransportMessageHeader));
 
                     // Compute payload length
                     const uint32_t payloadLen =
-                        vecPacketDataWithoutHeader.size() - static_cast<uint32_t>(sizeof(TransportMessageHeader));
+                        numBytes - static_cast<uint32_t>(sizeof(TransportMessageHeader));
 
                     // Sanity check payloadLen against local buffer size
                     if (payloadLen > sizeof(incomingMessage.data))
@@ -303,7 +183,6 @@ Bool NextGenTransport::doRecv(void)
                         NetworkLog(ELogVerbosity::LOG_RELEASE,
                             "Game Packet Recv: Dropping packet, payloadLen (%u) > incoming buffer (%zu)",
                             payloadLen, sizeof(incomingMessage.data));
-                        msg->Release();
                         continue;
                     }
 
@@ -311,16 +190,13 @@ Bool NextGenTransport::doRecv(void)
                     if (payloadLen > 0)
                     {
                         std::memcpy(incomingMessage.data,
-                            static_cast<unsigned char*>(vecPacketDataWithoutHeader.data()) + sizeof(TransportMessageHeader),
+                            static_cast<unsigned char*>(pPacketData) + sizeof(TransportMessageHeader),
                             payloadLen);
                     }
 
                     // Length is bounded by sizeof(data), so cast is safe
                     incomingMessage.length = static_cast<Int>(payloadLen);
 
-                    msg->Release();
-
-#endif // NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
 #if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
                     if (m_usePacketLoss)
                     {
@@ -341,7 +217,6 @@ Bool NextGenTransport::doRecv(void)
 
                     if (!isGenerals)
                     {
-                        DEBUG_INFO_MAC(("[NET_RECV] DROP: not a generals packet, size=%u from uid=%lld", numBytesWithHeader, (long long)kvPair.second.m_userID));
                         // Check if it's a CRC failure or magic number failure to help diagnose corruption
                         if (incomingMessage.header.magic != GENERALS_MAGIC_NUMBER)
                         {
@@ -349,7 +224,7 @@ Bool NextGenTransport::doRecv(void)
                                 "Game Packet Recv: BAD MAGIC NUMBER - Expected 0x%04X, got 0x%04X from user %lld. "
                                 "Packet is corrupted or from wrong game version.",
                                 GENERALS_MAGIC_NUMBER, incomingMessage.header.magic,
-                                static_cast<long long>(kvPair.second.m_userID));
+                                static_cast<long long>(userID));
                         }
                         else
                         {
@@ -357,15 +232,15 @@ Bool NextGenTransport::doRecv(void)
                                 "Game Packet Recv: CRC MISMATCH - Expected 0x%08X, got 0x%08X from user %lld. "
                                 "Packet is corrupted during transmission or has invalid payload length (%u).",
                                 incomingMessage.header.crc, 0, // We'd need to compute the CRC to compare
-                                static_cast<long long>(kvPair.second.m_userID), incomingMessage.length);
+                                static_cast<long long>(userID), incomingMessage.length);
                         }
                         m_unknownPackets[m_statisticsSlot]++;
-                        m_unknownBytes[m_statisticsSlot] += numBytesWithHeader;
+                        m_unknownBytes[m_statisticsSlot] += numBytes;
                         continue;
                     }
 
                     m_incomingPackets[m_statisticsSlot]++;
-                    m_incomingBytes[m_statisticsSlot] += numBytesWithHeader;
+                    m_incomingBytes[m_statisticsSlot] += numBytes;
 
                     // Store into first free slot in m_inBuffer
                     bool stored = false;
@@ -405,7 +280,7 @@ Bool NextGenTransport::doRecv(void)
                                     "Game Packet Recv: WARNING - Truncating payload from %u to %zu bytes for inBuffer[%d] from user %lld. "
                                     "This indicates the incoming packet exceeds the buffer capacity and data will be lost. "
                                     "Consider increasing MAX_MESSAGE_LEN or MAX_PACKET_SIZE.",
-                                    payloadLen, dstCap, i, static_cast<long long>(kvPair.second.m_userID));
+                                    payloadLen, dstCap, i, static_cast<long long>(userID));
                             }
 
                             std::memcpy(m_inBuffer[i].data,
@@ -428,13 +303,12 @@ Bool NextGenTransport::doRecv(void)
 
                     if (!stored)
                     {
-                        DEBUG_INFO_MAC(("[NET_RECV] DROP: m_inBuffer full"));
                         // Buffer is full - log this as it indicates potential packet loss
                         NetworkLog(ELogVerbosity::LOG_RELEASE,
                             "Game Packet Recv: ERROR - m_inBuffer is FULL (%d/%d slots occupied), dropping packet from user %lld. "
                             "Incoming packets will be lost until buffer slots are freed. "
                             "Consider increasing MAX_MESSAGES (%d) to handle higher packet rates.",
-                            fullCount, MAX_MESSAGES, static_cast<long long>(kvPair.second.m_userID), MAX_MESSAGES);
+                            fullCount, MAX_MESSAGES, static_cast<long long>(userID), MAX_MESSAGES);
                     }
                     else
                     {
@@ -442,16 +316,354 @@ Bool NextGenTransport::doRecv(void)
                         bRet = TRUE;
                     }
                 }
-#ifndef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
             }
-            else if (vecDataWithHeader.size() != -1)
-            {
-                // Malformed packet - too small for header
-                NetworkLog(ELogVerbosity::LOG_RELEASE, "[NET PACKET] Dropping malformed packet - size %u is less than header size 1 from user %lld", vecDataWithHeader.size(), static_cast<long long>(kvPair.second.m_userID));
-                msg->Release();
+        }
+    }
+    else
+    {
+        std::map<int64_t, PlayerConnection>& connections = pMesh->GetAllConnections();
+        for (auto& kvPair : connections)
+        {
+            SteamNetworkingMessage_t* pMsg[255] = { nullptr };
+            int numPackets = kvPair.second.Recv(pMsg);
+
+            if (numPackets <= 0)
                 continue;
+
+            if (numPackets > static_cast<int>(std::size(pMsg)))
+            {
+                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                    "Game Packet Recv: numPackets (%d) > pMsg capacity (%zu), clamping",
+                    numPackets, std::size(pMsg));
+                numPackets = static_cast<int>(std::size(pMsg));
             }
+
+            for (int iPacket = 0; iPacket < numPackets; ++iPacket)
+            {
+                SteamNetworkingMessage_t* msg = pMsg[iPacket];
+                if (!msg)
+                    continue;
+
+                const uint32_t numBytesWithHeader = msg->m_cbSize;
+
+                // is it an AC packet?
+#ifdef __APPLE__
+                std::vector<uint8_t> vecDataWithHeader;
+#else
+                std::vector<byte> vecDataWithHeader;
 #endif
+                vecDataWithHeader.resize(numBytesWithHeader);
+                memcpy(vecDataWithHeader.data(), msg->GetData(), numBytesWithHeader);
+
+                // all packets must have at least 1 byte to indicate channel
+#ifdef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
+                // TODO(PS_PATH): Old protocol compat — 3-byte AC header [9,1,2], game packets have no channel header
+                if (numBytesWithHeader >= 3)
+                {
+                    BYTE b1 = (BYTE)vecDataWithHeader[0];
+                    BYTE b2 = (BYTE)vecDataWithHeader[1];
+                    BYTE b3 = (BYTE)vecDataWithHeader[2];
+                    if (b1 == 9 && b2 == 1 && b3 == 2)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,"[AC PACKET] Received AC message of size %u from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
+
+                        std::vector<uint8_t> vecDataAC;
+                        vecDataAC.resize(numBytesWithHeader - 3);
+                        memcpy(vecDataAC.data(), (char*)msg->GetData() + 3, numBytesWithHeader - 3);
+
+                        AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecDataAC.data(), numBytesWithHeader - 3);
+                        msg->Release();
+                        continue;
+                    }
+                }
+                else if (numBytesWithHeader > 0 && numBytesWithHeader < 3)
+                {
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Dropping malformed AC packet - size %u is less than header size 3 from user %lld", numBytesWithHeader, static_cast<long long>(kvPair.second.m_userID));
+                    msg->Release();
+                    continue;
+                }
+
+                // Not AC — treat as raw game packet (no channel header to strip)
+                {
+                    const uint32_t numBytes = numBytesWithHeader;
+
+                    NetworkLog(ELogVerbosity::LOG_DEBUG,
+                        "[GAME PACKET] Received message of size %u from user %lld",
+                        numBytes, static_cast<long long>(kvPair.second.m_userID));
+
+                    if (numBytes < sizeof(TransportMessageHeader))
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Recv: Dropping packet smaller than header (%u < %zu)",
+                            numBytes, sizeof(TransportMessageHeader));
+                        msg->Release();
+                        continue;
+                    }
+
+                    const uint32_t maxWireSize =
+                        static_cast<uint32_t>(sizeof(TransportMessageHeader) + MAX_MESSAGE_LEN);
+
+                    if (numBytes > maxWireSize)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Recv: Dropping packet too large (%u > %u)",
+                            numBytes, maxWireSize);
+                        msg->Release();
+                        continue;
+                    }
+
+                    std::memset(&incomingMessage, 0, sizeof(incomingMessage));
+
+                    std::memcpy(&incomingMessage.header,
+                        msg->m_pData,
+                        sizeof(TransportMessageHeader));
+
+                    const uint32_t payloadLen =
+                        numBytes - static_cast<uint32_t>(sizeof(TransportMessageHeader));
+
+                    if (payloadLen > sizeof(incomingMessage.data))
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE,
+                            "Game Packet Recv: Dropping packet, payloadLen (%u) > incoming buffer (%zu)",
+                            payloadLen, sizeof(incomingMessage.data));
+                        msg->Release();
+                        continue;
+                    }
+
+                    if (payloadLen > 0)
+                    {
+                        std::memcpy(incomingMessage.data,
+                            static_cast<unsigned char*>(msg->m_pData) + sizeof(TransportMessageHeader),
+                            payloadLen);
+                    }
+
+                    incomingMessage.length = static_cast<Int>(payloadLen);
+
+                    msg->Release();
+
+#else // New protocol: 1-byte ENetworkChannel header
+                if (numBytesWithHeader >= sizeof(ENetworkChannel))
+                {
+                    ENetworkChannel netChannel = (ENetworkChannel)vecDataWithHeader[0];
+
+#ifdef __APPLE__
+                    std::vector<uint8_t> vecPacketDataWithoutHeader;
+#else
+                    std::vector<byte> vecPacketDataWithoutHeader;
+#endif
+                    vecPacketDataWithoutHeader.resize(numBytesWithHeader - sizeof(ENetworkChannel));
+                    memcpy(vecPacketDataWithoutHeader.data(), (char*)msg->GetData() + sizeof(ENetworkChannel), numBytesWithHeader - sizeof(ENetworkChannel));
+
+                    if (netChannel == ENetworkChannel::NETWORK_CHANNEL_AC)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC PACKET] Received AC message of size %u from user %lld", vecPacketDataWithoutHeader.size(), static_cast<long long>(kvPair.second.m_userID));
+
+
+                        // remove header
+                        // TODO_AC: Optimize this
+
+
+                        AnticheatPlugInterface::AC_NetworkMessageArrived(kvPair.second.m_userID, vecPacketDataWithoutHeader.data(), vecPacketDataWithoutHeader.size());
+                        msg->Release();
+                        continue;
+                    }
+                    else if (netChannel == ENetworkChannel::NETWORK_CHANNEL_GAME)
+                    {
+                        NetworkLog(ELogVerbosity::LOG_DEBUG,
+                            "[GAME PACKET] Received message of size %u from user %lld",
+                            vecPacketDataWithoutHeader.size(), static_cast<long long>(kvPair.second.m_userID));
+
+                        // Must at least contain the header
+                        if (vecPacketDataWithoutHeader.size() < sizeof(TransportMessageHeader))
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                "Game Packet Recv: Dropping packet smaller than header (%u < %zu)",
+                                vecPacketDataWithoutHeader.size(), sizeof(TransportMessageHeader));
+                            msg->Release();
+                            continue;
+                        }
+
+                        // Max bytes we ever expect from the wire:
+                        // header + payload (no trailing length/addr/port)
+                        const uint32_t maxWireSize =
+                            static_cast<uint32_t>(sizeof(TransportMessageHeader) + MAX_MESSAGE_LEN);
+
+                        if (vecPacketDataWithoutHeader.size() > maxWireSize)
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                "Game Packet Recv: Dropping packet too large (%u > %u)",
+                                vecPacketDataWithoutHeader.size(), maxWireSize);
+                            msg->Release();
+                            continue;
+                        }
+
+                        // Clear incomingMessage, then copy header + payload region only
+                        std::memset(&incomingMessage, 0, sizeof(incomingMessage));
+
+                        // Copy header safely
+                        std::memcpy(&incomingMessage.header,
+                            vecPacketDataWithoutHeader.data(),
+                            sizeof(TransportMessageHeader));
+
+                        // Compute payload length
+                        const uint32_t payloadLen =
+                            vecPacketDataWithoutHeader.size() - static_cast<uint32_t>(sizeof(TransportMessageHeader));
+
+                        // Sanity check payloadLen against local buffer size
+                        if (payloadLen > sizeof(incomingMessage.data))
+                        {
+                            NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                "Game Packet Recv: Dropping packet, payloadLen (%u) > incoming buffer (%zu)",
+                                payloadLen, sizeof(incomingMessage.data));
+                            msg->Release();
+                            continue;
+                        }
+
+                        // Copy payload into data[]
+                        if (payloadLen > 0)
+                        {
+                            std::memcpy(incomingMessage.data,
+                                static_cast<unsigned char*>(vecPacketDataWithoutHeader.data()) + sizeof(TransportMessageHeader),
+                                payloadLen);
+                        }
+
+                        // Length is bounded by sizeof(data), so cast is safe
+                        incomingMessage.length = static_cast<Int>(payloadLen);
+
+                        msg->Release();
+
+#endif // NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
+#if defined(RTS_DEBUG) || defined(RTS_INTERNAL)
+                        if (m_usePacketLoss)
+                        {
+                            // Drop packet if random value is below loss percentage
+                            // E.g., if m_packetLoss = 50, drop ~50% of packets
+                            if (TheGlobalData->m_packetLoss > GameClientRandomValue(0, 100))
+                            {
+                                // Simulated packet loss
+                                NetworkLog(ELogVerbosity::LOG_DEBUG,
+                                    "Game Packet Recv: Simulated packet loss (loss%%=%d)",
+                                    TheGlobalData->m_packetLoss);
+                                continue;
+                            }
+                        }
+#endif
+
+                        const bool isGenerals = isGeneralsPacket(&incomingMessage);
+
+                        if (!isGenerals)
+                        {
+                            DEBUG_INFO_MAC(("[NET_RECV] DROP: not a generals packet, size=%u from uid=%lld", numBytesWithHeader, (long long)kvPair.second.m_userID));
+                            // Check if it's a CRC failure or magic number failure to help diagnose corruption
+                            if (incomingMessage.header.magic != GENERALS_MAGIC_NUMBER)
+                            {
+                                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                    "Game Packet Recv: BAD MAGIC NUMBER - Expected 0x%04X, got 0x%04X from user %lld. "
+                                    "Packet is corrupted or from wrong game version.",
+                                    GENERALS_MAGIC_NUMBER, incomingMessage.header.magic,
+                                    static_cast<long long>(kvPair.second.m_userID));
+                            }
+                            else
+                            {
+                                NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                    "Game Packet Recv: CRC MISMATCH - Expected 0x%08X, got 0x%08X from user %lld. "
+                                    "Packet is corrupted during transmission or has invalid payload length (%u).",
+                                    incomingMessage.header.crc, 0, // We'd need to compute the CRC to compare
+                                    static_cast<long long>(kvPair.second.m_userID), incomingMessage.length);
+                            }
+                            m_unknownPackets[m_statisticsSlot]++;
+                            m_unknownBytes[m_statisticsSlot] += numBytesWithHeader;
+                            continue;
+                        }
+
+                        m_incomingPackets[m_statisticsSlot]++;
+                        m_incomingBytes[m_statisticsSlot] += numBytesWithHeader;
+
+                        // Store into first free slot in m_inBuffer
+                        bool stored = false;
+                        int fullCount = 0;
+                        for (int i = 0; i < MAX_MESSAGES; ++i)
+                        {
+                            // Check if slot is occupied using flag, not length
+                            // (length could be 0 for legitimate empty packets)
+                            // However, if the packet has been consumed (length cleared to 0 by outside code),
+                            // clear the occupied flag too
+                            if (m_inBuffer[i].length == 0 && m_inBufferOccupied[i])
+                            {
+                                m_inBufferOccupied[i] = false;
+                            }
+
+                            if (m_inBufferOccupied[i])
+                            {
+                                fullCount++;
+                                continue;
+                            }
+
+                            // Clear slot
+                            std::memset(&m_inBuffer[i], 0, sizeof(m_inBuffer[i]));
+
+                            // Copy header
+                            m_inBuffer[i].header = incomingMessage.header;
+
+                            // Copy payload with bounds check
+                            if (payloadLen > 0)
+                            {
+                                const size_t dstCap = sizeof(m_inBuffer[i].data);
+                                const size_t toCopy = (payloadLen <= dstCap) ? payloadLen : dstCap;
+
+                                if (payloadLen > dstCap)
+                                {
+                                    NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                        "Game Packet Recv: WARNING - Truncating payload from %u to %zu bytes for inBuffer[%d] from user %lld. "
+                                        "This indicates the incoming packet exceeds the buffer capacity and data will be lost. "
+                                        "Consider increasing MAX_MESSAGE_LEN or MAX_PACKET_SIZE.",
+                                        payloadLen, dstCap, i, static_cast<long long>(kvPair.second.m_userID));
+                                }
+
+                                std::memcpy(m_inBuffer[i].data,
+                                    incomingMessage.data,
+                                    toCopy);
+
+                                m_inBuffer[i].length = static_cast<Int>(toCopy);
+                            }
+                            else
+                            {
+                                // Zero-length packet - store with length=0 but mark as occupied
+                                m_inBuffer[i].length = 0;
+                            }
+
+                            // Mark slot as occupied
+                            m_inBufferOccupied[i] = true;
+                            stored = true;
+                            break;
+                        }
+
+                        if (!stored)
+                        {
+                            // Buffer is full - log this as it indicates potential packet loss
+                            NetworkLog(ELogVerbosity::LOG_RELEASE,
+                                "Game Packet Recv: ERROR - m_inBuffer is FULL (%d/%d slots occupied), dropping packet from user %lld. "
+                                "Incoming packets will be lost until buffer slots are freed. "
+                                "Consider increasing MAX_MESSAGES (%d) to handle higher packet rates.",
+                                fullCount, MAX_MESSAGES, static_cast<long long>(kvPair.second.m_userID), MAX_MESSAGES);
+                        }
+                        else
+                        {
+                            ++numRead;
+                            bRet = TRUE;
+                        }
+                    }
+#ifndef NGMP_COMPAT_OLD_CHANNEL_PROTOCOL
+                }
+                else if (vecDataWithHeader.size() != -1)
+                {
+                    // Malformed packet - too small for header
+                    NetworkLog(ELogVerbosity::LOG_RELEASE, "[NET PACKET] Dropping malformed packet - size %u is less than header size 1 from user %lld", vecDataWithHeader.size(), static_cast<long long>(kvPair.second.m_userID));
+                    msg->Release();
+                    continue;
+                }
+#endif
+            }
         }
     }
 
@@ -460,7 +672,7 @@ Bool NextGenTransport::doRecv(void)
     static int s_recvLogCounter = 0;
     if (++s_recvLogCounter >= 300)
     {
-        DEBUG_INFO_MAC(("[NET_RECV] heartbeat: %d packets this batch, %d total recv, connections=%zu", numRead, s_totalRecv, connections.size()));
+        DEBUG_INFO_MAC(("[NET_RECV] heartbeat: %d packets this batch, %d total recv", numRead, s_totalRecv));
         s_recvLogCounter = 0;
     }
 

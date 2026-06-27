@@ -112,7 +112,7 @@ void PopupJoinGameInit( WindowLayout *layout, void *userData )
 	UnicodeString lobbyName(from_utf8(lobbyTryingToJoin.name).c_str());
 	GadgetStaticTextSetText(staticTextGameName, lobbyName);
 
-	TheWindowManager->winSetFocus( parentPopup );
+	TheWindowManager->winSetFocus(textEntryGamePassword);
 	TheWindowManager->winSetModal( parentPopup );
 
 }

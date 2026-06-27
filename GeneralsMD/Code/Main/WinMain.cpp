@@ -70,6 +70,7 @@
 #ifdef RTS_ENABLE_CRASHDUMP
 #include "Common/MiniDumper.h"
 #endif
+#include "../OnlineServices_Init.h"
 
 
 // GLOBALS ////////////////////////////////////////////////////////////////////
@@ -312,7 +313,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message,
 #ifdef	DEBUG_WINDOWS_MESSAGES
 		static msgCount = 0;
 		char testString[256];
-		sprintf(testString, "\n%d: %s (%X,%X)", msgCount++, messageToString(message), wParam, lParam);
+		snprintf(testString, sizeof(testString), "\n%d: %s (%X,%X)", msgCount++, messageToString(message), wParam, lParam);
 		OutputDebugString(testString);
 #endif
 
@@ -861,7 +862,7 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 		char filePath[_MAX_PATH];
 		const char* fileName = "Install_Final.bmp";
 		static const char* localizedPathFormat = "Data/%s/";
-		sprintf(filePath, localizedPathFormat, GetRegistryLanguage().str());
+			snprintf(filePath, sizeof(filePath), localizedPathFormat, GetRegistryLanguage().str());
 		strlcat(filePath, fileName, ARRAY_SIZE(filePath));
 		FILE* fileImage = fopen(filePath, "r");
 		if (fileImage) {
@@ -889,6 +890,8 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 			return exitcode;
 		}
 
+		NGMP_OnlineServicesManager::AttemptLoadSteam();
+
 		// save our application instance for future use
 		ApplicationHInstance = hInstance;
 
@@ -909,11 +912,7 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         // TODO_NGMP: Better solution
 #if defined(GENERALS_ONLINE)
         TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, GENERALS_ONLINE_VERSION, GENERALS_ONLINE_NET_VERSION,
-#if !defined(_DEBUG)
-            AsciiString("Generals Online Development Team | GitHub Buildserver"), AsciiString(""),
-#else
-            AsciiString("Generals Online Development Team | Development Test Build"), AsciiString(""),
-#endif
+            AsciiString("Generals Online Development Team"), AsciiString(""),
             AsciiString(__TIME__), AsciiString(__DATE__));
 #else
         TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, VERSION_BUILDNUM, VERSION_LOCALBUILDNUM,
@@ -921,9 +920,7 @@ Int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
             AsciiString(__TIME__), AsciiString(__DATE__));
 #endif
 
-		TheVersion->setVersion(VERSION_MAJOR, VERSION_MINOR, VERSION_BUILDNUM, VERSION_LOCALBUILDNUM,
-			AsciiString(VERSION_BUILDUSER), AsciiString(VERSION_BUILDLOC),
-			AsciiString(__TIME__), AsciiString(__DATE__));
+
 
 		// TheSuperHackers @refactor The instance mutex now lives in its own class.
 

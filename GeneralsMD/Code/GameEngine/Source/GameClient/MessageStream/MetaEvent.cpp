@@ -161,6 +161,8 @@ static const LookupListRec GameMessageMetaTypeNames[] =
 	{ "TOGGLE_PLAYER_OBSERVER",										GameMessage::MSG_META_TOGGLE_PLAYER_OBSERVER },
 	{ "INCREASE_OBSERVER_STATS_FONT",                           GameMessage::MSG_META_INCREASE_OBSERVER_STATS_FONT },
 	{ "DECREASE_OBSERVER_STATS_FONT",                           GameMessage::MSG_META_DECREASE_OBSERVER_STATS_FONT },
+	{ "INCREASE_OBSERVER_NOTIFICATION_FONT",                    GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT },
+	{ "DECREASE_OBSERVER_NOTIFICATION_FONT",                    GameMessage::MSG_META_DECREASE_OBSERVER_NOTIFICATION_FONT },
 	{ "BEGIN_PATH_BUILD",													GameMessage::MSG_META_BEGIN_PATH_BUILD },
 	{ "END_PATH_BUILD",														GameMessage::MSG_META_END_PATH_BUILD },
 	{ "BEGIN_FORCEATTACK",												GameMessage::MSG_META_BEGIN_FORCEATTACK },
@@ -381,15 +383,11 @@ static const FieldParse TheMetaMapFieldParseTable[] =
 // PUBLIC FUNCTIONS ///////////////////////////////////////////////////////////////////////////////
 
 //-------------------------------------------------------------------------------------------------
-MetaEventTranslator::MetaEventTranslator() :
-	m_lastKeyDown(MK_NONE),
-	m_lastModState(0)
+MetaEventTranslator::MetaEventTranslator()
 {
 	for (Int i = 0; i < NUM_MOUSE_BUTTONS; ++i) {
 		m_nextUpShouldCreateDoubleClick[i] = FALSE;
 	}
-
-
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -398,7 +396,7 @@ MetaEventTranslator::~MetaEventTranslator()
 }
 
 //-------------------------------------------------------------------------------------------------
-static const char* findGameMessageNameByType(GameMessage::Type type)
+static const char * findGameMessageNameByType(GameMessage::Type type)
 {
 	for (const LookupListRec* metaNames = GameMessageMetaTypeNames; metaNames->name; metaNames++)
 		if (metaNames->value == (Int)type)
@@ -438,139 +436,29 @@ static Bool isMessageUsable(CommandUsableInType usableIn)
 }
 
 //-------------------------------------------------------------------------------------------------
-GameMessageDisposition MetaEventTranslator::translateGameMessage(const GameMessage* msg)
+GameMessageDisposition MetaEventTranslator::translateGameMessage(const GameMessage *msg)
 {
 	GameMessageDisposition disp = KEEP_MESSAGE;
-	GameMessage::Type t = msg->getType();
+	const GameMessage::Type t = msg->getType();
 
 	if (t == GameMessage::MSG_RAW_KEY_DOWN || t == GameMessage::MSG_RAW_KEY_UP)
 	{
-		MappableKeyType key = (MappableKeyType)msg->getArgument(0)->integer;
-		Int keyState = msg->getArgument(1)->integer;
-
-		// for our purposes here, we don't care to distinguish between right and left keys,
-		// so just fudge a little to simplify things.
-		Int newModState = 0;
-
-		if (keyState & KEY_STATE_CONTROL)
-		{
-			newModState |= CTRL;
-		}
-
-		if (keyState & KEY_STATE_SHIFT)
-		{
-			newModState |= SHIFT;
-		}
-
-		if (keyState & KEY_STATE_ALT)
-		{
-			newModState |= ALT;
-		}
-
-
-		for (const MetaMapRec* map = TheMetaMap->getFirstMetaMapRec(); map; map = map->m_next)
-		{
-			if (!isMessageUsable(map->m_usableIn))
-				continue;
-
-			// check for the special case of mods-only-changed.
-			if (
-				map->m_key == MK_NONE &&
-				newModState != m_lastModState &&
-				(
-					(map->m_transition == UP && map->m_modState == m_lastModState) ||
-					(map->m_transition == DOWN && map->m_modState == newModState)
-					)
-				)
-			{
-				//DEBUG_LOG(("Frame %d: MetaEventTranslator::translateGameMessage() Mods-only change: %s", TheGameLogic->getFrame(), findGameMessageNameByType(map->m_meta)));
-				/*GameMessage *metaMsg =*/ TheMessageStream->appendMessage(map->m_meta);
-				disp = DESTROY_MESSAGE;
-				break;
-			}
-
-			// ok, now check for "normal" key transitions.
-			if (
-				map->m_key == key &&
-				map->m_modState == newModState &&
-				(
-					(map->m_transition == UP && (keyState & KEY_STATE_UP)) ||
-					(map->m_transition == DOWN && (keyState & KEY_STATE_DOWN)) //||
-					//(map->m_transition == DOUBLEDOWN && (keyState & KEY_STATE_DOWN) && m_lastKeyDown == key)
-					)
-				)
-			{
-
-				if (keyState & KEY_STATE_AUTOREPEAT)
-				{
-					// if it's an autorepeat of a "known" key, don't generate the meta-event,
-					// but DO eat the keystroke so no one else can mess with it
-					//DEBUG_LOG(("Frame %d: MetaEventTranslator::translateGameMessage() auto-repeat: %s", TheGameLogic->getFrame(), findGameMessageNameByType(map->m_meta)));
-				}
-				else
-				{
-
-					// THIS IS A GREASY HACK... MESSAGE SHOULD BE HANDLED IN A TRANSLATOR, BUT DURING CINEMATICS THE TRANSLATOR IS DISABLED
-					if (map->m_meta == GameMessage::MSG_META_TOGGLE_FAST_FORWARD_REPLAY)
-					{
-#if defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)//may be defined in GameCommon.h
-						if (TheGlobalData)
-#else
-						if (TheGlobalData && TheGameLogic->isInReplayGame())
-#endif
-						{
-							if (TheWritableGlobalData)
-								TheWritableGlobalData->m_TiVOFastMode = 1 - TheGlobalData->m_TiVOFastMode;
-
-							if (TheInGameUI)
-								TheInGameUI->messageNoFormat(TheGlobalData->m_TiVOFastMode
-									? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", L"Fast Forward is on")
-									: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", L"Fast Forward is off")
-								);
-						}
-						disp = KEEP_MESSAGE; // cause for goodness sake, this key gets used a lot by non-replay hotkeys
-						break;
-					}
-
-
-					/*GameMessage *metaMsg =*/ TheMessageStream->appendMessage(map->m_meta);
-					//DEBUG_LOG(("Frame %d: MetaEventTranslator::translateGameMessage() normal: %s", TheGameLogic->getFrame(), findGameMessageNameByType(map->m_meta)));
-				}
-				disp = DESTROY_MESSAGE;
-				break;
-			}
-		}
-
-
-
-		if (t == GameMessage::MSG_RAW_KEY_DOWN)
-		{
-			m_lastKeyDown = key;
-
-
-#ifdef DUMP_ALL_KEYS_TO_LOG
-
-			WideChar Wkey = TheKeyboard->getPrintableKey(key, 0);
-			UnicodeString uKey;
-			uKey.set(&Wkey);
-			AsciiString aKey;
-			aKey.translate(uKey);
-			DEBUG_LOG(("^%s ", aKey.str()));
-#endif
-
-		}
-
-
-
-		m_lastModState = newModState;
+		onKeyEvent(msg, disp);
+	}
+	else if (t > GameMessage::MSG_RAW_MOUSE_BEGIN && t < GameMessage::MSG_RAW_MOUSE_END )
+	{
+		onMouseEvent(msg);
 	}
 
+	return disp;
+}
 
-	if (t > GameMessage::MSG_RAW_MOUSE_BEGIN && t < GameMessage::MSG_RAW_MOUSE_END)
+//-------------------------------------------------------------------------------------------------
+void MetaEventTranslator::onMouseEvent(const GameMessage *msg)
+{
+	Int index = 3;
+	switch (msg->getType())
 	{
-		Int index = 3;
-		switch (t)
-		{
 		case GameMessage::MSG_RAW_MOUSE_LEFT_BUTTON_DOWN:
 			--index;
 			FALLTHROUGH;
@@ -623,32 +511,221 @@ GameMessageDisposition MetaEventTranslator::translateGameMessage(const GameMessa
 
 			const ICoord2D location = msg->getArgument(0)->pixel;
 			const GameMessage::Type messageType = m_nextUpShouldCreateDoubleClick[index] ? DoubleClickMessages[index] : SingleClickMessages[index];
-			GameMessage* newMessage = TheMessageStream->insertMessage(messageType, const_cast<GameMessage*>(msg));
+			GameMessage *newMessage = TheMessageStream->insertMessage(messageType, const_cast<GameMessage*>(msg));
 
 			IRegion2D pixelRegion;
-			buildRegion(&m_mouseDownPosition[index], &location, &pixelRegion);
+			buildRegion( &m_mouseDownPosition[index], &location, &pixelRegion );
 			if (abs(pixelRegion.hi.x - pixelRegion.lo.x) < TheMouse->m_dragTolerance &&
-				abs(pixelRegion.hi.y - pixelRegion.lo.y) < TheMouse->m_dragTolerance)
+					abs(pixelRegion.hi.y - pixelRegion.lo.y) < TheMouse->m_dragTolerance)
 			{
 				pixelRegion.hi.x = pixelRegion.lo.x;
 				pixelRegion.hi.y = pixelRegion.lo.y;
 			}
 
-			newMessage->appendPixelRegionArgument(pixelRegion);
+			newMessage->appendPixelRegionArgument( pixelRegion );
 
 			// append the modifier keys to the message.
-			newMessage->appendIntegerArgument(msg->getArgument(1)->integer);
+			newMessage->appendIntegerArgument( msg->getArgument(1)->integer );
 
 			// append the time to the message.
 			//newMessage->appendIntegerArgument( msg->getArgument(2)->integer );
 			break;
 		}
+	}
+}
 
+//-------------------------------------------------------------------------------------------------
+void MetaEventTranslator::onKeyEvent(const GameMessage *msg, GameMessageDisposition &disp)
+{
+	const Int systemKey = msg->getArgument(0)->integer;
+	const Int systemKeyState = msg->getArgument(1)->integer;
+
+	const MappableKeyType keyType = getActionKeyType(systemKey);
+	const MappableKeyModState keyModState = getKeyModState(systemKeyState);
+
+	const Bool modStateRemoved = (keyType == MK_NONE) && (msg->getType() == GameMessage::MSG_RAW_KEY_UP);
+
+	if (modStateRemoved)
+	{
+		onKeyModStateRemoved(disp, keyModState);
+	}
+	else
+	{
+		onKeyPressed(disp, systemKeyState, keyType, keyModState);
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+void MetaEventTranslator::onKeyModStateRemoved(GameMessageDisposition &disp, MappableKeyModState keyModState)
+{
+	// TheSuperHackers @fix The key handler now ignores the order in which modifier keys are released.
+	// This avoids frustrating experiences where a wrong button release order would skip an important key event.
+
+	for (Int keyDownIndex = 0; keyDownIndex < ARRAY_SIZE(m_keyDownInfos); ++keyDownIndex)
+	{
+		const MappableKeyType keyDown = (MappableKeyType)keyDownIndex;
+		KeyDownInfo &keyDownInfo = m_keyDownInfos[keyDownIndex];
+
+		if (!keyDownInfo.isKeyDown())
+			continue;
+
+		for (UnsignedInt modStateIndex = 0; modStateIndex < KeyDownInfo::getMaxKeyModStateCount(); ++modStateIndex)
+		{
+			const MappableKeyModState keyDownModState = keyDownInfo.getKeyModState(modStateIndex);
+
+			if (keyDownModState == NONE)
+				continue;
+
+			if (BitsAreSet(keyModState, keyDownModState))
+				continue;
+
+			// Forget that this key and mod state are pressed.
+			keyDownInfo.clearKeyModState(modStateIndex);
+
+			for (const MetaMapRec *map = TheMetaMap->getFirstMetaMapRec(); map; map = map->m_next)
+			{
+				if (!isMessageUsable(map->m_usableIn))
+					continue;
+
+				const Bool isMatchingKeyCombo = map->m_key == keyDown && map->m_modState == keyDownModState;
+				const Bool isTransitionUp = map->m_transition == UP;
+
+				if (!(isMatchingKeyCombo && isTransitionUp))
+					continue;
+
+				TheMessageStream->appendMessage(map->m_meta);
+				disp = DESTROY_MESSAGE;
+			}
 		}
+	}
+}
 
+//-------------------------------------------------------------------------------------------------
+void MetaEventTranslator::onKeyPressed(GameMessageDisposition &disp, Int systemKeyState, MappableKeyType keyType, MappableKeyModState keyModState)
+{
+	// TheSuperHackers @info The regular key handler only triggers events when the mapped key is pressed,
+	// not when the modifier (CTRL, ALT, SHIFT) is pressed, unless the key is MK_NONE.
+
+	for (const MetaMapRec *map = TheMetaMap->getFirstMetaMapRec(); map; map = map->m_next)
+	{
+		if (!isMessageUsable(map->m_usableIn))
+			continue;
+
+		const Bool isMatchingKeyCombo = map->m_key == keyType && map->m_modState == keyModState;
+		const Bool isMatchingTransitionUp = map->m_transition == UP && (systemKeyState & KEY_STATE_UP) != 0;
+		const Bool isMatchingTransitionDown = map->m_transition == DOWN && (systemKeyState & KEY_STATE_DOWN) != 0;
+		//const Bool isMatchingTransitionDoubleDown = map->m_transition == DOUBLEDOWN && (systemKeyState & KEY_STATE_DOWN) && m_lastKeyDown == key;
+
+		if (isMatchingKeyCombo && (isMatchingTransitionUp || isMatchingTransitionDown /*|| isMatchingTransitionDoubleDown*/))
+		{
+			if( systemKeyState & KEY_STATE_AUTOREPEAT )
+			{
+				// if it's an autorepeat of a "known" key, don't generate the meta-event,
+				// but DO eat the keystroke so no one else can mess with it
+				//DEBUG_LOG(("Frame %d: MetaEventTranslator::translateGameMessage() auto-repeat: %s", TheGameLogic->getFrame(), findGameMessageNameByType(map->m_meta)));
+			}
+			else
+			{
+				// THIS IS A GREASY HACK... MESSAGE SHOULD BE HANDLED IN A TRANSLATOR, BUT DURING CINEMATICS THE TRANSLATOR IS DISABLED
+				if( map->m_meta ==  GameMessage::MSG_META_TOGGLE_FAST_FORWARD_REPLAY)
+				{
+			#if defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)//may be defined in GameCommon.h
+					if( TheGlobalData )
+			#else
+				if( TheGlobalData && TheGameLogic->isInReplayGame())
+			#endif
+					{
+						if ( TheWritableGlobalData )
+							TheWritableGlobalData->m_TiVOFastMode = 1 - TheGlobalData->m_TiVOFastMode;
+
+						if ( TheInGameUI )
+							TheInGameUI->messageNoFormat( TheGlobalData->m_TiVOFastMode
+								? TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_ON", L"Fast Forward is on")
+								: TheGameText->FETCH_OR_SUBSTITUTE("GUI:FF_OFF", L"Fast Forward is off")
+							);
+					}
+					disp = KEEP_MESSAGE; // cause for goodness sake, this key gets used a lot by non-replay hotkeys
+					break;
+				}
+
+				/*GameMessage *metaMsg =*/ TheMessageStream->appendMessage(map->m_meta);
+				//DEBUG_LOG(("Frame %d: MetaEventTranslator::translateGameMessage() normal: %s", TheGameLogic->getFrame(), findGameMessageNameByType(map->m_meta)));
+			}
+
+			disp = DESTROY_MESSAGE;
+			break;
+		}
 	}
 
-	return disp;
+	if (systemKeyState & KEY_STATE_DOWN)
+	{
+#ifdef DUMP_ALL_KEYS_TO_LOG
+		WideChar Wkey = TheKeyboard->getPrintableKey(keyType, 0);
+		UnicodeString uKey;
+		uKey.set(&Wkey);
+		AsciiString aKey;
+		aKey.translate(uKey);
+		DEBUG_LOG(("^%s ", aKey.str()));
+#endif
+
+		if (keyModState != NONE)
+		{
+			// Remember that this key and mod state are pressed.
+			m_keyDownInfos[keyType].setKeyModState(keyModState);
+		}
+	}
+	else
+	{
+		if (keyModState != NONE)
+		{
+			DEBUG_ASSERTCRASH(keyType != MK_NONE, ("Key is expected to be not MK_NONE"));
+
+			// Forget that this key and mod state are pressed.
+			m_keyDownInfos[keyType].clearKeyModState(keyModState);
+		}
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+MappableKeyType MetaEventTranslator::getActionKeyType(Int systemKey)
+{
+	switch (systemKey)
+	{
+	case KEY_LCTRL:
+	case KEY_RCTRL:
+	case KEY_LSHIFT:
+	case KEY_RSHIFT:
+	case KEY_LALT:
+	case KEY_RALT:
+		return MK_NONE;
+	default:
+		return (MappableKeyType)systemKey;
+	}
+}
+
+//-------------------------------------------------------------------------------------------------
+MappableKeyModState MetaEventTranslator::getKeyModState(Int systemKeyState)
+{
+	// for our purposes here, we don't care to distinguish between right and left keys,
+	// so just fudge a little to simplify things.
+	Int keyModState = 0;
+
+	if( systemKeyState & KEY_STATE_CONTROL )
+	{
+		keyModState |= CTRL;
+	}
+
+	if( systemKeyState & KEY_STATE_SHIFT )
+	{
+		keyModState |= SHIFT;
+	}
+
+	if( systemKeyState & KEY_STATE_ALT )
+	{
+		keyModState |= ALT;
+	}
+
+	return (MappableKeyModState)keyModState;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -666,7 +743,7 @@ MetaMap::~MetaMap()
 {
 	while (m_metaMaps)
 	{
-		MetaMapRec* next = m_metaMaps->m_next;
+		MetaMapRec *next = m_metaMaps->m_next;
 		deleteInstance(m_metaMaps);
 		m_metaMaps = next;
 	}
@@ -684,16 +761,16 @@ GameMessage::Type MetaMap::findGameMessageMetaType(const char* name)
 }
 
 //-------------------------------------------------------------------------------------------------
-MetaMapRec* MetaMap::getMetaMapRec(GameMessage::Type t)
+MetaMapRec *MetaMap::getMetaMapRec(GameMessage::Type t)
 {
-	for (MetaMapRec* map = m_metaMaps; map; map = map->m_next)
+	for (MetaMapRec *map = m_metaMaps; map; map = map->m_next)
 	{
 		if (map->m_meta == t)
 			return map;
 	}
 
 	// not found.. create a new one.
-	MetaMapRec* m = newInstance(MetaMapRec);
+	MetaMapRec *m = newInstance(MetaMapRec);
 	m->m_meta = t;
 	m->m_key = MK_NONE;
 	m->m_transition = DOWN;
@@ -712,13 +789,13 @@ MetaMapRec* MetaMap::getMetaMapRec(GameMessage::Type t)
 /*static */ void MetaMap::parseMetaMap(INI* ini)
 {
 	// read and ignore the meta-map name
-	const char* c = ini->getNextToken();
+	const char *c = ini->getNextToken();
 
 	GameMessage::Type t = TheMetaMap->findGameMessageMetaType(c);
 	if (t == GameMessage::MSG_INVALID)
 		throw INI_INVALID_DATA;
 
-	MetaMapRec* map = TheMetaMap->getMetaMapRec(t);
+	MetaMapRec *map = TheMetaMap->getMetaMapRec(t);
 	if (map == nullptr)
 		throw INI_INVALID_DATA;
 
@@ -730,6 +807,27 @@ void MetaMap::generateMetaMap()
 {
 	// TheSuperHackers @info A default mapping for MSG_META_SELECT_ALL_AIRCRAFT would be useful for Generals
 	// but is not recommended, because it will cause key mapping conflicts with original game languages.
+
+	{
+		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT);
+		if (map->m_key == MK_NONE)
+		{
+			map->m_key = MK_RIGHT;
+			map->m_transition = DOWN;
+			map->m_modState = SHIFT;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_DECREASE_OBSERVER_NOTIFICATION_FONT);
+		if (map->m_key == MK_NONE)
+		{
+			map->m_key = MK_LEFT;
+			map->m_transition = DOWN;
+			map->m_modState = SHIFT;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
 
 	{
 		MetaMapRec* map = TheMetaMap->getMetaMapRec(GameMessage::MSG_META_INCREASE_OBSERVER_STATS_FONT);
@@ -753,7 +851,6 @@ void MetaMap::generateMetaMap()
 		}
 	}
 	{
-
 		// Is useful for Generals and Zero Hour.
 		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_INCREASE_MAX_RENDER_FPS);
 		if (map->m_key == MK_NONE)

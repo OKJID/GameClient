@@ -169,6 +169,7 @@ private:
 	std::function<void(int newNumNotifications)> m_cbOnNumberGlobalNotificationsChanged = nullptr;
 
 	std::function<void()> m_cbOnGetFriendsList = nullptr;
+	mutable std::mutex m_friendsListCallbackMutex;
 	std::function<void(BlockedResult blockResult)> m_cbOnGetBlockList = nullptr;
 
 	std::function<void(std::string strDisplayName)> m_cbOnNewFriendRequest = nullptr;

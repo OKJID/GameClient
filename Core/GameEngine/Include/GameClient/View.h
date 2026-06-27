@@ -377,7 +377,7 @@ public:
 		m_pos = pos;
 		m_angle = angle;
 		m_pitch = pitch;
-		m_zoom = zoom;
+		m_zoom = std::clamp(zoom, 0.f, 1.f);
 	}
 
 private:

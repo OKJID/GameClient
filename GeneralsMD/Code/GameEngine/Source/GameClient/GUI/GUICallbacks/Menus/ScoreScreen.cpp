@@ -1928,27 +1928,29 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 
 						if (gameEndedInDisconnect)
 						{
-							// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
-							// check if we were to blame.
-							if (TheNetwork->getPingsReceived() < max(1, TheNetwork->getPingsSent()/2)) /// @todo: what's a good percent of pings to have gotten?
+#if defined(GENERALS_ONLINE)
+							// TODO_NGMP we need to detect this on service.
+							// Use victory conditions to avoid penolizing the innocent player for now.
+							if (!TheVictoryConditions->isLocalAlliedVictory())
 							{
-								DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true"));
-								// we pinged on the last frame someone was there - i.e. game ended in a disconnect.
-								// check if we were to blame.
-								if (TheNetwork->getPingsReceived() < max(1, TheNetwork->getPingsSent() / 2)) /// @todo: what's a good percent of pings to have gotten?
-								{
-									DEBUG_LOG(("We were to blame.  Leaving gameEndedInDisconnect = true\n"));
-								}
-								else
-								{
-									DEBUG_LOG(("We were not to blame.  Changing gameEndedInDisconnect = false\n"));
-									gameEndedInDisconnect = FALSE;
-								}
+								DEBUG_LOG(("[DISC] we disconnected, gameEndedInDisconnect = true\n"));
 							}
 							else
 							{
-								DEBUG_LOG(("gameEndedInDisconnect, and we didn't ping on last frame.  What's up with that?\n"));
+								DEBUG_LOG(("[DISC] opponent disconnected, gameEndedInDisconnect = false\n"));
+								gameEndedInDisconnect = FALSE;
 							}
+#else
+							if (TheNetwork->getPingsRecieved() < max(1, TheNetwork->getPingsSent() / 2))
+							{
+								DEBUG_LOG(("We were to blame. Leaving gameEndedInDisconnect = true\n"));
+							}
+							else
+							{
+								DEBUG_LOG(("We were not to blame. Changing gameEndedInDisconnect = false\n"));
+								gameEndedInDisconnect = FALSE;
+							}
+#endif
 						}
 
 						ScoreKeeper* s = player->getScoreKeeper();

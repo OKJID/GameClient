@@ -77,6 +77,8 @@
 #include "ww3d.h"
 #include "texturefilter.h"
 
+#include "../OnlineServices_Init.h"
+
 // This is for non-RC builds only!!!
 #define VERBOSE_VERSION L"Release"
 
@@ -567,6 +569,7 @@ static void saveOptions()
 		(*pref)["AntiAliasing"] = prefString;
   }
 
+#if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)
 	//-------------------------------------------------------------------------------------------------
 	// texture filter mode
 	val = pref->getTextureFilterMode();
@@ -592,6 +595,7 @@ static void saveOptions()
 		prefString.format("%d", val);
 		(*pref)["AnisotropyLevel"] = prefString;
 	}
+#endif
 
 	//-------------------------------------------------------------------------------------------------
 	// mouse mode
@@ -835,6 +839,17 @@ static void saveOptions()
 		prefString = show ? "yes" : "no";
 		(*pref)["ShowMoneyPerMinute"] = prefString;
 		TheWritableGlobalData->m_showMoneyPerMinute = show;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	// Set Observer Stats Font Size
+	val = pref->getObserverStatsFontSize();
+	if (val >= 0)
+	{
+		AsciiString prefString;
+		prefString.format("%d", val);
+		(*pref)["ObserverStatsFontSize"] = prefString;
+		TheInGameUI->initObserverOverlay();
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -1396,7 +1411,7 @@ void OptionsMenuInit( WindowLayout *layout, void *userData )
 	GameWindow *parent = TheWindowManager->winGetWindowFromId( nullptr, parentID );
 	TheWindowManager->winSetFocus( parent );
 
-	if( (TheGameLogic->isInGame() && TheGameLogic->getGameMode() != GAME_SHELL) || TheGameSpyInfo )
+	if( (TheGameLogic->isInGame() && TheGameLogic->getGameMode() != GAME_SHELL) || NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		// disable controls that you can't change the options for in game
 		comboBoxLANIP->winEnable(FALSE);

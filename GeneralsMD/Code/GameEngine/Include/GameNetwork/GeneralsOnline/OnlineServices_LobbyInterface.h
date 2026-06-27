@@ -245,13 +245,16 @@ public:
 
 	// lobby roster
 	std::function<void()> m_RosterNeedsRefreshCallback = nullptr;
+	mutable std::mutex m_rosterCallbackMutex;
 	void RegisterForRosterNeedsRefreshCallback(std::function<void()> cb)
 	{
+		std::scoped_lock<std::mutex> lock(m_rosterCallbackMutex);
 		m_RosterNeedsRefreshCallback = cb;
 	}
 
 	void DeregisterForRosterNeedsRefreshCallback()
 	{
+		std::scoped_lock<std::mutex> lock(m_rosterCallbackMutex);
 		m_RosterNeedsRefreshCallback = nullptr;
 	}
 
@@ -375,6 +378,7 @@ public:
 	{
 		m_CurrentLobby = LobbyEntry();
 
+		std::scoped_lock<std::mutex> lock(m_rosterCallbackMutex);
 		if (m_RosterNeedsRefreshCallback != nullptr)
 		{
 			m_RosterNeedsRefreshCallback();

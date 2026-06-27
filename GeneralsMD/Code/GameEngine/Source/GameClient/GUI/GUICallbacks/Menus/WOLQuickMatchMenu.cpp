@@ -42,6 +42,7 @@
 #include "GameClient/Gadget.h"
 #include "GameClient/GameText.h"
 #include "GameClient/InGameUI.h"
+#include "GameClient/Display.h"
 #include "GameClient/Shell.h"
 #include "GameClient/ShellHooks.h"
 #include "GameClient/KeyDefs.h"
@@ -142,6 +143,8 @@ static Bool raiseMessageBoxes = false;
 static Bool isInInit = FALSE;
 static const Image *selectedImage = nullptr;
 static const Image *unselectedImage = nullptr;
+static const Image *mapHoverPreview = nullptr;
+static GameWinDrawFunc mapListboxPreviewFunc = nullptr;
 
 static bool isPopulatingLadderBox = false;
 static Int maxPingEntries = 0;
@@ -237,7 +240,41 @@ enum{ MAX_DISCONNECTS_COUNT = 5 };
 static Int MAX_DISCONNECTS[MAX_DISCONNECTS_COUNT] = {MAX_DISCONNECTS_ANY, MAX_DISCONNECTS_5,
 																											MAX_DISCONNECTS_10, MAX_DISCONNECTS_25,
 																											MAX_DISCONNECTS_50};
+void updateMapHoverPreview(GameWindow* window, WinInstanceData* instData)
+{
+	if (mapListboxPreviewFunc)
+		mapListboxPreviewFunc(window, instData);
+	if (listboxMapSelect == nullptr)
+		return;
 
+	const MouseIO* mouseStatus = TheMouse->getMouseStatus();
+	Int mouseX = mouseStatus->pos.x;
+	Int mouseY = mouseStatus->pos.y;
+	Int listboxX, listboxY, listboxW, listboxH;
+	listboxMapSelect->winGetScreenPosition(&listboxX, &listboxY);
+	listboxMapSelect->winGetSize(&listboxW, &listboxH);
+
+	// mouse is outside the listbox?
+	if (mouseX < listboxX || mouseX > listboxX + listboxW || mouseY < listboxY || mouseY > listboxY + listboxH)
+		return;
+
+	Int hoveredRow, col;
+	GadgetListBoxGetEntryBasedOnXY(listboxMapSelect, mouseX, mouseY, hoveredRow, col);
+	const MapMetaData* mapData = (const MapMetaData*)GadgetListBoxGetItemData(listboxMapSelect, hoveredRow, 1);
+	mapHoverPreview = mapData ? getMapPreviewImage(mapData->m_fileName) : nullptr;
+
+	if (mapHoverPreview == nullptr)
+		return;
+
+	Real wScale = TheDisplay->getWidth() / (Real)DEFAULT_DISPLAY_WIDTH;
+	Real hScale = TheDisplay->getHeight() / (Real)DEFAULT_DISPLAY_HEIGHT;
+	Real scale = (wScale + hScale) * 0.5f;
+	Int  previewSize = (Int)(50 * scale);
+	Int  offset = (Int)(20 * scale);
+	Int  previewX = mouseX + offset;
+	Int  previewY = mouseY - (previewSize / 2);
+	TheWindowManager->winDrawImage(mapHoverPreview, previewX, previewY, previewX + previewSize, previewY + previewSize);
+}
 
 void UpdateStartButton()
 {
@@ -903,6 +940,11 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 	buttonWiden = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch,  buttonWidenID);
 	quickmatchTextWindow = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch,  listboxQuickMatchID);
 	listboxMapSelect = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch,  listboxMapSelectID);
+	if (listboxMapSelect)
+	{
+		mapListboxPreviewFunc = listboxMapSelect->winGetDrawFunc();
+		listboxMapSelect->winSetDrawFunc(updateMapHoverPreview);
+	}
 	//textEntryMaxDisconnects = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMaxDisconnectsID );
 	//textEntryMaxPoints = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMaxPointsID );
 	//textEntryMinPoints = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMinPointsID );
@@ -1089,6 +1131,10 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 		comboBoxMaxPing->winEnable(FALSE);
 	if (comboBoxMaxDisconnects)
 		comboBoxMaxDisconnects->winEnable(FALSE);
+	if (comboBoxSide)
+		comboBoxSide->winEnable(FALSE);
+	if (comboBoxColor)
+		comboBoxColor->winEnable(FALSE);
 
 	// welcome msg + instructions
 	GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Welcome to QuickMatch. Choose Setup to select playlists and maps."), GameMakeColor(255, 194, 25, 255), -1, -1);
@@ -1166,6 +1212,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 
 		pLobbyInterface->RegisterForMatchmakingMatchFoundCallback([]()
 			{
+				buttonBack->winEnable(FALSE);
 				buttonStop->winEnable(FALSE);
                 if (TheAudio)
 				{
@@ -1210,9 +1257,6 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 				// TODO_NGMP
 				//SendStatsToOtherPlayers(TheNGMPGame);
 
-				// we've started, there's no going back
-				// i.e. disable the back button.
-				buttonBack->winEnable(FALSE);
 				GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
 				if (buttonBuddy)
 					buttonBuddy->winEnable(FALSE);
@@ -1408,6 +1452,13 @@ void WOLQuickMatchMenuShutdown( WindowLayout *layout, void *userData )
 
 	if (!TheGameEngine->getQuitting())
 		saveQuickMatchOptions();
+
+	if (listboxMapSelect && mapListboxPreviewFunc)
+		listboxMapSelect->winSetDrawFunc(mapListboxPreviewFunc);
+
+	mapListboxPreviewFunc = nullptr;
+	mapHoverPreview = nullptr;
+	listboxMapSelect = nullptr;
 
 	parentWOLQuickMatch = nullptr;
 	buttonBack = nullptr;
@@ -2171,6 +2222,7 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 
 					std::vector<int> vecSelectedMapIndexes;
 					uint16_t playlistID = 0;
+					int minSelectedMaps = 0;
 
 					// get maps and playlist ID
 					std::list<AsciiString> maps;
@@ -2186,6 +2238,7 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 							if (plEntry.PlaylistID != -1)
 							{
 								playlistID = plEntry.PlaylistID;
+								minSelectedMaps = plEntry.MinSelectedMaps;
 
 								// maps
 								Int numMaps = GadgetListBoxGetNumEntries(listboxMapSelect);
@@ -2207,6 +2260,22 @@ WindowMsgHandledType WOLQuickMatchMenuSystem( GameWindow *window, UnsignedInt ms
 					else
 					{
 						// TODO_QUICKMATCH: Error?
+					}
+					
+					if (static_cast<int>(vecSelectedMapIndexes.size()) < minSelectedMaps)
+					{
+						UnicodeString msg;
+						msg.format(L"You must select at least %d maps.", minSelectedMaps);
+						Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+						GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+						
+						// buttons
+						buttonWiden->winEnable(FALSE);
+						buttonStart->winHide(FALSE);
+						buttonStart->winEnable(TRUE);
+						buttonStop->winHide(TRUE);
+						
+						break;
 					}
 
 					// buttons
