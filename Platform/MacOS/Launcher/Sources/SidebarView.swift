@@ -39,8 +39,11 @@ struct SidebarView: View {
             // Scrolling Settings List
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 16) {
-                    // --- CAMERA SECTION ---
-                    _buildSectionHeader(title: L10n.settings.cameraSection)
+
+                    // --- INTERFACE SECTION ---
+                    _buildSectionHeader(title: L10n.settings.interfaceSection)
+                    
+                    _buildGameLanguagePicker()
                     
                     _buildSidebarSettingToggle(
                         title: L10n.settings.windowedEdgeScroll,
@@ -48,8 +51,16 @@ struct SidebarView: View {
                         isOn: $viewModel.isWindowedEdgeScrollEnabled,
                         scope: .global
                     )
-                    
-                    _buildGameLanguagePicker()
+
+                    _buildSidebarSettingToggle(
+                        title: L10n.settings.showHotkeyLabels,
+                        description: L10n.settings.showHotkeyLabelsDesc,
+                        isOn: $viewModel.showHotkeyLabels,
+                        scope: .global
+                    )
+
+                    // --- CAMERA SECTION ---
+                    _buildSectionHeader(title: L10n.settings.cameraSection)
                     
                     SettingsSliderField(
                         title: L10n.settings.cameraMaxHeight,
@@ -80,17 +91,6 @@ struct SidebarView: View {
                         defaultValue: SettingsDefaults.cameraMoveSpeed,
                         scope: .global
                     )
-
-                    // --- INTERFACE SECTION ---
-                    _buildSectionHeader(title: L10n.settings.interfaceSection)
-
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.showHotkeyLabels,
-                        description: L10n.settings.showHotkeyLabelsDesc,
-                        isOn: $viewModel.showHotkeyLabels,
-                        scope: .global
-                    )
-
                     // --- PERFORMANCE SECTION ---
                     _buildSectionHeader(title: L10n.settings.fpsSection)
                     
