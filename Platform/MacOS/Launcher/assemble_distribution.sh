@@ -14,8 +14,8 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
-VERSION="1.4.0"
-BUILD="9"
+VERSION="1.4.1"
+BUILD="10"
 
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
