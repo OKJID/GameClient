@@ -2,6 +2,7 @@ import Foundation
 
 struct SettingsDefaults {
     static let isWindowedEdgeScrollEnabled = false
+    static let showHotkeyLabels = false
     static let gameLanguage = "english"
     
     static let cameraMinHeight: Double = 210.0

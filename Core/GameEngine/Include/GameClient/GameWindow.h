@@ -186,6 +186,9 @@ enum
 	WIN_STATUS_ALWAYS_COLOR = 0x01000000,		// Never render these buttons using greyscale renderer when button disabled.
 	WIN_STATUS_ON_MOUSE_DOWN = 0x02000000,		// Pushbutton triggers on mouse down.
 	WIN_STATUS_SHORTCUT_BUTTON = 0x04000000,   // Oh god... this is a total hack for shortcut buttons to handle rendering text top left corner...
+#ifdef __APPLE__
+	WIN_STATUS_HOTKEY_LABEL = 0x08000000,   // Mac: hotkey-letter overlay on command-bar cameos (bold + semi-transparent bg). Runtime-only, like SHORTCUT_BUTTON (not in WindowStatusNames[]).
+#endif
 	// when you edit this, remember to edit WindowStatusNames[]
 
 };

@@ -82,6 +82,7 @@ public:
 	Bool getScreenEdgeScrollEnabledInWindowedApp() const;
 	Bool getScreenEdgeScrollEnabledInFullscreenApp() const;
 	ScreenEdgeScrollMode getScreenEdgeScrollMode() const;
+	Bool getShowHotKeyLabels() const;
 	Bool getSendDelay();
 	Int getFirewallBehavior();
 	Short getFirewallPortAllocationDelta();

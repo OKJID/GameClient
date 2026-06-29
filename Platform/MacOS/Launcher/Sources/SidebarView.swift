@@ -80,7 +80,17 @@ struct SidebarView: View {
                         defaultValue: SettingsDefaults.cameraMoveSpeed,
                         scope: .global
                     )
-                    
+
+                    // --- INTERFACE SECTION ---
+                    _buildSectionHeader(title: L10n.settings.interfaceSection)
+
+                    _buildSidebarSettingToggle(
+                        title: L10n.settings.showHotkeyLabels,
+                        description: L10n.settings.showHotkeyLabelsDesc,
+                        isOn: $viewModel.showHotkeyLabels,
+                        scope: .global
+                    )
+
                     // --- PERFORMANCE SECTION ---
                     _buildSectionHeader(title: L10n.settings.fpsSection)
                     

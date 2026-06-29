@@ -78,6 +78,9 @@
 #include "GameClient/ControlBarResizer.h"
 #include "GameClient/GadgetListBox.h"
 #include "GameClient/HotKey.h"
+#ifdef __APPLE__
+#include "Common/OptionPreferences.h"
+#endif
 #include "GameClient/GameWindowTransitions.h"
 #include "GameClient/GUICallbacks.h"
 
@@ -2445,6 +2448,16 @@ void ControlBar::setCommandBarBorder( GameWindow *button, CommandButtonMappedBor
 }
 
 
+#ifdef __APPLE__
+static UnicodeString toUpperHotKeyLabel( const AsciiString &hotKey )
+{
+	UnicodeString label;
+	for (const char *c = hotKey.str(); c && *c; ++c)
+		label.concat( (WideChar)toupper( (unsigned char)*c ) );
+	return label;
+}
+#endif
+
 //-------------------------------------------------------------------------------------------------
 /** Set the command data into the control */
 //-------------------------------------------------------------------------------------------------
@@ -2522,7 +2535,22 @@ void ControlBar::setControlCommand( GameWindow *button, const CommandButton *com
 		AsciiString hotKey =	TheHotKeyManager->searchHotKey(commandButton->getTextLabel());
 		if(hotKey.isNotEmpty())
 			TheHotKeyManager->addHotKey(button, hotKey);
+
+#ifdef __APPLE__
+		static const Bool s_showHotKeyLabels = OptionPreferences().getShowHotKeyLabels();
+
+		Bool isSpecialPowerShortcutButton = FALSE;
+		for (Int i = 0; i < MAX_SPECIAL_POWER_SHORTCUTS; ++i)
+			isSpecialPowerShortcutButton |= (m_specialPowerShortcutButtons[i] == button);
+
+		if (s_showHotKeyLabels && hotKey.isNotEmpty() && !isSpecialPowerShortcutButton)
+		{
+			GadgetButtonSetText(button, toUpperHotKeyLabel(hotKey));
+			button->winSetStatus(WIN_STATUS_HOTKEY_LABEL);
+		}
+#endif
 	}
+
 	GadgetButtonSetAltSound(button, "GUICommandBarClick");
 
 }

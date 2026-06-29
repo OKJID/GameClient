@@ -56,6 +56,10 @@
 #include "W3DDevice/GameClient/W3DGameWindow.h"
 #include "W3DDevice/GameClient/W3DDisplay.h"
 #include "W3DDevice/GameClient/W3DGadget.h"
+#ifdef __APPLE__
+#include "GameClient/GameFont.h"
+#include "GameClient/Color.h"
+#endif
 
 
 
@@ -116,6 +120,39 @@ static void drawButtonText( GameWindow *window, WinInstanceData *instData )
 	// set our font to that of our parent if not the same
 	if( text->getFont() != window->winGetFont() )
 		text->setFont( window->winGetFont() );
+
+#ifdef __APPLE__
+	if( BitIsSet( window->winGetStatus(), WIN_STATUS_HOTKEY_LABEL ) )
+	{
+		const Int badgeSize = ( (size.x < size.y) ? size.x : size.y ) / 4;
+
+		if( TheFontLibrary )
+		{
+			GameFont *winFont = window->winGetFont();
+			AsciiString fontName = winFont ? winFont->nameString : AsciiString( "Arial" );
+			Int fontSize = ( badgeSize * 3 ) / 4;
+			if( fontSize < 8 )
+				fontSize = 8;
+			GameFont *badgeFont = TheFontLibrary->getFont( fontName, fontSize, TRUE );
+			if( badgeFont )
+				text->setFont( badgeFont );
+		}
+
+		text->getSize( &width, &height );
+
+		ICoord2D badgeOrigin;
+		badgeOrigin.x = origin.x;
+		badgeOrigin.y = origin.y + size.y - badgeSize;
+
+		TheDisplay->drawFillRect( badgeOrigin.x, badgeOrigin.y, badgeSize, badgeSize, GameMakeColor( 0, 0, 0, 160 ) );
+
+		ICoord2D letterPos;
+		letterPos.x = badgeOrigin.x + ( badgeSize - width ) / 2;
+		letterPos.y = badgeOrigin.y + ( badgeSize - height ) / 2;
+		text->draw( letterPos.x, letterPos.y, textColor, dropColor );
+		return;
+	}
+#endif
 
 	// get text size
 	text->getSize( &width, &height );

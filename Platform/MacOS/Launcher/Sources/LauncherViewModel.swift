@@ -26,6 +26,11 @@ class LauncherViewModel: ObservableObject {
             ])
         }
     }
+    @Published var showHotkeyLabels: Bool = SettingsDefaults.showHotkeyLabels {
+        didSet {
+            OptionsIniHelper.writeValue(value: showHotkeyLabels ? "yes" : "no", forKey: "ShowHotKeyLabels")
+        }
+    }
     @Published var gameLanguage: String = SettingsDefaults.gameLanguage {
         didSet {
             guard !isInitializing else { return }
@@ -100,6 +105,7 @@ class LauncherViewModel: ObservableObject {
             ])
         }
         self.isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
+        self.showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
         self.gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
         
         // Load settings.json
@@ -152,6 +158,7 @@ class LauncherViewModel: ObservableObject {
 
     func resetAllSettings() {
         isWindowedEdgeScrollEnabled = SettingsDefaults.isWindowedEdgeScrollEnabled
+        showHotkeyLabels = SettingsDefaults.showHotkeyLabels
         gameLanguage = SettingsDefaults.gameLanguage
         cameraMinHeight = SettingsDefaults.cameraMinHeight
         cameraMaxHeight = SettingsDefaults.cameraMaxHeight
