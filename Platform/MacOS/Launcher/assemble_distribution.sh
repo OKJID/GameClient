@@ -17,6 +17,12 @@
 VERSION="1.4.1"
 BUILD="10"
 
+if [ -f ".env" ]; then
+    set -a
+    . ./.env
+    set +a
+fi
+
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
 CMAKE_APP_DIR="../../../build/macos/GeneralsMD/GeneralsOnlineZH.app"
@@ -118,6 +124,16 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Delete :GOLauncherBuild" "$PLIST_FILE" 2>/dev/null || true
 /usr/libexec/PlistBuddy -c "Add :GOLauncherBuild string $BUILD" "$PLIST_FILE"
 echo "   Launcher version: v$VERSION (build $BUILD)"
+
+if [ -n "$GO_GA_MEASUREMENT_ID" ] && [ -n "$GO_GA_API_SECRET" ]; then
+    /usr/libexec/PlistBuddy -c "Delete :GAMeasurementId" "$PLIST_FILE" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :GAMeasurementId string $GO_GA_MEASUREMENT_ID" "$PLIST_FILE"
+    /usr/libexec/PlistBuddy -c "Delete :GAApiSecret" "$PLIST_FILE" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c "Add :GAApiSecret string $GO_GA_API_SECRET" "$PLIST_FILE"
+    echo "   Analytics: enabled ($GO_GA_MEASUREMENT_ID)"
+else
+    echo "   Analytics: disabled (no .env keys)"
+fi
 
 echo "📝 [5/7] Copying HTML instructions..."
 if [ -f "www/instructions.html" ]; then

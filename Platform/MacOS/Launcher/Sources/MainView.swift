@@ -148,6 +148,9 @@ struct MainView: View {
         }
 
         return Button(action: {
+            if viewModel.activeTab != tab {
+                Analytics.logTabSelected(tab.rawValue)
+            }
             withAnimation(.easeInOut(duration: 0.2)) {
                 viewModel.activeTab = tab
             }

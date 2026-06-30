@@ -24,17 +24,20 @@ class LauncherViewModel: ObservableObject {
                 "ScreenEdgeScrollEnabledInWindowedApp": valStr,
                 "CursorCaptureEnabledInWindowedGame": isWindowedEdgeScrollEnabled ? "yes" : "no"
             ])
+            reportSettingChange("windowed_edge_scroll", isWindowedEdgeScrollEnabled)
         }
     }
     @Published var showHotkeyLabels: Bool = SettingsDefaults.showHotkeyLabels {
         didSet {
             OptionsIniHelper.writeValue(value: showHotkeyLabels ? "yes" : "no", forKey: "ShowHotKeyLabels")
+            reportSettingChange("hotkey_labels", showHotkeyLabels)
         }
     }
     @Published var gameLanguage: String = SettingsDefaults.gameLanguage {
         didSet {
             guard !isInitializing else { return }
             OptionsIniHelper.writeValue(value: gameLanguage, forKey: "Language")
+            reportSettingChange("game_language", gameLanguage)
         }
     }
     
@@ -51,23 +54,35 @@ class LauncherViewModel: ObservableObject {
     
     // settings.json render settings
     @Published var limitFramerate: Bool = SettingsDefaults.limitFramerate {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            reportSettingChange("limit_framerate", limitFramerate)
+        }
     }
     @Published var fpsLimit: Double = SettingsDefaults.fpsLimit {
         didSet { saveSettings() }
     }
     @Published var statsOverlay: Bool = SettingsDefaults.statsOverlay {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            reportSettingChange("stats_overlay", statsOverlay)
+        }
     }
     
     // settings.json network settings
     @Published var useAlternativeEndpoint: Bool = SettingsDefaults.useAlternativeEndpoint {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            reportSettingChange("alternative_endpoint", useAlternativeEndpoint)
+        }
     }
     
     // settings.json debug settings
     @Published var verboseLogging: Bool = SettingsDefaults.verboseLogging {
-        didSet { saveSettings() }
+        didSet {
+            saveSettings()
+            reportSettingChange("verbose_logging", verboseLogging)
+        }
     }
 
     var steamCMD = SteamCMDManager()
@@ -135,11 +150,19 @@ class LauncherViewModel: ObservableObject {
         
         self.isInitializing = false
         updateChecker.startPeriodicChecks()
+
+        Analytics.logOpen(uiLanguage: selectedLanguage)
+        Analytics.logSettingsSnapshot(self)
     }
 
     func saveCredentials() {
         guard !steamUsername.isEmpty, !steamPassword.isEmpty else { return }
         KeychainHelper.save(account: steamUsername, password: steamPassword)
+    }
+
+    private func reportSettingChange(_ key: String, _ value: Any) {
+        guard !isInitializing else { return }
+        Analytics.logSettingChanged(key, value: value)
     }
 
     private func saveSettings() {
@@ -244,6 +267,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func confirmPatching() {
+        Analytics.logPatchStarted(source: activeTab.rawValue)
         switch activeTab {
         case .steam:
             assetPatcher.startPatching(rootDir: steamCMD.installDir, zhDir: steamCMD.assetsDir)
@@ -279,6 +303,8 @@ class LauncherViewModel: ObservableObject {
 
         do {
             try task.run()
+
+            Analytics.logGameLaunched()
 
             DispatchQueue.global().async {
                 Thread.sleep(forTimeInterval: 0.5)

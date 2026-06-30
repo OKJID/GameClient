@@ -2,3 +2,5 @@ build/
 outputs/
 .DS_Store
 launcher.log
+.env
+!.env.example
