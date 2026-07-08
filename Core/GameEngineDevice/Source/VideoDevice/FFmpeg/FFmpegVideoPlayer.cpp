@@ -555,8 +555,8 @@ void FFmpegVideoStream::frameRender( VideoBuffer *buffer )
 		nullptr);
 
 	if (m_swsContext == nullptr) {
-		DEBUG_LOG(("Failed to create SwsContext for frame conversion (%dx%d %s -> %s)",
-			frame_width, frame_height, av_get_pix_fmt_name(src_pix_fmt), av_get_pix_fmt_name(dst_pix_fmt)));
+		DEBUG_LOG(("Failed to create SwsContext for frame conversion (%dx%d %d -> %d)",
+			frame_width, frame_height, src_pix_fmt, dst_pix_fmt));
 		return;
 	}
 

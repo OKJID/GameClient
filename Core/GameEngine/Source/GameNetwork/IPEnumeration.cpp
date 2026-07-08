@@ -29,16 +29,8 @@
 #include "GameClient/ClientInstance.h"
 
 #ifdef __APPLE__
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <errno.h>
 #include <ifaddrs.h>
-#define WSAGetLastError() (errno)
-#define closesocket close
-#define HOSTENT struct hostent
+#include <net/if.h>
 #endif
 
 IPEnumeration::IPEnumeration()
@@ -90,32 +82,18 @@ EnumeratedIP * IPEnumeration::getAddresses()
 		m_isWinsockInitialized = true;
 	}
 
-#ifdef __APPLE__
-	struct ifaddrs *interfaces = nullptr;
-	if (getifaddrs(&interfaces) == 0) {
-		for (struct ifaddrs *temp = interfaces; temp != nullptr; temp = temp->ifa_next) {
-			if (temp->ifa_addr != nullptr && temp->ifa_addr->sa_family == AF_INET) {
-				struct sockaddr_in *addr = (struct sockaddr_in *)temp->ifa_addr;
-				UnsignedInt ip = ntohl(addr->sin_addr.s_addr);
-				// Skip loopback (127.x.x.x) unless we have nothing else, 
-				// but typically we want the actual LAN address.
-				if ((ip & 0xFF000000) != 0x7F000000) {
-					addNewIP(
-						(UnsignedByte)(ip >> 24),
-						(UnsignedByte)(ip >> 16),
-						(UnsignedByte)(ip >> 8),
-						(UnsignedByte)(ip));
-				}
-			}
-		}
-		freeifaddrs(interfaces);
+	// TheSuperHackers @feature Add one unique local host IP address for each multi client instance.
+	if (rts::ClientInstance::isMultiInstance())
+	{
+		const UnsignedInt id = rts::ClientInstance::getInstanceId();
+		addNewIP(
+			127,
+			(UnsignedByte)(id >> 16),
+			(UnsignedByte)(id >> 8),
+			(UnsignedByte)(id));
 	}
-	
-	// Fallback if no non-loopback IPs found
-	if (!m_IPlist) {
-		addNewIP(127, 0, 0, 1);
-	}
-#else
+
+#ifndef __APPLE__
 	// get the local machine's host name
 	char hostname[256];
 	if (gethostname(hostname, sizeof(hostname)))
@@ -140,17 +118,6 @@ EnumeratedIP * IPEnumeration::getAddresses()
 		return nullptr;
 	}
 
-	// TheSuperHackers @feature Add one unique local host IP address for each multi client instance.
-	if (rts::ClientInstance::isMultiInstance())
-	{
-		const UnsignedInt id = rts::ClientInstance::getInstanceId();
-		addNewIP(
-			127,
-			(UnsignedByte)(id >> 16),
-			(UnsignedByte)(id >> 8),
-			(UnsignedByte)(id));
-	}
-
 	// construct a list of addresses
 	int numAddresses = 0;
 	char *entry;
@@ -161,6 +128,50 @@ EnumeratedIP * IPEnumeration::getAddresses()
 			(UnsignedByte)entry[1],
 			(UnsignedByte)entry[2],
 			(UnsignedByte)entry[3]);
+	}
+#else // __APPLE__
+	struct ifaddrs *ifaddrList = nullptr;
+	if (getifaddrs(&ifaddrList) == 0)
+	{
+		for (struct ifaddrs *ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next)
+		{
+			if (ifa->ifa_addr == nullptr || ifa->ifa_addr->sa_family != AF_INET)
+			{
+				continue;
+			}
+			if ((ifa->ifa_flags & IFF_UP) == 0 || (ifa->ifa_flags & IFF_LOOPBACK) != 0)
+			{
+				continue;
+			}
+
+			// Skip virtual/tunnel interfaces (ZeroTier, Hamachi, utun, etc.)
+			const char *ifname = ifa->ifa_name;
+			if (strncmp(ifname, "feth", 4) == 0 ||
+				strncmp(ifname, "utun", 4) == 0 ||
+				strncmp(ifname, "zt", 2) == 0 ||
+				strncmp(ifname, "awdl", 4) == 0 ||
+				strncmp(ifname, "llw", 3) == 0 ||
+				strncmp(ifname, "bridge", 6) == 0 ||
+				strncmp(ifname, "ap", 2) == 0)
+			{
+				const struct sockaddr_in *sin = (const struct sockaddr_in *)ifa->ifa_addr;
+				const UnsignedInt addr = ntohl(sin->sin_addr.s_addr);
+				DEBUG_LOG(("IPEnumeration: skipping virtual interface %s (IP: %d.%d.%d.%d)",
+					ifname,
+					(int)(addr >> 24), (int)((addr >> 16) & 0xFF),
+					(int)((addr >> 8) & 0xFF), (int)(addr & 0xFF)));
+				continue;
+			}
+
+			const struct sockaddr_in *sin = (const struct sockaddr_in *)ifa->ifa_addr;
+			const UnsignedInt addr = ntohl(sin->sin_addr.s_addr);
+			addNewIP(
+				(UnsignedByte)(addr >> 24),
+				(UnsignedByte)(addr >> 16),
+				(UnsignedByte)(addr >> 8),
+				(UnsignedByte)(addr));
+		}
+		freeifaddrs(ifaddrList);
 	}
 #endif
 
@@ -232,7 +243,7 @@ AsciiString IPEnumeration::getMachineName()
 	char hostname[256];
 	if (gethostname(hostname, sizeof(hostname)))
 	{
-		DEBUG_LOG(("Failed call to gethostname; WSAGetLastError returned %d", WSAGetLastError()));
+		DEBUG_LOG(("Failed call to gethostname"));
 		return "";
 	}
 
