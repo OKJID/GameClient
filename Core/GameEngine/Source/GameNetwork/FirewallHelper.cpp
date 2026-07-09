@@ -671,7 +671,11 @@ Bool FirewallHelperClass::detectionBeginUpdate() {
 		struct hostent *host_info = gethostbyname(mangler_name_ptr);
 
 		if (!host_info) {
+#ifndef __APPLE__
 			DEBUG_LOG(("gethostbyname failed! Error code %d", WSAGetLastError()));
+#else
+			DEBUG_LOG(("gethostbyname failed!"));
+#endif
 			break;
 		}
 
