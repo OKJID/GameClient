@@ -434,7 +434,7 @@ void GameInfo::setSlot( Int slotNum, GameSlot slotInfo )
 	}
 	*m_slot[slotNum] = slotInfo;
 
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	UnsignedInt ip = slotInfo.getIP();
 #endif
 

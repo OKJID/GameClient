@@ -429,13 +429,16 @@ void LanLobbyMenuInit( WindowLayout *layout, void *userData )
 		}
 		*/
 		DEBUG_ASSERTCRASH(IPlist, ("No IP addresses found!"));
-		if (!IPlist)
+		if (IPlist)
+		{
+			IPSource = L"Local IP chosen";
+			IP = IPlist->getIP();
+		}
+		else
 		{
 			/// @todo: display error and exit lan lobby if no IPs are found
+			IPSource = L"No local IP found";
 		}
-
-		IPSource = L"Local IP chosen";
-		IP = IPlist->getIP();
 	}
 	else
 	{

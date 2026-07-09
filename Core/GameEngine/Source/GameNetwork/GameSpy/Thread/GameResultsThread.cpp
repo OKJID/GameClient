@@ -297,11 +297,12 @@ void GameResultsThreadClass::Thread_Function()
 
 //-------------------------------------------------------------------------
 
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 #define CASE(x) case (x): return #x;
 
 static const char *getWSAErrorString( Int error )
 {
+#ifndef __APPLE__
 	switch (error)
 	{
 		CASE(WSABASEERR)
@@ -359,6 +360,9 @@ static const char *getWSAErrorString( Int error )
 		default:
 			return "Not a Winsock error";
 	}
+#else
+	return "Unknown Winsock error (Mac)";
+#endif
 }
 
 #undef CASE
