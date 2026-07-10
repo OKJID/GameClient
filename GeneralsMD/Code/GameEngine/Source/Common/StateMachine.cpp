@@ -38,7 +38,21 @@
 #include "GameLogic/Object.h"
 
 #include "ref_ptr.h"
+#include <stdio.h>
 
+static FILE* s_stateLog = NULL;
+static bool s_stateLogTried = false;
+
+static void writeStateDiag(int frame, unsigned int objId, unsigned int stateId, const char* stateName) {
+	if (!s_stateLogTried && TheGameLogic && TheGameLogic->getGameMode() != 2) {
+		s_stateLogTried = true;
+		s_stateLog = fopen("StateDiag.txt", "w");
+	}
+	if (s_stateLog) {
+		fprintf(s_stateLog, "STATE f%d obj=%u id=%u name=%s\n", frame, objId, stateId, stateName ? stateName : "NULL");
+		fflush(s_stateLog);
+	}
+}
 
 //------------------------------------------------------------------------------ Performance Timers
 //#include "Common/PerfMetrics.h"
@@ -586,6 +600,15 @@ StateReturnType StateMachine::internalSetState( StateID newStateID )
 
 		// extract the state associated with the given ID
 		newState = internalGetState( newStateID );
+
+		writeStateDiag(TheGameLogic->getFrame(), m_owner ? (unsigned int)m_owner->getID() : 0, (unsigned int)newStateID, 
+#ifdef STATE_MACHINE_DEBUG
+			newState ? newState->getName().str() : "INVALID"
+#else
+			""
+#endif
+		);
+
 #ifdef STATE_MACHINE_DEBUG
 		if (getWantsDebugOutput())
 		{

@@ -818,7 +818,49 @@ Object *AI::findClosestRepulsor( const Object *me, Real range)
 	filters[numFilters++] = &filterStealth;
 	filters[numFilters] = nullptr;
 
-	return ThePartitionManager->getClosestObject( me, range, FROM_BOUNDINGSPHERE_2D, filters );
+	Object* result = ThePartitionManager->getClosestObject( me, range, FROM_BOUNDINGSPHERE_2D, filters );
+
+	static FILE* s_repLog = NULL;
+	static bool s_repTried = false;
+	if (!s_repTried && TheGameLogic && TheGameLogic->getGameMode() != 2) {
+		s_repTried = true;
+		s_repLog = fopen("RepulsorDiag.txt", "w");
+	}
+	if (s_repLog && me && me->getID() == 826) {
+		unsigned int rangeHex; memcpy(&rangeHex, &range, 4);
+		fprintf(s_repLog, "f%d obj=826 range=%08X result=%u\n", TheGameLogic->getFrame(), rangeHex, result ? (unsigned int)result->getID() : 0);
+		
+		const Coord3D* myPos = me->getPosition();
+		unsigned int xH, yH, zH;
+		memcpy(&xH, &myPos->x, 4); memcpy(&yH, &myPos->y, 4); memcpy(&zH, &myPos->z, 4);
+		fprintf(s_repLog, "  myPos: %08X %08X %08X\n", xH, yH, zH);
+		
+		if (result) {
+			const Coord3D* resPos = result->getPosition();
+			memcpy(&xH, &resPos->x, 4); memcpy(&yH, &resPos->y, 4); memcpy(&zH, &resPos->z, 4);
+			Real resRad = result->getGeometryInfo().getBoundingCircleRadius();
+			unsigned int resRadHex; memcpy(&resRadHex, &resRad, 4);
+			Real myRad = me->getGeometryInfo().getBoundingCircleRadius();
+			unsigned int myRadHex; memcpy(&myRadHex, &myRad, 4);
+			fprintf(s_repLog, "  resPos: %08X %08X %08X rads=%08X,%08X\n", xH, yH, zH, myRadHex, resRadHex);
+			
+			Coord3D diff;
+			diff.x = resPos->x - myPos->x; diff.y = resPos->y - myPos->y; diff.z = 0.0f;
+			Real actDSq = (diff.x*diff.x) + (diff.y*diff.y);
+			Real actD = WWMath::Sqrtf(actDSq);
+			Real totRad = myRad + resRad;
+			Real shrunD = actD - totRad;
+			if (shrunD < 0.0f) shrunD = 0.0f;
+			Real shrunDSq = shrunD * shrunD;
+			unsigned int adSqH, adH, sdH, sdSqH;
+			memcpy(&adSqH, &actDSq, 4); memcpy(&adH, &actD, 4);
+			memcpy(&sdH, &shrunD, 4); memcpy(&sdSqH, &shrunDSq, 4);
+			fprintf(s_repLog, "  dSq=%08X d=%08X shrunD=%08X shrunDSq=%08X\n", adSqH, adH, sdH, sdSqH);
+		}
+		fflush(s_repLog);
+	}
+
+	return result;
 }
 /////////////////////////////
 
