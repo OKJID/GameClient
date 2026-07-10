@@ -164,6 +164,8 @@ class AsciiString;
 
 #else
 
+#define DEBUG_LOG_FLAG_V2
+
 #ifdef DEBUG_LOG_FLAG_V2
 	#define DEBUG_LOG(m) MAC_LOG_TAG("DEBUG_LOG_V2", m)
 #else
@@ -292,7 +294,6 @@ public:
 // #define DEBUG_NETWORK_MAC_FLAG
 // #define DEBUG_AUTH_MAC_FLAG
 // #define DEBUG_EAC_MAC_FLAG
-#define DEBUG_LOG_FLAG_V2
 #define DEBUG_SETTINGS_MAC_FLAG
 
 #ifdef DEBUG_BUILDMAPCACHE_FLAG
@@ -341,9 +342,5 @@ public:
 	#define DEBUG_SETTINGS_MAC(m) MAC_LOG_TAG("DEBUG_SETTINGS_MAC", m)
 #else
 	#define DEBUG_SETTINGS_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_LOG_FLAG_V2
-	#define DEBUG_LOG(m) MAC_LOG_TAG("DEBUG_LOG_V2", m)
 #endif
 

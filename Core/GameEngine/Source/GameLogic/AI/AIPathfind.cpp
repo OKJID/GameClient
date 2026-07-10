@@ -6045,13 +6045,15 @@ void Pathfinder::processPathfindQueue()
 		return;
 	}
 #ifdef DEBUG_QPF
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
+#ifndef __APPLE__
 	__int64 startTime64;
 	double timeToUpdate=0.0f;
 	__int64 endTime64,freq64;
 	QueryPerformanceFrequency((LARGE_INTEGER *)&freq64);
 	QueryPerformanceCounter((LARGE_INTEGER *)&startTime64);
+#endif
 #endif
 #endif
 
@@ -6096,9 +6098,13 @@ void Pathfinder::processPathfindQueue()
 	}
 #ifdef DEBUG_QPF
 	if (pathsFound>0) {
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
+#ifndef __APPLE__
 		QueryPerformanceCounter((LARGE_INTEGER *)&endTime64);
 		timeToUpdate = ((double)(endTime64-startTime64) / (double)(freq64));
+#else
+		double timeToUpdate = (::GetTickCount()-startTimeMS)/1000.0f;
+#endif
 		if (timeToUpdate>0.01f)
 		{
 			DEBUG_LOG(("%d Pathfind queue: %d paths, %d cells --", TheGameLogic->getFrame(), pathsFound, m_cumulativeCellsAllocated));
@@ -6535,7 +6541,7 @@ Path *Pathfinder::internalFindPath( Object *obj, const LocomotorSet& locomotorSe
 	DEBUG_LOG(("internal find path..."));
 #endif
 
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 	Bool centerInCell = true;
@@ -7111,7 +7117,7 @@ Path *Pathfinder::findGroundPath( const Coord3D *from,
 													 const Coord3D *rawTo, Int pathDiameter, Bool crusher)
 {
 	//CRCDEBUG_LOG(("Pathfinder::findGroundPath()"));
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 #ifdef INTENSE_DEBUG
@@ -7630,7 +7636,7 @@ Path *Pathfinder::internal_findHierarchicalPath( Bool isHuman, const LocomotorSu
 													 const Coord3D *rawTo, Bool crusher, Bool closestOK)
 {
 	//CRCDEBUG_LOG(("Pathfinder::findGroundPath()"));
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 
@@ -8727,7 +8733,7 @@ Path *Pathfinder::findClosestPath( Object *obj, const LocomotorSet& locomotorSet
 																	Coord3D *rawTo, Bool blocked, Real pathCostMultiplier, Bool moveAllies)
 {
 	//CRCDEBUG_LOG(("Pathfinder::findClosestPath()"));
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 	Bool isHuman = true;
@@ -10357,7 +10363,7 @@ Path *Pathfinder::getMoveAwayFromPath(Object* obj, Object *otherObj,
 	if (!m_isMapReady)
 		return nullptr; // Should always be ok.
 
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 	Bool isHuman = true;
@@ -10548,7 +10554,7 @@ Path *Pathfinder::patchPath( const Object *obj, const LocomotorSet& locomotorSet
 		Path *originalPath, Bool blocked )
 {
 	//CRCDEBUG_LOG(("Pathfinder::patchPath()"));
-#ifdef DEBUG_LOGGING
+#if defined(DEBUG_LOGGING) || defined(DEBUG_LOG_FLAG_V2)
 	Int startTimeMS = ::GetTickCount();
 #endif
 	if (originalPath==nullptr) return nullptr;
