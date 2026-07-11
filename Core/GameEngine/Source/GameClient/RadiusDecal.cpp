@@ -66,8 +66,9 @@ void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, con
 	// it is now considered nonEmpty, regardless of the state of m_decal, etc
 	result.m_empty = false;
 
-	if (!m_onlyVisibleToOwningPlayer || owningPlayer->getPlayerIndex() == ThePlayerList->getLocalPlayer()->getPlayerIndex()
-									 || ThePlayerList->getLocalPlayer()->isPlayerObserver())
+	Player* localPlayer = ThePlayerList->getLocalPlayer();
+	if (!m_onlyVisibleToOwningPlayer || (localPlayer && owningPlayer->getPlayerIndex() == localPlayer->getPlayerIndex())
+									 || (localPlayer && localPlayer->isPlayerObserver()))
 	{
 		Shadow::ShadowTypeInfo decalInfo;
 		decalInfo.allowUpdates = FALSE;										// shadow texture will never update
@@ -77,7 +78,9 @@ void RadiusDecalTemplate::createRadiusDecal(const Coord3D& pos, Real radius, con
 		decalInfo.m_sizeX = radius*2;									// world space dimensions
 		decalInfo.m_sizeY = radius*2;									// world space dimensions
 
-		result.m_decal = TheProjectedShadowManager->addDecal(&decalInfo);
+		if (TheProjectedShadowManager) {
+			result.m_decal = TheProjectedShadowManager->addDecal(&decalInfo);
+		}
 		if (result.m_decal)
 		{
 			result.m_decal->setAngle(0.0f);
