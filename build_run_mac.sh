@@ -59,6 +59,9 @@ for arg in "$@"; do
         --crc_logs)
             DO_CRC_LOGS=true
             ;;
+        --rep_def)
+            DO_REPLAY_DEF=true
+            ;;
     esac
 done
 
@@ -165,6 +168,7 @@ GAME_ARGS=""
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
+[ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS="$GAME_ARGS -headless -replay 00000000.rep"
 [ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/.agent/temp_mac_logs/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
 
 GAME_CMD="build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH"
@@ -209,7 +213,7 @@ fi
 if [ "$DO_CRC_LOGS" = true ]; then
     echo "Gathering diagnostic logs from $GENERALS_INSTALL_PATH to .agent/temp_mac_logs/..."
     mkdir -p "$PWD/.agent/temp_mac_logs"
-    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" \) -exec mv {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
+    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) -exec mv {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
     
     if [ -d "$PWD/CRCLogs" ]; then
         rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"

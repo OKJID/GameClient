@@ -44,6 +44,7 @@
 extern "C" {
 	#include <libavcodec/avcodec.h>
 	#include <libswscale/swscale.h>
+	#include <libavutil/pixdesc.h>
 }
 
 #ifdef RTS_HAS_OPENAL

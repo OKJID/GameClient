@@ -165,6 +165,7 @@ private:
 		ExitDoorType	m_door;
 		ObjectID			m_objectInSpace;
 		Bool					m_reservedForExit;
+		Bool          m_postponedRunwayReservationForTakeoff;
 
 		ParkingPlaceInfo()
 		{
@@ -177,6 +178,7 @@ private:
 			m_door = DOOR_NONE_AVAILABLE;
 			m_objectInSpace = INVALID_ID;
 			m_reservedForExit = false;
+			m_postponedRunwayReservationForTakeoff = false;
 		}
 	};
 

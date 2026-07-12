@@ -3179,7 +3179,9 @@ void Player::removeUpgrade( const UpgradeTemplate *upgradeTemplate )
 		if( upgrade->getStatus() == UPGRADE_STATUS_COMPLETE )
 			onUpgradeRemoved();
 
-	if( ThePlayerList->getLocalPlayer() == this )
+		deleteInstance(upgrade);
+
+		if( ThePlayerList->getLocalPlayer() == this )
 	{
 		TheControlBar->markUIDirty();
 	}
