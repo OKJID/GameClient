@@ -880,16 +880,6 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     }
   }
   // DIAG: dump TSS for first draw each frame
-  if (0) { // if (g_metalPresentCount % 120 == 0) {
-    printf("[DIAG] TSS frame=%d: s0[cOp=%u cA1=0x%x cA2=0x%x aOp=%u hasTex=%u] s1[cOp=%u hasTex=%u]\n",
-           g_metalPresentCount,
-           fu.stages[0].colorOp, fu.stages[0].colorArg1, fu.stages[0].colorArg2,
-           fu.stages[0].alphaOp, fu.hasTexture[0],
-           fu.stages[1].colorOp, fu.hasTexture[1]);
-    printf("[DIAG] TSS textures: [%p, %p, %p, %p]\n",
-           m_Textures[0], m_Textures[1], m_Textures[2], m_Textures[3]);
-    fflush(stdout);
-  }
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
   for (int s = 0; s < 4; ++s) {
@@ -1304,25 +1294,6 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
     [MTL_CMD_BUF waitUntilCompleted];
 
     // DIAG: Read back center pixel to verify GPU actually rendered something
-    if (0 && m_CurrentDrawable && (g_metalPresentCount % 60 == 0)) {
-      id<MTLTexture> tex = MTL_DRAWABLE.texture;
-      if (tex && tex.width > 0 && tex.height > 0) {
-        uint8_t pixel[4] = {0};
-        NSUInteger cx = tex.width / 2;
-        NSUInteger cy = tex.height / 2;
-        [tex getBytes:pixel bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(cx, cy, 1, 1) mipmapLevel:0];
-        printf("[DIAG] Present frame=%d CENTER_PIXEL BGRA=[%u,%u,%u,%u] tex=%lux%lu\n",
-               g_metalPresentCount, pixel[0], pixel[1], pixel[2], pixel[3],
-               (unsigned long)tex.width, (unsigned long)tex.height);
-        // Also sample corners
-        uint8_t tl[4]={0}, br[4]={0};
-        [tex getBytes:tl bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(0, 0, 1, 1) mipmapLevel:0];
-        [tex getBytes:br bytesPerRow:tex.width*4 fromRegion:MTLRegionMake2D(tex.width-1, tex.height-1, 1, 1) mipmapLevel:0];
-        printf("[DIAG] Present frame=%d TL=[%u,%u,%u,%u] BR=[%u,%u,%u,%u]\n",
-               g_metalPresentCount, tl[0], tl[1], tl[2], tl[3], br[0], br[1], br[2], br[3]);
-        fflush(stdout);
-      }
-    }
 
     CLEAR_MTL(CurrentCommandBuffer);
   }
@@ -1475,6 +1446,50 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
   // Get destination Metal texture
   MetalTexture8 *dstTex = dstSurf->GetParentTexture();
   MetalTexture8 *srcTex = srcSurf->GetParentTexture();
+
+  // ── Case 0: Backbuffer src (no parent texture) → GPU dst ──
+  // W3DSmudgeManager copies backbuffer into m_backgroundTexture for heat distortion.
+  // Only intercept when src is the actual backbuffer surface, not any standalone surface.
+  if (src == m_DefaultRTSurface && !srcTex && dstTex && dstTex->GetMTLTexture()) {
+    id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
+
+    // End current render encoder so the drawable contents are flushed
+    if (MTL_ENCODER) {
+      [MTL_ENCODER endEncoding];
+      CLEAR_MTL(CurrentEncoder);
+    }
+
+    // Get the current framebuffer texture
+    bool useMSAA = (m_MSAASampleCount > 1 && !m_RTTColorTexture && m_MSAAColorTexture);
+    id<MTLTexture> fbTexture = nil;
+    if (m_RTTColorTexture) {
+      fbTexture = (__bridge id<MTLTexture>)m_RTTColorTexture;
+    } else if (MTL_DRAWABLE) {
+      fbTexture = MTL_DRAWABLE.texture;
+    }
+
+    if (fbTexture) {
+      id<MTLCommandBuffer> cmdBuf = (__bridge id<MTLCommandBuffer>)m_CurrentCommandBuffer;
+      if (cmdBuf) {
+        id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
+        UINT copyW = std::min((UINT)fbTexture.width, (UINT)mtlDst.width);
+        UINT copyH = std::min((UINT)fbTexture.height, (UINT)mtlDst.height);
+        [blit copyFromTexture:fbTexture sourceSlice:0 sourceLevel:0
+              sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(copyW, copyH, 1)
+              toTexture:mtlDst destinationSlice:0 destinationLevel:0
+              destinationOrigin:MTLOriginMake(0, 0, 0)];
+        [blit endEncoding];
+        // DO NOT commit or waitUntilCompleted here! 
+        // The blit must remain in the pipeline AFTER the render pass resolves.
+      }
+
+      // Restart render encoder
+      EnsureCurrentEncoder();
+
+      dstTex->MarkWritten();
+      return D3D_OK;
+    }
+  }
 
   // ── Case 1: GPU src → GPU dst (both have parent textures) ──
   if (srcTex && srcTex->HasBeenWritten() && srcTex->GetMTLTexture() &&
@@ -2282,9 +2297,6 @@ STDMETHODIMP MetalDevice8::SetTextureStageState(DWORD Stage,
                                                 D3DTEXTURESTAGESTATETYPE Type,
                                                 DWORD Value) {
   if (Stage < MAX_TEXTURE_STAGES && (int)Type < 32) {
-    // if (Type == D3DTSS_MAGFILTER) {
-    //  printf("SetTextureStageState: Stage %u MAGFILTER set to %u\n", Stage, Value);
-    // }
     m_TextureStageStates[Stage][(int)Type] = Value;
     if (Type == D3DTSS_TEXTURETRANSFORMFLAGS || Type == D3DTSS_TEXCOORDINDEX || Type == D3DTSS_COLOROP) {
       DLOG_RFLOW(17, "SetTextureStageState: Stage %u Type %u set to %u", Stage, (unsigned)Type, Value);

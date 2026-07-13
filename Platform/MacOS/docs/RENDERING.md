@@ -309,3 +309,76 @@ D3D stores matrices in row-major order. `memcpy` into Metal `float4x4` (column-m
 - `Apply_Render_State_Changes()` pushes to `MetalDevice8` via `DX8CALL(SetTransform)`
 - `Set_Transform(PROJECTION)` pushes **immediately** via `DX8CALL`
 - `Set_World_Identity()` / `Set_View_Identity()` — set identity in render_state
+
+---
+
+## Heat Haze / Smudge System (Microwave Tank)
+
+> Added: 2026-07-13
+
+The Microwave Tank's heat distortion aura is rendered by `W3DSmudgeManager` — **not** by `D3DTOP_BUMPENVMAP`. Despite `ShaderClass` having a `GRADIENT_BUMPENVMAP` path, the engine never triggers it for this effect.
+
+### Architecture
+
+```mermaid
+graph LR
+    A["W3DParticleSys::render"] --> B{"Particle name starts with 'SMUD'?"}
+    B -- Yes --> C["SmudgeManager::findSmudge → mark m_draw=true"]
+    B -- No --> D["Normal particle rendering"]
+    C --> E["W3DSmudgeManager::render"]
+    E --> F["Copy backbuffer → m_backgroundTexture"]
+    F --> G["Draw quads with UV offset for distortion"]
+```
+
+### Key Files
+
+| File | Role |
+|:---|:---|
+| `Core/.../W3DSmudge.cpp` | `W3DSmudgeManager::render()` — the full heat haze pipeline |
+| `Core/.../Smudge.h` | `SmudgeManager` base class, `Smudge` struct (position, UV offset, size) |
+| `Core/.../W3DParticleSys.cpp:140-186` | SMUD particle detection, marks smudges as drawable |
+| `GlobalData.h:114` | `m_useHeatEffects` — user-togglable on/off |
+| `GameLOD.cpp` | `UseHeatEffects` INI field, LOD-dependent enabling |
+
+### Rendering Flow (per frame)
+
+1. `W3DParticleSys::render()` iterates all particle systems
+2. Particles with name starting `"SMUD"` (DWORD check `0x44554D53`) are flagged via `SmudgeManager::findSmudge(p) → smudge->m_draw = true`
+3. `W3DSmudgeManager::render(rinfo)` is called at the end of particle rendering:
+   - `testHardwareSupport()` — on macOS uses fallback path (no RTT): returns TRUE if `m_backgroundTexture` exists
+   - Gets backbuffer via `DX8Wrapper::_Get_DX8_Back_Buffer()` → `MetalDevice8::GetBackBuffer()` → `m_DefaultRTSurface`
+   - Counts visible smudges, computes per-vertex UV from camera projection + offset
+   - **Copies backbuffer → `m_backgroundTexture`** via `SurfaceClass::Copy()` → `DX8Wrapper::_Copy_DX8_Rects()` → `MetalDevice8::CopyRects()`
+   - Draws fan-shaped quads (5 vertices each, 4 triangles) with UV distortion, using `_PresetAlphaShader`
+
+### Metal-Specific Fixes
+
+#### 1. CopyRects Pipeline Synchronization (UI Leakage Bug)
+
+The backbuffer surface (`m_DefaultRTSurface`) is a standalone `MetalSurface8` **without a parent `MetalTexture8`**. In `MetalDevice8::CopyRects()`, when `src == m_DefaultRTSurface`, we must copy the **current frame** to `m_backgroundTexture`. 
+
+A critical pipeline synchronization bug existed:
+- The render encoder was ended to trigger the MSAA resolve into `MTL_DRAWABLE.texture`.
+- A **new** `MTLCommandBuffer` was created, committed, and waited upon to perform the copy.
+- Because it was committed before `m_CurrentCommandBuffer` (which held the render/resolve commands), the copy executed **before** the resolve on the GPU.
+- This captured the **stale** contents of `MTL_DRAWABLE.texture` from previous frames (often containing UI or loading screens), causing UI elements to magically float inside the heat haze.
+
+**Fix**: The blit command is now appended directly to `m_CurrentCommandBuffer`. This enforces the correct GPU execution order: Render Pass → Resolve → Blit → Subsequent Smudge Render Passes, perfectly capturing the active scene without stalling the CPU.
+
+#### 2. Color and Alpha Overrides
+
+On DX8, smudge quads use vertex diffuse `0x00ffeedd` (A=0, R=255, G=238, B=221) with:
+- `COLOROP = MODULATE` (texture × diffuse)
+- `ALPHAOP = SELECTARG2` (alpha from diffuse = 0)
+
+On Metal, this produced a heavy brown/red tint and hard edges. Fix (`#ifdef __APPLE__` in W3DSmudge.cpp):
+- `COLOROP = SELECTARG1` — pure texture color, removing the brown tint.
+- `ALPHAOP = SELECTARG2, ARG2 = DIFFUSE` — uses the natural alpha from the vertex (instead of TFACTOR), allowing the particle system to softly fade the edges of the distortion quad to prevent sharp squares.
+
+This produces the correct subtle heat shimmer effect.
+
+### Gotchas
+
+- `GRADIENT_BUMPENVMAP` (D3DTOP=22) is **never used** for the microwave effect. The engine has the code path but doesn't trigger it.
+- Smudge count can be high (100-200 quads per frame). The low alpha (12%) ensures cumulative blending stays subtle.
+- `testHardwareSupport()` on macOS hits the SuperHackers fallback path (no W3DShaderManager RTT). This returns TRUE when `m_backgroundTexture` is allocated.
