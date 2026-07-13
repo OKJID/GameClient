@@ -180,19 +180,8 @@ Int SlowDeathBehavior::getProbabilityModifier( const DamageInfo *damageInfo ) co
 	// eg ( 200 hp max, had 10 left, took 50 damage, 40 overkill, (40/200) * 100 = 20 overkill %)
 	Int overkillDamage = damageInfo->out.m_actualDamageDealt - damageInfo->out.m_actualDamageClipped;
 	Real maxHealth = getObject()->getBodyModule()->getMaxHealth();
-	Real overkillPercent = (float)overkillDamage / maxHealth;
-	Real overkillBonusFloat = overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent;
-
-	Int overkillModifier;
-#ifdef __APPLE__
-	if (overkillBonusFloat != overkillBonusFloat) { // NaN check
-		overkillModifier = (Int)0x80000000; // Emulate x86 float-to-int cast of NaN
-	} else {
-		overkillModifier = (Int)overkillBonusFloat;
-	}
-#else
-	overkillModifier = (Int)overkillBonusFloat;
-#endif
+	Real overkillPercent = WWMath::Div_FixNaN((float)overkillDamage, maxHealth, 0.0f);
+	Int overkillModifier = (Int)(overkillPercent * getSlowDeathBehaviorModuleData()->m_modifierBonusPerOverkillPercent);
 	Int result = max( getSlowDeathBehaviorModuleData()->m_probabilityModifier + overkillModifier, 1 );
 
 	return result;
