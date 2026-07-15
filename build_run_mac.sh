@@ -142,6 +142,15 @@ fi
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
 # export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
+# Purge previous-run diagnostics from the game dir BEFORE the run, so append-mode
+# ("a") diags never mix two runs. Same patterns the gather step collects below.
+# The replay (.rep) is explicitly preserved. Only when collecting CRC logs.
+if [ "$DO_CRC_LOGS" = true ]; then
+    echo "Purging previous-run diagnostic logs from game dir (keeping replay)..."
+    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) ! -name "*.rep" -delete 2>/dev/null
+    rm -rf "$PWD/CRCLogs" 2>/dev/null
+fi
+
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"
 if [ -f "$SPLASH_SRC" ]; then
@@ -213,7 +222,9 @@ fi
 if [ "$DO_CRC_LOGS" = true ]; then
     echo "Gathering diagnostic logs from $GENERALS_INSTALL_PATH to .agent/temp_mac_logs/..."
     mkdir -p "$PWD/.agent/temp_mac_logs"
-    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) -exec mv {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
+    # Copy (not move) so the logs remain in the game dir for later inspection;
+    # the purge step before the next run clears them so nothing accumulates.
+    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) -exec cp {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
     
     if [ -d "$PWD/CRCLogs" ]; then
         rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"
