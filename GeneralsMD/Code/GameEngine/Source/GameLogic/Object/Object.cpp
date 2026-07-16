@@ -757,10 +757,10 @@ void Object::onDestroy()
 {
 
 	// This is the old cleanUpContain safeguard.  Say goodbye so they don't try to look us up.
-	// TheSuperHackers @bugfix xezon 05/06/2025 Add safety checks to prevent accessing a container
-	// that is being destroyed or has invalid state. This fixes crashes when contained units die
-	// while their container is simultaneously being destroyed (e.g., Battle Bus with Terrorists).
-	if( m_containedBy && !m_containedBy->isEffectivelyDead() )
+	// TheSuperHackers @bugfix Caball009 25/05/2026 Remove from the container unconditionally to match
+	// the reference eviction order. Stale-container access is prevented by refusing to add occupants
+	// to destroyed containers in OpenContain::addToContain.
+	if( m_containedBy )
 	{
 		ContainModuleInterface* containModule = m_containedBy->getContain();
 		if( containModule )
