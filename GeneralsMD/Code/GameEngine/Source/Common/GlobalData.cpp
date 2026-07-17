@@ -643,6 +643,7 @@ GlobalData::GlobalData()
 	m_chipSetType = 0;
 	m_headless = FALSE;
 	m_exportStats = FALSE;
+	m_mathCrcCheck = FALSE;
 	m_windowed = 0;
 	m_xResolution = 800;
 	m_yResolution = 600;

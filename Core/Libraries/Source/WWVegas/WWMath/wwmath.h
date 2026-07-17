@@ -223,6 +223,10 @@ static WWINLINE float Normalize_Angle(float angle); // Normalizes the angle to t
 static WWINLINE float Div_FixNaN(float dividend, float divisor, float fallback = 0.0f);
 static WWINLINE double Div_FixNaN(double dividend, double divisor, double fallback = 0.0);
 
+static WWINLINE double AtanNoDownCast(double x);
+static WWINLINE double Atan2NoDownCast(double x, double y);
+static WWINLINE double Div_FixNaNNoDownCast(double dividend, double divisor, double fallback = 0.0);
+
 };
 
 
@@ -492,6 +496,24 @@ WWINLINE double WWMath::Atan2(double x, double y)
 {
 #if USE_DETERMINISTIC_MATH
 	return (double) gm_atan2f((float)x, (float)y);
+#else
+	return atan2(x, y);
+#endif
+}
+
+WWINLINE double WWMath::AtanNoDownCast(double x)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_atan(x);
+#else
+	return atan(x);
+#endif
+}
+
+WWINLINE double WWMath::Atan2NoDownCast(double x, double y)
+{
+#if USE_DETERMINISTIC_MATH
+	return gm_atan2(x, y);
 #else
 	return atan2(x, y);
 #endif
@@ -1144,6 +1166,15 @@ WWINLINE double WWMath::Div_FixNaN(double dividend, double divisor, double fallb
 {
 #if USE_DETERMINISTIC_MATH
 	return (double) ((divisor == 0.0) ? (float) fallback : (float) dividend / (float) divisor);
+#else
+	return dividend / divisor;
+#endif
+}
+
+WWINLINE double WWMath::Div_FixNaNNoDownCast(double dividend, double divisor, double fallback)
+{
+#if USE_DETERMINISTIC_MATH
+	return (divisor == 0.0) ? fallback : dividend / divisor;
 #else
 	return dividend / divisor;
 #endif

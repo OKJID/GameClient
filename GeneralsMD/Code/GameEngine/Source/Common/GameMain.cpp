@@ -31,6 +31,7 @@
 #include "Common/FramePacer.h"
 #include "Common/GameEngine.h"
 #include "Common/ReplaySimulation.h"
+#include "Common/Diagnostic/SimulationMathCrc.h"
 
 
 /**
@@ -45,7 +46,11 @@ Int GameMain()
 	TheGameEngine = CreateGameEngine();
 	TheGameEngine->init();
 
-	if (TheGlobalData->m_exportStats && (!TheGlobalData->m_headless || TheGlobalData->m_simulateReplays.empty()))
+	if (TheGlobalData->m_mathCrcCheck)
+	{
+		SimulationMathCrc::writeParityLog("SimulationMathCrc.txt");
+	}
+	else if (TheGlobalData->m_exportStats && (!TheGlobalData->m_headless || TheGlobalData->m_simulateReplays.empty()))
 	{
 		printf("ERROR: -exportStats requires headless replay mode (-headless -replay <file>).\n");
 		fflush(stdout);

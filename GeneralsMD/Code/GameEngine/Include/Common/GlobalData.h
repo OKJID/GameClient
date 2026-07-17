@@ -124,6 +124,9 @@ public:
 	// Export game stats as JSON alongside replay file.
 	Bool m_exportStats;
 
+	// Write the deterministic simulation-math parity log after engine init, then exit.
+	Bool m_mathCrcCheck;
+
 	// URL to POST compressed stats JSON after export.
 	AsciiString m_statsUrl;
 
