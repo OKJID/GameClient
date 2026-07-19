@@ -202,7 +202,17 @@ void populateSideInfo( UnicodeString side,ScoreGather *sg, Int pos, Color color)
 
 void startNextCampaignGame(void)
 {
+#ifdef __APPLE__
+	// Popping the score screen reveals the main menu, and MainMenuInit() queues a
+	// MSG_NEW_GAME(GAME_SHELL) for the shell map. That message is dispatched before the
+	// campaign's own MSG_NEW_GAME, so it consumes the campaign map out of m_pendingFile,
+	// starts it in GAME_SHELL mode, and startNewGame() then unhides the main menu over the
+	// running mission. The campaign message is in turn dropped by the isInGame() guard in
+	// MSG_NEW_GAME. Leaving the main menu uninitialized keeps that whole chain from starting.
+	TheShell->popImmediateKeepingRevealedScreenUninitialized();
+#else
 	TheShell->popImmediate();
+#endif
 	TheShell->hideShell();
 	TheWritableGlobalData->m_pendingFile = TheCampaignManager->getCurrentMap();
 	if (TheCampaignManager->getCurrentCampaign() && TheCampaignManager->getCurrentCampaign()->isChallengeCampaign())
