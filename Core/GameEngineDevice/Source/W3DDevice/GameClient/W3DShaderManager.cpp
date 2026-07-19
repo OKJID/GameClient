@@ -2521,7 +2521,17 @@ Int RoadShader2Stage::set(Int pass)
 		DX8Wrapper::Set_DX8_Render_State(D3DRS_SRCBLEND,D3DBLEND_ZERO);
 		DX8Wrapper::Set_DX8_Render_State(D3DRS_DESTBLEND,D3DBLEND_SRCCOLOR);
 
+#ifdef __APPLE__
+		// The texture transform is declared on stage 1 (TEXCOORDINDEX and
+		// TEXTURETRANSFORMFLAGS above), and D3D8 feeds stage N from
+		// D3DTS_TEXTURE0+N. Writing the lightmap matrix to slot 0 leaves stage 1
+		// reading the cloud matrix pass 0 put in slot 1, so the lightmap drifts
+		// along with the clouds and the blend tiles show up as moving squares.
+		// Verified on macOS: routing it to slot 1 removes most of that artifact.
+		DX8Wrapper::_Set_DX8_Transform(D3DTS_TEXTURE1, curView);
+#else
 		DX8Wrapper::_Set_DX8_Transform(D3DTS_TEXTURE0, curView);
+#endif
 	}
 
 	return TRUE;
