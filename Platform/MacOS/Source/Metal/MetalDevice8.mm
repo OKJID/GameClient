@@ -80,6 +80,7 @@ MetalDevice8::MetalDevice8()
       m_Library(nullptr), m_FunctionVertex(nullptr),
       m_FunctionFragment(nullptr), m_DepthTexture(nullptr),
       m_DepthStencilState(nullptr), m_DepthStateDirty(true),
+      m_StencilRefDirty(true),
       m_DrawStateDirty(true), m_LastAppliedCull(0xFFFFFFFF), m_LastAppliedZBias(0xFFFFFFFF),
       m_ZeroBuffer(nullptr), m_FrameSemaphore(nullptr),
       m_DefaultRTSurface(nullptr),
@@ -294,6 +295,16 @@ struct MetalUniforms {
   uint32_t texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
   simd::float4 clipPlanes[6];
   uint32_t clipPlaneEnable;
+  // Point sprites — scalars only, must mirror the Uniforms tail in
+  // MacOSShaders.metal field for field.
+  uint32_t pointSpriteEnable;
+  uint32_t pointScaleEnable;
+  float pointSize;
+  float pointSizeMin;
+  float pointSizeMax;
+  float pointScaleA;
+  float pointScaleB;
+  float pointScaleC;
   uint32_t _pad[3];
 };
 
@@ -650,15 +661,20 @@ void *MetalDevice8::GetDepthStencilState() {
   DWORD stencilFail = m_RenderStates[D3DRS_STENCILFAIL];
   DWORD stencilZFail = m_RenderStates[D3DRS_STENCILZFAIL];
   DWORD stencilPass = m_RenderStates[D3DRS_STENCILPASS];
+  DWORD readMask = m_RenderStates[D3DRS_STENCILMASK] & 0xFF;
+  DWORD writeMask = m_RenderStates[D3DRS_STENCILWRITEMASK] & 0xFF;
 
-  // 64-bit key: depth bits (low 6) + stencil bits (7..31)
+  // Masks belong in the key: they reach the descriptor, so two states differing
+  // only by mask are different states.
   uint64_t key = (zEnable & 1) | ((zWrite & 1) << 1) | ((zFunc & 0xF) << 2) |
                  ((stencilEn & 1ULL) << 6) | ((stencilFunc & 0xFULL) << 7) |
                  ((stencilFail & 0xFULL) << 11) |
                  ((stencilZFail & 0xFULL) << 15) |
-                 ((stencilPass & 0xFULL) << 19);
+                 ((stencilPass & 0xFULL) << 19) |
+                 ((uint64_t)readMask << 23) |
+                 ((uint64_t)writeMask << 31);
 
-  auto it = m_DepthStencilStateCache.find((uint32_t)key);
+  auto it = m_DepthStencilStateCache.find(key);
   if (it != m_DepthStencilStateCache.end()) {
     m_DepthStencilState = it->second;
     m_DepthStateDirty = false;
@@ -676,16 +692,13 @@ void *MetalDevice8::GetDepthStencilState() {
 
   // Stencil configuration
   if (stencilEn) {
-    DWORD readMask = m_RenderStates[D3DRS_STENCILMASK];
-    DWORD writeMask = m_RenderStates[D3DRS_STENCILWRITEMASK];
-
     MTLStencilDescriptor *stencilDesc = [[MTLStencilDescriptor alloc] init];
     stencilDesc.stencilCompareFunction = MapD3DCmpToMTL(stencilFunc);
     stencilDesc.stencilFailureOperation = MapD3DStencilOpToMTL(stencilFail);
     stencilDesc.depthFailureOperation = MapD3DStencilOpToMTL(stencilZFail);
     stencilDesc.depthStencilPassOperation = MapD3DStencilOpToMTL(stencilPass);
-    stencilDesc.readMask = readMask & 0xFF;
-    stencilDesc.writeMask = writeMask & 0xFF;
+    stencilDesc.readMask = readMask;
+    stencilDesc.writeMask = writeMask;
 
     // DX8 doesn't have separate front/back stencil (that's DX9+)
     dsd.frontFaceStencil = stencilDesc;
@@ -695,7 +708,7 @@ void *MetalDevice8::GetDepthStencilState() {
   id<MTLDepthStencilState> dss =
       [MTL_DEVICE newDepthStencilStateWithDescriptor:dsd];
   if (dss) {
-    m_DepthStencilStateCache[(uint32_t)key] = (__bridge_retained void *)dss;
+    m_DepthStencilStateCache[key] = (__bridge_retained void *)dss;
     m_DepthStencilState = (__bridge void *)dss;
   }
 
@@ -721,8 +734,8 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   DWORD srcBlend = m_RenderStates[D3DRS_SRCBLEND] & 0x1F;
   DWORD dstBlend = m_RenderStates[D3DRS_DESTBLEND] & 0x1F;
   DWORD dwAlphaEn = m_RenderStates[D3DRS_ALPHATESTENABLE] ? 1 : 0;
+  // cwMask == 0 is a deliberate "write no color" pass (stencil volume build).
   DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE] & 0xF;
-  if (cwMask == 0) cwMask = 0xF;
 
   // TheSuperHackers @fix macOS: Protect destination alpha from accidental overwrites.
   // On DX8 with X8R8G8B8 backbuffer, cwMask=0xF doesn't write alpha (X channel).
@@ -768,7 +781,7 @@ void MetalDevice8::ApplyPerDrawState() {
 
   DWORD cullMode = m_RenderStates[D3DRS_CULLMODE];
   if (cullMode != m_LastAppliedCull) {
-    [MTL_ENCODER setCullMode:MTLCullModeNone]; // FORCE NO CULLING
+    [MTL_ENCODER setCullMode:MapD3DCullToMTL(cullMode)];
     [MTL_ENCODER setFrontFacingWinding:MTLWindingClockwise];
     m_LastAppliedCull = cullMode;
   }
@@ -787,11 +800,15 @@ void MetalDevice8::ApplyPerDrawState() {
     void *dss = GetDepthStencilState();
     if (dss) {
       [MTL_ENCODER setDepthStencilState:(__bridge id<MTLDepthStencilState>)dss];
-      if (m_RenderStates[D3DRS_STENCILENABLE]) {
-        [MTL_ENCODER setStencilReferenceValue:
-                         (uint32_t)(m_RenderStates[D3DRS_STENCILREF] & 0xFF)];
-      }
     }
+  }
+
+  // Reference value lives on the encoder, not in MTLDepthStencilState, so it
+  // carries its own dirty flag and must survive encoder recreation.
+  if (m_StencilRefDirty && m_RenderStates[D3DRS_STENCILENABLE]) {
+    uint32_t ref = (uint32_t)(m_RenderStates[D3DRS_STENCILREF] & 0xFF);
+    [MTL_ENCODER setStencilReferenceValue:ref];
+    m_StencilRefDirty = false;
   }
 
   DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
@@ -805,6 +822,14 @@ void MetalDevice8::ApplyPerDrawState() {
     }
     m_LastAppliedZBias = zBias;
   }
+}
+
+// Point-sprite render states carry a float's bit pattern in a DWORD (the
+// engine writes them through FtoDW).
+static inline float DWtoF(DWORD d) {
+  float f;
+  memcpy(&f, &d, sizeof(f));
+  return f;
 }
 
 void MetalDevice8::BindUniforms(DWORD fvf) {
@@ -829,6 +854,25 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
   }
   u.clipPlaneEnable = m_RenderStates[D3DRS_CLIPPLANEENABLE];
+
+  // Point sprite states hold float bit patterns (engine writes them via FtoDW).
+  u.pointSpriteEnable = m_RenderStates[D3DRS_POINTSPRITEENABLE] ? 1u : 0u;
+  u.pointScaleEnable = m_RenderStates[D3DRS_POINTSCALEENABLE] ? 1u : 0u;
+  u.pointSize = DWtoF(m_RenderStates[D3DRS_POINTSIZE]);
+  u.pointSizeMin = DWtoF(m_RenderStates[D3DRS_POINTSIZE_MIN]);
+  u.pointSizeMax = DWtoF(m_RenderStates[D3DRS_POINTSIZE_MAX]);
+  u.pointScaleA = DWtoF(m_RenderStates[D3DRS_POINTSCALE_A]);
+  u.pointScaleB = DWtoF(m_RenderStates[D3DRS_POINTSCALE_B]);
+  u.pointScaleC = DWtoF(m_RenderStates[D3DRS_POINTSCALE_C]);
+  // Zero is a legal coefficient (snow sets A=0, B=0), so no value may be
+  // rescued by treating "unset" as zero. Only guard the two that would
+  // clamp every sprite out of existence.
+  if (u.pointSize <= 0.0f) {
+    u.pointSize = 1.0f;
+  }
+  if (u.pointSizeMax <= 0.0f) {
+    u.pointSizeMax = (float)m_ScreenHeight;
+  }
   for (int i = 0; i < 6; ++i) {
     u.clipPlanes[i] = simd::float4{m_ClipPlanes[i][0], m_ClipPlanes[i][1], m_ClipPlanes[i][2], m_ClipPlanes[i][3]};
   }
@@ -1954,7 +1998,6 @@ STDMETHODIMP MetalDevice8::EndScene() {
 STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
                                  D3DCOLOR Color, float Z, DWORD Stencil) {
   DLOG_RFLOW(2, "Clear flags=0x%x color=0x%08x Z=%f", (unsigned)Flags, (unsigned)Color, Z);
-
   // WW3D calls Clear() BEFORE BeginScene(), so auto-start if needed.
   if (!m_CurrentDrawable) {
     HRESULT bshr = BeginScene();
@@ -2048,14 +2091,24 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
       [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
   [encoder setLabel:@"MetalDevice8 RenderPass"];
   SET_MTL(CurrentEncoder, encoder);
+
+  // A fresh encoder starts with default state — every cached "already applied"
+  // value is stale.
   m_LastAppliedCull = 0xFFFFFFFF;
   m_LastAppliedZBias = 0xFFFFFFFF;
+  m_DepthStateDirty = true;
+  m_StencilRefDirty = true;
 
   // --- Apply Depth Stencil State ---
   if (m_DepthTexture) {
     void *dss = GetDepthStencilState();
     if (dss) {
       [encoder setDepthStencilState:(__bridge id<MTLDepthStencilState>)dss];
+    }
+    if (m_RenderStates[D3DRS_STENCILENABLE]) {
+      [encoder setStencilReferenceValue:
+                   (uint32_t)(m_RenderStates[D3DRS_STENCILREF] & 0xFF)];
+      m_StencilRefDirty = false;
     }
   }
 
@@ -2219,6 +2272,10 @@ STDMETHODIMP MetalDevice8::SetRenderState(D3DRENDERSTATETYPE State,
           State == D3DRS_STENCILMASK || State == D3DRS_STENCILWRITEMASK) {
         m_DepthStateDirty = true;
       }
+      // STENCILREF is encoder state, not part of MTLDepthStencilState.
+      if (State == D3DRS_STENCILREF) {
+        m_StencilRefDirty = true;
+      }
       if (State == D3DRS_CULLMODE || State == D3DRS_ZBIAS) {
         m_DrawStateDirty = true;
       }
@@ -2364,14 +2421,12 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   DWORD blendEn = m_RenderStates[D3DRS_ALPHABLENDENABLE];
   DWORD srcBlend = m_RenderStates[D3DRS_SRCBLEND];
   DWORD dstBlend = m_RenderStates[D3DRS_DESTBLEND];
-  DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE];
-  if (cwMask == 0)
-    cwMask = 0xF; // default: write all
+  // cwMask == 0 is a deliberate "write no color" pass (stencil volume build).
+  DWORD cwMask = m_RenderStates[D3DRS_COLORWRITEENABLE] & 0xF;
   // TheSuperHackers @fix macOS: Same dest alpha protection as in BuildPSOKey
   if (!m_RTTColorTexture && cwMask == 0xF) {
     cwMask = 0x7; // RGB only, preserve destination alpha
   }
-
   pd.colorAttachments[0].blendingEnabled = (blendEn != 0) ? YES : NO;
   pd.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
   pd.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
@@ -2601,6 +2656,13 @@ void MetalDevice8::EnsureCurrentEncoder() {
 
   id<MTLRenderCommandEncoder> encoder = [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
   SET_MTL(CurrentEncoder, encoder);
+
+  // A fresh encoder starts with default state — every cached "already applied"
+  // value is stale.
+  m_LastAppliedCull = 0xFFFFFFFF;
+  m_LastAppliedZBias = 0xFFFFFFFF;
+  m_DepthStateDirty = true;
+  m_StencilRefDirty = true;
 }
 
 STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
@@ -2930,6 +2992,9 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // ApplyPerDrawState() which sets cull mode from D3D render state.
   if (is2D) {
     [MTL_ENCODER setCullMode:MTLCullModeNone];
+    // Encoder no longer matches the cached D3D cull value — force the next
+    // 3D draw to re-apply it.
+    m_LastAppliedCull = 0xFFFFFFFF;
   }
 
   // Upload vertex data inline (up to 4KB via setVertexBytes)

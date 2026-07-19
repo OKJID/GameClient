@@ -15,7 +15,20 @@ struct Uniforms {
     uint texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
     float4 clipPlanes[6];
     uint clipPlaneEnable;
-    uint3 _pad;
+    // Point sprites (D3DRS_POINTSPRITEENABLE / POINTSCALE*).
+    // Scalars only — uint3/float3 carry 16-byte alignment that would desync
+    // this tail from MetalUniforms on the C++ side.
+    uint pointSpriteEnable;
+    uint pointScaleEnable;
+    float pointSize;
+    float pointSizeMin;
+    float pointSizeMax;
+    float pointScaleA;
+    float pointScaleB;
+    float pointScaleC;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
 };
 
 // ─────────────────────────────────────────────────────
@@ -205,6 +218,7 @@ struct VertexOut {
     float camNormalX;
     float camNormalY;
     float camNormalZ;
+    float pointSize [[point_size]];
     float clipDistance [[clip_distance]] [6];
 };
 
@@ -232,7 +246,10 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
                             constant LightingUniforms &lighting [[buffer(3)]],
                             constant CustomVSUniforms &customVS [[buffer(4)]]) {
     VertexOut out;
-    
+    // Metal rejects a point_size of 0; every early-return path must carry a
+    // valid value even though only POINTLIST draws consume it.
+    out.pointSize = 1.0;
+
     float4 pos = float4(in.position.xyz, 1.0);
     
     auto applyClipPlanes = [&](float4 wPos, thread VertexOut& vOut) {
@@ -392,6 +409,25 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     // Compute camera-space position for D3DTSS_TCI_CAMERASPACEPOSITION
     float4 worldPos = uniforms.world * pos;
     float4 camPos = uniforms.view * worldPos;
+
+    // Point sprite size, per DX8 rules:
+    //   POINTSCALEENABLE off → size is already in screen pixels
+    //   on  → size = viewportHeight * POINTSIZE * sqrt(1 / (A + B*D + C*D²))
+    // with D the eye-space distance to the vertex. Result is clamped to
+    // [POINTSIZE_MIN, POINTSIZE_MAX].
+    if (uniforms.pointSpriteEnable != 0) {
+        float pointPixels = uniforms.pointSize;
+        if (uniforms.pointScaleEnable != 0) {
+            float d = length(camPos.xyz);
+            float denom = uniforms.pointScaleA
+                        + uniforms.pointScaleB * d
+                        + uniforms.pointScaleC * d * d;
+            pointPixels = uniforms.screenSize.y * uniforms.pointSize
+                        * sqrt(1.0 / max(denom, 1e-6));
+        }
+        out.pointSize = clamp(pointPixels, uniforms.pointSizeMin, uniforms.pointSizeMax);
+    }
+
     out.camPosX = camPos.x;
     out.camPosY = camPos.y;
     out.camPosZ = camPos.z;
@@ -732,7 +768,7 @@ bool alphaTestPass(uint func, float alphaVal, float ref) {
 // ─────────────────────────────────────────────────────
 //  Stage 7: Fragment Shader with full TSS support
 // ─────────────────────────────────────────────────────
-fragment float4 fragment_main(FragmentIn in [[stage_in]],
+fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
                              constant Uniforms &uniforms [[buffer(1)]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
                              constant CustomPSUniforms &psUniforms [[buffer(5)]],
@@ -747,7 +783,18 @@ fragment float4 fragment_main(FragmentIn in [[stage_in]],
                              sampler sampler0 [[sampler(0)]],
                              sampler sampler1 [[sampler(1)]],
                              sampler sampler2 [[sampler(2)]],
-                             sampler sampler3 [[sampler(3)]]) {
+                             sampler sampler3 [[sampler(3)]],
+                             float2 pointCoord [[point_coord]]) {
+    // D3D generates per-sprite UVs in the rasterizer when POINTSPRITEENABLE is
+    // on; Metal exposes them as point_coord. Substituting into a local copy
+    // keeps every downstream stage untouched. point_coord is undefined for
+    // non-point primitives, hence the gate.
+    FragmentIn in = stageIn;
+    if (uniforms.pointSpriteEnable != 0) {
+        in.texCoord = pointCoord;
+        in.texCoord2 = pointCoord;
+    }
+
     auto computeTexCoord = [&](uint tci, uint stage) -> float3 {
         uint tciMode = (tci >> 16) & 0x3;
         uint uvIndex = tci & 0x3;

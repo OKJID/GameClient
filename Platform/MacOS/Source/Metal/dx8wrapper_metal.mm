@@ -2041,7 +2041,12 @@ void DX8Wrapper::Get_Render_Target_Resolution(int& set_w, int& set_h, int& set_b
 	set_w = ResolutionWidth; set_h = ResolutionHeight; set_bits = BitDepth; set_windowed = IsWindowed;
 }
 WW3DFormat DX8Wrapper::getBackBufferFormat() { return WW3D_FORMAT_A8R8G8B8; }
-bool DX8Wrapper::Has_Stencil() { return false; }
+bool DX8Wrapper::Has_Stencil()
+{
+	bool has_stencil = (_PresentParameters.AutoDepthStencilFormat == D3DFMT_D24S8 ||
+	                    _PresentParameters.AutoDepthStencilFormat == D3DFMT_D24X4S4);
+	return has_stencil;
+}
 void DX8Wrapper::Set_Swap_Interval(int swap) {}
 int DX8Wrapper::Get_Swap_Interval() { return 1; }
 

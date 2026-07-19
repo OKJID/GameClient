@@ -66,10 +66,11 @@ private:
   void *m_DepthTexture;
   void *m_DepthStencilState;
   bool m_DepthStateDirty;
+  bool m_StencilRefDirty;
   bool m_DrawStateDirty;
   DWORD m_LastAppliedCull;
   DWORD m_LastAppliedZBias;
-  std::map<uint32_t, void *> m_DepthStencilStateCache;
+  std::map<uint64_t, void *> m_DepthStencilStateCache;
 
   std::map<uint32_t, void *> m_SamplerStateCache;
 
