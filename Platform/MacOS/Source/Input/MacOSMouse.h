@@ -58,6 +58,8 @@ private:
   void initW3DAssets();
   void freeW3DAssets();
 
+  void confineCursorToWindow();
+
   void loadANICursors();
   void freeANICursors();
   int loadANIFrames(const char *path, NSCursor * __strong outCursors[], int maxFrames, int *outStepRatesMs, int *outCycleTotalMs);

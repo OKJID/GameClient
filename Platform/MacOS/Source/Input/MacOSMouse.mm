@@ -70,38 +70,41 @@ void MacOSMouse::reset(void) {
 
 void MacOSMouse::update(void) {
   Mouse::update();
+  confineCursorToWindow();
+}
 
-  if (isCursorCaptured() && ApplicationHWnd) {
-    NSWindow *window = (__bridge NSWindow *)ApplicationHWnd;
-    if (window && [window isKeyWindow]) {
-      NSRect contentRect = [window contentRectForFrameRect:[window frame]];
-      NSPoint mousePos = [NSEvent mouseLocation];
-
-      CGFloat minX = contentRect.origin.x;
-      CGFloat maxX = contentRect.origin.x + contentRect.size.width;
-      CGFloat minY = contentRect.origin.y;
-      CGFloat maxY = contentRect.origin.y + contentRect.size.height;
-
-      CGFloat clampedX = mousePos.x;
-      CGFloat clampedY = mousePos.y;
-      bool needsWarp = false;
-      CGFloat margin = 1.0;
-
-      if (clampedX < minX + margin) { clampedX = minX + margin; needsWarp = true; }
-      if (clampedX > maxX - margin) { clampedX = maxX - margin; needsWarp = true; }
-      if (clampedY < minY + margin) { clampedY = minY + margin; needsWarp = true; }
-      if (clampedY > maxY - margin) { clampedY = maxY - margin; needsWarp = true; }
-
-      if (needsWarp) {
-        NSScreen *primaryScreen = [[NSScreen screens] firstObject];
-        if (primaryScreen) {
-          CGFloat screenHeight = primaryScreen.frame.size.height;
-          CGPoint warpPoint = CGPointMake(clampedX, screenHeight - clampedY);
-          CGWarpMouseCursorPosition(warpPoint);
-        }
-      }
-    }
+void MacOSMouse::confineCursorToWindow(void) {
+  if (!isCursorCaptured() || !ApplicationHWnd) {
+    return;
   }
+
+  NSWindow *window = (__bridge NSWindow *)ApplicationHWnd;
+  if (!window || ![window isKeyWindow]) {
+    return;
+  }
+
+  NSRect contentRect = [window contentRectForFrameRect:[window frame]];
+  NSPoint mousePos = [NSEvent mouseLocation];
+
+  if (NSPointInRect(mousePos, contentRect)) {
+    return;
+  }
+
+  NSScreen *primaryScreen = [[NSScreen screens] firstObject];
+  if (!primaryScreen) {
+    return;
+  }
+
+  const CGFloat inset = 1.0;
+  CGFloat clampedX = fmin(fmax(mousePos.x, NSMinX(contentRect) + inset), NSMaxX(contentRect) - inset);
+  CGFloat clampedY = fmin(fmax(mousePos.y, NSMinY(contentRect) + inset), NSMaxY(contentRect) - inset);
+  CGFloat screenHeight = primaryScreen.frame.size.height;
+
+  CGWarpMouseCursorPosition(CGPointMake(clampedX, screenHeight - clampedY));
+
+  // CGWarpMouseCursorPosition detaches the cursor from the physical mouse for ~0.25s,
+  // which freezes movement along the edge while edge scrolling.
+  CGAssociateMouseAndMouseCursorPosition(true);
 }
 
 void MacOSMouse::initCursorResources(void) {
