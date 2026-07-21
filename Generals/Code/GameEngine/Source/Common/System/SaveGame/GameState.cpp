@@ -476,7 +476,7 @@ AsciiString GameState::findNextSaveFilename( UnicodeString desc )
 		leaf.format("%s_%04d%s", adesc.str(), i, SAVE_GAME_EXTENSION);
 
 		AsciiString path = getFilePathInSaveDirectory(leaf);
-		if( _access( path.str(), 0 ) == -1 )
+		if( !NativeFileSystem::exists(path.str()) )
 			return leaf;	// note that this returns the leaf, not the full path
 	}
 #else
@@ -523,7 +523,7 @@ AsciiString GameState::findNextSaveFilename( UnicodeString desc )
 			fullPath = getFilePathInSaveDirectory(filename);
 
 			// if file does not exist we're all good
-			if( _access( fullPath.str(), 0 ) == -1 )
+			if( !NativeFileSystem::exists(fullPath.str()) )
 				return filename;
 
 			// test the text filename
@@ -570,7 +570,7 @@ SaveCode GameState::saveGame( AsciiString filename, UnicodeString desc,
 	}
 
 	// make absolutely sure the save directory exists
-	CreateDirectory( getSaveDirectory().str(), nullptr );
+	NativeFileSystem::create_directory( std::string(getSaveDirectory().str()) );
 
 	// construct path to file
 	AsciiString filepath = getFilePathInSaveDirectory(filename);
@@ -710,8 +710,19 @@ SaveCode GameState::loadGame( AvailableGameInfo gameInfo )
 		xferSaveData( &xferLoad, SNAPSHOT_SAVELOAD );
 
 	}
+	catch( SaveCode code )
+	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - xferSaveData failed, SaveCode %d", filepath.str(), (Int)code ));
+		error = TRUE;
+	}
+	catch( const std::exception& e )
+	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - xferSaveData failed: %s", filepath.str(), e.what() ));
+		error = TRUE;
+	}
 	catch( ... )
 	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - xferSaveData failed: unknown exception", filepath.str() ));
 		error = TRUE;
 	}
 
@@ -726,8 +737,19 @@ SaveCode GameState::loadGame( AvailableGameInfo gameInfo )
 		// do the post-process from a save game load
 		gameStatePostProcessLoad();
 	}
+	catch( SaveCode code )
+	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - postProcessLoad failed, SaveCode %d", filepath.str(), (Int)code ));
+		error = TRUE;
+	}
+	catch( const std::exception& e )
+	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - postProcessLoad failed: %s", filepath.str(), e.what() ));
+		error = TRUE;
+	}
 	catch (...)
 	{
+		DEBUG_LOG(( "[SAVELOAD] loadGame '%s' - postProcessLoad failed: unknown exception", filepath.str() ));
 		error = TRUE;
 	}
 
@@ -1000,7 +1022,8 @@ void GameState::getSaveGameInfoFromFile( AsciiString filename, SaveGameInfo *sav
 
 	// open file for partial loading
 	XferLoad xferLoad;
-	xferLoad.open( filename );
+	AsciiString filepath = getFilePathInSaveDirectory( filename );
+	xferLoad.open( filepath );
 
 	//
 	// disable post processing cause we're not really doing a load of game data that
@@ -1151,8 +1174,12 @@ static void addGameToAvailableList( AsciiString filename, void *userData )
 		}
 
 	}
+	} catch(SaveCode code) {
+		DEBUG_LOG(( "[SAVELIST] addGameToAvailableList - DROPPED '%s', SaveCode %d", filename.str(), (Int)code ));
+	} catch(const std::exception& e) {
+		DEBUG_LOG(( "[SAVELIST] addGameToAvailableList - DROPPED '%s': %s", filename.str(), e.what() ));
 	} catch(...) {
-		// Do nothing - just return.
+		DEBUG_LOG(( "[SAVELIST] addGameToAvailableList - DROPPED '%s': unknown exception", filename.str() ));
 	}
 
 
@@ -1349,9 +1376,13 @@ void GameState::iterateSaveFiles( IterateSaveFileCallback callback, void *userDa
 			}
 		}
 	}
+	catch (const std::exception& e)
+	{
+		DEBUG_LOG(( "[SAVELIST] iterateSaveFiles - '%s' unreadable: %s", getSaveDirectory().str(), e.what() ));
+	}
 	catch (...)
 	{
-		// Safe to ignore errors here
+		DEBUG_LOG(( "[SAVELIST] iterateSaveFiles - '%s' unreadable: unknown exception", getSaveDirectory().str() ));
 	}
 #endif
 
@@ -1505,9 +1536,20 @@ void GameState::xferSaveData( Xfer *xfer, SnapshotType which )
 					xfer->endBlock();
 
 				}
+				catch( SaveCode code )
+				{
+					DEBUG_LOG(( "[SAVELOAD] block '%s' failed, SaveCode %d", blockInfo->blockName.str(), (Int)code ));
+					throw;
+				}
+				catch( XferStatus status )
+				{
+					DEBUG_LOG(( "[SAVELOAD] block '%s' failed, XferStatus %d", blockInfo->blockName.str(), (Int)status ));
+					throw;
+				}
 				catch( ... )
 				{
 
+					DEBUG_LOG(( "[SAVELOAD] block '%s' failed, unknown exception", blockInfo->blockName.str() ));
 					DEBUG_CRASH(( "Error loading block '%s' in file '%s'",
 												blockInfo->blockName.str(), xfer->getIdentifier().str() ));
 					throw;

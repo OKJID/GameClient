@@ -129,7 +129,7 @@ static void embedPristineMap( AsciiString map, Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 static void embedInUseMap( AsciiString map, Xfer *xfer )
 {
-	FILE *fp = fopen( map.str(), "rb" );
+	FILE *fp = NativeFileSystem::fopen( map.str(), "rb" );
 
 	// sanity
 	if( fp == nullptr )
@@ -187,7 +187,7 @@ static void extractAndSaveMap( AsciiString mapToSave, Xfer *xfer )
 	UnsignedInt dataSize;
 
 	// open handle to output file
-	FILE *fp = fopen( mapToSave.str(), "w+b" );
+	FILE *fp = NativeFileSystem::fopen( mapToSave.str(), "w+b" );
 	if( fp == nullptr )
 	{
 
@@ -242,6 +242,11 @@ static void extractAndSaveMap( AsciiString mapToSave, Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 void GameStateMap::xfer( Xfer *xfer )
 {
+	if( xfer->getXferMode() == XFER_LOAD )
+	{
+		TheGameLogic->setLoadingSave( TRUE );
+	}
+
 	// version
 	const XferVersion currentVersion = 2;
 	XferVersion version = currentVersion;
@@ -427,6 +432,7 @@ void GameStateMap::xfer( Xfer *xfer )
 	//
 	if( xfer->getXferMode() == XFER_LOAD ) {
 		TheGameLogic->startNewGame( TRUE );
+		TheGameLogic->setLoadingSave( FALSE );
 	}
 
 }

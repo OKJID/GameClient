@@ -449,6 +449,8 @@ void TeamFactory::xfer( Xfer *xfer )
 	if( prototypeCount != m_prototypes.size() )
 	{
 
+		DEBUG_LOG(( "[SAVELOAD] TeamFactory::xfer - prototype count mismatch: file has %d, map loaded %d",
+								prototypeCount, m_prototypes.size() ));
 		DEBUG_CRASH(( "TeamFactory::xfer - Prototype count mismatch '%d should be '%d'",
 									prototypeCount, m_prototypes.size() ));
 		throw SC_INVALID_DATA;
@@ -497,6 +499,8 @@ void TeamFactory::xfer( Xfer *xfer )
 			if( teamPrototype == nullptr )
 			{
 
+				DEBUG_LOG(( "[SAVELOAD] TeamFactory::xfer - prototype id %d from file not present in loaded map",
+										(Int)teamPrototypeID ));
 				DEBUG_CRASH(( "TeamFactory::xfer - Unable to find team prototype by id" ));
 				throw SC_INVALID_DATA;
 
