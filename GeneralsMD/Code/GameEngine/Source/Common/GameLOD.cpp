@@ -495,8 +495,17 @@ StaticGameLODLevel GameLODManager::getRecommendedStaticLODLevel()
 
 		//get system configuration - only need vide chip type, got rest in ::init().
 		testMinimumRequirements(&m_videoChipType,nullptr,nullptr,nullptr,nullptr,nullptr,nullptr);
+#ifdef __APPLE__
+		// getChipset() reports DC_UNKNOWN here because the Metal device deliberately
+		// advertises no pixel shaders, and the stock TNT2 guess then pins the detail
+		// level to the lowest tier. Only the preset match sees this value, so the
+		// terrain and pixel-shader paths that key off getChipset() stay unaffected.
+		if (m_videoChipType == DC_UNKNOWN)
+			m_videoChipType = DC_RADEON_9700;
+#else
 		if (m_videoChipType == DC_UNKNOWN)
 			m_videoChipType = DC_TNT2;	//presume it's at least TNT2 level
+#endif
 
 		Int numMBRam=m_numRAM/(1024*1024);
 

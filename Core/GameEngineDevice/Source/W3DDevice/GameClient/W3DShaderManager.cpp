@@ -3132,6 +3132,14 @@ Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuTy
 	{
 		*cpuType = XX;	//unknown
 
+#ifdef __APPLE__
+		// The preset table only knows 2003-era x86 parts and matches CPU type by
+		// equality, so Apple Silicon can never satisfy it and the detail level would
+		// pin to the lowest tier. Report the fastest type the table knows, matching
+		// how the Metal device already reports its capabilities and how
+		// Init_Processor_Speed already reports a fixed clock.
+		*cpuType = P4;
+#else
 		//Check if it's an Athlon
 		if (CPUDetectClass::Get_Processor_Manufacturer() == CPUDetectClass::MANUFACTURER_AMD &&
 				CPUDetectClass::Get_AMD_Processor() >= CPUDetectClass::AMD_PROCESSOR_ATHLON_025)
@@ -3145,6 +3153,7 @@ Bool W3DShaderManager::testMinimumRequirements(ChipsetType *videoChipType, CpuTy
 		if (CPUDetectClass::Get_Processor_Manufacturer() == CPUDetectClass::MANUFACTURER_INTEL &&
 				CPUDetectClass::Get_Intel_Processor() >= CPUDetectClass::INTEL_PROCESSOR_PENTIUM4)
 				*cpuType = P4;
+#endif
 	}
 
 	if (cpuFreq)
