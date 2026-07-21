@@ -29,8 +29,9 @@ set(MAIN_SRC
 )
 
 # ── Audio ──
+# MacOSAudioManager reads GlobalData, whose field offsets differ between the games, so it
+# compiles per game. See macos_platform_add_game_glue() at the end of this file.
 set(AUDIO_SRC
-    Source/Audio/MacOSAudioManager.cpp
     Source/Audio/MacOSAudioManager.h
     Source/Audio/AVAudioBridge.mm
     Source/Audio/AVAudioBridge.h
@@ -210,13 +211,15 @@ set_source_files_properties(
 )
 
 # ── Per-game platform glue ──
-# These sources reference a single game's W3D device layer (W3DGameClient, W3DDisplay,
-# W3DGameLogic and friends), which exists separately in Generals and GeneralsMD. Compiling
-# them inside the shared library would bind every game to whichever headers won the include
-# order, so each game target compiles its own copy against its own includes.
+# These sources bind to types that exist separately in Generals and GeneralsMD: the W3D
+# device layer (W3DGameClient, W3DDisplay, W3DGameLogic and friends) and GlobalData, whose
+# field offsets and inline accessors differ between the games. Compiling them inside the
+# shared library would bind every game to whichever headers won the include order, so each
+# game target compiles its own copy against its own includes.
 function(macos_platform_add_game_glue target)
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Audio/MacOSAudioManager.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
@@ -239,6 +242,7 @@ function(macos_platform_add_game_glue target)
 
     set_source_files_properties(
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Audio/MacOSAudioManager.cpp
         PROPERTIES
             SKIP_PRECOMPILE_HEADERS ON
     )
