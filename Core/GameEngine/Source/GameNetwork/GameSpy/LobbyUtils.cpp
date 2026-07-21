@@ -62,14 +62,16 @@
 
 #include "Common/STLTypedefs.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
+#endif
 
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 // Note: if you add more columns, you must modify the .wnd files and change the listbox properties (yuck!)
 
 // TODO_NGMP: We probably need to modify this in the WND... they set the width for observer to 0, for now we dont show ping, but we should show box
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 enum {
 	COLUMN_NAME = 0,
 	COLUMN_MAP,
@@ -294,7 +296,7 @@ static void gameTooltip(GameWindow* window,
 	}
 
 	Int gameID = (Int)(size_t)GadgetListBoxGetItemData(window, row, 0);
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface == nullptr)
 	{
@@ -336,7 +338,7 @@ static void gameTooltip(GameWindow* window,
 	}
 	if (col == COLUMN_PASSWORD)
 	{
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 		if (lobbyEntry.passworded)
 #else
 		if (room->getHasPassword())
@@ -354,7 +356,7 @@ static void gameTooltip(GameWindow* window,
 #if !RTS_GENERALS
   if (col == COLUMN_USE_STATS)
   {
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	  if (lobbyEntry.track_stats)
 #else
 	  if (room->getUseStats())
@@ -374,7 +376,7 @@ static void gameTooltip(GameWindow* window,
 
 	UnicodeString mapName;
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	// GO already has the full map info, don't need the cache
 	mapName.translate(lobbyEntry.map_name.c_str());
 #else
@@ -399,7 +401,7 @@ static void gameTooltip(GameWindow* window,
 #endif
 	UnicodeString tmp;
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	UnicodeString gameName;
 	gameName.format(L"%s", from_utf8(lobbyEntry.name).c_str());
 	tooltip.format(TheGameText->fetch("TOOLTIP:GameInfoGameName"), gameName.str());
@@ -415,7 +417,7 @@ static void gameTooltip(GameWindow* window,
 	tooltip.format(TheGameText->fetch("TOOLTIP:GameInfoGameName"), room->getGameName().str());
 #endif
 	
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	// TODO_QUICKMATCH
 	if (false)
 #else
@@ -430,7 +432,7 @@ static void gameTooltip(GameWindow* window,
 		}
 	}
 #endif
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	if (lobbyEntry.exe_crc != TheGlobalData->m_exeCRC || lobbyEntry.ini_crc != TheGlobalData->m_iniCRC)
 #else
 	if (room->getExeCRC() != TheGlobalData->m_exeCRC || room->getIniCRC() != TheGlobalData->m_iniCRC)
@@ -443,7 +445,7 @@ static void gameTooltip(GameWindow* window,
 	tooltip.concat(tmp);
 	tooltip.concat(L"\n");
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	for (LobbyMemberEntry& member : lobbyEntry.members)
 	{
 		if (member.IsHuman())
@@ -621,20 +623,20 @@ void ReleaseWindowInfo()
 	windowSortBuddies = nullptr;
 }
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 typedef std::set<int64_t> BuddyGameSet;
 #else
 typedef std::set<GameSpyStagingRoom*> BuddyGameSet;
 #endif
 
 static BuddyGameSet *theBuddyGames = nullptr;
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 static void populateBuddyGames(std::vector<LobbyEntry>& vecLobbies)
 #else
 static void populateBuddyGames(void)
 #endif
 {
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	theBuddyGames = NEW BuddyGameSet;
 
 	NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
@@ -697,7 +699,7 @@ static void clearBuddyGames()
 	theBuddyGames = nullptr;
 }
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 struct GameSortStruct
 {
 	bool operator()(const LobbyEntry& g1, const LobbyEntry& g2) const
@@ -791,18 +793,20 @@ struct GameSortStruct
 			}
 		}
 
+		// The legacy browser fills the first sort slot with the game name and the second
+		// with ping, where Generals Online puts age and map.
 		switch(theGameSortType)
 		{
-		case GAMESORT_ALPHA_ASCENDING:
+		case GAMESORT_AGE_ASCENDING:
 			return wcsicmp(g1->getGameName().str(), g2->getGameName().str()) < 0;
 			break;
-		case GAMESORT_ALPHA_DESCENDING:
+		case GAMESORT_AGE_DESCENDING:
 			return wcsicmp(g1->getGameName().str(),g2->getGameName().str()) > 0;
 			break;
-		case GAMESORT_PING_ASCENDING:
+		case GAMESORT_MAP_ASCENDING:
 			return g1->getPingAsInt() < g2->getPingAsInt();
 			break;
-		case GAMESORT_PING_DESCENDING:
+		case GAMESORT_MAP_DESCENDING:
 			return g1->getPingAsInt() > g2->getPingAsInt();
 			break;
 		}
@@ -811,6 +815,7 @@ struct GameSortStruct
 };
 #endif
 
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 {
 	Color gameColor = GameSpyColor[GSCOLOR_GAME];
@@ -820,7 +825,7 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
 	}
 #endif
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	// Buddy lobby highlight:
 	if (theBuddyGames && theBuddyGames->count(lobbyInfo.lobbyID))
 	{
@@ -1193,6 +1198,167 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 
 }
 
+#else
+static Int insertGame( GameWindow *win, GameSpyStagingRoom *game, Bool showMap )
+{
+	game->cleanUpSlotPointers();
+	Color gameColor = GameSpyColor[GSCOLOR_GAME];
+	if (game->getNumNonObserverPlayers() == game->getMaxPlayers() || game->getNumPlayers() == MAX_SLOTS)
+	{
+		gameColor = GameSpyColor[GSCOLOR_GAME_FULL];
+	}
+	if (game->getExeCRC() != TheGlobalData->m_exeCRC || game->getIniCRC() != TheGlobalData->m_iniCRC)
+	{
+		gameColor = GameSpyColor[GSCOLOR_GAME_CRCMISMATCH];
+	}
+	UnicodeString gameName = game->getGameName();
+
+	if(TheGameSpyInfo->getDisallowAsianText())
+	{
+		const WideChar *buff = gameName.str();
+		Int length =  gameName.getLength();
+		for(Int i = 0; i < length; ++i)
+		{
+			if(buff[i] >= 256)
+				return -1;
+		}
+	}
+	else if(TheGameSpyInfo->getDisallowNonAsianText())
+	{
+		const WideChar *buff = gameName.str();
+		Int length =  gameName.getLength();
+		Bool hasUnicode = FALSE;
+		for(Int i = 0; i < length; ++i)
+		{
+			if(buff[i] >= 256)
+			{
+				hasUnicode = TRUE;
+				break;
+			}
+		}
+		if(!hasUnicode)
+			return -1;
+	}
+
+
+
+	Int index = GadgetListBoxAddEntryText(win, game->getGameName(), gameColor, -1, COLUMN_NAME);
+	GadgetListBoxSetItemData(win, (void *)game->getID(), index);
+
+	UnicodeString s;
+
+	if (showMap)
+	{
+		UnicodeString mapName;
+		const MapMetaData *md = TheMapCache->findMap(game->getMap());
+		if (md)
+		{
+			mapName = md->m_displayName;
+		}
+		else
+		{
+			const char *start = game->getMap().reverseFind('\\');
+			if (start)
+			{
+				++start;
+			}
+			else
+			{
+				start = game->getMap().str();
+			}
+			mapName.translate( start );
+		}
+		GadgetListBoxAddEntryText(win, mapName, gameColor, index, COLUMN_MAP);
+
+		const LadderInfo * li = TheLadderList->findLadder(game->getLadderIP(), game->getLadderPort());
+		if (li)
+		{
+			GadgetListBoxAddEntryText(win, li->name, gameColor, index, COLUMN_LADDER);
+		}
+		else if (game->getLadderPort())
+		{
+			GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:UnknownLadder"), gameColor, index, COLUMN_LADDER);
+		}
+		else
+		{
+			GadgetListBoxAddEntryText(win, TheGameText->fetch("GUI:NoLadder"), gameColor, index, COLUMN_LADDER);
+		}
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_MAP);
+		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_LADDER);
+	}
+
+	s.format(L"%d/%d", game->getReportedNumPlayers(), game->getReportedMaxPlayers());
+	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_NUMPLAYERS);
+
+	if (game->getHasPassword())
+	{
+		const Image *img = TheMappedImageCollection->findImageByName("Password");
+		Int width = 10, height = 10;
+		if (img)
+		{
+			width = img->getImageWidth();
+			height = img->getImageHeight();
+		}
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_PASSWORD, width, height);
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_PASSWORD);
+	}
+
+	if (game->getAllowObservers())
+	{
+		const Image *img = TheMappedImageCollection->findImageByName("Observer");
+		GadgetListBoxAddEntryImage(win, img, index, COLUMN_OBSERVER);
+	}
+	else
+	{
+		GadgetListBoxAddEntryText(win, L" ", gameColor, index, COLUMN_OBSERVER);
+	}
+
+#if !RTS_GENERALS
+  {
+    if (game->getUseStats())
+    {
+      if (const Image *img = TheMappedImageCollection->findImageByName("GoodStatsIcon"))
+      {
+        GadgetListBoxAddEntryImage(win, img, index, COLUMN_USE_STATS, img->getImageHeight(), img->getImageWidth());
+      }
+    }
+  }
+#endif
+
+	s.format(L"%d", game->getPingAsInt());
+	GadgetListBoxAddEntryText(win, s, gameColor, index, COLUMN_PING);
+	Int ping = game->getPingAsInt();
+	Int width = 10, height = 10;
+	if (pingImages[0])
+	{
+		width = pingImages[0]->getImageWidth();
+		height = pingImages[0]->getImageHeight();
+	}
+	// CLH picking an arbitrary number for our ping display
+	if (ping < TheGameSpyConfig->getPingCutoffGood())
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[0], index, COLUMN_PING, width, height);
+	}
+	else if (ping < TheGameSpyConfig->getPingCutoffBad())
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[1], index, COLUMN_PING, width, height);
+	}
+	else
+	{
+		GadgetListBoxAddEntryImage(win, pingImages[2], index, COLUMN_PING, width, height);
+	}
+
+	return index;
+}
+#endif
+
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 void RefreshGameListBox(GameWindow* win, Bool showMap)
 {
 	if (!win)
@@ -1456,6 +1622,183 @@ int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHei
 	return pixelOffset;
 }
 
+
+#else
+// The legacy browser draws its rows without the sliding animation that the Generals
+// Online list uses, so every row sits at its natural position.
+int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHeight)
+{
+	return 0;
+}
+
+void RefreshGameListBox( GameWindow *win, Bool showMap )
+{
+	if (!win)
+		return;
+
+	// save off selection
+	Int selectedIndex = -1;
+	Int indexToSelect = -1;
+	Int selectedID = 0;
+	GadgetListBoxGetSelected(win, &selectedIndex);
+	if (selectedIndex != -1 )
+	{
+		selectedID = (Int)(intptr_t)GadgetListBoxGetItemData(win, selectedIndex);
+	}
+	int prevPos = GadgetListBoxGetTopVisibleEntry( win );
+
+	// empty listbox
+	GadgetListBoxReset(win);
+
+	// sort our games
+	typedef std::multiset<GameSpyStagingRoom *, GameSortStruct> SortedGameList;
+	SortedGameList sgl;
+	StagingRoomMap *srm = TheGameSpyInfo->getStagingRoomList();
+	populateBuddyGames();
+	for (StagingRoomMap::iterator srmIt = srm->begin(); srmIt != srm->end(); ++srmIt)
+	{
+		sgl.insert(srmIt->second);
+	}
+
+	// populate listbox
+	for (SortedGameList::iterator sglIt = sgl.begin(); sglIt != sgl.end(); ++sglIt)
+	{
+		GameSpyStagingRoom *game = *sglIt;
+		if (game)
+		{
+			Int index = insertGame(win, game, showMap);
+			if (game->getID() == selectedID)
+			{
+				indexToSelect = index;
+			}
+		}
+	}
+
+	clearBuddyGames();
+
+	// restore selection
+	GadgetListBoxSetSelected(win, indexToSelect); // even for -1, so we can disable the 'Join Game' button
+//	if(prevPos > 10)
+		GadgetListBoxSetTopVisibleEntry( win, prevPos  );//+ 1
+
+	if (indexToSelect < 0 && selectedID)
+	{
+		TheWindowManager->winSetLoneWindow(nullptr);
+	}
+}
+
+void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
+{
+//	if (!mainWin || !win)
+//		return;
+//
+//	GadgetListBoxReset(win);
+//
+//	Int selected = -1;
+//	GadgetListBoxGetSelected(mainWin, &selected);
+//	if (selected < 0)
+//	{
+//		return;
+//	}
+//
+//	Int selectedID = (Int)(intptr_t)GadgetListBoxGetItemData(mainWin, selected);
+//	if (selectedID < 0)
+//	{
+//		return;
+//	}
+//
+//	StagingRoomMap *srm = TheGameSpyInfo->getStagingRoomList();
+//	StagingRoomMap::iterator srmIt = srm->find(selectedID);
+//	if (srmIt != srm->end())
+//	{
+//		GameSpyStagingRoom *theRoom = srmIt->second;
+//		theRoom->cleanUpSlotPointers();
+//
+//		// game name
+////		GadgetListBoxAddEntryText(listboxLobbyGameInfo, theRoom->getGameName(), GameSpyColor[GSCOLOR_DEFAULT], -1);
+//
+//		const LadderInfo * li = TheLadderList->findLadder(theRoom->getLadderIP(), theRoom->getLadderPort());
+//		if (li)
+//		{
+//			UnicodeString tmp;
+//			tmp.format(TheGameText->fetch("TOOLTIP:LadderName"), li->name.str());
+//			GadgetListBoxAddEntryText(listboxLobbyGameInfo, tmp, GameSpyColor[GSCOLOR_DEFAULT], -1);
+//		}
+//		else if (theRoom->getLadderPort())
+//		{
+//			GadgetListBoxAddEntryText(listboxLobbyGameInfo, TheGameText->fetch("TOOLTIP:UnknownLadder"), GameSpyColor[GSCOLOR_DEFAULT], -1);
+//		}
+//		else
+//		{
+//			GadgetListBoxAddEntryText(listboxLobbyGameInfo, TheGameText->fetch("TOOLTIP:NoLadder"), GameSpyColor[GSCOLOR_DEFAULT], -1);
+//		}
+//
+//		if (theRoom->getExeCRC() != TheGlobalData->m_exeCRC || theRoom->getIniCRC() != TheGlobalData->m_iniCRC)
+//		{
+//			GadgetListBoxAddEntryText(listboxLobbyGameInfo, TheGameText->fetch("TOOLTIP:InvalidGameVersionSingleLine"), GameSpyColor[GSCOLOR_DEFAULT], -1);
+//		}
+//
+//		// map name
+//		UnicodeString mapName;
+//		const MapMetaData *md = TheMapCache->findMap(theRoom->getMap());
+//		if (md)
+//		{
+//			mapName = md->m_displayName;
+//		}
+//		else
+//		{
+//			const char *start = theRoom->getMap().reverseFind('\\');
+//			if (start)
+//			{
+//				++start;
+//			}
+//			else
+//			{
+//				start = theRoom->getMap().str();
+//			}
+//			mapName.translate( start );
+//		}
+//
+//		GadgetListBoxAddEntryText(listboxLobbyGameInfo, mapName, GameSpyColor[GSCOLOR_DEFAULT], -1);
+//
+//		// player list (rank, win/loss, side)
+//		for (Int i=0; i<MAX_SLOTS; ++i)
+//		{
+//			const GameSpyGameSlot *slot = theRoom->getGameSpySlot(i);
+//			if (slot && slot->isHuman())
+//			{
+//				UnicodeString theName, theRating, thePlayerTemplate;
+//				Int colorIdx = slot->getColor();
+//				theName = slot->getName();
+//				theRating.format(L" (%d-%d)", slot->getWins(), slot->getLosses());
+//				const PlayerTemplate * pt = ThePlayerTemplateStore->getNthPlayerTemplate(slot->getPlayerTemplate());
+//				if (pt)
+//				{
+//					thePlayerTemplate = pt->getDisplayName();
+//				}
+//				else
+//				{
+//					thePlayerTemplate = TheGameText->fetch("GUI:Random");
+//				}
+//
+//				UnicodeString theText;
+//				theText.format(L"%ls - %ls - %ls", theName.str(), thePlayerTemplate.str(), theRating.str());
+//
+//				Int theColor = GameSpyColor[GSCOLOR_DEFAULT];
+//				const MultiplayerColorDefinition *mcd = TheMultiplayerSettings->getColor(colorIdx);
+//				if (mcd)
+//				{
+//					theColor = mcd->getColor();
+//				}
+//
+//				GadgetListBoxAddEntryText(listboxLobbyGameInfo, theText, theColor, -1);
+//			}
+//		}
+//	}
+
+}
+
+#endif
 
 void RefreshGameListBoxes( void )
 {

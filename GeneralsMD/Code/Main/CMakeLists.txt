@@ -124,6 +124,7 @@ if(APPLE)
     )
 
     target_link_libraries(z_generals PRIVATE macos_platform)
+    macos_platform_add_game_glue(z_generals)
     add_dependencies(z_generals metal_shaders)
 
     # EAC/EOS: @rpath must include Frameworks/ so dlopen(easyanticheat.dylib)

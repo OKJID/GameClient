@@ -31,6 +31,8 @@
 #include "Common/Registry.h"
 
 
+#ifndef __APPLE__
+
 Bool  getStringFromRegistry(HKEY root, AsciiString path, AsciiString key, AsciiString& val)
 {
 	HKEY handle;
@@ -115,6 +117,85 @@ Bool setUnsignedIntInRegistry( HKEY root, AsciiString path, AsciiString key, Uns
 	return (returnValue == ERROR_SUCCESS);
 }
 
+#else // __APPLE__
+
+#include <stdlib.h>
+
+Bool getStringFromRegistry(HKEY, AsciiString path, AsciiString key, AsciiString& val)
+{
+	if (key.compareNoCase("InstallPath") == 0)
+	{
+		const char* envPath = getenv("GENERALS_BASE_INSTALL_PATH");
+		if (envPath)
+		{
+			val = envPath;
+			return TRUE;
+		}
+	}
+	else if (key.compareNoCase("Language") == 0)
+	{
+		const char* home = getenv("HOME");
+		if (home)
+		{
+			char iniPath[512];
+			snprintf(iniPath, sizeof(iniPath),
+				"%s/Command and Conquer Generals Data/Options.ini", home);
+
+			FILE* fp = fopen(iniPath, "r");
+			if (fp)
+			{
+				char line[256];
+				while (fgets(line, sizeof(line), fp))
+				{
+					char* eq = strchr(line, '=');
+					if (!eq) continue;
+
+					*eq = '\0';
+					char* k = line;
+					while (*k == ' ' || *k == '\t') k++;
+					char* kEnd = k + strlen(k) - 1;
+					while (kEnd > k && (*kEnd == ' ' || *kEnd == '\t')) *kEnd-- = '\0';
+
+					if (strcasecmp(k, "Language") != 0) continue;
+
+					char* v = eq + 1;
+					while (*v == ' ' || *v == '\t') v++;
+					char* vEnd = v + strlen(v) - 1;
+					while (vEnd > v && (*vEnd == '\n' || *vEnd == '\r' || *vEnd == ' ')) *vEnd-- = '\0';
+
+					if (*v)
+					{
+						val = v;
+						fclose(fp);
+						return TRUE;
+					}
+				}
+				fclose(fp);
+			}
+		}
+
+		val = "english";
+		return TRUE;
+	}
+	return FALSE;
+}
+
+Bool getUnsignedIntFromRegistry(HKEY, AsciiString, AsciiString, UnsignedInt&)
+{
+	return FALSE;
+}
+
+Bool setStringInRegistry(HKEY, AsciiString, AsciiString, AsciiString)
+{
+	return TRUE;
+}
+
+Bool setUnsignedIntInRegistry(HKEY, AsciiString, AsciiString, UnsignedInt)
+{
+	return TRUE;
+}
+
+#endif // !__APPLE__
 Bool GetStringFromGeneralsRegistry(AsciiString path, AsciiString key, AsciiString& val)
 {
 	AsciiString fullPath = "SOFTWARE\\Electronic Arts\\EA Games\\Generals";

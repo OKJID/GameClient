@@ -24,7 +24,7 @@
 
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
-#if defined(RTS_DEBUG) || defined(IG_DEBUG_STACKTRACE)
+#if (defined(RTS_DEBUG) || defined(IG_DEBUG_STACKTRACE)) && !defined(__APPLE__)
 
 #pragma pack(push, 8)
 

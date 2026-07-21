@@ -14,15 +14,16 @@ MacOSLocalFileSystem::~MacOSLocalFileSystem()
 
 void MacOSLocalFileSystem::init()
 {
-	const char* zhPath = getenv("GENERALS_ZH_INSTALL_PATH");
-	if (zhPath && zhPath[0]) {
-		addSearchPath(AsciiString(zhPath));
+	const char* installPath = getenv("GENERALS_ACTIVE_INSTALL_PATH");
+	if (installPath && installPath[0]) {
+		addSearchPath(AsciiString(installPath));
 	}
 
-	// [OKJI] Removed `addSearchPath(AsciiString(basePath));` here to strictly follow the "Windows Flow",
-	// where Zero Hour NEVER scans the Vanilla Base directory for loose files. Reading Vanilla loose 
-	// files replaces the expected ZeroHour .big archive data, causing INI parsing crashes due to 
-	// discarded Vanilla enums in the C++ executable.
+	// [OKJI] Only the running game's own install is searched, strictly following the
+	// "Windows Flow": Zero Hour NEVER scans the Vanilla Base directory for loose files.
+	// Reading Vanilla loose files replaces the expected ZeroHour .big archive data,
+	// causing INI parsing crashes due to discarded Vanilla enums in the C++ executable.
+	// The same holds in reverse for the Vanilla build.
 }
 
 std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Char *filename, Int access) const
@@ -303,7 +304,11 @@ void MacOSLocalFileSystem::getFileListInDirectory(const AsciiString& currentDire
 
 			while (!done) {
 				std::string filenameStr = subIter->path().filename().string();
-				if(subIter->is_directory() &&
+				// A name carrying a separator is not a real subdirectory but a Windows path
+				// that leaked past the translation boundary. Recursing into it would re-read
+				// it as a path and walk outside the install directory.
+				const bool nameIsLeakedPath = filenameStr.find('\\') != std::string::npos;
+				if(subIter->is_directory() && !nameIsLeakedPath &&
 					(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
 					AsciiString tempsearchstr = currentDirectory;
 					if (!tempsearchstr.isEmpty()) {

@@ -58,6 +58,8 @@ class ParticleSystemManager;
 class GameEngine : public SubsystemInterface
 {
 
+public:
+
 	GameEngine();
 	virtual ~GameEngine() override;
 

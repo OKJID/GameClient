@@ -74,6 +74,7 @@ Data/*.big
 
 # Heavy Logs & Media
 Platform/MacOS/Build/Logs/
+/run_log.log
 *.gif
 
 # Firebase Hosting (maintainer-local deployment)

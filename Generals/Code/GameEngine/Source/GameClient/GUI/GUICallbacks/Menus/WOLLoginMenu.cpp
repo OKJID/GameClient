@@ -701,7 +701,13 @@ void WOLLoginMenuInit( WindowLayout *layout, void *userData )
 		{
 			char userBuf[32] = "";
 			unsigned long bufSize = 32;
+#ifdef __APPLE__
+			const char* envUser = getenv("USER");
+			if (envUser)
+				strncpy(userBuf, envUser, sizeof(userBuf) - 1);
+#else
 			GetUserName(userBuf, &bufSize);
+#endif
 			nick.translate(userBuf);
 		}
 

@@ -1304,8 +1304,15 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	// the default 800x600. On macOS we replace this with 90% of the main
 	// screen dimensions for a sensible first-time user experience.
 	{
+		// The key is also written back empty on a fresh profile, so its mere
+		// presence does not mean a resolution was ever chosen.
 		OptionPreferences::const_iterator it = optionPref.find("Resolution");
-		if (it == optionPref.end()) {
+		Int savedX = 0, savedY = 0;
+		const Bool hasSavedResolution = (it != optionPref.end())
+			&& (sscanf(it->second.str(), "%d%d", &savedX, &savedY) == 2)
+			&& savedX > 0 && savedY > 0;
+
+		if (!hasSavedResolution) {
 			int adaptW = xres, adaptH = yres;
 			MacOS_GetAdaptiveResolution(&adaptW, &adaptH);
 			if (adaptW > 0 && adaptH > 0) {

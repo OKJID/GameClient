@@ -178,6 +178,14 @@ set(GAMEENGINEDEVICE_SRC
 #    Source/Win32Device/GameClient/Win32Mouse.cpp
 )
 
+if(APPLE)
+    list(REMOVE_ITEM GAMEENGINEDEVICE_SRC
+        Include/Win32Device/Common/Win32GameEngine.h
+        Source/Win32Device/Common/Win32GameEngine.cpp
+        Source/Win32Device/Common/Win32OSDisplay.cpp
+    )
+endif()
+
 add_library(g_gameenginedevice STATIC)
 set_target_properties(g_gameenginedevice PROPERTIES OUTPUT_NAME gameenginedevice)
 
@@ -187,14 +195,24 @@ target_include_directories(g_gameenginedevice PUBLIC
     Include
 )
 
-target_precompile_headers(g_gameenginedevice PRIVATE
-    [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
-    [["Common/STLTypedefs.h"]]
-    [["Common/SubsystemInterface.h"]]
-    [["INI.h"]]
-    [["WWCommon.h"]]
-    <windows.h>
-)
+if(NOT APPLE)
+    target_precompile_headers(g_gameenginedevice PRIVATE
+        [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
+        [["Common/STLTypedefs.h"]]
+        [["Common/SubsystemInterface.h"]]
+        [["INI.h"]]
+        [["WWCommon.h"]]
+        <windows.h>
+    )
+else()
+    target_precompile_headers(g_gameenginedevice PRIVATE
+        [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
+        [["Common/STLTypedefs.h"]]
+        [["Common/SubsystemInterface.h"]]
+        [["INI.h"]]
+        [["WWCommon.h"]]
+    )
+endif()
 
 target_link_libraries(g_gameenginedevice PRIVATE
     corei_gameenginedevice_private

@@ -439,7 +439,13 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     event->generateFilename();
     AsciiString filename = event->getFilename();
     if (filename.isEmpty()) {
-        DEBUG_AUDIO_MAC(("playAudioEvent: Filename is empty. Deleting event."));
+        // An event whose info carries no sounds is the engine's own "silent event"
+        // path (units without a turret sound, for one) and is not worth reporting.
+        // A missing AudioEventInfo means the event name resolved to nothing at all.
+        if (!event->getAudioEventInfo()) {
+            DEBUG_AUDIO_MAC(("playAudioEvent: no AudioEventInfo for '%s'. Deleting event.",
+                event->getEventName().str()));
+        }
         delete event;
         return;
     }

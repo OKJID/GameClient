@@ -291,8 +291,30 @@ inline BOOL SHGetSpecialFolderPath(HWND, char* pszPath, int, BOOL) {
     return FALSE;
 }
 
+inline void ConvertToNativePath(char* path) {
+    if (!path) return;
+    for (char* p = path; *p; ++p) {
+        if (*p == '\\') *p = '/';
+    }
+}
+
 inline BOOL CreateDirectory(LPCSTR lpPathName, void*) {
-    return mkdir(lpPathName, 0755) == 0 || errno == EEXIST;
+    if (!lpPathName || !lpPathName[0]) return FALSE;
+
+    char native[MAX_PATH];
+    strncpy(native, lpPathName, MAX_PATH - 1);
+    native[MAX_PATH - 1] = '\0';
+    ConvertToNativePath(native);
+
+    for (char* p = native + 1; *p; ++p) {
+        if (*p != '/') continue;
+
+        *p = '\0';
+        if (mkdir(native, 0755) != 0 && errno != EEXIST) return FALSE;
+        *p = '/';
+    }
+
+    return mkdir(native, 0755) == 0 || errno == EEXIST;
 }
 
 inline DWORD GetModuleFileName(HMODULE, char* lpFilename, DWORD nSize) {
@@ -488,7 +510,13 @@ inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
 typedef void* LPDISPATCH;
 
 #define GMEM_FIXED 0x0000
-inline void* GlobalAlloc(UINT, size_t size) { return malloc(size); }
+#define GMEM_ZEROINIT 0x0040
+inline void* GlobalAlloc(UINT flags, size_t size)
+{
+    if (flags & GMEM_ZEROINIT)
+        return calloc(1, size);
+    return malloc(size);
+}
 inline void GlobalFree(void* p) { free(p); }
 
 #define ZeroMemory(p, n) memset((p), 0, (n))

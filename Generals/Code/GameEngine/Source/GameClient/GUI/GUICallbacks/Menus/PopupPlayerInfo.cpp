@@ -49,6 +49,7 @@
 #include "GameClient/Display.h"
 #include "GameClient/MessageBox.h"
 #include "GameNetwork/GameSpyOverlay.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
 #include "GameNetwork/GameSpy/PeerThread.h"
 #include "GameNetwork/GameSpy/PersistentStorageDefs.h"
@@ -294,11 +295,19 @@ RankPoints::RankPoints()
 
 RankPoints *TheRankPointValues = nullptr;
 
-void SetLookAtPlayer( Int id, AsciiString nick)
+#if defined(GENERALS_ONLINE)
+void SetLookAtPlayer(int64_t id, UnicodeString nick)
+{
+	lookAtPlayerID = id;
+	lookAtPlayerName = to_utf8(nick.str());
+}
+#else
+void SetLookAtPlayer(int64_t id, AsciiString nick)
 {
 	lookAtPlayerID = id;
 	lookAtPlayerName = nick.str();
 }
+#endif
 
 //	BATTLE_HONOR_LADDER_CHAMP		= 0x0000001,
 //	BATTLE_HONOR_STREAK_3				= 0x0000002,
@@ -343,7 +352,7 @@ void BattleHonorTooltip(GameWindow *window,
 		return;
 	}
 
-	Int battleHonor = (Int)GadgetListBoxGetItemData( window, row, col );
+	Int battleHonor = (Int)(intptr_t)GadgetListBoxGetItemData( window, row, col );
 	if (battleHonor == 0)
 	{
 		//DEBUG_CRASH(("No Battle Honor in listbox row %d, col %d!", row, col));

@@ -826,7 +826,13 @@ WindowMsgHandledType WOLWelcomeMenuSystem( GameWindow *window, UnsignedInt msg,
 				}
 				else if (controlID == buttonMyInfoID )
 				{
+#ifdef __APPLE__
+					UnicodeString uniLocalName;
+					uniLocalName.translate(TheGameSpyInfo->getLocalName());
+					SetLookAtPlayer(TheGameSpyInfo->getLocalProfileID(), uniLocalName);
+#else
 					SetLookAtPlayer(TheGameSpyInfo->getLocalProfileID(), TheGameSpyInfo->getLocalName());
+#endif
 					GameSpyToggleOverlay(GSOVERLAY_PLAYERINFO);
 				}
 				else if (controlID == buttonLobbyID)

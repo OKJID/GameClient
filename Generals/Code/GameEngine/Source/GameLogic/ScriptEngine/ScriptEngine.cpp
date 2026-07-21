@@ -4989,9 +4989,24 @@ void ScriptEngine::startQuickEndGameTimer()
 //-------------------------------------------------------------------------------------------------
 /** startEndGameTimer */
 //-------------------------------------------------------------------------------------------------
-void ScriptEngine::startEndGameTimer()
+#if defined(GENERALS_ONLINE)
+void ScriptEngine::startEndGameTimer(bool bExtendForErrorMsg)
+#else
+void ScriptEngine::startEndGameTimer( void )
+#endif
 {
+#if defined(GENERALS_ONLINE)
+	if (bExtendForErrorMsg)
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE * 5;
+	}
+	else
+	{
+		m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+	}
+#else
 	m_endGameTimer = FRAMES_TO_SHOW_WIN_LOSE_MESSAGE;
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------

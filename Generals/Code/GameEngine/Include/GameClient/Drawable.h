@@ -404,7 +404,7 @@ public:
 
 	const Matrix3D *getTransformMatrix() const;	///< return the world transform
 
-	void draw( View *view );													///< render the drawable to the given view
+	void draw();													///< render the drawable to the given view
 	void updateDrawable();														///< update the drawable
 
 	void drawIconUI();													///< draw "icon"(s) needed on drawable (health bars, veterency, etc)
@@ -615,6 +615,8 @@ protected:
 
 private:
 
+	const Locomotor* getLocomotor() const;
+
 	// note, these are lazily allocated!
 	TintEnvelope*		m_selectionFlashEnvelope;	///< used for selection flash, works WITH m_colorTintEnvelope
 	TintEnvelope*		m_colorTintEnvelope;			///< house color flashing, etc... works WITH m_selectionFlashEnvelope
@@ -657,6 +659,8 @@ private:
 	UnsignedInt		m_shroudClearFrame;						///< Last frame the local player saw this drawable "OBJECTSHROUD_CLEAR"
 
 	DrawableLocoInfo*	m_locoInfo;	// lazily allocated
+
+	PhysicsXformInfo* m_physicsXform;
 
 	DynamicAudioEventRTS*	m_ambientSound;		///< sound module for ambient sound (lazily allocated)
 	Bool								m_ambientSoundEnabled;

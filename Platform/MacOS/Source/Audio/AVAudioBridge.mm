@@ -17,10 +17,14 @@ static bool gEngineStarted = false;
 
 struct AVBridgePlayerSlot {
     AVAudioPlayerNode *node;
+    AVAudioFormat *connectedFormat;
     int bufferID;
     bool active;
     bool is3D;
+    bool connected;
+    bool connectedTo3D;
     uint32_t generation;
+    CFAbsoluteTime expiry;  // 0 = never expires (looping or streaming)
 };
 
 struct AVBridgeBufferEntry {
@@ -153,15 +157,59 @@ static AVAudioPCMBuffer *createPCMBuffer(const uint8_t *pcmData, uint32_t pcmByt
     return buf;
 }
 
-static int findFreeSlot(void) {
+// A slot is normally released by its completionHandler, but AVAudioPlayerNode
+// does not guarantee that handler: disconnecting or stopping a node before the
+// buffer drains drops it silently, and the slot then stays busy forever. Sounds
+// therefore thin out over the course of a match. Reclaiming by elapsed time
+// gives a path back that does not depend on Apple calling us.
+static int reclaimExpiredSlot(void) {
+    CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
     for (int i = 0; i < gMaxNodes; i++) {
-        if (!gSlots[i].active) return i;
+        if (!gSlots[i].active || gSlots[i].expiry == 0) continue;
+        if (gSlots[i].expiry > now) continue;
+
+        gSlots[i].active = false;
+        gSlots[i].bufferID = 0;
+        gSlots[i].expiry = 0;
+        gSlots[i].generation++;  // invalidate any handler that may still arrive
+        DEBUG_AUDIO_MAC(("reclaimExpiredSlot: slot=%d reclaimed (completion never fired)", i));
+        return i;
     }
     return -1;
 }
 
+static int findFreeSlot(void) {
+    for (int i = 0; i < gMaxNodes; i++) {
+        if (!gSlots[i].active) return i;
+    }
+    return reclaimExpiredSlot();
+}
+
+static CFAbsoluteTime computeSlotExpiry(AVAudioPCMBuffer *buffer, float pitch, bool loop) {
+    if (loop || !buffer) return 0;
+
+    double sampleRate = buffer.format.sampleRate;
+    if (sampleRate <= 0) return 0;
+
+    double seconds = (double)buffer.frameLength / sampleRate;
+    if (pitch > 0.1f) seconds /= pitch;
+
+    // Margin covers scheduling latency, so a still-audible sound is never stolen.
+    return CFAbsoluteTimeGetCurrent() + seconds + 1.0;
+}
+
 static void detachAndReattach(int slotIdx, bool to3D, AVAudioFormat *format) {
-    AVAudioPlayerNode *node = gSlots[slotIdx].node;
+    AVBridgePlayerSlot &slot = gSlots[slotIdx];
+    AVAudioPlayerNode *node = slot.node;
+
+    // Rewiring churns the engine graph, and the concurrent allocator behind
+    // AudioUnit parameter listeners faults under that churn — the same
+    // caulk race that drove the move off OpenAL. The wiring only has to
+    // change when the destination or the sample format actually changes.
+    if (slot.connected && slot.connectedTo3D == to3D &&
+        [slot.connectedFormat isEqual:format]) {
+        return;
+    }
 
     if ([node engine] != nil) {
         [gEngine disconnectNodeOutput:node];
@@ -172,6 +220,10 @@ static void detachAndReattach(int slotIdx, bool to3D, AVAudioFormat *format) {
     } else {
         [gEngine connect:node to:gMixer2D format:format];
     }
+
+    slot.connected = true;
+    slot.connectedTo3D = to3D;
+    slot.connectedFormat = format;
 }
 
 static void ensure_engine_running(void) {
@@ -326,6 +378,7 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     gSlots[idx].active = true;
     gSlots[idx].bufferID = bufferID;
     gSlots[idx].is3D = false;
+    gSlots[idx].expiry = computeSlotExpiry(entry->buffer, pitch, loop);
     gSlots[idx].generation++;
     uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
@@ -347,6 +400,7 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
         }
         gSlots[idx].active = false;
         gSlots[idx].bufferID = 0;
+        gSlots[idx].expiry = 0;
         os_unfair_lock_unlock(&gLock);
     }];
     ensure_engine_running();
@@ -373,6 +427,7 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
     gSlots[idx].active = true;
     gSlots[idx].bufferID = bufferID;
     gSlots[idx].is3D = true;
+    gSlots[idx].expiry = computeSlotExpiry(entry->buffer, pitch, false);
     gSlots[idx].generation++;
     uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
@@ -397,6 +452,7 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
         }
         gSlots[idx].active = false;
         gSlots[idx].bufferID = 0;
+        gSlots[idx].expiry = 0;
         os_unfair_lock_unlock(&gLock);
     }];
     ensure_engine_running();
@@ -447,6 +503,7 @@ int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop
         }
         gSlots[idx].active = false;
         gSlots[idx].bufferID = 0;
+        gSlots[idx].expiry = 0;
         os_unfair_lock_unlock(&gLock);
     }];
     ensure_engine_running();

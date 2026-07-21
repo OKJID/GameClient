@@ -193,6 +193,7 @@ void setFPMode()
 	// anything as long as it is consistent, really, but this
 	// is in the (vain?) hope of any slight speed boost.
 	//
+#ifdef _WIN32
 	_fpreset();
 
 	UnsignedInt curVal = _statusfp();
@@ -202,6 +203,7 @@ void setFPMode()
 	newVal = (newVal & ~_MCW_PC) | (_PC_24   & _MCW_PC);
 
 	_controlfp(newVal, _MCW_PC | _MCW_RC);
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2362,7 +2364,56 @@ void GameLogic::processCommandList( CommandList *list )
 					player?player->getPlayerDisplayName().str():L"<NONE>", crcIt->second));
 			}
 #endif // DEBUG_LOGGING
+
+#if defined(GENERALS_ONLINE)
+			UnicodeString strMismatchDetails;
+			strMismatchDetails.format(L"GameLogic frame %d, latest frame %d, GetGameLogicRandomSeedCRC was %d\nHad %d CRCs from %d players\nMismatched Players:\n",
+				TheGameLogic->getFrame(),
+				TheGameLogic->getFrame() - TheNetwork->getRunAhead() - 1,
+				GetGameLogicRandomSeedCRC(),
+				m_cachedCRCs.size(),
+				numPlayers);
+
+			std::map<UnsignedInt, int> mapCRCOccurences;
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				if (mapCRCOccurences.contains(crcIt->second))
+				{
+					++mapCRCOccurences[crcIt->second];
+				}
+				else
+				{
+					mapCRCOccurences[crcIt->second] = 1;
+				}
+			}
+
+			int biggestCRCCount = -1;
+			UnsignedInt biggestCRC = -1;
+			for (auto& crcIter : mapCRCOccurences)
+			{
+				if (crcIter.second > biggestCRCCount)
+				{
+					biggestCRC = crcIter.first;
+					biggestCRCCount = crcIter.second;
+				}
+			}
+
+			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			{
+				if (crcIt->second != biggestCRC)
+				{
+					Player* player = ThePlayerList->getNthPlayer(crcIt->first);
+					UnicodeString strPlayerInfo;
+					strPlayerInfo.format(L"player %d (%s) = %X [MISMATCH]\n", crcIt->first, player ? player->getPlayerDisplayName().str() : L"<NONE>", crcIt->second);
+
+					strMismatchDetails.concat(strPlayerInfo);
+				}
+			}
+
+			TheNetwork->setSawCRCMismatch(strMismatchDetails);
+#else
 			TheNetwork->setSawCRCMismatch();
+#endif
 		}
 	}
 
@@ -3849,7 +3900,7 @@ Bool GameLogic::isGamePaused()
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
-void GameLogic::setGamePausedInFrame( UnsignedInt frame )
+void GameLogic::setGamePausedInFrame( UnsignedInt frame, Bool disableLogicTimeScale )
 {
 	if (frame >= m_frame)
 	{

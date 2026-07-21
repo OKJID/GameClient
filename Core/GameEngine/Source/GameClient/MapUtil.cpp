@@ -61,8 +61,8 @@
 #include "GameNetwork/GameInfo.h"
 #include "GameNetwork/NetworkDefs.h"
 
-#include "../NextGenMP_defines.h"
-#include "../NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 
 //-------------------------------------------------------------------------------

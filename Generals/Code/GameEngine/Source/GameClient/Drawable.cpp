@@ -77,6 +77,8 @@
 #include "GameClient/Shadow.h"
 #include "GameClient/GameText.h"
 
+#include "ww3d.h"
+
 
 #define VERY_TRANSPARENT_HEATVISION (0.001f)
 #define HEATVISION_FADE_SCALAR (0.8f)
@@ -2154,7 +2156,7 @@ void Drawable::setStealthLook(StealthLookType look)
 //-------------------------------------------------------------------------------------------------
 /** default draw is to just call the database defined draw */
 //-------------------------------------------------------------------------------------------------
-void Drawable::draw( View *view )
+void Drawable::draw()
 {
 	if ( getObject() && getObject()->isEffectivelyDead() )
 	{
@@ -2654,7 +2656,16 @@ void Drawable::drawUIText()
 
 	const Object *obj = getObject();
 
+#ifdef __APPLE__
+	if (!obj) return; // Safeguard for objects destroyed this frame
+#endif
+
 	Player *owner = obj->getControllingPlayer();
+
+#ifdef __APPLE__
+	if (!owner) return; // Safeguard if object is orphaned from player during cleanup
+#endif
+
 	Int groupNum = owner->getSquadNumberForObject(obj);
 
 	Color color = TheDrawGroupInfo->m_usePlayerColor ? owner->getPlayerColor() : TheDrawGroupInfo->m_colorForText;

@@ -52,7 +52,7 @@
 #include "GameNetwork/GameSpy/PeerDefs.h"
 
 #if defined(GENERALS_ONLINE)
-#include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #endif
 
 

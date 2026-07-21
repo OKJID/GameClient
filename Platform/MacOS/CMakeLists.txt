@@ -8,9 +8,6 @@ set(METAL_SRC
     Source/Metal/MetalSurface8.mm
     Source/Metal/MetalTexture8.mm
     Source/Metal/MetalCubeTexture8.mm
-    Source/Metal/MetalVertexBuffer8.mm
-    Source/Metal/MetalIndexBuffer8.mm
-    Source/Metal/dx8wrapper_metal.mm
     Source/Metal/MacOSDisplayManager.mm
     Source/Metal/MetalBridgeMappings.h
     Source/Metal/MetalDevice8.h
@@ -24,8 +21,10 @@ set(METAL_SRC
 )
 
 # ── Main application (game engine, entry handled by GeneralsMD/Code/Main) ──
+# MacOSGameEngine, MacOSMouse and MacOSGameClientFactory bind to a single game's W3D
+# device layer, so each game compiles them itself against its own headers. See
+# macos_platform_game_sources() at the end of this file.
 set(MAIN_SRC
-    Source/Main/MacOSGameEngine.mm
     Source/Main/MacOSGameEngine.h
 )
 
@@ -43,9 +42,7 @@ set(AUDIO_SRC
 set(INPUT_SRC
     Source/Input/MacOSKeyboard.mm
     Source/Input/MacOSKeyboard.h
-    Source/Input/MacOSMouse.mm
     Source/Input/MacOSMouse.h
-    Source/Input/MacOSGameClientFactory.cpp
 )
 
 # ── System ──
@@ -202,14 +199,8 @@ set_source_files_properties(
     Source/Metal/MetalSurface8.mm
     Source/Metal/MetalTexture8.mm
     Source/Metal/MetalCubeTexture8.mm
-    Source/Metal/MetalVertexBuffer8.mm
-    Source/Metal/MetalIndexBuffer8.mm
-    Source/Metal/dx8wrapper_metal.mm
     Source/Metal/MacOSDisplayManager.mm
-    Source/Main/MacOSGameEngine.mm
-    Source/Main/MacOSMain.mm
     Source/Input/MacOSKeyboard.mm
-    Source/Input/MacOSMouse.mm
     Source/System/MacOSLocalFileSystem.mm
     Source/Audio/AVAudioBridge.mm
     Source/Audio/MacOSVideoAudioStream.mm
@@ -217,3 +208,51 @@ set_source_files_properties(
         SKIP_PRECOMPILE_HEADERS ON
         LANGUAGE OBJCXX
 )
+
+# ── Per-game platform glue ──
+# These sources reference a single game's W3D device layer (W3DGameClient, W3DDisplay,
+# W3DGameLogic and friends), which exists separately in Generals and GeneralsMD. Compiling
+# them inside the shared library would bind every game to whichever headers won the include
+# order, so each game target compiles its own copy against its own includes.
+function(macos_platform_add_game_glue target)
+    target_sources(${target} PRIVATE
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
+    )
+
+    # MacOSMain.mm is added by each game's Main CMakeLists and keeps that target's
+    # precompiled header, so it is deliberately absent here.
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
+        PROPERTIES
+            SKIP_PRECOMPILE_HEADERS ON
+            LANGUAGE OBJCXX
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
+        PROPERTIES
+            SKIP_PRECOMPILE_HEADERS ON
+    )
+
+    # Apple framework headers collide with engine types (WideChar, RGBColor, Byte). The
+    # two glue sources moved out of the shared library keep the prefix header and ARC it
+    # applied to them; MacOSMain.mm never had either and still must not get them.
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
+        PROPERTIES
+            COMPILE_OPTIONS "-fobjc-arc;-include;${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Include/metal_prefix.h"
+    )
+endfunction()

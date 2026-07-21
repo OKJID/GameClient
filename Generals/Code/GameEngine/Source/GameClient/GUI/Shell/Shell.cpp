@@ -456,6 +456,36 @@ void Shell::popImmediate()
 
 }
 
+#ifdef __APPLE__
+//-------------------------------------------------------------------------------------------------
+/** Same as popImmediate(), except the screen revealed underneath is left uninitialized.
+	* Use this when the shell is about to be hidden anyway, so that the revealed screen's
+	* init() side effects do not run for a screen that is never going to be shown. */
+//-------------------------------------------------------------------------------------------------
+void Shell::popImmediateKeepingRevealedScreenUninitialized()
+{
+	WindowLayout *screen = top();
+
+	// sanity
+	if( screen == nullptr )
+		return;
+
+	// do NOT set pending pop, we are going to force a pop after the shutdown is run
+	m_pendingPop = FALSE;
+
+	// run the shutdown
+	Bool immediatePop = TRUE;
+	screen->runShutdown( &immediatePop );
+
+	// pop the screen off the stack, leaving the new top uninitialized
+	doPop( TRUE );
+
+	if (TheIMEManager)
+		TheIMEManager->detach();
+
+}
+#endif
+
 //-------------------------------------------------------------------------------------------------
 /** Run the initialize function for the top of the stack just as though it was pushed
 	* on the stack.  We want this behavior when we want to act like the top was just

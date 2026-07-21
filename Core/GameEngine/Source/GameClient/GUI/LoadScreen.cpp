@@ -88,8 +88,7 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/RankPointValue.h"
-#include "../OnlineServices_Init.h"
-#include "../OnlineServices_StatsInterface.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////

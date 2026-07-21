@@ -146,6 +146,10 @@ ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
 		Int pathIndex = -1;
 		do {
 			++pathIndex;
+			// Guard the fixed-size buffer: a malformed entry would otherwise walk past it.
+			if (pathIndex >= _MAX_PATH) {
+				break;
+			}
 			fp->read(buffer + pathIndex, 1);
 		} while (buffer[pathIndex] != 0);
 

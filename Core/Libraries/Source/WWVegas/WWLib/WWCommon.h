@@ -24,7 +24,11 @@
 #include <Utility/stdio_adapter.h>
 #include <rts/profile.h>
 
+#if defined(RTS_GENERALS)
+#include "../../Generals/Code/GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+#else
 #include "../../GeneralsMD/Code/GameEngine/Include/GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+#endif
 
 #ifndef SAFE_RELEASE
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=nullptr; } }

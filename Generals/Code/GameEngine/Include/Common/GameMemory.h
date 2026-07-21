@@ -64,7 +64,11 @@
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
 
+#ifdef __APPLE__
+#include <new>
+#else
 #include <new.h>
+#endif
 #include <stdio.h>
 #ifdef MEMORYPOOL_OVERRIDE_MALLOC
 	#include <malloc.h>

@@ -83,6 +83,15 @@
 #include "GameLogic/Object.h"
 #include "GameLogic/ScriptEngine.h"		// For TheScriptEngine - jkmcd
 
+#ifdef __APPLE__
+struct MEMORYSTATUS {
+	int dwAvailPageFile = 0;
+	int dwAvailPhys = 0;
+	int dwAvailVirtual = 0;
+};
+inline void GlobalMemoryStatus(MEMORYSTATUS*) {}
+#endif
+
 #define DRAWABLE_HASH_SIZE	8192
 
 /// The GameClient singleton instance

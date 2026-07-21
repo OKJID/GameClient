@@ -132,6 +132,9 @@ public:
 	void push( AsciiString filename, Bool shutdownImmediate = FALSE );	///< load new screen on top, optionally doing an immediate shutdown
 	void pop();																				///< pop top layout
 	void popImmediate();															///< pop now, don't wait for shutdown
+#ifdef __APPLE__
+	void popImmediateKeepingRevealedScreenUninitialized();	///< pop now without running init on the screen underneath
+#endif
 	void showShell( Bool runInit = TRUE );									///< init the top of stack
 	void hideShell();																	///< shutdown the top of stack
 	WindowLayout *top();															///< return top layout

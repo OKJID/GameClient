@@ -3,19 +3,27 @@ add_library(g_wwcommon INTERFACE)
 
 target_link_libraries(g_wwcommon INTERFACE
     core_wwcommon
-    d3d8lib
-    milesstub
     stlport
 )
+if(NOT APPLE)
+    target_link_libraries(g_wwcommon INTERFACE
+        d3d8lib
+        milesstub
+    )
+endif()
 
 target_include_directories(g_wwcommon INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
     WW3D2
 )
 
-add_subdirectory(WWAudio)
+if(NOT APPLE)
+    add_subdirectory(WWAudio)
+endif()
 add_subdirectory(WW3D2)
-add_subdirectory(WWDownload)
+if(NOT APPLE)
+    add_subdirectory(WWDownload)
+endif()
 
 # Helpful interface to bundle the ww modules together.
 add_library(g_wwvegas INTERFACE)
@@ -28,5 +36,7 @@ target_include_directories(g_wwvegas INTERFACE
 target_link_libraries(g_wwvegas INTERFACE
     core_wwvegas
     g_ww3d2
-    g_wwdownload
 )
+if(NOT APPLE)
+    target_link_libraries(g_wwvegas INTERFACE g_wwdownload)
+endif()

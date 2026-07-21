@@ -62,6 +62,7 @@
 // ----------------------------------------------------------------------------------------------
 enum
 {
+	BaseFps = 30, // The historic base frame rate for this game. This value must never change.
 	LOGICFRAMES_PER_SECOND = WWSyncPerSecond,
 	MSEC_PER_SECOND = 1000
 };

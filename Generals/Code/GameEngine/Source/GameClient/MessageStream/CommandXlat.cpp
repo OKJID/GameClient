@@ -3104,6 +3104,46 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			break;
 
 		//-----------------------------------------------------------------------------------------
+		case GameMessage::MSG_META_INCREASE_MAX_RENDER_FPS:
+		{
+			if (changeMaxRenderFps(FpsValueChange_Increase))
+			{
+				disp = DESTROY_MESSAGE;
+			}
+			break;
+		}
+
+		//-----------------------------------------------------------------------------------------
+		case GameMessage::MSG_META_DECREASE_MAX_RENDER_FPS:
+		{
+			if (changeMaxRenderFps(FpsValueChange_Decrease))
+			{
+				disp = DESTROY_MESSAGE;
+			}
+			break;
+		}
+
+		//-----------------------------------------------------------------------------------------
+		case GameMessage::MSG_META_INCREASE_LOGIC_TIME_SCALE:
+		{
+			if (changeLogicTimeScale(FpsValueChange_Increase))
+			{
+				disp = DESTROY_MESSAGE;
+			}
+			break;
+		}
+
+		//-----------------------------------------------------------------------------------------
+		case GameMessage::MSG_META_DECREASE_LOGIC_TIME_SCALE:
+		{
+			if (changeLogicTimeScale(FpsValueChange_Decrease))
+			{
+				disp = DESTROY_MESSAGE;
+			}
+			break;
+		}
+
+		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_TOGGLE_LOWER_DETAILS:
 		{
 			if (TheGlobalData)
@@ -3292,7 +3332,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			if (!TheGameLogic->isInMultiplayerGame())
 			{
 				TheGameLogic->setGamePaused(FALSE);
-				TheGameLogic->setGamePausedInFrame(TheGameLogic->getFrame() + 1);
+				TheGameLogic->setGamePausedInFrame(TheGameLogic->getFrame() + 1, TRUE);
 				disp = DESTROY_MESSAGE;
 			}
 			break;

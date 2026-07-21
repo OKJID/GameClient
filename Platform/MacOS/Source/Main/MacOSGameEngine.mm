@@ -36,7 +36,9 @@ extern HWND ApplicationHWnd;
 #include <strings.h>
 
 #include "GameNetwork/LANAPICallbacks.h"
+#if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 #include "../Audio/MacOSAudioManager.h"
 
 extern DWORD TheMessageTime;
@@ -86,7 +88,13 @@ static bool DetectGameModes(const std::string& rootPath, std::string& outZH, std
 		outZH.empty() ? "(not found)" : outZH.c_str(),
 		outBase.empty() ? "(not found)" : outBase.c_str());
 	fflush(stdout);
+
+	// Each build only needs its own install; the other game may not be present at all.
+#if defined(RTS_GENERALS)
+	return !outBase.empty();
+#else
 	return !outZH.empty();
+#endif
 }
 
 // ── Constructor/Destructor (mirrors Win32GameEngine) ──
@@ -107,14 +115,28 @@ void MacOSGameEngine::init()
 	if (rootPath && rootPath[0]) {
 		std::string zhPath, basePath;
 		if (DetectGameModes(rootPath, zhPath, basePath)) {
-			if (chdir(zhPath.c_str()) == 0) {
-				printf("MacOSGameEngine::init - CWD set to ZH: '%s'\n", zhPath.c_str());
+#if defined(RTS_GENERALS)
+			const std::string& gamePath = basePath;
+			const char* gameName = "Generals";
+#else
+			const std::string& gamePath = zhPath;
+			const char* gameName = "Zero Hour";
+#endif
+			if (chdir(gamePath.c_str()) == 0) {
+				printf("MacOSGameEngine::init - CWD set to %s: '%s'\n", gameName, gamePath.c_str());
 			} else {
-				printf("MacOSGameEngine::init - chdir FAILED: '%s'\n", zhPath.c_str());
+				printf("MacOSGameEngine::init - chdir FAILED: '%s'\n", gamePath.c_str());
 			}
 			fflush(stdout);
 
-			setenv("GENERALS_ZH_INSTALL_PATH", zhPath.c_str(), 1);
+			// The file system only ever scans the running game's own install: loose files
+			// from the other game would shadow its archives and crash INI parsing on enums
+			// that this executable does not know.
+			setenv("GENERALS_ACTIVE_INSTALL_PATH", gamePath.c_str(), 1);
+
+			if (!zhPath.empty()) {
+				setenv("GENERALS_ZH_INSTALL_PATH", zhPath.c_str(), 1);
+			}
 
 			if (!basePath.empty()) {
 				setenv("GENERALS_BASE_INSTALL_PATH", basePath.c_str(), 1);

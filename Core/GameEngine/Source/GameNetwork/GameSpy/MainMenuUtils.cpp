@@ -53,10 +53,12 @@
 
 #include "WWDownload/Registry.h"
 #include "WWDownload/urlBuilder.h"
-#include "../OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "Common/GameEngine.h"
 #include "Common/GlobalData.h"
-#include "../PluginInterfaces.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameNetwork/GeneralsOnline/PluginInterfaces.h"
+#endif
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -138,7 +140,9 @@ static void noPatchBeforeOnlineCallback()
 		HandleCanceledDownload();
 
 		// Patch was cancelled and critical, tear us down
+#if defined(RTS_ZEROHOUR)
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
+#endif
 	}
 	else
 	{
@@ -575,10 +579,12 @@ void CancelPatchCheckCallbackAndReopenDropdown()
 	CancelPatchCheckCallback();
 
 	// Patch was cancelled, tear us down
+#if defined(RTS_ZEROHOUR)
 	if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
 	{
 		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
 	}
+#endif
 }
 
 void CancelPatchCheckCallback()
@@ -866,6 +872,7 @@ void KillAsyncDNSThread()
 
 void StartPatchCheck()
 {
+#if defined(RTS_ZEROHOUR)
 
     checkingForPatchBeforeGameSpy = TRUE;
     cantConnectBeforeOnline = FALSE;
@@ -1022,6 +1029,7 @@ void StartPatchCheck()
 		break;
 	}
 	*/
+#endif
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////

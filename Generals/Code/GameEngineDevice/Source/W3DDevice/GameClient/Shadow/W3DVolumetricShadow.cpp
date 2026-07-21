@@ -2817,7 +2817,8 @@ void W3DVolumetricShadow::constructVolumeVB( Vector3 *lightPosObject,Real shadow
 	{
 		DEBUG_ASSERTCRASH(ibSlot->m_size >= (polygonCount*3),("Overflowing Shadow Index Buffer Slot"));
 	}
-		// Shadow volume too complex for available buffers - skip rendering instead of crashing
+	if (!ibSlot || !vbSlot)
+	{	//could not allocate storage to hold buffers
 		if (ibSlot)
 			TheW3DBufferManager->releaseSlot(ibSlot);
 		if (vbSlot)

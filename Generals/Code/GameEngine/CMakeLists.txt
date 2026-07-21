@@ -1052,6 +1052,7 @@ set(GAMEENGINE_SRC
 #    Source/GameNetwork/udp.cpp
 #    Source/GameNetwork/User.cpp
 #    Source/GameNetwork/WOLBrowser/WebBrowser.cpp
+    Source/GameNetwork/GeneralsOnline/NGMP_Helpers.cpp
     Source/Precompiled/PreRTS.cpp
 )
 

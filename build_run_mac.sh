@@ -12,6 +12,10 @@
 
 export PATH="/opt/homebrew/bin:$PATH"
 
+# ── Game Selection ──
+# Which game to launch. Both are always built; this picks the one that runs.
+RUN_VANILLA=true
+
 # ── Game Command-Line Flags ──
 # Toggle on/off: true = pass to game, false = skip
 GAME_FLAG_NOSHELLMAP=false
@@ -117,15 +121,36 @@ sleep 1
 
 LOG_DIR="Platform/MacOS/Build/Logs"
 LOG_FILE="$LOG_DIR/game.log"
+LOG_KEEP=5
+
 if [ -f "$LOG_FILE" ]; then
+    gen=$((LOG_KEEP - 1))
+    while [ $gen -ge 3 ]; do
+        [ -f "$LOG_FILE.bak$((gen - 1))" ] && mv "$LOG_FILE.bak$((gen - 1))" "$LOG_FILE.bak$gen"
+        gen=$((gen - 1))
+    done
     [ -f "$LOG_FILE.bak" ] && mv "$LOG_FILE.bak" "$LOG_FILE.bak2"
     cp "$LOG_FILE" "$LOG_FILE.bak"
     rm -f "$LOG_FILE"
-    echo "Logs backed up: game.log → game.log.bak and cleared"
+    echo "Logs rotated: game.log → game.log.bak (keeping $LOG_KEEP runs)"
 fi
 
-echo "Killing previous generalszh instance..."
+if [ "$RUN_VANILLA" = true ]; then
+    GAME_NAME="GeneralsVanilla"
+    GAME_BUNDLE="build/macos/Generals/GeneralsVanilla.app"
+    GAME_DATA_DIR="$HOME/Command and Conquer Generals Data"
+else
+    GAME_NAME="GeneralsOnlineZH"
+    GAME_BUNDLE="build/macos/GeneralsMD/GeneralsOnlineZH.app"
+    GAME_DATA_DIR="$HOME/Command and Conquer Generals Zero Hour Data"
+fi
+GAME_CMD="$GAME_BUNDLE/Contents/MacOS/$GAME_NAME"
+
+echo "Selected game: $GAME_NAME"
+
+echo "Killing previous game instances..."
 killall -9 GeneralsOnlineZH 2>/dev/null
+killall -9 GeneralsVanilla 2>/dev/null
 killall -9 lldb 2>/dev/null
 
 sleep 1
@@ -154,8 +179,8 @@ fi
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"
 if [ -f "$SPLASH_SRC" ]; then
-    mkdir -p "build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/Resources"
-    cp -f "$SPLASH_SRC" "build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/Resources/Install_Final.bmp"
+    mkdir -p "$GAME_BUNDLE/Contents/Resources"
+    cp -f "$SPLASH_SRC" "$GAME_BUNDLE/Contents/Resources/Install_Final.bmp"
 fi
 
 # Metal frame rate control:
@@ -180,7 +205,11 @@ GAME_ARGS=""
 [ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS="$GAME_ARGS -headless -replay 00000000.rep"
 [ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/.agent/temp_mac_logs/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
 
-GAME_CMD="build/macos/GeneralsMD/GeneralsOnlineZH.app/Contents/MacOS/GeneralsOnlineZH"
+if [ ! -x "$GAME_CMD" ]; then
+    echo "ERROR: $GAME_NAME executable not found at $GAME_CMD"
+    echo "       Set RUN_VANILLA=false to run Zero Hour, or finish the vanilla port first."
+    exit 1
+fi
 
 if [ -n "$GAME_ARGS" ]; then
     echo "Game args:$GAME_ARGS"
@@ -193,13 +222,13 @@ if [ "$DO_LLDB" = true ]; then
     echo "  After crash: type 'bt' for backtrace, 'bt all' for all threads"
     LLDB_LOG="$PWD/Platform/MacOS/Build/Logs/lldb_logs.log"
     # Start lldb waiting for process, then launch .app via open
-    lldb -n GeneralsOnlineZH --wait-for -o "continue" &
+    lldb -n "$GAME_NAME" --wait-for -o "continue" &
     LLDB_PID=$!
     sleep 1
     if [ -n "$GAME_ARGS" ]; then
-        open -n "build/macos/GeneralsMD/GeneralsOnlineZH.app" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
+        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
     else
-        open -n "build/macos/GeneralsMD/GeneralsOnlineZH.app" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
+        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
     fi
     wait $LLDB_PID
 elif [ "$DO_SCREENSHOT" = true ]; then
@@ -213,9 +242,9 @@ elif [ "$DO_SCREENSHOT" = true ]; then
     wait $GAME_PID 2>/dev/null
 else
     if [ -n "$GAME_ARGS" ]; then
-        open -W -n "build/macos/GeneralsMD/GeneralsOnlineZH.app" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
     else
-        open -W -n "build/macos/GeneralsMD/GeneralsOnlineZH.app" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
     fi
 fi
 
@@ -231,8 +260,7 @@ if [ "$DO_CRC_LOGS" = true ]; then
         mv "$PWD/CRCLogs" "$PWD/.agent/temp_mac_logs/"
     fi
 
-    GENERALS_DATA_DIR="$HOME/Command and Conquer Generals Zero Hour Data"
-    REPLAY_FILE="$GENERALS_DATA_DIR/Replays/00000000.rep"
+    REPLAY_FILE="$GAME_DATA_DIR/Replays/00000000.rep"
     if [ -f "$REPLAY_FILE" ]; then
         cp -f "$REPLAY_FILE" "$PWD/.agent/temp_mac_logs/00000000.rep"
         echo "Copied last replay: 00000000.rep"

@@ -34,6 +34,7 @@
 static void drawFramerateBar();
 
 // SYSTEM INCLUDES ////////////////////////////////////////////////////////////
+#include <chrono>
 #include <numeric>
 #include <stdlib.h>
 #include <windows.h>
@@ -57,6 +58,7 @@ static void drawFramerateBar();
 #include "GameClient/Drawable.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GraphDraw.h"
+#include "GameClient/Keyboard.h"
 #include "GameClient/Line2D.h"
 #include "GameClient/Mouse.h"
 #include "GameClient/GlobalLanguage.h"
@@ -320,15 +322,23 @@ W3DAssetManager *W3DDisplay::m_assetManager = nullptr;
 inline Int64 getPerformanceCounter()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceCounter((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+#endif
 }
 
 inline Int64 getPerformanceCounterFrequency()
 {
 	Int64 tmp;
+#ifndef __APPLE__
 	QueryPerformanceFrequency((LARGE_INTEGER*)&tmp);
 	return tmp;
+#else
+	return 1000000;
+#endif
 }
 
 // W3DDisplay::W3DDisplay =====================================================
@@ -427,7 +437,9 @@ W3DDisplay::~W3DDisplay()
 		WW3D::Shutdown();
 	WWMath::Shutdown();
 	if (!TheGlobalData->m_headless)
+#ifndef __APPLE__
 		DX8WebBrowser::Shutdown();
+#endif
 	delete TheW3DFileSystem;
 	TheW3DFileSystem = nullptr;
 
@@ -844,6 +856,7 @@ void W3DDisplay::init()
 				getWindowed(),
 				true );
 
+
 			// TheSuperHackers @info Update the MSAA mode that was set as some GPU's may not support certain levels
 			// Texture filtering must also be updated after render device initialization
 			if (renderDeviceError == WW3D_ERROR_OK) {
@@ -867,6 +880,7 @@ void W3DDisplay::init()
 			return;
 		}
 
+
 		//Check if level was never set and default to setting most suitable for system.
 		if (TheGameLODManager->getStaticLODLevel() == STATIC_GAME_LOD_UNKNOWN)
 		{
@@ -878,6 +892,7 @@ void W3DDisplay::init()
 			//which needs to be applied here.
 			TheGameClient->setTextureLOD(TheWritableGlobalData->m_textureReductionFactor);
 		}
+
 
 		if (TheGlobalData->m_displayGamma != 1.0f)
 			setGamma(TheGlobalData->m_displayGamma,0.0f,1.0f,FALSE);
@@ -914,8 +929,11 @@ void W3DDisplay::init()
 			m_nativeDebugDisplay->setFontWidth( 9 );
 		}
 
+#ifndef __APPLE__
 		DX8WebBrowser::Initialize();
+#endif
 	}
+
 
 	// we're now online
 	m_initialized = true;
@@ -1719,9 +1737,11 @@ void W3DDisplay::draw()
 	static UnsignedInt syncTime = 0;
 
 	extern HWND ApplicationHWnd;
+#ifndef __APPLE__
 	if (ApplicationHWnd && ::IsIconic(ApplicationHWnd)) {
 		return;
 	}
+#endif
 
 	if (TheGlobalData->m_headless)
 		return;
@@ -1849,27 +1869,8 @@ AGAIN:
 		timeMultiplierCounter = TheTacticalView->getTimeMultiplier();
 		// limit the framerate, because while fast time is on, the game logic is running as fast as it can.
 	}
-	else
-	{
-		now = timeGetTime();
-		prevTime = now - minTime;		 // do the first frame immediately.
-	}
-
 
 	do {
-
-		{
-			if(TheGlobalData->m_loadScreenRender != TRUE)
-			{
-
-				// limit the framerate
-				while(TheGlobalData->m_useFpsLimit && (now - prevTime) < minTime-1)
-				{
-					now = timeGetTime();
-				}
-				prevTime = now;
-			}
-		}
 
 		// update all views of the world - recomputes data which will affect drawing
 		if (DX8Wrapper::_Get_D3D_Device8() && (DX8Wrapper::_Get_D3D_Device8()->TestCooperativeLevel()) == D3D_OK)
@@ -2885,6 +2886,9 @@ void W3DDisplay::drawScaledVideoBuffer( VideoBuffer *buffer, VideoStreamInterfac
 		endX = getWidth();
 	}
 
+#ifdef __APPLE__
+	drawFillRect(0, 0, getWidth(), getHeight(), 0xFF000000);
+#endif
 	drawVideoBuffer( buffer, startX, startY, endX, endY );
 }
 
@@ -2958,6 +2962,7 @@ void W3DDisplay::setShroudLevel( Int x, Int y, CellShroudStatus setting )
 }
 
 //=============================================================================
+#ifndef __APPLE__
 ///Utility function to dump data into a .BMP file
 static void CreateBMPFile(LPTSTR pszFile, char *image, Int width, Int height)
 {
@@ -3033,6 +3038,7 @@ static void CreateBMPFile(LPTSTR pszFile, char *image, Int width, Int height)
 	// Free memory.
 	LocalFree( (HLOCAL) pbmi);
 }
+#endif // __APPLE__
 
 ///Save Screen Capture to a file
 void W3DDisplay::takeScreenShot()
@@ -3044,7 +3050,7 @@ void W3DDisplay::takeScreenShot()
 
 	Bool done = false;
 	while (!done) {
-#ifdef CAPTURE_TO_TARGA
+#if defined(CAPTURE_TO_TARGA) || defined(__APPLE__)
 		sprintf( leafname, "%s%.3d.tga", "sshot", frame_number++);
 #else
 		sprintf( leafname, "%s%.3d.bmp", "sshot", frame_number++);
@@ -3088,7 +3094,7 @@ void W3DDisplay::takeScreenShot()
 	height = surfaceDesc.Height;
 
 	char *image=NEW char[3*width*height];
-#ifdef CAPTURE_TO_TARGA
+#if defined(CAPTURE_TO_TARGA) || defined(__APPLE__)
 	//bytes are mixed in targa files, not rgb order.
 	for (y=0; y<height; y++)
 	{
@@ -3389,4 +3395,54 @@ static void drawFramerateBar()
 
 	TheDisplay->drawFillRect(1, 1, width, 15, colorToUse);
 	prevTime = now;
+}
+
+#ifdef __APPLE__
+
+#include "GameClient/Shell.h"
+#include "GameClient/InGameUI.h"
+#include "GameClient/ControlBar.h"
+#include "GameClient/HeaderTemplate.h"
+#include "Common/OptionPreferences.h"
+
+extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
+	if (!TheDisplay) return;
+
+	int bitDepth = TheDisplay->getBitDepth();
+
+	if (!TheDisplay->setDisplayMode(w, h, bitDepth, isWindowed)) {
+		return;
+	}
+
+	TheWritableGlobalData->m_xResolution = w;
+	TheWritableGlobalData->m_yResolution = h;
+	TheWritableGlobalData->m_windowed = isWindowed;
+	TheDisplay->setWindowed(isWindowed);
+
+	if (TheHeaderTemplateManager) {
+		TheHeaderTemplateManager->onResolutionChanged();
+	}
+	if (TheMouse) {
+		TheMouse->onResolutionChanged();
+	}
+
+	// Only recreate UI layouts when in the main menu shell, NOT during gameplay.
+	// During gameplay, setDisplayMode already updates the 3D viewport,
+	// TacticalView, Render2DClass, and Display width/height.
+	// Calling recreateWindowLayouts during gameplay crashes because windows
+	// are mid-update and resources are actively in use.
+	if (TheShell && TheShell->isShellActive()) {
+		TheShell->recreateWindowLayouts();
+		if (TheInGameUI) {
+			TheInGameUI->recreateControlBar();
+			TheInGameUI->refreshCustomUiResources();
+		}
+	}
+}
+
+#endif // __APPLE__
+
+void W3DDisplay::step()
+{
+	stepViews();
 }

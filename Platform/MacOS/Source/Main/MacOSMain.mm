@@ -42,7 +42,9 @@
 #include "BuildVersion.h"
 #include "GeneratedVersion.h"
 
-#include "../OnlineServices_Init.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 
 // ── Globals (mirrors WinMain.cpp lines 77-88) ──
 
@@ -210,7 +212,9 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
     }
 
     // 7. Steam (mirrors line 886)
+#if defined(RTS_ZEROHOUR)
     NGMP_OnlineServicesManager::AttemptLoadSteam();
+#endif
 
     // 8. ApplicationHInstance (mirrors line 889)
     ApplicationHInstance = nullptr;

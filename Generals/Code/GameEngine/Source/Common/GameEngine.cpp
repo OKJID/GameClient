@@ -167,12 +167,14 @@ void initSubsystem(
 	const char* path2 = nullptr)
 {
 	sysref = sys;
-	TheSubsystemList->initSubsystem(sys, path1, path2, dirpath, pXfer, name);
+	TheSubsystemList->initSubsystem(sys, path1, path2, pXfer, name);
 }
 
 //-------------------------------------------------------------------------------------------------
 extern HINSTANCE ApplicationHInstance;  ///< our application instance
+#ifndef __APPLE__
 extern CComModule _Module;
+#endif
 
 //-------------------------------------------------------------------------------------------------
 static void updateTGAtoDDS();
@@ -232,6 +234,7 @@ static void updateWindowTitle()
 		title.concat(gameVersion.str());
 	}
 
+#ifndef __APPLE__
 	if (!title.isEmpty())
 	{
 		AsciiString titleA;
@@ -244,6 +247,7 @@ static void updateWindowTitle()
 			::SetWindowTextW(ApplicationHWnd, title.str());
 		}
 	}
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -254,7 +258,9 @@ GameEngine::GameEngine()
 	m_quitting = FALSE;
 	m_isActive = FALSE;
 
+#ifndef __APPLE__
 	_Module.Init(nullptr, ApplicationHInstance, nullptr);
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -293,7 +299,9 @@ GameEngine::~GameEngine()
 
 	Drawable::killStaticImages();
 
+#ifndef __APPLE__
 	_Module.Term();
+#endif
 
 #ifdef PERF_TIMERS
 	PerfGather::termPerfDump();
@@ -360,8 +368,6 @@ void GameEngine::init()
 			DEBUG_LOG(("Build git commit author: %s", Version::getGitCommitAuthorName()));
 			DEBUG_LOG(("================================================================================"));
 		}
-
-		m_maxFPS = DEFAULT_MAX_FPS;
 
 		TheSubsystemList = MSGNEW("GameEngineSubsystem") SubsystemInterfaceList;
 
@@ -477,9 +483,8 @@ void GameEngine::init()
 			TheNameKeyGenerator->verifyNameKeyID(1586);
 #endif
 
+		initSubsystem(TheThingFactory,"TheThingFactory", createThingFactory(), &xferCRC, "Data\\INI\\Default\\Object", "Data\\INI\\Object");
 		initSubsystem(TheUpgradeCenter,"TheUpgradeCenter", MSGNEW("GameEngineSubsystem") UpgradeCenter, &xferCRC, "Data\\INI\\Default\\Upgrade", "Data\\INI\\Upgrade");
-		initSubsystem(TheThingFactory,"TheThingFactory", createThingFactory(), &xferCRC, "Data\\INI\\Default\\Object.ini", NULL, "Data\\INI\\Object");
-		initSubsystem(TheUpgradeCenter,"TheUpgradeCenter", MSGNEW("GameEngineSubsystem") UpgradeCenter, &xferCRC, "Data\\INI\\Default\\Upgrade.ini", "Data\\INI\\Upgrade.ini");
 		initSubsystem(TheGameClient,"TheGameClient", createGameClient(), nullptr);
 		initSubsystem(TheAI,"TheAI", MSGNEW("GameEngineSubsystem") AI(), &xferCRC,  "Data\\INI\\Default\\AIData.ini", "Data\\INI\\AIData.ini");
 		initSubsystem(TheGameLogic,"TheGameLogic", createGameLogic(), nullptr);

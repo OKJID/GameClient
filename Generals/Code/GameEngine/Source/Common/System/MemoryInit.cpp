@@ -157,6 +157,8 @@ static PoolSizeRec sizes[] =
 	{ "ActiveShroudUpgrade", 32, 32 },
 	{ "AssistedTargetingUpdate", 32, 32 },
 	{ "AudioEventInfo", 1200, 64 },
+	{ "WeatherSetting", 4, 4 },
+	{ "DynamicAudioEventInfo", 16, 256 },
 	{ "AudioRequest", 256, 8 },
 	{ "AutoHealBehavior", 4096, 32 },
 	{ "BaseRegenerateUpdate", 64, 32 },
@@ -339,6 +341,10 @@ static PoolSizeRec sizes[] =
 	{ "W3DScienceModelDraw", 32, 32 },
 	{ "W3DSupplyDraw", 32, 32 },
 	{ "W3DTankDraw", 256, 32 },
+	{ "W3DOverlordAircraftDraw", 64, 64 },
+	{ "W3DOverlordTruckDraw", 64, 64 },
+	{ "W3DPropDraw", 16, 16 },
+	{ "W3DTreeDraw", 16, 16 },
 	{ "W3DTracerDraw", 64, 32 },
 	{ "W3DTruckDraw", 128, 32 },
 	{ "W3DTankTruckDraw", 32, 16 },
@@ -504,7 +510,9 @@ static PoolSizeRec sizes[] =
 	{ "ScriptList", 32, 32 },
 	{ "AttackPriorityInfo", 32, 32 },
 	{ "SequentialScript", 32, 32 },
+	{ "SequentialScriptStatus", 32, 32 },
 	{ "Win32LocalFile", 1024, 256 },
+	{ "StdLocalFile", 1024, 256 },
 	{ "RAMFile", 32, 32 },
 	{ "BattlePlanBonuses", 32, 32 },
 	{ "KindOfPercentProductionChange", 32, 32 },
@@ -665,6 +673,17 @@ static PoolSizeRec sizes[] =
 	{ "DynamicMeshModel", 32, 32 },
 	{ "GapFillerClass", 32, 32 },
 	{ "FontCharsClass", 64, 32 },
+
+	{ "ThumbnailManagerClass", 32, 32 },
+	{ "SmudgeSet", 32, 32 },
+	{ "Smudge", 128, 32 },
+	{ "W3DTreeTextureClass", 4, 4 },
+
+#ifdef __APPLE__
+	{ "MetalSurface8", 128, 32 },
+	{ "MetalTexture8", 1200, 256 },
+	{ "MetalCubeTexture8", 32, 32 },
+#endif
 
 	{ 0, 0, 0 }
 };

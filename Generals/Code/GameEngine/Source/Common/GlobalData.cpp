@@ -61,6 +61,10 @@
 
 #include "GameNetwork/FirewallHelper.h"
 
+#ifdef __APPLE__
+extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h);
+#endif
+
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
 GlobalData* TheWritableGlobalData = nullptr;				///< The global data singleton
 
@@ -955,6 +959,9 @@ GlobalData::GlobalData()
 
 	m_showMoneyPerMinute = FALSE;
 	m_allowMoneyPerMinuteForPlayer = FALSE;
+	m_observerNotificationSpecialPowerUsage = TRUE;
+	m_observerNotificationSpecialPowerPurchase = TRUE;
+	m_observerNotificationMilestone = TRUE;
 
 	m_debugShowGraphicalFramerate = FALSE;
 
@@ -1205,6 +1212,9 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_gameTimeFontSize = optionPref.getGameTimeFontSize();
 	TheWritableGlobalData->m_playerInfoListFontSize = optionPref.getPlayerInfoListFontSize();
 	TheWritableGlobalData->m_showMoneyPerMinute = optionPref.getShowMoneyPerMinute();
+	TheWritableGlobalData->m_observerNotificationSpecialPowerUsage = optionPref.getObserverNotificationSpecialPowerUsage();
+	TheWritableGlobalData->m_observerNotificationSpecialPowerPurchase = optionPref.getObserverNotificationSpecialPowerPurchase();
+	TheWritableGlobalData->m_observerNotificationMilestone = optionPref.getObserverNotificationMilestone();
 
 	TheWritableGlobalData->m_antiAliasLevel = optionPref.getAntiAliasing();
 	TheWritableGlobalData->m_textureFilteringMode = optionPref.getTextureFilterMode();
@@ -1225,6 +1235,35 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 
 	Int xres,yres;
 	optionPref.getResolution(&xres, &yres);
+
+#ifdef __APPLE__
+	// TheSuperHackers @feature macOS: Adaptive startup resolution.
+	// When no "Resolution" key exists in Options.ini, getResolution returns
+	// the default 800x600. On macOS we replace this with 90% of the main
+	// screen dimensions for a sensible first-time user experience.
+	{
+		// The key is also written back empty on a fresh profile, so its mere
+		// presence does not mean a resolution was ever chosen.
+		OptionPreferences::const_iterator it = optionPref.find("Resolution");
+		Int savedX = 0, savedY = 0;
+		const Bool hasSavedResolution = (it != optionPref.end())
+			&& (sscanf(it->second.str(), "%d%d", &savedX, &savedY) == 2)
+			&& savedX > 0 && savedY > 0;
+
+		if (!hasSavedResolution) {
+			int adaptW = xres, adaptH = yres;
+			MacOS_GetAdaptiveResolution(&adaptW, &adaptH);
+			if (adaptW > 0 && adaptH > 0) {
+				xres = adaptW;
+				yres = adaptH;
+			}
+		}
+	}
+	// TheSuperHackers @tweak macOS: Force the game to launch in windowed mode
+	// to prevent UI layout desynchronization issues. The user can toggle
+	// to fullscreen in-game via the Options menu or Cmd+Enter.
+	TheWritableGlobalData->m_windowed = true;
+#endif
 
 	TheWritableGlobalData->m_xResolution = xres;
 	TheWritableGlobalData->m_yResolution = yres;
@@ -1317,6 +1356,9 @@ UnsignedInt GlobalData::generateExeCRC()
 
 AsciiString GlobalData::BuildUserDataPathFromIni()
 {
+	AsciiString myDocumentsDirectory;
+
+#ifndef __APPLE__
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
 	// VC6 lacks FOLDERID_Documents and KF_FLAG_DEFAULT
 	const GUID FOLDERID_Documents = { 0xFDD39AD0, 0x238F, 0x46AF, 0xAD, 0xB4, 0x6C, 0x85, 0x48, 0x03, 0x69, 0xC7 };
@@ -1325,7 +1367,6 @@ AsciiString GlobalData::BuildUserDataPathFromIni()
 
 	typedef HRESULT(WINAPI* PFN_SHGetKnownFolderPath)(const GUID& rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
 
-	AsciiString myDocumentsDirectory;
 	HMODULE shell32module = GetModuleHandleA("shell32.dll");
 	PFN_SHGetKnownFolderPath pSHGetKnownFolderPath = nullptr;
 
@@ -1351,6 +1392,12 @@ AsciiString GlobalData::BuildUserDataPathFromIni()
 			myDocumentsDirectory = temp;
 		}
 	}
+#else
+	char temp[_MAX_PATH + 1];
+	if (SHGetSpecialFolderPath(nullptr, temp, CSIDL_PERSONAL, true)) {
+		myDocumentsDirectory = temp;
+	}
+#endif
 
 	if (!myDocumentsDirectory.isEmpty()) {
 		// Now build the full path string

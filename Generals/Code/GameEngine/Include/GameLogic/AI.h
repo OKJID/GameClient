@@ -334,7 +334,6 @@ static const char *const TheCommandSourceMaskNames[] =
 	"FROM_SCRIPT",
 	"FROM_AI",
 	"FROM_DOZER", //don't use this
-	"DEFAULT_SWITCH_WEAPON", //unit will pick this weapon when normal logic fails.
 
 	nullptr
 };

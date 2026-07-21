@@ -157,11 +157,13 @@ void GSMessageBoxCancel(UnicodeString title, UnicodeString message, GameWinMsgBo
 	messageBoxWindow = MessageBoxCancel(title, message, cancelFunc);
 }
 
+#if defined(RTS_ZEROHOUR)
 void GSMessageBoxNoButtons(UnicodeString title, UnicodeString message, bool bShowLogo)
 {
 	ClearGSMessageBoxes();
 	messageBoxWindow = MessageBoxNoButtons(title, message, bShowLogo);
 }
+#endif
 
 // Overlay screens -------------------------------------
 

@@ -29,6 +29,8 @@
 
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"
+#include <filesystem>
+#include "Common/System/NativeFileSystem.h"
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/GameState.h"
@@ -338,7 +340,7 @@ void GameStateMap::xfer( Xfer *xfer )
 			// get the game mode.
 			Int gameMode;
 			xfer->xferInt(&gameMode);
-			TheGameLogic->setGameMode(gameMode);
+			TheGameLogic->setGameMode((GameMode)gameMode);
 		}
 
 	}
@@ -438,6 +440,7 @@ void GameStateMap::xfer( Xfer *xfer )
 void GameStateMap::clearScratchPadMaps()
 {
 
+#ifndef __APPLE__
 	// remember the current directory
 	char currentDirectory[ _MAX_PATH ];
 	GetCurrentDirectory( _MAX_PATH, currentDirectory );
@@ -501,5 +504,30 @@ void GameStateMap::clearScratchPadMaps()
 
 	// restore our directory to the current directory
 	SetCurrentDirectory( currentDirectory );
+#else
+	try
+	{
+		std::string safeSaveDir = NativeFileSystem::get_safe_path(TheGameState->getSaveDirectory().str());
+		for (const auto& entry : std::filesystem::directory_iterator(safeSaveDir))
+		{
+			if (entry.is_regular_file())
+			{
+				std::string path = entry.path().string();
+				if (path.length() >= 4)
+				{
+					std::string ext = path.substr(path.length() - 4);
+					if (ext == ".map" || ext == ".MAP")
+					{
+						NativeFileSystem::remove(path);
+					}
+				}
+			}
+		}
+	}
+	catch (...)
+	{
+		// Safe to ignore errors here
+	}
+#endif
 
 }

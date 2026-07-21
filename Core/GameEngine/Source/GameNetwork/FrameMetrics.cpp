@@ -31,9 +31,11 @@
 #include "GameNetwork/FrameMetrics.h"
 #include "GameClient/Display.h"
 #include "GameNetwork/networkutil.h"
-#include "../NGMP_include.h"
-#include "../NetworkMesh.h"
-#include "../NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameNetwork/GeneralsOnline/NetworkMesh.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#endif
 
 FrameMetrics::FrameMetrics()
 {
@@ -90,7 +92,7 @@ void FrameMetrics::init() {
 	m_averageFps = 30;
 #endif
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	// NGMP_NOTE: Don't start with the assumption that we have latency. Connections are now formed earlier, so we have latency data earlier too.
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();

@@ -44,7 +44,9 @@ void RaiseGSMessageBox();		///< Bring GS message box to the foreground (if we tr
 
 // GeneralsOnline
 void GSMessageBoxCancel(UnicodeString title, UnicodeString message, GameWinMsgBoxFunc cancelFunc);	///< Display a Message box with Ok/Cancel buttons and track it
+#if defined(RTS_ZEROHOUR)
 void GSMessageBoxNoButtons(UnicodeString title, UnicodeString message, bool bShowLogo);
+#endif
 
 enum GSOverlayType CPP_11(: Int)
 {

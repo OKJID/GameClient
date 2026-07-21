@@ -55,9 +55,12 @@
 #include "GameClient/InGameUI.h"
 #include "TARGA.h"
 
-#include "../NextGenTransport.h"
-#include "../NetworkMesh.h"
-#include "../ngmp_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#if defined(RTS_ZEROHOUR)
+#include "GameNetwork/GeneralsOnline/NextGenTransport.h"
+#include "GameNetwork/GeneralsOnline/NetworkMesh.h"
+#endif
 
 static Bool hasValidTransferFileExtension(const AsciiString& filePath)
 {
@@ -806,7 +809,7 @@ void ConnectionManager::processChat(NetChatCommandMsg *msg)
 	{
 		RGBColor rgb;
 		rgb.setFromInt(player->getPlayerColor());
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 		TheInGameUI->messageColor(true, &rgb, UnicodeString(L"%ls"), unitext.str());
 #else
 		TheInGameUI->messageColor(&rgb, L"%ls", unitext.str());
@@ -1437,7 +1440,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 
 			Real effectiveSlack = configuredSlack;
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 			if (TheNGMPGame != nullptr)
 			{
 				ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
@@ -1525,7 +1528,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 			// We also limit the upper range of the runahead to prevent it getting out of hand
 			Int minRunAheadForClamp = MIN_RUNAHEAD;
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 			if (TheNGMPGame != nullptr)
 			{
 				minRunAheadForClamp = 4;
@@ -1557,7 +1560,7 @@ void ConnectionManager::updateRunAhead(Int oldRunAhead, Int frameRate, Bool didS
 				msg->setExecutionFrame(TheGameLogic->getFrame() + oldRunAhead);
 			}
 
-#if defined(GENERALS_ONLINE) // provide instant responsiveness if there are no remote human players
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR) // provide instant responsiveness if there are no remote human players
 			if (TheNGMPGame != nullptr)
 			{
 				NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
@@ -1663,6 +1666,7 @@ Real ConnectionManager::getMaximumLatency()
 {
 	int latencyLogicModel = 0;
 
+#if defined(RTS_ZEROHOUR)
 	if (TheNGMPGame != nullptr)
 	{
 		ServiceConfig& serviceConf = NGMP_OnlineServicesManager::GetInstance()->GetServiceConfig();
@@ -1673,6 +1677,7 @@ Real ConnectionManager::getMaximumLatency()
 		// 3 = use Valve latency (current)
 		// 4 = use Valve latency (historic)
 	}
+#endif
 
 	Real maxLatency = 0.0f;
 
@@ -1683,6 +1688,7 @@ Real ConnectionManager::getMaximumLatency()
 	}
 
 
+#if defined(RTS_ZEROHOUR)
 	if (latencyLogicModel == 0)
 	{
 		return maxLatency;
@@ -1741,6 +1747,7 @@ Real ConnectionManager::getMaximumLatency()
 			return maxLatency;
 		}
 	}
+#endif
 
 	return maxLatency;
 }
@@ -1811,7 +1818,7 @@ void ConnectionManager::initTransport() {
 
 	delete m_transport;
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 	// support lan + our new transport
 	if (TheLAN == nullptr)
 	{

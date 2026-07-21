@@ -864,8 +864,17 @@ void RecorderClass::writeArgument(GameMessageArgumentDataType type, const GameMe
 		m_file->write(&(arg.timestamp), sizeof(arg.timestamp));
 		break;
 	case ARGUMENTDATATYPE_WIDECHAR:
+	{
+#ifdef __APPLE__
+		// Match the 16-bit width the reader expects and Windows writes;
+		// WideChar is 32-bit here, so writing it raw desyncs the stream.
+		UnsignedShort c16 = (UnsignedShort)arg.wChar;
+		m_file->write(&c16, sizeof(UnsignedShort));
+#else
 		m_file->write(&(arg.wChar), sizeof(arg.wChar));
+#endif
 		break;
+	}
 	default:
 		DEBUG_LOG(("Unknown GameMessageArgumentDataType in RecorderClass::writeArgument"));
 		break;

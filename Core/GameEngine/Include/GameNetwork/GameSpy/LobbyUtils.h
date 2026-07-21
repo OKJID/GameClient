@@ -28,6 +28,8 @@
 
 #pragma once
 
+#include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
+
 class GameWindow;
 
 GameWindow *GetGameListBox();
@@ -43,12 +45,15 @@ void ToggleGameListType();
 void playerTemplateComboBoxTooltip(GameWindow *wndComboBox, WinInstanceData *instData, UnsignedInt mouse);
 void playerTemplateListBoxTooltip(GameWindow *wndListBox, WinInstanceData *instData, UnsignedInt mouse);
 
+// The two sort slots drive the same pair of UI buttons in both browsers, but the columns
+// they order differ: Generals Online sorts by age and map, the legacy GameSpy browser
+// sorts by name and ping.
 enum GameSortType CPP_11(: Int)
 {
-	GAMESORT_AGE_ASCENDING = 0, // was alpha
-    GAMESORT_AGE_DESCENDING,	// was alpha
-	GAMESORT_MAP_ASCENDING,		// was ping
-	GAMESORT_MAP_DESCENDING,	// was ping
+	GAMESORT_AGE_ASCENDING = 0,
+	GAMESORT_AGE_DESCENDING,
+	GAMESORT_MAP_ASCENDING,
+	GAMESORT_MAP_DESCENDING,
 };
 
 Bool HandleSortButton( NameKeyType sortButton );

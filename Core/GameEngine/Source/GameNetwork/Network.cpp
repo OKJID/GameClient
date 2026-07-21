@@ -51,7 +51,7 @@
 #include "GameLogic/ScriptEngine.h"
 #include "Common/Recorder.h"
 #include "GameClient/MessageBox.h"
-#include "../NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 
 
 #if defined(DEBUG_CRC)

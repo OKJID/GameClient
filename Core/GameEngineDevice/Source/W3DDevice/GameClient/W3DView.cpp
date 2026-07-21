@@ -107,8 +107,10 @@ static const Real DRAWABLE_OVERSCAN = 75.0f;  ///< 3D world coords of how much t
 constexpr const Real NearZ = MAP_XY_FACTOR; ///< Set the near to MAP_XY_FACTOR. Improves z buffer resolution.
 
 #if defined(GENERALS_ONLINE)
+#if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 class NGMP_OnlineServices_LobbyInterface;
+#endif
 #endif
 
 //=================================================================================================
@@ -2244,7 +2246,7 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	setDefaultPitch(pitch);
 
     // TODO_NGMP: Better way of doing this
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
     if (bForceDefaultCam)
     {
         // safety for shellmap, etc

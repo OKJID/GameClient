@@ -483,7 +483,7 @@ static void saveOptions()
 		GadgetComboBoxGetSelectedPos(comboBoxLANIP, &index);
 		if (index>=0 && TheGlobalData)
 		{
-			ip = (UnsignedInt)GadgetComboBoxGetItemData(comboBoxLANIP, index);
+			ip = (UnsignedInt)(size_t)GadgetComboBoxGetItemData(comboBoxLANIP, index);
 			TheWritableGlobalData->m_defaultIP = ip;
 			pref->setLANIPAddress(ip);
 		}
@@ -495,7 +495,7 @@ static void saveOptions()
 		GadgetComboBoxGetSelectedPos(comboBoxOnlineIP, &index);
 		if (index>=0)
 		{
-			ip = (UnsignedInt)GadgetComboBoxGetItemData(comboBoxOnlineIP, index);
+			ip = (UnsignedInt)(size_t)GadgetComboBoxGetItemData(comboBoxOnlineIP, index);
 			pref->setOnlineIPAddress(ip);
 		}
 	}
@@ -588,13 +588,10 @@ static void saveOptions()
 		TheMouse->setCursorCaptureMode(mode);
 	}
 
-	// TheSuperHackers @todo Add combo box ?
-	{
-		ScreenEdgeScrollMode mode = pref->getScreenEdgeScrollMode();
-		(*pref)["ScreenEdgeScrollEnabledInWindowedApp"] = (mode & ScreenEdgeScrollMode_EnabledInWindowedApp) ? "yes" : "no";
-		(*pref)["ScreenEdgeScrollEnabledInFullscreenApp"] = (mode & ScreenEdgeScrollMode_EnabledInFullscreenApp) ? "yes" : "no";
-		TheLookAtTranslator->setScreenEdgeScrollMode(mode);
-	}
+	// TODO(PS_PATH): Screen edge scrolling is not ported to Generals yet.
+	// The LookAtTranslator in this tree has no ScreenEdgeScrollMode support and no
+	// SCROLL_SCREENEDGE handling, so applying the preference would be a no-op.
+	// Port the feature from GeneralsMD/LookAtXlat before restoring this block.
 
 	// TheSuperHackers @todo Add checkbox ?
 	{

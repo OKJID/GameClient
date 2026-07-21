@@ -28,7 +28,7 @@
 #include "GameNetwork/Connection.h"
 #include "GameNetwork/networkutil.h"
 #include "GameLogic/GameLogic.h"
-#include "../NGMP_include.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
 
 #if defined(GENERALS_ONLINE)
 enum { MaxQuitFlushTime = 5000 }; // wait this many milliseconds at most to retry things before quitting

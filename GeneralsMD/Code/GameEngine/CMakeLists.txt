@@ -549,7 +549,6 @@ set(GAMEENGINE_SRC
 #    Include/GameNetwork/User.h
 #    Include/GameNetwork/WOLBrowser/FEBDispatch.h
 #    Include/GameNetwork/WOLBrowser/WebBrowser.h
-    Include/GameNetwork/UDPTransport.h
     Include/Precompiled/PreRTS.h
 #    Source/Common/Audio/AudioEventRTS.cpp
 #    Source/Common/Audio/AudioRequest.cpp
@@ -1133,7 +1132,6 @@ set(GAMEENGINE_SRC
 #    Source/GameNetwork/udp.cpp
 #    Source/GameNetwork/User.cpp
 #    Source/GameNetwork/WOLBrowser/WebBrowser.cpp
-    Source/GameNetwork/UDPTransport.cpp
     Source/Precompiled/PreRTS.cpp
 
     Include/GameNetwork/GeneralsOnline/json.hpp
