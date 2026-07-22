@@ -70,6 +70,16 @@ class SteamCMDManager: ObservableObject {
     var assetsDir: URL { installDir.appendingPathComponent("Assets") }
     var baseGameDir: URL { installDir.appendingPathComponent("ZH_Generals") }
 
+    var patchTargets: [PatchTarget] {
+        GameProfile.all.compactMap { profile in
+            guard let directory = [assetsDir, baseGameDir].first(where: { profile.matchesInstall(at: $0) }) else {
+                return nil
+            }
+
+            return PatchTarget(profile: profile, directory: directory)
+        }
+    }
+
     var isSteamCMDInstalled: Bool {
         FileManager.default.fileExists(atPath: steamCMDBinary.path)
     }
@@ -371,8 +381,7 @@ class SteamCMDManager: ObservableObject {
             self.appendLog("\n[⭳] Downloading Community Patch & Maps...\n")
         }
 
-        // Hardcoded URL pointing to your new public GitHub repo
-        guard let patchURL = URL(string: "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip") else {
+        guard let patchURL = URL(string: AssetPatcher.patchURL) else {
             fail("Invalid patch URL.")
             return
         }
@@ -420,20 +429,44 @@ class SteamCMDManager: ObservableObject {
         state = .unpackingPatch
         appendLog("[*] Unpacking patch...\n")
 
+        let extractDir = installDir.appendingPathComponent("temp_patch_extract")
+        try? FileManager.default.removeItem(at: extractDir)
+        try? FileManager.default.createDirectory(at: extractDir, withIntermediateDirectories: true)
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
-        // -o: overwrite without prompting. -d: extract to installDir (where Assets/ is)
-        process.arguments = ["-o", zipURL.path, "-d", installDir.path]
+        process.arguments = ["-o", zipURL.path, "-d", extractDir.path]
 
         process.terminationHandler = { [weak self] proc in
             DispatchQueue.main.async {
                 try? FileManager.default.removeItem(at: zipURL) // Clean up zip
                 
-                if proc.terminationStatus == 0 {
-                    self?.appendLog("[✓] Community Patch successfully applied!\n")
-                    self?.state = .completed
-                } else {
-                    self?.fail("Failed to unpack patch (unzip exited with code \(proc.terminationStatus))")
+                guard let self = self else { return }
+
+                guard proc.terminationStatus == 0 else {
+                    try? FileManager.default.removeItem(at: extractDir)
+                    self.fail("Failed to unpack patch (unzip exited with code \(proc.terminationStatus))")
+                    return
+                }
+
+                do {
+                    let applied = try AssetPatcher.applyExtractedPatch(
+                        from: extractDir,
+                        targets: self.patchTargets,
+                        log: { [weak self] text in self?.appendLog(text) }
+                    )
+                    try? FileManager.default.removeItem(at: extractDir)
+
+                    guard applied > 0 else {
+                        self.fail("Patch archive carried no assets for the installed games.")
+                        return
+                    }
+
+                    self.appendLog("[✓] Community Patch successfully applied!\n")
+                    self.state = .completed
+                } catch {
+                    try? FileManager.default.removeItem(at: extractDir)
+                    self.fail("Failed to apply patch: \(error.localizedDescription)")
                 }
             }
         }

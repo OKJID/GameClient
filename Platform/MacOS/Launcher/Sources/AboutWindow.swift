@@ -4,7 +4,7 @@ import AppKit
 struct AboutView: View {
     @AppStorage("LAUNCHER_LANGUAGE") private var launcherLanguage: String = "en"
     
-    private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
+    private var accent: Color { GameProfile.current.theme.accent }
     private let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
 
     var body: some View {
@@ -33,11 +33,11 @@ struct AboutView: View {
                     .scaledToFit()
                     .frame(width: 80, height: 80)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
-                    .shadow(color: neonBlue.opacity(0.4), radius: 8)
+                    .shadow(color: accent.opacity(0.4), radius: 8)
             } else {
                 Image(systemName: "gamecontroller.fill")
                     .font(.system(size: 50))
-                    .foregroundColor(neonBlue)
+                    .foregroundColor(accent)
             }
         }
     }
@@ -50,7 +50,7 @@ struct AboutView: View {
 
             Text(L10n.about.nativePort)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundColor(neonBlue)
+                .foregroundColor(accent)
 
             Text("Version \(version)")
                 .font(.system(size: 12, design: .monospaced))
@@ -68,7 +68,7 @@ struct AboutView: View {
                         .scaledToFit()
                         .frame(width: 36, height: 36)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(neonBlue.opacity(0.5), lineWidth: 1))
+                        .overlay(Circle().stroke(accent.opacity(0.5), lineWidth: 1))
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -105,7 +105,7 @@ struct AboutView: View {
         }) {
             Text(title)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
-                .foregroundColor(neonBlue)
+                .foregroundColor(accent)
                 .underline()
         }
         .buttonStyle(PlainButtonStyle())

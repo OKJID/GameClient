@@ -4,7 +4,8 @@ import AppKit
 struct SidebarView: View {
     @ObservedObject var viewModel: LauncherViewModel
 
-    private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
+    private var accent: Color { GameProfile.current.theme.accent }
+    private var profile: GameProfile { viewModel.selectedProfile }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
 
     var body: some View {
@@ -12,7 +13,7 @@ struct SidebarView: View {
             // Title & Global Reset
             HStack {
                 Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(neonBlue)
+                    .foregroundColor(accent)
                 Text(L10n.settings.title)
                     .font(.system(size: 16, weight: .black, design: .monospaced))
                     .foregroundColor(.white)
@@ -27,7 +28,7 @@ struct SidebarView: View {
                         Text("RESET")
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                     }
-                    .foregroundColor(neonBlue.opacity(0.8))
+                    .foregroundColor(accent.opacity(0.8))
                 }
                 .buttonStyle(PlainButtonStyle())
                 .onHover { inside in
@@ -41,101 +42,36 @@ struct SidebarView: View {
                 VStack(spacing: 16) {
 
                     // --- INTERFACE SECTION ---
-                    _buildSectionHeader(title: L10n.settings.interfaceSection)
+                    if profile.supportsAny([.gameLanguage, .windowedEdgeScroll, .showHotkeyLabels]) {
+                        _buildSectionHeader(title: L10n.settings.interfaceSection)
+                    }
                     
-                    _buildGameLanguagePicker()
+                    if profile.supports(.gameLanguage) {
+                        _buildGameLanguagePicker()
+                    }
                     
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.windowedEdgeScroll,
-                        description: L10n.settings.windowedEdgeScrollDesc,
-                        isOn: $viewModel.isWindowedEdgeScrollEnabled,
-                        scope: .global
-                    )
+                    if profile.supports(.windowedEdgeScroll) {
+                        _buildSidebarSettingToggle(
+                            title: L10n.settings.windowedEdgeScroll,
+                            description: L10n.settings.windowedEdgeScrollDesc,
+                            isOn: $viewModel.isWindowedEdgeScrollEnabled,
+                            scope: .global
+                        )
+                    }
 
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.showHotkeyLabels,
-                        description: L10n.settings.showHotkeyLabelsDesc,
-                        isOn: $viewModel.showHotkeyLabels,
-                        scope: .global
-                    )
+                    if profile.supports(.showHotkeyLabels) {
+                        _buildSidebarSettingToggle(
+                            title: L10n.settings.showHotkeyLabels,
+                            description: L10n.settings.showHotkeyLabelsDesc,
+                            isOn: $viewModel.showHotkeyLabels,
+                            scope: .global
+                        )
+                    }
 
-                    // --- CAMERA SECTION ---
-                    _buildSectionHeader(title: L10n.settings.cameraSection)
-                    
-                    SettingsSliderField(
-                        title: L10n.settings.cameraMaxHeight,
-                        value: $viewModel.cameraMaxHeight,
-                        range: SettingsDefaults.cameraMaxHeightRange,
-                        step: SettingsDefaults.cameraMaxHeightStep,
-                        format: SettingsDefaults.cameraMaxHeightFormat,
-                        defaultValue: SettingsDefaults.cameraMaxHeight,
-                        scope: .lobbyHost
-                    )
-                    
-                    SettingsSliderField(
-                        title: L10n.settings.cameraMinHeight,
-                        value: $viewModel.cameraMinHeight,
-                        range: SettingsDefaults.cameraMinHeightRange,
-                        step: SettingsDefaults.cameraMinHeightStep,
-                        format: SettingsDefaults.cameraMinHeightFormat,
-                        defaultValue: SettingsDefaults.cameraMinHeight,
-                        scope: .global
-                    )
-                    
-                    SettingsSliderField(
-                        title: L10n.settings.cameraSpeed,
-                        value: $viewModel.cameraMoveSpeed,
-                        range: SettingsDefaults.cameraMoveSpeedRange,
-                        step: SettingsDefaults.cameraMoveSpeedStep,
-                        format: SettingsDefaults.cameraMoveSpeedFormat,
-                        defaultValue: SettingsDefaults.cameraMoveSpeed,
-                        scope: .global
-                    )
-                    // --- PERFORMANCE SECTION ---
-                    _buildSectionHeader(title: L10n.settings.fpsSection)
-                    
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.limitFps,
-                        description: "",
-                        isOn: $viewModel.limitFramerate,
-                        scope: .global
-                    )
-                    
-                    SettingsSliderField(
-                        title: "",
-                        value: $viewModel.fpsLimit,
-                        range: SettingsDefaults.fpsLimitRange,
-                        step: SettingsDefaults.fpsLimitStep,
-                        format: SettingsDefaults.fpsLimitFormat,
-                        defaultValue: SettingsDefaults.fpsLimit,
-                        isDisabled: !viewModel.limitFramerate,
-                        scope: .global
-                    )
-                    
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.statsOverlay,
-                        description: "",
-                        isOn: $viewModel.statsOverlay,
-                        scope: .global
-                    )
-                    
-                    // --- NETWORK & DEBUG SECTION ---
-                    _buildSectionHeader(title: L10n.settings.networkSection)
-                    
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.altEndpoint,
-                        description: "",
-                        isOn: $viewModel.useAlternativeEndpoint,
-                        scope: .online
-                    )
-                    
-                    _buildSidebarSettingToggle(
-                        title: L10n.settings.verboseLogging,
-                        description: "",
-                        isOn: $viewModel.verboseLogging,
-                        scope: .global
-                    )
-                    
+                    _buildCameraSection()
+                    _buildPerformanceSection()
+                    _buildNetworkSection()
+
                     // --- LEGEND SECTION ---
                     _buildLegendSection()
                 }
@@ -156,7 +92,7 @@ struct SidebarView: View {
         .background(Color.black.opacity(0.45))
         .overlay(
             Rectangle()
-                .fill(neonBlue.opacity(0.15))
+                .fill(accent.opacity(0.15))
                 .frame(width: 1)
                 .frame(maxHeight: .infinity),
             alignment: .leading
@@ -167,11 +103,11 @@ struct SidebarView: View {
         HStack(spacing: 8) {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .black, design: .monospaced))
-                .foregroundColor(neonBlue.opacity(0.8))
+                .foregroundColor(accent.opacity(0.8))
             
             VStack {
                 Divider()
-                    .background(neonBlue.opacity(0.15))
+                    .background(accent.opacity(0.15))
             }
         }
         .padding(.top, 8)
@@ -211,7 +147,7 @@ struct SidebarView: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(isOn.wrappedValue ? neonBlue.opacity(0.4) : Color.white.opacity(0.05), lineWidth: 1)
+                    .stroke(isOn.wrappedValue ? accent.opacity(0.4) : Color.white.opacity(0.05), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -221,13 +157,9 @@ struct SidebarView: View {
     }
 
     private func _buildGameLanguagePicker() -> some View {
-        let zhDir: URL? = {
-            switch viewModel.activeTab {
-            case .steam: return viewModel.steamCMD.assetsDir
-            case .local: return viewModel.zhDirectoryURL
-            }
-        }()
-        let installed = zhDir.map { AssetPatcher.installedLanguages(at: $0) } ?? AssetPatcher.availableLanguages
+        let installed = viewModel.installDirectory(for: profile)
+            .map { profile.installedLanguages(at: $0) } ?? GameProfile.fallbackLanguages
+        let options = installed.contains(viewModel.gameLanguage) ? installed : installed + [viewModel.gameLanguage]
 
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
@@ -238,7 +170,7 @@ struct SidebarView: View {
             }
 
             Picker("", selection: $viewModel.gameLanguage) {
-                ForEach(installed, id: \.self) { lang in
+                ForEach(options, id: \.self) { lang in
                     Text(lang.capitalized).tag(lang)
                 }
             }
@@ -259,14 +191,129 @@ struct SidebarView: View {
         )
     }
 
+    private func _buildCameraSection() -> some View {
+        Group {
+            if profile.supportsAny([.cameraMaxHeight, .cameraMinHeight, .cameraSpeed]) {
+                _buildSectionHeader(title: L10n.settings.cameraSection)
+            }
+
+            if profile.supports(.cameraMaxHeight) {
+                SettingsSliderField(
+                    title: L10n.settings.cameraMaxHeight,
+                    value: $viewModel.cameraMaxHeight,
+                    range: SettingsDefaults.cameraMaxHeightRange,
+                    step: SettingsDefaults.cameraMaxHeightStep,
+                    format: SettingsDefaults.cameraMaxHeightFormat,
+                    defaultValue: SettingsDefaults.cameraMaxHeight,
+                    scope: .lobbyHost
+                )
+            }
+
+            if profile.supports(.cameraMinHeight) {
+                SettingsSliderField(
+                    title: L10n.settings.cameraMinHeight,
+                    value: $viewModel.cameraMinHeight,
+                    range: SettingsDefaults.cameraMinHeightRange,
+                    step: SettingsDefaults.cameraMinHeightStep,
+                    format: SettingsDefaults.cameraMinHeightFormat,
+                    defaultValue: SettingsDefaults.cameraMinHeight,
+                    scope: .global
+                )
+            }
+
+            if profile.supports(.cameraSpeed) {
+                SettingsSliderField(
+                    title: L10n.settings.cameraSpeed,
+                    value: $viewModel.cameraMoveSpeed,
+                    range: SettingsDefaults.cameraMoveSpeedRange,
+                    step: SettingsDefaults.cameraMoveSpeedStep,
+                    format: SettingsDefaults.cameraMoveSpeedFormat,
+                    defaultValue: SettingsDefaults.cameraMoveSpeed,
+                    scope: .global
+                )
+            }
+        }
+    }
+
+    private func _buildPerformanceSection() -> some View {
+        Group {
+            if profile.supportsAny([.limitFramerate, .fpsLimit, .statsOverlay]) {
+                _buildSectionHeader(title: L10n.settings.fpsSection)
+            }
+
+            if profile.supports(.limitFramerate) {
+                _buildSidebarSettingToggle(
+                    title: L10n.settings.limitFps,
+                    description: "",
+                    isOn: $viewModel.limitFramerate,
+                    scope: .global
+                )
+            }
+
+            if profile.supports(.fpsLimit) {
+                SettingsSliderField(
+                    title: "",
+                    value: $viewModel.fpsLimit,
+                    range: SettingsDefaults.fpsLimitRange,
+                    step: SettingsDefaults.fpsLimitStep,
+                    format: SettingsDefaults.fpsLimitFormat,
+                    defaultValue: SettingsDefaults.fpsLimit,
+                    isDisabled: !viewModel.limitFramerate,
+                    scope: .global
+                )
+            }
+
+            if profile.supports(.statsOverlay) {
+                _buildSidebarSettingToggle(
+                    title: L10n.settings.statsOverlay,
+                    description: "",
+                    isOn: $viewModel.statsOverlay,
+                    scope: .global
+                )
+            }
+        }
+    }
+
+    private func _buildNetworkSection() -> some View {
+        Group {
+            if profile.supportsAny([.altEndpoint, .verboseLogging]) {
+                _buildSectionHeader(title: L10n.settings.networkSection)
+            }
+
+            if profile.supports(.altEndpoint) {
+                _buildSidebarSettingToggle(
+                    title: L10n.settings.altEndpoint,
+                    description: "",
+                    isOn: $viewModel.useAlternativeEndpoint,
+                    scope: .online
+                )
+            }
+
+            if profile.supports(.verboseLogging) {
+                _buildSidebarSettingToggle(
+                    title: L10n.settings.verboseLogging,
+                    description: "",
+                    isOn: $viewModel.verboseLogging,
+                    scope: .global
+                )
+            }
+        }
+    }
+
     private func _buildLegendSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
             _buildSectionHeader(title: L10n.settings.legendSection)
             
             VStack(alignment: .leading, spacing: 8) {
                 _buildLegendItem(scope: .global, desc: L10n.settings.scopeGlobalDesc)
-                _buildLegendItem(scope: .online, desc: L10n.settings.scopeOnlineDesc)
-                _buildLegendItem(scope: .lobbyHost, desc: L10n.settings.scopeLobbyHostDesc)
+
+                if profile.supports(.altEndpoint) {
+                    _buildLegendItem(scope: .online, desc: L10n.settings.scopeOnlineDesc)
+                }
+
+                if profile.supports(.cameraMaxHeight) {
+                    _buildLegendItem(scope: .lobbyHost, desc: L10n.settings.scopeLobbyHostDesc)
+                }
             }
             .padding(10)
             .background(Color.white.opacity(0.02))
@@ -306,7 +353,7 @@ struct SidebarView: View {
             HStack {
                 Image(systemName: "globe")
                     .font(.system(size: 16))
-                    .foregroundColor(neonBlue)
+                    .foregroundColor(accent)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.settings.language)
@@ -342,7 +389,7 @@ struct SidebarView: View {
             HStack {
                 Image(systemName: "info.circle")
                     .font(.system(size: 16))
-                    .foregroundColor(neonBlue)
+                    .foregroundColor(accent)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.settings.about)
@@ -386,7 +433,7 @@ struct SettingsSliderField: View {
     @State private var textValue: String = ""
     @State private var isEditingText: Bool = false
     
-    private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
+    private var accent: Color { GameProfile.current.theme.accent }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
     
     var body: some View {
@@ -409,7 +456,7 @@ struct SettingsSliderField: View {
                     }) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(neonBlue.opacity(0.8))
+                            .foregroundColor(accent.opacity(0.8))
                     }
                     .buttonStyle(PlainButtonStyle())
                     .onHover { inside in
@@ -420,7 +467,7 @@ struct SettingsSliderField: View {
             
             HStack(spacing: 12) {
                 Slider(value: $value, in: range, step: step)
-                    .accentColor(neonBlue)
+                    .accentColor(accent)
                     .disabled(isDisabled)
                     .onChange(of: value) { newValue in
                         if !isEditingText {
@@ -444,7 +491,7 @@ struct SettingsSliderField: View {
                 .cornerRadius(4)
                 .overlay(
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(isDisabled ? Color.white.opacity(0.05) : neonBlue.opacity(0.3), lineWidth: 1)
+                        .stroke(isDisabled ? Color.white.opacity(0.05) : accent.opacity(0.3), lineWidth: 1)
                 )
                 .disabled(isDisabled)
                 .textFieldStyle(PlainTextFieldStyle())

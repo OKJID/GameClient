@@ -9,6 +9,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     @Published var activeTab: Tab = .steam
+    @Published var selectedGameID: GameID = GameProfile.selectedID
     @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? ""
     @Published var isLaunching: Bool = false
     @Published var alertMessage: String? = nil
@@ -112,6 +113,16 @@ class LauncherViewModel: ObservableObject {
             steamPassword = KeychainHelper.load(account: username) ?? ""
         }
 
+        loadSettings()
+
+        self.isInitializing = false
+        updateChecker.startPeriodicChecks()
+
+        Analytics.logOpen(uiLanguage: selectedLanguage)
+        Analytics.logSettingsSnapshot(self)
+    }
+
+    private func loadSettings() {
         let path = OptionsIniHelper.optionsFilePath
         if !FileManager.default.fileExists(atPath: path.path) {
             OptionsIniHelper.writeValues([
@@ -119,40 +130,52 @@ class LauncherViewModel: ObservableObject {
                 "CursorCaptureEnabledInWindowedGame": "yes"
             ])
         }
-        self.isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
-        self.showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
-        self.gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
-        
-        // Load settings.json
-        if let json = SettingsJsonHelper.readSettings() {
-            let camera = json["camera"] as? [String: Any]
-            self.cameraMinHeight = camera?["min_height"] as? Double ?? SettingsDefaults.cameraMinHeight
-            self.cameraMaxHeight = camera?["max_height_only_when_lobby_host"] as? Double ?? SettingsDefaults.cameraMaxHeight
-            self.cameraMoveSpeed = camera?["move_speed_ratio"] as? Double ?? SettingsDefaults.cameraMoveSpeed
-            
-            let render = json["render"] as? [String: Any]
-            self.limitFramerate = render?["limit_framerate"] as? Bool ?? SettingsDefaults.limitFramerate
-            if let fps = render?["fps_limit"] as? Int {
-                self.fpsLimit = Double(fps)
-            } else if let fpsDouble = render?["fps_limit"] as? Double {
-                self.fpsLimit = fpsDouble
-            } else {
-                self.fpsLimit = SettingsDefaults.fpsLimit
-            }
-            self.statsOverlay = render?["stats_overlay"] as? Bool ?? SettingsDefaults.statsOverlay
-            
-            let network = json["network"] as? [String: Any]
-            self.useAlternativeEndpoint = network?["use_alternative_endpoint"] as? Bool ?? SettingsDefaults.useAlternativeEndpoint
-            
-            let debug = json["debug"] as? [String: Any]
-            self.verboseLogging = debug?["verbose_logging"] as? Bool ?? SettingsDefaults.verboseLogging
-        }
-        
-        self.isInitializing = false
-        updateChecker.startPeriodicChecks()
 
-        Analytics.logOpen(uiLanguage: selectedLanguage)
-        Analytics.logSettingsSnapshot(self)
+        isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
+        showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
+        gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
+
+        loadOnlineSettings()
+    }
+
+    private func loadOnlineSettings() {
+        guard let json = SettingsJsonHelper.readSettings() else {
+            return
+        }
+
+        let camera = json["camera"] as? [String: Any]
+        cameraMinHeight = camera?["min_height"] as? Double ?? SettingsDefaults.cameraMinHeight
+        cameraMaxHeight = camera?["max_height_only_when_lobby_host"] as? Double ?? SettingsDefaults.cameraMaxHeight
+        cameraMoveSpeed = camera?["move_speed_ratio"] as? Double ?? SettingsDefaults.cameraMoveSpeed
+
+        let render = json["render"] as? [String: Any]
+        limitFramerate = render?["limit_framerate"] as? Bool ?? SettingsDefaults.limitFramerate
+        if let fps = render?["fps_limit"] as? Int {
+            fpsLimit = Double(fps)
+        } else if let fpsDouble = render?["fps_limit"] as? Double {
+            fpsLimit = fpsDouble
+        } else {
+            fpsLimit = SettingsDefaults.fpsLimit
+        }
+        statsOverlay = render?["stats_overlay"] as? Bool ?? SettingsDefaults.statsOverlay
+
+        let network = json["network"] as? [String: Any]
+        useAlternativeEndpoint = network?["use_alternative_endpoint"] as? Bool ?? SettingsDefaults.useAlternativeEndpoint
+
+        let debug = json["debug"] as? [String: Any]
+        verboseLogging = debug?["verbose_logging"] as? Bool ?? SettingsDefaults.verboseLogging
+    }
+
+    func selectGame(_ id: GameID) {
+        guard id != selectedGameID else {
+            return
+        }
+
+        isInitializing = true
+        GameProfile.selectedID = id
+        selectedGameID = id
+        loadSettings()
+        isInitializing = false
     }
 
     func saveCredentials() {
@@ -198,28 +221,41 @@ class LauncherViewModel: ObservableObject {
         return _validateGameFolder(at: URL(fileURLWithPath: installPath))
     }
 
-    var zhDirectoryURL: URL? {
-        guard !installPath.isEmpty else { return nil }
-        return AssetPatcher.findZHDirectory(at: URL(fileURLWithPath: installPath))
+    var selectedProfile: GameProfile {
+        GameProfile.profile(for: selectedGameID)
+    }
+
+    func installDirectory(for profile: GameProfile) -> URL? {
+        switch activeTab {
+        case .steam:
+            return [steamCMD.assetsDir, steamCMD.baseGameDir].first { profile.matchesInstall(at: $0) }
+        case .local:
+            guard !installPath.isEmpty else { return nil }
+            return GameProfile.installDirectory(for: profile.id, under: URL(fileURLWithPath: installPath))
+        }
+    }
+
+    var patchTargets: [PatchTarget] {
+        GameProfile.all.compactMap { profile in
+            guard let directory = installDirectory(for: profile) else { return nil }
+            return PatchTarget(profile: profile, directory: directory)
+        }
     }
 
     var isSteamPatchReady: Bool {
-        return assetPatcher.isCommunityPatchInstalled(at: steamCMD.assetsDir)
+        assetPatcher.isCommunityPatchInstalled(.zeroHour, at: steamCMD.assetsDir)
     }
 
     var isPatchReady: Bool {
-        switch activeTab {
-        case .steam: return isSteamPatchReady
-        case .local:
-            guard let zhDir = zhDirectoryURL else { return false }
-            return assetPatcher.isCommunityPatchInstalled(at: zhDir)
-        }
+        let profile = GameProfile.current
+        guard let directory = installDirectory(for: profile) else { return false }
+        return assetPatcher.isCommunityPatchInstalled(profile, at: directory)
     }
 
     var needsPatching: Bool {
         switch activeTab {
         case .steam:
-            return steamCMD.areAssetsValid && !isSteamPatchReady
+            return steamCMD.areAssetsValid && !isPatchReady
                 && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
         case .local:
             return isPathValid && !isPatchReady && !assetPatcher.state.isRunning
@@ -228,7 +264,7 @@ class LauncherViewModel: ObservableObject {
 
     var canLaunch: Bool {
         switch activeTab {
-        case .steam: return steamCMD.areAssetsValid && isSteamPatchReady
+        case .steam: return steamCMD.areAssetsValid && isPatchReady
             && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
         case .local: return isPathValid && isPatchReady && !assetPatcher.state.isRunning
         }
@@ -268,14 +304,14 @@ class LauncherViewModel: ObservableObject {
 
     func confirmPatching() {
         Analytics.logPatchStarted(source: activeTab.rawValue)
+
+        let rootDir: URL
         switch activeTab {
-        case .steam:
-            assetPatcher.startPatching(rootDir: steamCMD.installDir, zhDir: steamCMD.assetsDir)
-        case .local:
-            guard let zhDir = zhDirectoryURL else { return }
-            let rootURL = URL(fileURLWithPath: installPath)
-            assetPatcher.startPatching(rootDir: rootURL, zhDir: zhDir)
+        case .steam: rootDir = steamCMD.installDir
+        case .local: rootDir = URL(fileURLWithPath: installPath)
         }
+
+        assetPatcher.startPatching(rootDir: rootDir, targets: patchTargets)
     }
 
     func launchGame() {

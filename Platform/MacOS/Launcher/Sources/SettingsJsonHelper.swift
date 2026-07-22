@@ -1,13 +1,15 @@
 import Foundation
 
 struct SettingsJsonHelper {
-    static var settingsFilePath: URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent("Command and Conquer Generals Zero Hour Data/GeneralsOnlineData/settings.json")
+    static var settingsFilePath: URL? {
+        GameProfile.current.onlineSettingsFileURL
     }
-    
+
     static func readSettings() -> [String: Any]? {
-        let path = settingsFilePath
+        guard let path = settingsFilePath else {
+            return nil
+        }
+
         guard FileManager.default.fileExists(atPath: path.path),
               let data = try? Data(contentsOf: path),
               let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] else {
@@ -26,9 +28,12 @@ struct SettingsJsonHelper {
         useAlternativeEndpoint: Bool,
         verboseLogging: Bool
     ) {
-        let path = settingsFilePath
+        guard let path = settingsFilePath else {
+            return
+        }
+
         let dir = path.deletingLastPathComponent()
-        
+
         if !FileManager.default.fileExists(atPath: dir.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
         }

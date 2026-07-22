@@ -4,10 +4,55 @@ import Combine
 
 // MARK: - Main View
 
+struct LeftFlushShape: Shape {
+    let radius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX, y: rect.minY + radius),
+            control: CGPoint(x: rect.maxX, y: rect.minY)
+        )
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        path.addQuadCurve(
+            to: CGPoint(x: rect.maxX - radius, y: rect.maxY),
+            control: CGPoint(x: rect.maxX, y: rect.maxY)
+        )
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct ChevronMark: Shape {
+    let thickness: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX + thickness, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.maxX + thickness, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.minX + thickness, y: rect.minY))
+        path.closeSubpath()
+        return path
+    }
+}
+
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
 
-    private let neonBlue = Color(red: 0.1, green: 0.5, blue: 1.0)
+    private var accent: Color { GameProfile.current.theme.accent }
+    private let switcherButtonWidth: CGFloat = 114
+    private let switcherContentGap: CGFloat = 12
+    private let contentInset: CGFloat = 60
+
+    private var switcherColumnWidth: CGFloat {
+        switcherButtonWidth + switcherContentGap - contentInset
+    }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
     private let darkPanel = Color.black.opacity(0.85)
     private let steamGradient = LinearGradient(
@@ -24,6 +69,8 @@ struct MainView: View {
                 _buildBackground(size: geometry.size)
 
                 HStack(spacing: 0) {
+                    _buildGameSwitcher()
+
                     VStack(spacing: 0) {
                         _buildHeader()
                             .padding(.top, 30)
@@ -105,12 +152,64 @@ struct MainView: View {
 
     // MARK: - Header
 
+    private func _buildGameSwitcher() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(GameProfile.all) { profile in
+                _buildGameButton(profile)
+            }
+
+            Spacer()
+        }
+        .padding(.top, 150)
+        .frame(width: switcherColumnWidth, alignment: .leading)
+    }
+
+    private func _buildGameButton(_ profile: GameProfile) -> some View {
+        let isSelected = viewModel.selectedGameID == profile.id
+        let isInstalled = viewModel.installDirectory(for: profile) != nil
+
+        return Button(action: { viewModel.selectGame(profile.id) }) {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(profile.theme.accent)
+                    .frame(width: 5)
+
+                Text(profile.shortName)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(isSelected ? .white : profile.theme.accentSoft)
+                    .padding(.leading, 14)
+
+                Spacer(minLength: 0)
+
+                if isSelected {
+                    ChevronMark(thickness: 6)
+                        .fill(profile.theme.accentSoft)
+                        .frame(width: 11, height: 20)
+                        .padding(.trailing, 12)
+                }
+            }
+            .frame(width: switcherButtonWidth, height: 46)
+            .background(
+                LeftFlushShape(radius: 10)
+                    .fill(isSelected ? profile.theme.accent.opacity(0.85) : profile.theme.panel.opacity(0.75))
+            )
+            .overlay(
+                LeftFlushShape(radius: 10)
+                    .stroke(isSelected ? profile.theme.accentSoft : profile.theme.panelBorder, lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(!isInstalled)
+        .opacity(isInstalled ? 1.0 : 0.35)
+        .help(isInstalled ? profile.displayName : "\(profile.displayName) — not installed")
+    }
+
     private func _buildHeader() -> some View {
         VStack(spacing: 4) {
             Text(L10n.app.title)
                 .font(.system(size: 48, weight: .black))
                 .foregroundColor(.white)
-                .shadow(color: neonBlue, radius: 15)
+                .shadow(color: accent, radius: 15)
 
             Text(L10n.app.subtitle)
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
@@ -129,7 +228,7 @@ struct MainView: View {
         }
         .background(Color.black.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(neonBlue.opacity(0.3), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent.opacity(0.3), lineWidth: 1))
         .padding(.horizontal, 40)
     }
 
@@ -165,7 +264,7 @@ struct MainView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
-            .background(isActive ? neonBlue.opacity(0.25) : Color.clear)
+            .background(isActive ? accent.opacity(0.25) : Color.clear)
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -192,7 +291,7 @@ struct MainView: View {
         .padding(20)
         .background(Color.black.opacity(0.4))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(neonBlue.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent.opacity(0.2), lineWidth: 1))
     }
 
     private func _buildSteamCredentials() -> some View {
@@ -265,8 +364,8 @@ struct MainView: View {
             .foregroundColor(canStart ? .white : .white.opacity(0.3))
             .padding(.horizontal, 20)
             .padding(.vertical, 8)
-            .background(canStart ? neonBlue.opacity(0.25) : Color.white.opacity(0.05))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(canStart ? neonBlue : Color.white.opacity(0.1), lineWidth: 1))
+            .background(canStart ? accent.opacity(0.25) : Color.white.opacity(0.05))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(canStart ? accent : Color.white.opacity(0.1), lineWidth: 1))
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(PlainButtonStyle())
@@ -287,7 +386,7 @@ struct MainView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Color.black.opacity(0.5))
-        .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonBlue.opacity(0.3), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(accent.opacity(0.3), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
@@ -356,7 +455,7 @@ struct MainView: View {
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(darkPanel)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonBlue.opacity(0.5), lineWidth: 1.5))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(accent.opacity(0.5), lineWidth: 1.5))
                     .clipShape(RoundedRectangle(cornerRadius: 4))
 
                 Button(action: { viewModel.chooseFolder() }) {
@@ -366,7 +465,7 @@ struct MainView: View {
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
                         .background(darkPanel)
-                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonBlue, lineWidth: 1.5))
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(accent, lineWidth: 1.5))
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(PlainButtonStyle())
@@ -385,7 +484,7 @@ struct MainView: View {
         .padding(20)
         .background(Color.black.opacity(0.4))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(neonBlue.opacity(0.2), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent.opacity(0.2), lineWidth: 1))
     }
 
     private func _buildLocalValidationWarning() -> some View {
@@ -438,14 +537,14 @@ struct MainView: View {
             .padding(.vertical, 14)
             .background(
                 LinearGradient(
-                    colors: [neonBlue.opacity(0.3), neonBlue.opacity(0.15)],
+                    colors: [accent.opacity(0.3), accent.opacity(0.15)],
                     startPoint: .leading,
                     endPoint: .trailing
                 )
             )
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(neonBlue, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(accent, lineWidth: 2))
             .clipShape(RoundedRectangle(cornerRadius: 8))
-            .shadow(color: neonBlue.opacity(0.5), radius: 12)
+            .shadow(color: accent.opacity(0.5), radius: 12)
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(viewModel.isLaunching)
@@ -680,7 +779,7 @@ struct MainView: View {
         }) {
             Text(title)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(neonBlue)
+                .foregroundColor(accent)
                 .underline()
                 .shadow(color: .black, radius: 1)
         }

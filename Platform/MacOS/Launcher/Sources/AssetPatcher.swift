@@ -1,5 +1,10 @@
 import Foundation
 
+struct PatchTarget {
+    let profile: GameProfile
+    let directory: URL
+}
+
 enum PatchState: Equatable {
     case idle
     case cleaning
@@ -37,37 +42,6 @@ class AssetPatcher: ObservableObject {
 
     static let patchURL = "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip"
 
-    private static let patchMarkerFiles = [
-        "310_ExpandedLANLobbyMenu.big",
-        "340_ControlBarPro1080ZH.big",
-        "340_ControlBarProHideIpZH.big",
-        "340_ControlBarProHideMailZH.big",
-        "340_ControlBarProZH.big",
-        "400_ControlBarHDBaseZH.big",
-        "400_ControlBarHDEnglishZH.big",
-        "990_DecalsZH.big"
-    ]
-
-    private static let patchLocaleMarkerFiles = [
-        "Data/English/generals.csf",
-        "Data/German/generals.csf",
-        "Data/French/generals.csf",
-        "Data/Spanish/generals.csf",
-        "Data/Italian/generals.csf",
-        "Data/Korean/generals.csf",
-        "Data/Chinese/generals.csf",
-        "Data/Polish/generals.csf",
-        "Data/Brazilian/generals.csf",
-        "Data/Russian/generals.csf",
-        "Data/Ukrainian/generals.csf"
-    ]
-
-    static let availableLanguages = [
-        "english", "german", "french", "spanish", "italian",
-        "korean", "chinese", "polish", "brazilian",
-        "russian", "ukrainian"
-    ]
-
     private static let conflictingEAFiles = [
         "PatchData.big",
         "PatchINI.big",
@@ -77,58 +51,29 @@ class AssetPatcher: ObservableObject {
 
     // MARK: - Public API
 
-    func isCommunityPatchInstalled(at zhDir: URL) -> Bool {
-        let fm = FileManager.default
-        let allMarkers = Self.patchMarkerFiles + Self.patchLocaleMarkerFiles
-        return allMarkers.allSatisfy { marker in
-            fm.fileExists(atPath: zhDir.appendingPathComponent(marker).path)
-        }
+    func isCommunityPatchInstalled(_ profile: GameProfile, at directory: URL) -> Bool {
+        profile.isPatchInstalled(at: directory)
     }
 
-    static func installedLanguages(at zhDir: URL) -> [String] {
-        let fm = FileManager.default
-        return patchLocaleMarkerFiles.compactMap { relativePath in
-            let fullPath = zhDir.appendingPathComponent(relativePath).path
-            guard fm.fileExists(atPath: fullPath) else { return nil }
-
-            let components = relativePath.split(separator: "/")
-            guard components.count >= 2 else { return nil }
-            return String(components[1]).lowercased()
-        }
-    }
-
-    static func findZHDirectory(at rootURL: URL) -> URL? {
-        let fm = FileManager.default
-        guard let items = try? fm.contentsOfDirectory(
-            at: rootURL,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: .skipsHiddenFiles
-        ) else {
-            return nil
-        }
-
-        for itemURL in items {
-            guard let isDir = try? itemURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory, isDir else { continue }
-            guard let subItems = try? fm.contentsOfDirectory(atPath: itemURL.path) else { continue }
-
-            if subItems.contains(where: { $0.lowercased() == "inizh.big" }) {
-                return itemURL
-            }
-        }
-
-        return nil
-    }
-
-    func startPatching(rootDir: URL, zhDir: URL) {
+    func startPatching(rootDir: URL, targets: [PatchTarget]) {
         guard !state.isRunning else { return }
+        guard !targets.isEmpty else {
+            fail("No game installation found to patch.")
+            return
+        }
 
         consoleLog = ""
         appendLog("[*] Starting patch process...\n")
-        appendLog("[*] ZH directory: \(zhDir.path)\n")
+        for target in targets {
+            appendLog("[*] \(target.profile.displayName): \(target.directory.path)\n")
+        }
 
         state = .cleaning
-        cleanEAPatchFiles(in: zhDir, rootDir: rootDir)
-        downloadAndApplyPatch(zhDir: zhDir)
+        for target in targets where target.profile.id == .zeroHour {
+            cleanEAPatchFiles(in: target.directory, rootDir: rootDir)
+        }
+
+        downloadAndApplyPatch(targets: targets)
     }
 
     // MARK: - Clean
@@ -153,7 +98,7 @@ class AssetPatcher: ObservableObject {
 
     // MARK: - Download
 
-    private func downloadAndApplyPatch(zhDir: URL) {
+    private func downloadAndApplyPatch(targets: [PatchTarget]) {
         DispatchQueue.main.async {
             self.state = .downloadingPatch(progress: 0.0)
             self.appendLog("\n[⭳] Downloading Community Patch & Maps...\n")
@@ -186,7 +131,7 @@ class AssetPatcher: ObservableObject {
                 DispatchQueue.main.async {
                     self.downloadObservation?.invalidate()
                     self.downloadObservation = nil
-                    self.applyPatch(from: tempZipURL, zhDir: zhDir)
+                    self.applyPatch(from: tempZipURL, targets: targets)
                 }
             } catch {
                 self.fail("Failed to prepare patch file: \(error.localizedDescription)")
@@ -205,7 +150,7 @@ class AssetPatcher: ObservableObject {
 
     // MARK: - Unpack
 
-    private func applyPatch(from zipURL: URL, zhDir: URL) {
+    private func applyPatch(from zipURL: URL, targets: [PatchTarget]) {
         state = .unpacking
         appendLog("[*] Unpacking patch...\n")
 
@@ -223,7 +168,7 @@ class AssetPatcher: ObservableObject {
                 try? FileManager.default.removeItem(at: zipURL)
 
                 if proc.terminationStatus == 0 {
-                    self.movePatchFiles(from: tempExtractDir, to: zhDir)
+                    self.movePatchFiles(from: tempExtractDir, targets: targets)
                 } else {
                     try? FileManager.default.removeItem(at: tempExtractDir)
                     self.fail("Failed to unpack patch (unzip exited with code \(proc.terminationStatus))")
@@ -239,18 +184,22 @@ class AssetPatcher: ObservableObject {
         }
     }
 
-    private func movePatchFiles(from extractDir: URL, to zhDir: URL) {
+    private func movePatchFiles(from extractDir: URL, targets: [PatchTarget]) {
         let fm = FileManager.default
 
-        var sourceDir = extractDir
-        let assetsSubdir = extractDir.appendingPathComponent("Assets")
-        if fm.fileExists(atPath: assetsSubdir.path) {
-            sourceDir = assetsSubdir
-        }
-
         do {
-            try mergeDirectory(from: sourceDir, to: zhDir, fm: fm)
+            let applied = try Self.applyExtractedPatch(
+                from: extractDir,
+                targets: targets,
+                log: { [weak self] text in self?.appendLog(text) }
+            )
+
             try? fm.removeItem(at: extractDir)
+
+            guard applied > 0 else {
+                fail("Patch archive carried no assets for the installed games.")
+                return
+            }
 
             appendLog("[✓] Community Patch successfully applied!\n")
             state = .completed
@@ -260,13 +209,35 @@ class AssetPatcher: ObservableObject {
         }
     }
 
-    private func mergeDirectory(from src: URL, to dst: URL, fm: FileManager) throws {
+    static func applyExtractedPatch(
+        from extractDir: URL,
+        targets: [PatchTarget],
+        log: ((String) -> Void)? = nil
+    ) throws -> Int {
+        let fm = FileManager.default
+        var applied = 0
+
+        for target in targets {
+            let sourceDir = extractDir.appendingPathComponent(target.profile.patchAssetsDirName)
+            guard fm.fileExists(atPath: sourceDir.path) else {
+                log?("[*] \(target.profile.displayName): nothing in this patch, skipped\n")
+                continue
+            }
+
+            try merge(from: sourceDir, to: target.directory, fm: fm, log: log)
+            log?("[✓] \(target.profile.displayName): assets applied\n")
+            applied += 1
+        }
+
+        return applied
+    }
+
+    static func merge(from src: URL, to dst: URL, fm: FileManager, log: ((String) -> Void)?) throws {
         if !fm.fileExists(atPath: dst.path) {
             try fm.createDirectory(at: dst, withIntermediateDirectories: true)
         }
 
-        let items = try fm.contentsOfDirectory(atPath: src.path)
-        for item in items {
+        for item in try fm.contentsOfDirectory(atPath: src.path) {
             let srcItem = src.appendingPathComponent(item)
             let dstItem = dst.appendingPathComponent(item)
 
@@ -274,13 +245,16 @@ class AssetPatcher: ObservableObject {
             fm.fileExists(atPath: srcItem.path, isDirectory: &isDir)
 
             if isDir.boolValue {
-                try mergeDirectory(from: srcItem, to: dstItem, fm: fm)
-            } else {
-                if fm.fileExists(atPath: dstItem.path) {
-                    try fm.removeItem(at: dstItem)
-                }
-                try fm.moveItem(at: srcItem, to: dstItem)
+                try merge(from: srcItem, to: dstItem, fm: fm, log: log)
+                continue
             }
+
+            if fm.fileExists(atPath: dstItem.path) {
+                log?("[*] Replacing \(dstItem.lastPathComponent)\n")
+                try fm.removeItem(at: dstItem)
+            }
+
+            try fm.moveItem(at: srcItem, to: dstItem)
         }
     }
 

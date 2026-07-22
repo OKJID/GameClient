@@ -2,8 +2,7 @@ import Foundation
 
 struct OptionsIniHelper {
     static var optionsFilePath: URL {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent("Command and Conquer Generals Zero Hour Data/Options.ini")
+        GameProfile.current.optionsFileURL
     }
 
     static func readValue(forKey key: String) -> String? {
