@@ -2500,6 +2500,24 @@ Int RoadShader2Stage::set(Int pass)
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSU, D3DTADDRESS_WRAP);
 		DX8Wrapper::Set_DX8_Texture_Stage_State(1,  D3DTSS_ADDRESSV, D3DTADDRESS_WRAP);
 
+#ifdef __APPLE__
+		// This pass multiplies the frame buffer by the light map, masked by
+		// D3DTOP_BLENDCURRENTALPHA against the alpha stage 0 leaves in CURRENT.
+		// That mask is the texture alpha alone, which suits roads — their shape
+		// lives in the texture — but not extra blend tiles, whose coverage lives
+		// in the vertex alpha and never reaches the mask. Uncovered parts of a
+		// tile quad therefore take the light map a second time on top of the one
+		// the terrain pass already applied, and darken as grid aligned patches.
+		// Masking by textureAlpha * diffuseAlpha covers both callers: roads keep
+		// today's result because their vertex alpha is opaque.
+		DX8Wrapper::Set_DX8_Render_State(D3DRS_TEXTUREFACTOR, 0xFFFFFFFF);
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_COLORARG2, D3DTA_TFACTOR);
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_COLOROP,   D3DTOP_SELECTARG2);
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE );
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE );
+		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAOP,   D3DTOP_MODULATE );
+#else
 		//Copy alpha channel into stage 1 but mask out color channel by replacing with white.
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_COLORARG1, D3DTA_TEXTURE );
 		//Force color channel to white by copying the alpha into RGB
@@ -2508,6 +2526,7 @@ Int RoadShader2Stage::set(Int pass)
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAARG1, D3DTA_TEXTURE );
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAARG2, D3DTA_DIFFUSE );
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 0, D3DTSS_ALPHAOP,   D3DTOP_SELECTARG1 );
+#endif
 
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 1, D3DTSS_COLORARG1, D3DTA_TEXTURE );
 		DX8Wrapper::Set_DX8_Texture_Stage_State( 1, D3DTSS_COLORARG2, D3DTA_CURRENT );
@@ -2546,6 +2565,10 @@ void RoadShader2Stage::reset()
 
 	DX8Wrapper::Set_DX8_Texture_Stage_State( 1, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_DISABLE);
 	DX8Wrapper::Set_DX8_Texture_Stage_State( 1, D3DTSS_TEXCOORDINDEX, D3DTSS_TCI_PASSTHRU|1);
+
+#ifdef __APPLE__
+	DX8Wrapper::Set_DX8_Render_State(D3DRS_TEXTUREFACTOR, 0);
+#endif
 }
 
 /** List of all custom shader lists - each list in this list contains variations of the same
