@@ -56,11 +56,18 @@ struct GameProfile: Identifiable {
     let executableName: String
     let patchAssetsDirName: String
     let patchMarkers: [String]
-    let localeMarkers: [String]
+    let localeLanguages: [String]
+    let localeRequiredFiles: [String]
     let localeDirName: String
     let localeFileName: String
     let onlineSettingsRelativePath: String?
     let supportedSettings: Set<SettingKey>
+
+    var localeMarkers: [String] {
+        localeLanguages.flatMap { language in
+            localeRequiredFiles.map { "\(localeDirName)/\(language)/\($0)" }
+        }
+    }
 
     var optionsFileURL: URL {
         userDataDirURL.appendingPathComponent("Options.ini")
@@ -139,6 +146,19 @@ struct GameProfile: Identifiable {
 }
 
 extension GameProfile {
+    static let patchLanguages = [
+        "English", "German", "French", "Spanish", "Italian",
+        "Korean", "Chinese", "Polish", "Brazilian",
+        "Russian", "Ukrainian"
+    ]
+
+    static let localeFilesRequiredToBoot = [
+        "generals.csf",
+        "Language.ini",
+        "HeaderTemplate.ini",
+        "CommandMap.ini"
+    ]
+
     static let fallbackLanguages = [SettingsDefaults.gameLanguage]
 
     private static let languageOrder = [
@@ -178,19 +198,8 @@ extension GameProfile {
             "400_ControlBarHDEnglishZH.big",
             "990_DecalsZH.big"
         ],
-        localeMarkers: [
-            "Data/English/generals.csf",
-            "Data/German/generals.csf",
-            "Data/French/generals.csf",
-            "Data/Spanish/generals.csf",
-            "Data/Italian/generals.csf",
-            "Data/Korean/generals.csf",
-            "Data/Chinese/generals.csf",
-            "Data/Polish/generals.csf",
-            "Data/Brazilian/generals.csf",
-            "Data/Russian/generals.csf",
-            "Data/Ukrainian/generals.csf"
-        ],
+        localeLanguages: GameProfile.patchLanguages,
+        localeRequiredFiles: GameProfile.localeFilesRequiredToBoot,
         localeDirName: "Data",
         localeFileName: "generals.csf",
         onlineSettingsRelativePath: "GeneralsOnlineData/settings.json",
@@ -225,19 +234,8 @@ extension GameProfile {
             "Window/ControlBar.wnd",
             "Data/INI/ControlBarScheme.ini"
         ],
-        localeMarkers: [
-            "Data/English/generals.csf",
-            "Data/German/generals.csf",
-            "Data/French/generals.csf",
-            "Data/Spanish/generals.csf",
-            "Data/Italian/generals.csf",
-            "Data/Korean/generals.csf",
-            "Data/Chinese/generals.csf",
-            "Data/Polish/generals.csf",
-            "Data/Brazilian/generals.csf",
-            "Data/Russian/generals.csf",
-            "Data/Ukrainian/generals.csf"
-        ],
+        localeLanguages: GameProfile.patchLanguages,
+        localeRequiredFiles: GameProfile.localeFilesRequiredToBoot,
         localeDirName: "Data",
         localeFileName: "generals.csf",
         onlineSettingsRelativePath: nil,
