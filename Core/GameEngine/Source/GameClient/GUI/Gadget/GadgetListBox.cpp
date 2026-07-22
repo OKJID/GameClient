@@ -1303,7 +1303,8 @@ WindowMsgHandledType GadgetListBoxSystem( GameWindow *window, UnsignedInt msg,
 			pos = (ICoord2D *)mData1;
 			TextAndColor *tAndC = (TextAndColor *)mData2;
 
-			if(pos->x >= list->columns || pos->y >= list->listLength ||
+			if(pos->x < 0 || pos->y < 0 || pos->x >= list->columns || pos->y >= list->endPos ||
+					list->listData[pos->y].cell == nullptr ||
 					list->listData[pos->y].cell[pos->x].cellType != LISTBOX_TEXT)
 			{
 				tAndC->string = UnicodeString::TheEmptyString;
@@ -2539,7 +2540,8 @@ void GadgetListBoxSetListLength( GameWindow *listbox, Int newLength )
     if(listboxData->insertPos > newLength)
 			listboxData->insertPos = newLength;
 
-    listboxData->endPos = newLength;
+		if( listboxData->endPos > newLength )
+			listboxData->endPos = newLength;
 		//copy only the data that we'll be needing.
 		memcpy(newData,listboxData->listData,newLength * sizeof( ListEntryRow ) );
 	}

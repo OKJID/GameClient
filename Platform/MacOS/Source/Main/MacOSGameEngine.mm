@@ -8,6 +8,8 @@
 
 #include "MacOSGameEngine.h"
 
+#include "Utility/time_compat.h"
+
 #include "W3DDevice/GameLogic/W3DGameLogic.h"
 #include "W3DDevice/GameClient/W3DGameClient.h"
 #include "W3DDevice/Common/W3DModuleFactory.h"
@@ -180,7 +182,10 @@ void MacOSGameEngine::serviceWindowsOS()
 		                                     inMode:NSDefaultRunLoopMode
 		                                    dequeue:YES])) {
 			
-			unsigned int timeMs = (unsigned int)([event timestamp] * 1000.0);
+			// NSEvent timestamps run on mach_absolute_time, which stops during sleep, while
+			// timeGetTime() runs on CLOCK_MONOTONIC. Mixing the two makes Keyboard::checkKeyRepeat()
+			// see a multi-hour key hold and repeat on the very next frame.
+			unsigned int timeMs = timeGetTime();
 			TheMessageTime = timeMs;
 			NSEventType type = [event type];
 			
