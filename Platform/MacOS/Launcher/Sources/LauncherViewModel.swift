@@ -171,11 +171,15 @@ class LauncherViewModel: ObservableObject {
             return
         }
 
+        let previous = selectedGameID
         isInitializing = true
         GameProfile.selectedID = id
         selectedGameID = id
         loadSettings()
         isInitializing = false
+
+        Analytics.logGameSwitched(from: previous)
+        Analytics.logSettingsSnapshot(self)
     }
 
     func saveCredentials() {

@@ -33,6 +33,7 @@ enum Analytics {
         var enriched = params
         enriched["engagement_time_msec"] = 1
         enriched["launcher_version"] = launcherVersion
+        enriched["game"] = GameProfile.selectedID.rawValue
 
         let payload: [String: Any] = [
             "client_id": clientId,
@@ -58,18 +59,29 @@ enum Analytics {
     }
 
     static func logSettingsSnapshot(_ vm: LauncherViewModel) {
-        log("settings_snapshot", [
-            "windowed_edge_scroll": vm.isWindowedEdgeScrollEnabled.gaFlag,
-            "hotkey_labels": vm.showHotkeyLabels.gaFlag,
-            "game_language": vm.gameLanguage,
-            "ui_language": vm.selectedLanguage,
-            "limit_framerate": vm.limitFramerate.gaFlag,
-            "fps_limit": Int(vm.fpsLimit),
-            "stats_overlay": vm.statsOverlay.gaFlag,
-            "alternative_endpoint": vm.useAlternativeEndpoint.gaFlag,
-            "verbose_logging": vm.verboseLogging.gaFlag,
-            "camera_move_speed": vm.cameraMoveSpeed
-        ])
+        let profile = vm.selectedProfile
+        let reportable: [(SettingKey, String, Any)] = [
+            (.gameLanguage, "game_language", vm.gameLanguage),
+            (.windowedEdgeScroll, "windowed_edge_scroll", vm.isWindowedEdgeScrollEnabled.gaFlag),
+            (.showHotkeyLabels, "hotkey_labels", vm.showHotkeyLabels.gaFlag),
+            (.limitFramerate, "limit_framerate", vm.limitFramerate.gaFlag),
+            (.fpsLimit, "fps_limit", Int(vm.fpsLimit)),
+            (.statsOverlay, "stats_overlay", vm.statsOverlay.gaFlag),
+            (.altEndpoint, "alternative_endpoint", vm.useAlternativeEndpoint.gaFlag),
+            (.verboseLogging, "verbose_logging", vm.verboseLogging.gaFlag),
+            (.cameraSpeed, "camera_move_speed", vm.cameraMoveSpeed)
+        ]
+
+        var params: [String: Any] = ["ui_language": vm.selectedLanguage]
+        for (key, name, value) in reportable where profile.supports(key) {
+            params[name] = value
+        }
+
+        log("settings_snapshot", params)
+    }
+
+    static func logGameSwitched(from previous: GameID) {
+        log("game_switched", ["from_game": previous.rawValue])
     }
 
     static func logSettingChanged(_ key: String, value: Any) {
