@@ -318,13 +318,16 @@ class LauncherViewModel: ObservableObject {
         guard canLaunch else { return }
         isLaunching = true
 
-        guard let executableURL = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent("GeneralsOnlineZH") else {
+        let profile = selectedProfile
+        guard let executableURL = Bundle.main.executableURL?
+            .deletingLastPathComponent()
+            .appendingPathComponent(profile.executableName) else {
             isLaunching = false
             return
         }
 
         guard FileManager.default.fileExists(atPath: executableURL.path) else {
-            alertMessage = "Engine binary not found at \(executableURL.path)"
+            alertMessage = "\(profile.displayName) binary not found at \(executableURL.path)"
             isLaunching = false
             return
         }

@@ -26,6 +26,8 @@ fi
 LAUNCHER_NAME="GeneralsLauncher"
 FINAL_APP_NAME="Generals Online"
 CMAKE_APP_DIR="../../../build/macos/GeneralsMD/GeneralsOnlineZH.app"
+CMAKE_VANILLA_APP_DIR="../../../build/macos/Generals/GeneralsVanilla.app"
+VANILLA_BINARY_NAME="GeneralsVanilla"
 DIST_DIR="build/dist"
 OUTPUTS_DIR="outputs"
 FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
@@ -57,7 +59,18 @@ MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 GAME_BINARY="$MACOS_DIR/GeneralsOnlineZH"
+VANILLA_BINARY="$MACOS_DIR/$VANILLA_BINARY_NAME"
 GNS_SEARCH_PATH="../../../build/macos/bin"
+
+# Both games share this shell: their Resources are byte-identical and classic
+# Generals carries no libraries of its own, so it needs only its binary here.
+if [ -f "$CMAKE_VANILLA_APP_DIR/Contents/MacOS/$VANILLA_BINARY_NAME" ]; then
+    echo "📂 Adding classic Generals binary..."
+    cp "$CMAKE_VANILLA_APP_DIR/Contents/MacOS/$VANILLA_BINARY_NAME" "$VANILLA_BINARY"
+else
+    echo "⚠️ Warning: $CMAKE_VANILLA_APP_DIR not built, shipping Zero Hour only."
+    VANILLA_BINARY=""
+fi
 
 echo "📦 [1/7] Bundling third-party dynamic libraries..."
 export PATH="/opt/homebrew/bin:$PATH"
@@ -67,18 +80,27 @@ if ! command -v dylibbundler &>/dev/null; then
     exit 1
 fi
 
-dylibbundler -od -b \
-    -x "$GAME_BINARY" \
-    -d "$FRAMEWORKS_DIR" \
-    -p @executable_path/../Frameworks/ \
-    -s "$GNS_SEARCH_PATH"
+if [ -n "$VANILLA_BINARY" ]; then
+    dylibbundler -od -b \
+        -x "$GAME_BINARY" \
+        -x "$VANILLA_BINARY" \
+        -d "$FRAMEWORKS_DIR" \
+        -p @executable_path/../Frameworks/ \
+        -s "$GNS_SEARCH_PATH"
+else
+    dylibbundler -od -b \
+        -x "$GAME_BINARY" \
+        -d "$FRAMEWORKS_DIR" \
+        -p @executable_path/../Frameworks/ \
+        -s "$GNS_SEARCH_PATH"
+fi
 
 if [ $? -ne 0 ]; then
     echo "❌ dylibbundler failed!"
     exit 1
 fi
 
-echo "🔒 [2/7] Cleaning RPATHs and re-signing..."
+echo "🔒 [2/7] Cleaning RPATHs..."
 
 # dylibbundler modifies all dylibs in Frameworks/, including libEOSSDK-Mac-Shipping.dylib
 # (EAC plugin dependency), corrupting its original code signature.
@@ -88,13 +110,19 @@ if [ -f "$EOS_SDK_BUILD" ]; then
     cp -f "$EOS_SDK_BUILD" "$FRAMEWORKS_DIR/libEOSSDK-Mac-Shipping.dylib"
 fi
 
-EXISTING_RPATHS=$(otool -l "$GAME_BINARY" | grep -A 2 LC_RPATH | awk '/path / {print $2}')
-for rp in $EXISTING_RPATHS; do
-    while install_name_tool -delete_rpath "$rp" "$GAME_BINARY" 2>/dev/null; do true; done
-done
-install_name_tool -add_rpath "@executable_path/../Frameworks/" "$GAME_BINARY"
+retarget_rpaths() {
+    binary="$1"
+    existing=$(otool -l "$binary" | grep -A 2 LC_RPATH | awk '/path / {print $2}')
+    for rp in $existing; do
+        while install_name_tool -delete_rpath "$rp" "$binary" 2>/dev/null; do true; done
+    done
+    install_name_tool -add_rpath "@executable_path/../Frameworks/" "$binary"
+}
 
-codesign --force --deep -s - "$FINAL_APP_DIR"
+retarget_rpaths "$GAME_BINARY"
+if [ -n "$VANILLA_BINARY" ]; then
+    retarget_rpaths "$VANILLA_BINARY"
+fi
 
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc $(find Sources -name "*.swift") \
@@ -135,14 +163,19 @@ else
     echo "   Analytics: disabled (no .env keys)"
 fi
 
-echo "📝 [5/7] Copying HTML instructions..."
+echo "🔏 [5/7] Signing the finished bundle..."
+# Signing has to come last: compiling the launcher in and editing Info.plist
+# both invalidate an earlier seal.
+codesign --force --deep -s - "$FINAL_APP_DIR"
+
+echo "📝 [6/7] Copying HTML instructions..."
 if [ -f "www/instructions.html" ]; then
     cp "www/instructions.html" "$OUTPUTS_DIR/$INSTRUCTIONS_NAME"
 else
     echo "⚠️ Warning: www/instructions.html not found, skipping HTML instructions."
 fi
 
-echo "🗜️ [6/7] Creating final deployment ZIP..."
+echo "🗜️ [7/7] Creating final deployment ZIP..."
 # Идем в dist, чтобы в архиве корневым элементом была сама app, без папок build/dist
 cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"
