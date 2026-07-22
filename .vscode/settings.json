@@ -11,5 +11,6 @@
     "terminal.integrated.defaultProfile.osx": "zsh",
     "editor.rulers": [
         120
-    ]
+    ],
+    "python-envs.defaultEnvManager": "ms-python.python:system"
 }

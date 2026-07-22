@@ -14,7 +14,7 @@ export PATH="/opt/homebrew/bin:$PATH"
 
 # ── Game Selection ──
 # Which game to launch. Both are always built; this picks the one that runs.
-RUN_VANILLA=true
+RUN_VANILLA=false
 
 # ── Game Command-Line Flags ──
 # Toggle on/off: true = pass to game, false = skip
