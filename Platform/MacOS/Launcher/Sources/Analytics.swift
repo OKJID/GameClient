@@ -24,14 +24,24 @@ enum Analytics {
         return generated
     }()
 
+    private static let sessionId: String = "\(Int(Date().timeIntervalSince1970))"
+
     private static let launcherVersion: String =
         (Bundle.main.object(forInfoDictionaryKey: "GOLauncherVersion") as? String) ?? "unknown"
+
+    private static let userAgent: String = {
+        let v = ProcessInfo.processInfo.operatingSystemVersion
+        let osToken = "\(v.majorVersion)_\(v.minorVersion)_\(v.patchVersion)"
+        return "Mozilla/5.0 (Macintosh; Intel Mac OS X \(osToken)) AppleWebKit/605.1.15 "
+            + "(KHTML, like Gecko) Version/17.0 Safari/605.1.15 GeneralsLauncher/\(launcherVersion)"
+    }()
 
     static func log(_ name: String, _ params: [String: Any] = [:]) {
         guard !isOptedOut, measurementId.hasPrefix("G-"), !apiSecret.isEmpty else { return }
 
         var enriched = params
         enriched["engagement_time_msec"] = 1
+        enriched["session_id"] = sessionId
         enriched["launcher_version"] = launcherVersion
         enriched["game"] = GameProfile.selectedID.rawValue
 
@@ -48,6 +58,7 @@ enum Analytics {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.httpBody = body
+        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         URLSession.shared.dataTask(with: request).resume()
     }
 
