@@ -60,7 +60,7 @@ void FramePacer::update()
 
 void FramePacer::setFramesPerSecondLimit( Int fps )
 {
-	DEBUG_LOG(("FramePacer::setFramesPerSecondLimit() - setting max fps to %d (TheGlobalData->m_useFpsLimit == %d)", fps, TheGlobalData->m_useFpsLimit));
+	// DEBUG_LOG(("FramePacer::setFramesPerSecondLimit() - setting max fps to %d (TheGlobalData->m_useFpsLimit == %d)", fps, TheGlobalData->m_useFpsLimit));
 
 	// clamp FPS to at least render at same as logic
 #if defined(GENERALS_ONLINE)

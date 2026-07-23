@@ -4234,7 +4234,7 @@ void GameLogic::update()
 	if (!m_startNewGame)
 	{
 		m_frame++;
-		DEBUG_INFO_MAC(("[FRAME_TRACK] m_frame++ -> %d", m_frame));
+		// DEBUG_INFO_MAC(("[FRAME_TRACK] m_frame++ -> %d", m_frame));
 		m_hasUpdated = TRUE;
 #if defined(GENERALS_ONLINE_HIGH_FPS_SERVER)
 		if (m_frame % 2 == 0)
