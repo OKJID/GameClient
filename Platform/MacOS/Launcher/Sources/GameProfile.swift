@@ -48,6 +48,7 @@ struct GameProfile: Identifiable {
     let id: GameID
     let displayName: String
     let shortName: String
+    let logsArchivePrefix: String
     let theme: LauncherTheme
     let userDataDirName: String
     let requiredArchive: String
@@ -181,6 +182,7 @@ extension GameProfile {
         id: .zeroHour,
         displayName: "Generals Zero Hour",
         shortName: "ZERO HOUR",
+        logsArchivePrefix: "GeneralsZHLogs",
         theme: .zeroHour,
         userDataDirName: "Command and Conquer Generals Zero Hour Data",
         requiredArchive: "INIZH.big",
@@ -222,6 +224,7 @@ extension GameProfile {
         id: .generals,
         displayName: "Generals",
         shortName: "GENERALS",
+        logsArchivePrefix: "GeneralsLogs",
         theme: .generals,
         userDataDirName: "Command and Conquer Generals Data",
         requiredArchive: "INI.big",
@@ -242,7 +245,8 @@ extension GameProfile {
         supportedSettings: [
             .gameLanguage,
             .windowedEdgeScroll,
-            .showHotkeyLabels
+            .showHotkeyLabels,
+            .verboseLogging
         ]
     )
 

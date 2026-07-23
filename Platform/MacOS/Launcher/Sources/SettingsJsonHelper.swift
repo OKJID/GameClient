@@ -25,8 +25,7 @@ struct SettingsJsonHelper {
         limitFramerate: Bool,
         fpsLimit: Int,
         statsOverlay: Bool,
-        useAlternativeEndpoint: Bool,
-        verboseLogging: Bool
+        useAlternativeEndpoint: Bool
     ) {
         guard let path = settingsFilePath else {
             return
@@ -66,12 +65,7 @@ struct SettingsJsonHelper {
             network["http_version"] = 0
         }
         json["network"] = network
-        
-        // Patch debug section
-        var debug = json["debug"] as? [String: Any] ?? [:]
-        debug["verbose_logging"] = verboseLogging
-        json["debug"] = debug
-        
+
         if let data = try? JSONSerialization.data(withJSONObject: json, options: [.prettyPrinted]),
            let jsonString = String(data: data, encoding: .utf8) {
             try? jsonString.write(to: path, atomically: true, encoding: .utf8)

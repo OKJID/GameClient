@@ -78,10 +78,10 @@ class LauncherViewModel: ObservableObject {
         }
     }
     
-    // settings.json debug settings
+    // Options.ini debug settings
     @Published var verboseLogging: Bool = SettingsDefaults.verboseLogging {
         didSet {
-            saveSettings()
+            OptionsIniHelper.writeValue(value: verboseLogging ? "yes" : "no", forKey: "VerboseEngineLogging")
             reportSettingChange("verbose_logging", verboseLogging)
         }
     }
@@ -133,6 +133,7 @@ class LauncherViewModel: ObservableObject {
 
         isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
         showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
+        verboseLogging = OptionsIniHelper.readValue(forKey: "VerboseEngineLogging") == "yes"
         gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
 
         loadOnlineSettings()
@@ -161,9 +162,6 @@ class LauncherViewModel: ObservableObject {
 
         let network = json["network"] as? [String: Any]
         useAlternativeEndpoint = network?["use_alternative_endpoint"] as? Bool ?? SettingsDefaults.useAlternativeEndpoint
-
-        let debug = json["debug"] as? [String: Any]
-        verboseLogging = debug?["verbose_logging"] as? Bool ?? SettingsDefaults.verboseLogging
     }
 
     func selectGame(_ id: GameID) {
@@ -201,8 +199,7 @@ class LauncherViewModel: ObservableObject {
             limitFramerate: limitFramerate,
             fpsLimit: Int(fpsLimit),
             statsOverlay: statsOverlay,
-            useAlternativeEndpoint: useAlternativeEndpoint,
-            verboseLogging: verboseLogging
+            useAlternativeEndpoint: useAlternativeEndpoint
         )
     }
 
