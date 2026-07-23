@@ -7,6 +7,7 @@
 #include <codecvt>
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_Auth.h"
+#include "Common/System/NativeFileSystem.h"
 
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
@@ -23,10 +24,10 @@ std::wstring from_utf8(const std::string& utf8_str)
 {
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 	std::wstring result = converter.from_bytes(utf8_str);
-	DEBUG_INFO_MAC(("from_utf8 input='%s' (len %zu) -> output wlen=%zu", utf8_str.c_str(), utf8_str.length(), result.length()));
-	if (result.length() > 0) {
-		DEBUG_INFO_MAC(("from_utf8 first char: 0x%X", (unsigned int)result[0]));
-	}
+	// DEBUG_INFO_MAC(("from_utf8 input='%s' (len %zu) -> output wlen=%zu", utf8_str.c_str(), utf8_str.length(), result.length()));
+	// if (result.length() > 0) {
+	// 	DEBUG_INFO_MAC(("from_utf8 first char: 0x%X", (unsigned int)result[0]));
+	// }
 	return result;
 }
 
@@ -80,10 +81,22 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 		ss << "GeneralsOnline.log";
 #endif
 */
-		std::ofstream overwriteFile(m_strNetworkLogFileName);
-
-		// log start msg
-		overwriteFile << std::put_time(std::localtime(&in_time_t), "Log Started at %Y/%m/%d %H:%M") << std::endl;
+		// Path keeps engine backslashes; NativeFileSystem translates \ -> / at the Apple boundary.
+		// Do not switch to raw std::ofstream here, or the backslashes leak into the filename.
+		FILE* overwriteFile = NativeFileSystem::fopen(m_strNetworkLogFileName, "wb");
+		if (overwriteFile)
+		{
+			struct tm startTm = {};
+#ifdef __APPLE__
+			localtime_r(&in_time_t, &startTm);
+#else
+			localtime_s(&startTm, &in_time_t);
+#endif
+			char startLine[64];
+			size_t startLen = strftime(startLine, sizeof(startLine), "Log Started at %Y/%m/%d %H:%M\n", &startTm);
+			fwrite(startLine, 1, startLen, overwriteFile);
+			fclose(overwriteFile);
+		}
 	}
 
 	auto const rawNow = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
@@ -106,10 +119,13 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	std::string strLogBuffer = std::format("[{}] {}", timebuf, buffer);
 
 	// TODO_NGMP: Keep open and flush regularly
-	std::ofstream logFile;
-	logFile.open(m_strNetworkLogFileName, std::ios_base::app);
-	logFile << strLogBuffer.c_str() << std::endl;
-	logFile.close();
+	FILE* logFile = NativeFileSystem::fopen(m_strNetworkLogFileName, "ab");
+	if (logFile)
+	{
+		fwrite(strLogBuffer.data(), 1, strLogBuffer.size(), logFile);
+		fputc('\n', logFile);
+		fclose(logFile);
+	}
 
 #if defined(GENERALS_ONLINE_BRANCH_JMARSHALL)
 	DevConsole.AddLog(strLogBuffer.c_str());
