@@ -836,7 +836,16 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
                     if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
                 }
             }
-            return tc.xyz;
+            // Non-projected texgen (COUNT2): tc.z is the raw third matrix
+            // component, not a projective clip coordinate. The fragment body
+            // discards when any uv.z < 0 to emulate projected-texture clipping,
+            // and only the .xy of the result is ever sampled — so leaking a raw
+            // negative tc.z here made the projected terrain overlay (cloud/light
+            // map) get discarded in bands wherever tc.z dipped below zero across
+            // the near-flat lowland, producing shimmering horizontal stripes.
+            // Force z=0 so only genuine projected clipping (the -1 sentinel
+            // above) can trigger the discard.
+            return float3(tc.xy, 0.0f);
         }
         return unprojected.xyz;
     };
