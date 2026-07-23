@@ -265,83 +265,31 @@ public:
 // MACROS //////////////////////////////////////////////////////////////////
 
 
-
 #ifdef __APPLE__
 	#include <stdio.h>
 	#include <stdlib.h>
 
+	void MacDebugLogConfigure(bool enabled, const char* dir);
+	bool MacDebugLogEnabled();
+	void MacDebugLogWrite(const char* tag, const char* fmt, ...);
+
+	#define MAC_LOG_ARGS(...) __VA_ARGS__
 	#define MAC_LOG_TAG(tag, m) do { \
-		printf("[" tag "] "); \
-		printf m; \
-		printf("\n"); \
-		fflush(stdout); \
+		if (MacDebugLogEnabled()) MacDebugLogWrite(tag, MAC_LOG_ARGS m); \
 	} while(0)
 
-	#define DEBUG_CRASH_MAC(m) do { \
-		if (getenv("GENERALS_MAC_DEBUG") && atoi(getenv("GENERALS_MAC_DEBUG")) != 0) { \
-			MAC_LOG_TAG("DEBUG_CRASH_MAC", m); \
-		} \
-	} while(0)
+	#define DEBUG_CRASH_MAC(m) MAC_LOG_TAG("DEBUG_CRASH_MAC", m)
 #else
 	#define MAC_LOG_TAG(tag, m) ((void)0)
 	#define DEBUG_CRASH_MAC(m) ((void)0)
 #endif
 
-// #define DEBUG_BUILDMAPCACHE_FLAG
-// #define DEBUG_INFO_MAC_FLAG
-// #define DEBUG_FILESYSTEM_MAC_FLAG
-// #define DEBUG_RENDER_CORE_MAC_FLAG
-// #define DEBUG_NETWORK_MAC_FLAG
-// #define DEBUG_AUTH_MAC_FLAG
-// #define DEBUG_EAC_MAC_FLAG
-
-#define DEBUG_SETTINGS_MAC_FLAG
-
-#ifdef DEBUG_BUILDMAPCACHE_FLAG
-	#define DEBUG_BUILDMAPCACHE(m) MAC_LOG_TAG("DEBUG_BUILDMAPCACHE", m)
-#else
-	#define DEBUG_BUILDMAPCACHE(m) ((void)0)
-#endif
-
-#ifdef DEBUG_INFO_MAC_FLAG
-	#define DEBUG_INFO_MAC(m) MAC_LOG_TAG("DEBUG_INFO_MAC", m)
-#else
-	#define DEBUG_INFO_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_FILESYSTEM_MAC_FLAG
-	#define DEBUG_FILESYSTEM_MAC(m) MAC_LOG_TAG("DEBUG_FILESYSTEM_MAC", m)
-#else
-	#define DEBUG_FILESYSTEM_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_RENDER_CORE_MAC_FLAG
-	#define DEBUG_RENDER_CORE_MAC(m) MAC_LOG_TAG("DEBUG_RENDER_CORE_MAC", m)
-#else
-	#define DEBUG_RENDER_CORE_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_NETWORK_MAC_FLAG
-	#define DEBUG_NETWORK_MAC(m) MAC_LOG_TAG("DEBUG_NETWORK_MAC", m)
-#else
-	#define DEBUG_NETWORK_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_AUTH_MAC_FLAG
-	#define DEBUG_AUTH_MAC(m) MAC_LOG_TAG("DEBUG_AUTH_MAC", m)
-#else
-	#define DEBUG_AUTH_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_EAC_MAC_FLAG
-	#define DEBUG_EAC_MAC(m) MAC_LOG_TAG("DEBUG_EAC_MAC", m)
-#else
-	#define DEBUG_EAC_MAC(m) ((void)0)
-#endif
-
-#ifdef DEBUG_SETTINGS_MAC_FLAG
-	#define DEBUG_SETTINGS_MAC(m) MAC_LOG_TAG("DEBUG_SETTINGS_MAC", m)
-#else
-	#define DEBUG_SETTINGS_MAC(m) ((void)0)
-#endif
+#define DEBUG_BUILDMAPCACHE(m) MAC_LOG_TAG("DEBUG_BUILDMAPCACHE", m)
+#define DEBUG_INFO_MAC(m) MAC_LOG_TAG("DEBUG_INFO_MAC", m)
+#define DEBUG_FILESYSTEM_MAC(m) MAC_LOG_TAG("DEBUG_FILESYSTEM_MAC", m)
+#define DEBUG_RENDER_CORE_MAC(m) MAC_LOG_TAG("DEBUG_RENDER_CORE_MAC", m)
+#define DEBUG_NETWORK_MAC(m) MAC_LOG_TAG("DEBUG_NETWORK_MAC", m)
+#define DEBUG_AUTH_MAC(m) MAC_LOG_TAG("DEBUG_AUTH_MAC", m)
+#define DEBUG_EAC_MAC(m) MAC_LOG_TAG("DEBUG_EAC_MAC", m)
+#define DEBUG_SETTINGS_MAC(m) MAC_LOG_TAG("DEBUG_SETTINGS_MAC", m)
 

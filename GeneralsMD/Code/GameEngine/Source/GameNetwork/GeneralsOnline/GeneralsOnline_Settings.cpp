@@ -3,6 +3,7 @@
 #include "../OnlineServices_LobbyInterface.h"
 #include "../OnlineServices_Init.h"
 #include "Common/System/NativeFileSystem.h"
+#include "Common/OptionPreferences.h"
 
 #define SETTINGS_KEY_CAMERA "camera"
 #define SETTINGS_KEY_CAMERA_MIN_HEIGHT "min_height"
@@ -299,6 +300,10 @@ void GenOnlineSettings::Load(void)
 	
 	// Always save so we re-serialize anything new or missing
 	Save();
+
+#ifdef __APPLE__
+	m_bVerbose = OptionPreferences().getVerboseEngineLogging();
+#endif
 }
 
 void GenOnlineSettings::Save()

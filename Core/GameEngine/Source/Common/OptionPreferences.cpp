@@ -442,6 +442,18 @@ Bool OptionPreferences::getShowHotKeyLabels() const
 	return FALSE;
 }
 
+Bool OptionPreferences::getVerboseEngineLogging() const
+{
+	OptionPreferences::const_iterator it = find("VerboseEngineLogging");
+	if (it == end())
+		return FALSE;
+
+	if (stricmp(it->second.str(), "yes") == 0)
+		return TRUE;
+
+	return FALSE;
+}
+
 Bool OptionPreferences::usesSystemMapDir()
 {
 	OptionPreferences::const_iterator it = find("UseSystemMapDir");

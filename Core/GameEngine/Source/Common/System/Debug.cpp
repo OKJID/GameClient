@@ -61,6 +61,13 @@
 #include "Common/CommandLine.h"
 #include "Common/Debug.h"
 #include "Common/CRCDebug.h"
+#ifdef __APPLE__
+#include "Common/System/NativeFileSystem.h"
+#include <cstdarg>
+#include <cstdlib>
+#include <mutex>
+#include <string>
+#endif
 #include "Common/UnicodeString.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/GameText.h"
@@ -893,3 +900,70 @@ void ReleaseCrashLocalized(const AsciiString& p, const AsciiString& m)
 
 	_exit(1);
 }
+
+#ifdef __APPLE__
+
+static bool s_macLogEnabled = false;
+static std::string s_macLogDir;
+static std::string s_macLogPath;
+static bool s_macLogTruncated = false;
+static std::mutex s_macLogMutex;
+
+static bool macLogEnvForced()
+{
+	static int cached = -1;
+	if (cached < 0)
+	{
+		const char* env = getenv("GENERALS_MAC_DEBUG");
+		cached = (env && atoi(env) != 0) ? 1 : 0;
+	}
+	return cached != 0;
+}
+
+void MacDebugLogConfigure(bool enabled, const char* dir)
+{
+	std::scoped_lock lock(s_macLogMutex);
+	s_macLogEnabled = enabled;
+	s_macLogDir = (dir != nullptr) ? dir : "";
+	s_macLogPath.clear();
+	s_macLogTruncated = false;
+}
+
+bool MacDebugLogEnabled()
+{
+	return s_macLogEnabled || macLogEnvForced();
+}
+
+void MacDebugLogWrite(const char* tag, const char* fmt, ...)
+{
+	if (!MacDebugLogEnabled())
+	{
+		return;
+	}
+
+	std::scoped_lock lock(s_macLogMutex);
+
+	if (s_macLogPath.empty())
+	{
+		s_macLogPath = s_macLogDir.empty()
+			? std::string("MacDebug.txt")
+			: s_macLogDir + "MacDebug.txt";
+	}
+
+	FILE* fp = NativeFileSystem::fopen(s_macLogPath, s_macLogTruncated ? "ab" : "wb");
+	if (fp == nullptr)
+	{
+		return;
+	}
+	s_macLogTruncated = true;
+
+	fprintf(fp, "[%s] ", tag);
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(fp, fmt, args);
+	va_end(args);
+	fputc('\n', fp);
+	fclose(fp);
+}
+
+#endif // __APPLE__
