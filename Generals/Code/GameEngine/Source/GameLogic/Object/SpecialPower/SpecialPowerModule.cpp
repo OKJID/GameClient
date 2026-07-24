@@ -96,10 +96,14 @@ SpecialPowerModule::SpecialPowerModule( Thing *thing, const ModuleData *moduleDa
 									: BehaviorModule( thing, moduleData )
 {
 
+// TheSuperHackers @bugfix The 0xFFFFFFFF sentinel from the MissileLauncherBuildingUpdate crash fix
+// is never cleared in this engine, so a structure raised under OBJECT_STATUS_UNDER_CONSTRUCTION skips
+// startPowerRecharge() and keeps a ready frame that can never be reached - the Strategy Center battle
+// plans stay permanently unavailable. Zero Hour already initializes to 0 here; match it.
 #if RETAIL_COMPATIBLE_CRC
 	m_availableOnFrame = 0;
 #else
-	m_availableOnFrame = 0xFFFFFFFF;
+	m_availableOnFrame = 0;
 #endif
 	m_pausedCount = 0;
 	m_pausedOnFrame = 0;
