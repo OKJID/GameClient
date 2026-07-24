@@ -3414,6 +3414,8 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 		return;
 	}
 
+	Int oldXRes = TheWritableGlobalData->m_xResolution;
+
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
 	TheWritableGlobalData->m_windowed = isWindowed;
@@ -3437,7 +3439,20 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 			TheInGameUI->recreateControlBar();
 			TheInGameUI->refreshCustomUiResources();
 		}
+	} else if (TheControlBar) {
+		// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored
+		// UI elements during gameplay resize (shortcut bar, right HUD).
+		TheControlBar->repositionForResolution(oldXRes, w);
 	}
+
+	OptionPreferences pref;
+	if (isWindowed) {
+		AsciiString resStr;
+		resStr.format("%d %d", w, h);
+		pref["Resolution"] = resStr;
+	}
+	pref["Windowed"] = isWindowed ? "yes" : "no";
+	pref.write();
 }
 
 #endif // __APPLE__
