@@ -4,8 +4,8 @@ import AppKit
 struct SidebarView: View {
     @ObservedObject var viewModel: LauncherViewModel
 
-    private var accent: Color { GameProfile.current.theme.accent }
     private var profile: GameProfile { viewModel.selectedProfile }
+    private var accent: Color { profile.theme.accent }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
 
     var body: some View {

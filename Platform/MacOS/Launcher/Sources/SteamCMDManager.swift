@@ -71,7 +71,7 @@ class SteamCMDManager: ObservableObject {
     var baseGameDir: URL { installDir.appendingPathComponent("ZH_Generals") }
 
     var patchTargets: [PatchTarget] {
-        GameProfile.all.compactMap { profile in
+        GameProfile.baseGames.compactMap { profile in
             guard let directory = [assetsDir, baseGameDir].first(where: { profile.matchesInstall(at: $0) }) else {
                 return nil
             }

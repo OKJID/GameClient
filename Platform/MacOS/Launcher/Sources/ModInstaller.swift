@@ -1,0 +1,235 @@
+import Foundation
+
+enum ModInstallState: Equatable {
+    case idle
+    case downloading(part: Int, total: Int, progress: Double)
+    case unpacking(part: Int, total: Int)
+    case completed
+    case failed(String)
+
+    var isRunning: Bool {
+        switch self {
+        case .downloading, .unpacking: return true
+        default: return false
+        }
+    }
+
+    var fraction: Double {
+        switch self {
+        case .idle, .failed: return 0
+        case .completed: return 1
+        case .downloading(let part, let total, let progress):
+            return (Double(part - 1) + progress * 0.9) / Double(total)
+        case .unpacking(let part, let total):
+            return (Double(part - 1) + 0.95) / Double(total)
+        }
+    }
+
+    var statusText: String {
+        switch self {
+        case .idle: return "Not installed"
+        case .downloading(let part, let total, let progress):
+            let percent = Int(progress * 100)
+            return total > 1
+                ? "Downloading part \(part) of \(total) — \(percent)%"
+                : "Downloading — \(percent)%"
+        case .unpacking(let part, let total):
+            return total > 1 ? "Unpacking part \(part) of \(total)" : "Unpacking"
+        case .completed: return "Installed"
+        case .failed(let message): return "Error: \(message)"
+        }
+    }
+}
+
+// Installs a mod package into $INSTALL/Mods/<dirName>/. Multi-part packages are
+// fetched in order and unpacked into the same directory; a mod counts as installed
+// only once every part landed and config.json is present.
+class ModInstaller: ObservableObject {
+    @Published private(set) var states: [GameID: ModInstallState] = [:]
+    @Published private(set) var consoleLog: String = ""
+
+    private var downloadObservation: NSKeyValueObservation?
+
+    var isBusy: Bool {
+        states.values.contains { $0.isRunning }
+    }
+
+    var runningModID: GameID? {
+        states.first { $0.value.isRunning }?.key
+    }
+
+    func state(for id: GameID) -> ModInstallState {
+        states[id] ?? .idle
+    }
+
+    func install(_ profile: GameProfile, installRoot: URL) {
+        guard let mod = profile.mod, let destination = profile.modDirectory(installRoot: installRoot) else {
+            return
+        }
+        guard !isBusy else { return }
+
+        consoleLog = ""
+        appendLog("[*] Installing \(profile.displayName) into \(destination.path)\n")
+
+        do {
+            try recreateDirectory(destination)
+        } catch {
+            fail(profile, destination: nil, message: "Cannot prepare mod directory: \(error.localizedDescription)")
+            return
+        }
+
+        downloadPart(0, profile: profile, mod: mod, destination: destination)
+    }
+
+    func remove(_ profile: GameProfile, installRoot: URL) {
+        guard let destination = profile.modDirectory(installRoot: installRoot) else { return }
+        guard !isBusy else { return }
+
+        try? FileManager.default.removeItem(at: destination)
+        appendLog("[*] Removed \(profile.displayName)\n")
+        setState(.idle, for: profile.id)
+    }
+
+    func resetState(for id: GameID) {
+        guard !state(for: id).isRunning else { return }
+        setState(.idle, for: id)
+    }
+
+    // MARK: - Download
+
+    private func downloadPart(_ index: Int, profile: GameProfile, mod: ModSpec, destination: URL) {
+        guard index < mod.partCount else {
+            finish(profile, destination: destination)
+            return
+        }
+
+        setState(.downloading(part: index + 1, total: mod.partCount, progress: 0), for: profile.id)
+        appendLog("[⭳] Part \(index + 1)/\(mod.partCount): \(mod.downloadURLs[index].lastPathComponent)\n")
+
+        let task = URLSession.shared.downloadTask(with: mod.downloadURLs[index]) { [weak self] localURL, _, error in
+            guard let self else { return }
+
+            if let error {
+                self.fail(profile, destination: destination, message: error.localizedDescription)
+                return
+            }
+
+            guard let localURL else {
+                self.fail(profile, destination: destination, message: "No file returned for part \(index + 1)")
+                return
+            }
+
+            let tempZip = FileManager.default.temporaryDirectory
+                .appendingPathComponent("go_mod_\(UUID().uuidString).zip")
+
+            do {
+                try FileManager.default.moveItem(at: localURL, to: tempZip)
+            } catch {
+                self.fail(profile, destination: destination, message: error.localizedDescription)
+                return
+            }
+
+            DispatchQueue.main.async {
+                self.downloadObservation?.invalidate()
+                self.downloadObservation = nil
+                self.unpackPart(index, zip: tempZip, profile: profile, mod: mod, destination: destination)
+            }
+        }
+
+        downloadObservation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
+            let fraction = progress.fractionCompleted
+            DispatchQueue.main.async {
+                self?.setState(
+                    .downloading(part: index + 1, total: mod.partCount, progress: fraction),
+                    for: profile.id
+                )
+            }
+        }
+
+        task.resume()
+    }
+
+    // MARK: - Unpack
+
+    private func unpackPart(_ index: Int, zip: URL, profile: GameProfile, mod: ModSpec, destination: URL) {
+        setState(.unpacking(part: index + 1, total: mod.partCount), for: profile.id)
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        process.arguments = ["-qo", zip.path, "-d", destination.path]
+
+        process.terminationHandler = { [weak self] proc in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                try? FileManager.default.removeItem(at: zip)
+
+                guard proc.terminationStatus == 0 else {
+                    self.fail(
+                        profile,
+                        destination: destination,
+                        message: "unzip failed on part \(index + 1) (code \(proc.terminationStatus))"
+                    )
+                    return
+                }
+
+                self.downloadPart(index + 1, profile: profile, mod: mod, destination: destination)
+            }
+        }
+
+        do {
+            try process.run()
+        } catch {
+            try? FileManager.default.removeItem(at: zip)
+            fail(profile, destination: destination, message: error.localizedDescription)
+        }
+    }
+
+    private func finish(_ profile: GameProfile, destination: URL) {
+        let fm = FileManager.default
+        let missing = (profile.mod?.markers ?? []).filter { marker in
+            !fm.fileExists(atPath: destination.appendingPathComponent(marker).path)
+        }
+
+        guard missing.isEmpty else {
+            let preview = missing.prefix(3).joined(separator: ", ")
+            fail(profile, destination: destination, message: "\(missing.count) file(s) missing after unpack: \(preview)")
+            return
+        }
+
+        appendLog("[✓] \(profile.displayName) installed\n")
+        setState(.completed, for: profile.id)
+    }
+
+    // MARK: - Helpers
+
+    private func recreateDirectory(_ url: URL) throws {
+        let fm = FileManager.default
+        if fm.fileExists(atPath: url.path) {
+            try fm.removeItem(at: url)
+        }
+
+        try fm.createDirectory(at: url, withIntermediateDirectories: true)
+    }
+
+    private func setState(_ state: ModInstallState, for id: GameID) {
+        DispatchQueue.main.async {
+            self.states[id] = state
+        }
+    }
+
+    private func fail(_ profile: GameProfile, destination: URL?, message: String) {
+        if let destination {
+            try? FileManager.default.removeItem(at: destination)
+        }
+
+        appendLog("\n[✗] \(profile.displayName): \(message)\n")
+        setState(.failed(message), for: profile.id)
+    }
+
+    private func appendLog(_ text: String) {
+        print(text, terminator: "")
+        DispatchQueue.main.async {
+            self.consoleLog += text
+        }
+    }
+}

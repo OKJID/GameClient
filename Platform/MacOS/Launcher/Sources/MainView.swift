@@ -45,7 +45,8 @@ struct ChevronMark: Shape {
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
 
-    private var accent: Color { GameProfile.current.theme.accent }
+    private var theme: LauncherTheme { viewModel.selectedProfile.theme }
+    private var accent: Color { theme.accent }
     private let switcherButtonWidth: CGFloat = 114
     private let switcherContentGap: CGFloat = 12
     private let contentInset: CGFloat = 60
@@ -139,8 +140,7 @@ struct MainView: View {
 
     @ViewBuilder
     private func _buildBackground(size: CGSize) -> some View {
-        if let bgPath = Bundle.main.path(forResource: "background", ofType: "png"),
-           let nsImage = NSImage(contentsOfFile: bgPath) {
+        if let nsImage = _loadBackgroundImage() {
             Image(nsImage: nsImage)
                 .resizable()
                 .scaledToFill()
@@ -150,13 +150,30 @@ struct MainView: View {
         }
     }
 
+    private func _loadBackgroundImage() -> NSImage? {
+        let names = [theme.backgroundImageName, "background"]
+
+        for name in names {
+            guard let path = Bundle.main.path(forResource: name, ofType: "png"),
+                  let image = NSImage(contentsOfFile: path) else {
+                continue
+            }
+
+            return image
+        }
+
+        return nil
+    }
+
     // MARK: - Header
 
     private func _buildGameSwitcher() -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(GameProfile.all) { profile in
-                _buildGameButton(profile)
+            ForEach(GameProfile.baseGames) { profile in
+                _buildGameButton(profile, isEnabled: viewModel.installDirectory(for: profile) != nil)
             }
+
+            _buildModSwitcherSection()
 
             Spacer()
         }
@@ -164,9 +181,26 @@ struct MainView: View {
         .frame(width: switcherColumnWidth, alignment: .leading)
     }
 
-    private func _buildGameButton(_ profile: GameProfile) -> some View {
+    @ViewBuilder
+    private func _buildModSwitcherSection() -> some View {
+        let mods = viewModel.availableMods
+
+        if !mods.isEmpty {
+            Text("MODS")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.35))
+                .padding(.leading, 8)
+                .padding(.top, 10)
+
+            ForEach(mods) { profile in
+                _buildGameButton(profile, isEnabled: true)
+            }
+        }
+    }
+
+    private func _buildGameButton(_ profile: GameProfile, isEnabled: Bool) -> some View {
         let isSelected = viewModel.selectedGameID == profile.id
-        let isInstalled = viewModel.installDirectory(for: profile) != nil
+        let isInstalledMod = profile.isMod && viewModel.isModInstalled(profile)
 
         return Button(action: { viewModel.selectGame(profile.id) }) {
             HStack(spacing: 0) {
@@ -175,11 +209,21 @@ struct MainView: View {
                     .frame(width: 5)
 
                 Text(profile.shortName)
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .font(.system(size: profile.isMod ? 10 : 12, weight: .bold, design: .monospaced))
                     .foregroundColor(isSelected ? .white : profile.theme.accentSoft)
+                    .lineLimit(1)
                     .padding(.leading, 14)
 
                 Spacer(minLength: 0)
+
+                // The selected row shows the chevron only: both badges do not fit, and
+                // the bottom panel already states what is installed.
+                if isInstalledMod, !isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(profile.theme.accentSoft)
+                        .padding(.trailing, 12)
+                }
 
                 if isSelected {
                     ChevronMark(thickness: 6)
@@ -199,9 +243,23 @@ struct MainView: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(!isInstalled)
-        .opacity(isInstalled ? 1.0 : 0.35)
-        .help(isInstalled ? profile.displayName : "\(profile.displayName) — not installed")
+        .disabled(!isEnabled)
+        .opacity(_switcherOpacity(isEnabled: isEnabled, isInstalledMod: isInstalledMod, isMod: profile.isMod))
+        .help(_switcherHelp(profile, isEnabled: isEnabled, isInstalledMod: isInstalledMod))
+    }
+
+    private func _switcherOpacity(isEnabled: Bool, isInstalledMod: Bool, isMod: Bool) -> Double {
+        guard isEnabled else { return 0.35 }
+        return isMod && !isInstalledMod ? 0.65 : 1.0
+    }
+
+    private func _switcherHelp(_ profile: GameProfile, isEnabled: Bool, isInstalledMod: Bool) -> String {
+        guard isEnabled else { return "\(profile.displayName) — not installed" }
+        guard profile.isMod else { return profile.displayName }
+
+        return isInstalledMod
+            ? "\(profile.displayName) — installed in \(viewModel.activeTab.rawValue)"
+            : "\(profile.displayName) — not installed in \(viewModel.activeTab.rawValue)"
     }
 
     private func _buildHeader() -> some View {
@@ -347,6 +405,7 @@ struct MainView: View {
         let canStart = !viewModel.steamUsername.isEmpty
             && !viewModel.steamPassword.isEmpty
             && !viewModel.steamCMD.state.isRunning
+            && !viewModel.modInstaller.isBusy
 
         Button(action: {
             viewModel.saveCredentials()
@@ -469,7 +528,7 @@ struct MainView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(viewModel.assetPatcher.state.isRunning)
+                .disabled(viewModel.assetPatcher.state.isRunning || viewModel.modInstaller.isBusy)
             }
 
             if !viewModel.installPath.isEmpty && !viewModel.isPathValid {
@@ -507,7 +566,11 @@ struct MainView: View {
 
     @ViewBuilder
     private func _buildBottomAction() -> some View {
-        if viewModel.canLaunch {
+        if let installing = viewModel.installingMod {
+            _buildModBusyAction(installing)
+        } else if viewModel.selectedProfile.isMod {
+            _buildModAction(viewModel.selectedProfile)
+        } else if viewModel.canLaunch {
             _buildLaunchButton()
         } else if viewModel.assetPatcher.state.isRunning {
             _buildPatchingProgressButton()
@@ -516,6 +579,157 @@ struct MainView: View {
         } else {
             _buildTargetRequiredHint()
         }
+    }
+
+    // MARK: - Mod Actions
+
+    // Shown on every profile while a mod installs: otherwise Zero Hour and Generals
+    // fall through to the "no game assets" hint and look broken mid-download.
+    private func _buildModBusyAction(_ profile: GameProfile) -> some View {
+        VStack(spacing: 8) {
+            Text("INSTALLING \(profile.shortName) — PLEASE WAIT")
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundColor(profile.theme.accentSoft)
+
+            _buildModProgress(profile, state: viewModel.modState(profile))
+
+            Text("Your games are fine — launching and patching stay locked so the download is not interrupted")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 420)
+        }
+    }
+
+    @ViewBuilder
+    private func _buildModAction(_ profile: GameProfile) -> some View {
+        let state = viewModel.modState(profile)
+
+        VStack(spacing: 10) {
+            switch state {
+            case .downloading, .unpacking:
+                _buildModProgress(profile, state: state)
+            case .completed:
+                _buildModInstalled(profile)
+            case .failed(let message):
+                _buildModInstallButton(profile, errorText: message)
+            case .idle:
+                _buildModInstallButton(profile, errorText: nil)
+            }
+        }
+    }
+
+    private func _buildModProgress(_ profile: GameProfile, state: ModInstallState) -> some View {
+        VStack(spacing: 8) {
+            ProgressView(value: state.fraction)
+                .progressViewStyle(LinearProgressViewStyle(tint: profile.theme.accent))
+                .frame(width: 320)
+
+            Text(state.statusText)
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundColor(profile.theme.accentSoft)
+        }
+        .padding(.horizontal, 30)
+        .padding(.vertical, 14)
+        .background(profile.theme.accent.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent.opacity(0.4), lineWidth: 1))
+    }
+
+    private func _buildModInstallButton(_ profile: GameProfile, errorText: String?) -> some View {
+        let sizeText = _modSizeText(profile)
+        let isDamaged = viewModel.isModDamaged(profile)
+        let damageText = isDamaged
+            ? "\(viewModel.missingModFileCount(profile)) file(s) missing — reinstall to repair"
+            : nil
+
+        return VStack(spacing: 8) {
+            if let text = errorText ?? damageText {
+                Text(text)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(isDamaged && errorText == nil ? .orange.opacity(0.85) : .red.opacity(0.85))
+                    .lineLimit(2)
+            }
+
+            Button(action: { viewModel.installMod(profile) }) {
+                HStack(spacing: 10) {
+                    Image(systemName: isDamaged ? "wrench.and.screwdriver.fill" : "arrow.down.circle.fill")
+                    Text("\(isDamaged ? "REPAIR" : "INSTALL") \(profile.shortName)")
+                }
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .padding(.horizontal, 40)
+                .padding(.vertical, 12)
+                .background(profile.theme.accent.opacity(0.25))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent, lineWidth: 2))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(viewModel.modInstaller.isBusy)
+            .opacity(viewModel.modInstaller.isBusy ? 0.4 : 1.0)
+
+            Text(sizeText)
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.5))
+        }
+    }
+
+    private func _buildModInstalled(_ profile: GameProfile) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(neonGreen)
+                Text("\(profile.displayName) installed")
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+
+            Text("Game client support for mods is not wired yet")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundColor(.orange.opacity(0.75))
+
+            HStack(spacing: 12) {
+                _buildModSecondaryButton(title: "Reinstall", color: profile.theme.accentSoft) {
+                    viewModel.installMod(profile)
+                }
+
+                _buildModSecondaryButton(title: "Remove", color: .red.opacity(0.8)) {
+                    viewModel.removeMod(profile)
+                }
+            }
+        }
+        .padding(.horizontal, 30)
+        .padding(.vertical, 12)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    private func _buildModSecondaryButton(
+        title: String,
+        color: Color,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(color)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(color.opacity(0.5), lineWidth: 1))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(viewModel.modInstaller.isBusy)
+    }
+
+    private func _modSizeText(_ profile: GameProfile) -> String {
+        guard let mod = profile.mod else { return "" }
+
+        let download = String(format: "%.1f GB", Double(mod.downloadSizeMB) / 1024)
+        let disk = String(format: "%.1f GB", Double(mod.diskSizeMB) / 1024)
+        let parts = mod.partCount > 1 ? " · \(mod.partCount) parts" : ""
+
+        return "download \(download) · disk \(disk)\(parts)"
     }
 
     private func _buildLaunchButton() -> some View {

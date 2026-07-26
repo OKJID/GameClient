@@ -8,9 +8,13 @@ class LauncherViewModel: ObservableObject {
         case local = "Local Archive"
     }
 
-    @Published var activeTab: Tab = .steam
+    @Published var activeTab: Tab = .steam {
+        didSet { invalidateValidation() }
+    }
     @Published var selectedGameID: GameID = GameProfile.selectedID
-    @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? ""
+    @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? "" {
+        didSet { invalidateValidation() }
+    }
     @Published var isLaunching: Bool = false
     @Published var alertMessage: String? = nil
     @Published var steamUsername: String = ""
@@ -88,9 +92,28 @@ class LauncherViewModel: ObservableObject {
 
     var steamCMD = SteamCMDManager()
     var assetPatcher = AssetPatcher()
+    var modInstaller = ModInstaller()
     var updateChecker = UpdateChecker()
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
+
+    // Install validation touches hundreds of files (patch markers, locales, mod
+    // markers). SwiftUI re-reads these on every redraw, so results are cached until
+    // the tab, the path or a finished download changes them.
+    private struct ModStatus {
+        let installed: Bool
+        let damaged: Bool
+        let missingCount: Int
+
+        static let unknown = ModStatus(installed: false, damaged: false, missingCount: 0)
+    }
+
+    private var validationEpoch: Int = 0
+    private var validationToken: String = ""
+    private var installDirCache: [GameID: URL?] = [:]
+    private var baseReadyCache: [GameID: Bool] = [:]
+    private var modStatusCache: [GameID: ModStatus] = [:]
+    private var pathValidCache: Bool?
 
     init() {
         steamCMD.objectWillChange.sink { [weak self] _ in
@@ -101,10 +124,40 @@ class LauncherViewModel: ObservableObject {
             self?.objectWillChange.send()
         }.store(in: &cancellables)
 
+        modInstaller.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
         updateChecker.$availableUpdate
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Progress ticks must not drop the cache; only finished work changes the disk.
+        steamCMD.$state
+            .removeDuplicates()
+            .sink { [weak self] state in
+                guard !state.isRunning else { return }
+                self?.invalidateValidation()
+            }
+            .store(in: &cancellables)
+
+        assetPatcher.$state
+            .removeDuplicates()
+            .sink { [weak self] state in
+                guard !state.isRunning else { return }
+                self?.invalidateValidation()
+            }
+            .store(in: &cancellables)
+
+        modInstaller.$states
+            .map { states in states.values.contains { $0.isRunning } }
+            .removeDuplicates()
+            .sink { [weak self] isRunning in
+                guard !isRunning else { return }
+                self?.invalidateValidation()
             }
             .store(in: &cancellables)
 
@@ -218,15 +271,49 @@ class LauncherViewModel: ObservableObject {
     }
 
     var isPathValid: Bool {
-        guard !installPath.isEmpty else { return false }
-        return _validateGameFolder(at: URL(fileURLWithPath: installPath))
+        syncValidationCache()
+        if let cached = pathValidCache { return cached }
+
+        let valid = !installPath.isEmpty && _validateGameFolder(at: URL(fileURLWithPath: installPath))
+        pathValidCache = valid
+        return valid
     }
 
+    // MARK: - Validation cache
+
+    private func invalidateValidation() {
+        validationEpoch += 1
+    }
+
+    private func syncValidationCache() {
+        let token = "\(activeTab.rawValue)|\(effectiveInstallPath)|\(validationEpoch)"
+        guard token != validationToken else { return }
+
+        validationToken = token
+        installDirCache.removeAll()
+        baseReadyCache.removeAll()
+        modStatusCache.removeAll()
+        pathValidCache = nil
+    }
+
+    // Falls back to the base game while a mod cannot run, so a stale selection never
+    // blocks the launcher.
     var selectedProfile: GameProfile {
-        GameProfile.profile(for: selectedGameID)
+        let profile = GameProfile.profile(for: selectedGameID)
+        guard profile.isMod, !isBaseReady(for: profile) else { return profile }
+        return profile.baseProfile
     }
 
     func installDirectory(for profile: GameProfile) -> URL? {
+        syncValidationCache()
+        if let cached = installDirCache[profile.id] { return cached }
+
+        let resolved = _resolveInstallDirectory(for: profile)
+        installDirCache[profile.id] = resolved
+        return resolved
+    }
+
+    private func _resolveInstallDirectory(for profile: GameProfile) -> URL? {
         switch activeTab {
         case .steam:
             return [steamCMD.assetsDir, steamCMD.baseGameDir].first { profile.matchesInstall(at: $0) }
@@ -237,10 +324,100 @@ class LauncherViewModel: ObservableObject {
     }
 
     var patchTargets: [PatchTarget] {
-        GameProfile.all.compactMap { profile in
+        GameProfile.baseGames.compactMap { profile in
             guard let directory = installDirectory(for: profile) else { return nil }
             return PatchTarget(profile: profile, directory: directory)
         }
+    }
+
+    // MARK: - Mods
+
+    var installRootURL: URL? {
+        let path = effectiveInstallPath
+        guard !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    func isBaseReady(for profile: GameProfile) -> Bool {
+        syncValidationCache()
+
+        let base = profile.baseProfile
+        if let cached = baseReadyCache[base.id] { return cached }
+
+        let ready = installDirectory(for: base)
+            .map { assetPatcher.isCommunityPatchInstalled(base, at: $0) } ?? false
+        baseReadyCache[base.id] = ready
+        return ready
+    }
+
+    // Mods are meaningless without a launchable base game, so the whole section stays
+    // hidden until the base game passes validation.
+    var availableMods: [GameProfile] {
+        GameProfile.mods.filter { isBaseReady(for: $0) }
+    }
+
+    // Set while a package is being fetched, so every screen can block actions that
+    // would kill the download (launching quits the launcher, patching writes in parallel).
+    var installingMod: GameProfile? {
+        guard let id = modInstaller.runningModID else { return nil }
+        return GameProfile.mods.first { $0.id == id }
+    }
+
+    func isModInstalled(_ profile: GameProfile) -> Bool {
+        modStatus(profile).installed
+    }
+
+    // User deleted or corrupted files after a successful install.
+    func isModDamaged(_ profile: GameProfile) -> Bool {
+        modStatus(profile).damaged
+    }
+
+    func missingModFileCount(_ profile: GameProfile) -> Int {
+        modStatus(profile).missingCount
+    }
+
+    private func modStatus(_ profile: GameProfile) -> ModStatus {
+        syncValidationCache()
+        if let cached = modStatusCache[profile.id] { return cached }
+
+        let status = _resolveModStatus(profile)
+        modStatusCache[profile.id] = status
+        return status
+    }
+
+    private func _resolveModStatus(_ profile: GameProfile) -> ModStatus {
+        guard profile.isMod, let root = installRootURL,
+              let directory = profile.modDirectory(installRoot: root) else {
+            return .unknown
+        }
+
+        let missing = profile.missingModFiles(installRoot: root)
+        guard !missing.isEmpty else {
+            return ModStatus(installed: true, damaged: false, missingCount: 0)
+        }
+
+        let exists = FileManager.default.fileExists(atPath: directory.path)
+        return ModStatus(installed: false, damaged: exists, missingCount: missing.count)
+    }
+
+    func modState(_ profile: GameProfile) -> ModInstallState {
+        let state = modInstaller.state(for: profile.id)
+        guard case .idle = state, isModInstalled(profile) else { return state }
+        return .completed
+    }
+
+    func installMod(_ profile: GameProfile) {
+        guard let root = installRootURL else {
+            alertMessage = "Game folder is not selected yet."
+            return
+        }
+
+        modInstaller.install(profile, installRoot: root)
+    }
+
+    func removeMod(_ profile: GameProfile) {
+        guard let root = installRootURL else { return }
+        modInstaller.remove(profile, installRoot: root)
     }
 
     var isSteamPatchReady: Bool {
@@ -248,9 +425,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     var isPatchReady: Bool {
-        let profile = GameProfile.current
-        guard let directory = installDirectory(for: profile) else { return false }
-        return assetPatcher.isCommunityPatchInstalled(profile, at: directory)
+        isBaseReady(for: selectedProfile)
     }
 
     var needsPatching: Bool {
@@ -264,6 +439,9 @@ class LauncherViewModel: ObservableObject {
     }
 
     var canLaunch: Bool {
+        // Mods have no engine wiring yet: the launcher only installs them.
+        guard !selectedProfile.isMod, !modInstaller.isBusy else { return false }
+
         switch activeTab {
         case .steam: return steamCMD.areAssetsValid && isPatchReady
             && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
@@ -279,6 +457,8 @@ class LauncherViewModel: ObservableObject {
     }
 
     func chooseFolder() {
+        guard !modInstaller.isBusy else { return }
+
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -295,6 +475,8 @@ class LauncherViewModel: ObservableObject {
     }
 
     func requestPatching() {
+        guard !modInstaller.isBusy else { return }
+
         switch activeTab {
         case .steam:
             confirmPatching()
@@ -304,6 +486,8 @@ class LauncherViewModel: ObservableObject {
     }
 
     func confirmPatching() {
+        guard !modInstaller.isBusy else { return }
+
         Analytics.logPatchStarted(source: activeTab.rawValue)
 
         let rootDir: URL
