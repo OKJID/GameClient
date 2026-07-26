@@ -920,6 +920,35 @@ static bool macLogEnvForced()
 	return cached != 0;
 }
 
+static bool macLogConsoleEnabled()
+{
+	static int cached = -1;
+	if (cached < 0)
+	{
+		const char* env = getenv("GENERALS_MAC_DEBUG_CONSOLE");
+		cached = (env && atoi(env) != 0) ? 1 : 0;
+	}
+	return cached != 0;
+}
+
+static std::string macLogFormat(const char* fmt, va_list args)
+{
+	va_list measure;
+	va_copy(measure, args);
+	const int needed = vsnprintf(nullptr, 0, fmt, measure);
+	va_end(measure);
+
+	if (needed <= 0)
+	{
+		return std::string();
+	}
+
+	std::string message(static_cast<size_t>(needed), '\0');
+	vsnprintf(&message[0], static_cast<size_t>(needed) + 1, fmt, args);
+
+	return message;
+}
+
 void MacDebugLogConfigure(bool enabled, const char* dir)
 {
 	std::scoped_lock lock(s_macLogMutex);
@@ -941,7 +970,18 @@ void MacDebugLogWrite(const char* tag, const char* fmt, ...)
 		return;
 	}
 
+	va_list args;
+	va_start(args, fmt);
+	const std::string message = macLogFormat(fmt, args);
+	va_end(args);
+
 	std::scoped_lock lock(s_macLogMutex);
+
+	if (macLogConsoleEnabled())
+	{
+		printf("[%s] %s\n", tag, message.c_str());
+		fflush(stdout);
+	}
 
 	if (s_macLogPath.empty())
 	{
@@ -957,12 +997,7 @@ void MacDebugLogWrite(const char* tag, const char* fmt, ...)
 	}
 	s_macLogTruncated = true;
 
-	fprintf(fp, "[%s] ", tag);
-	va_list args;
-	va_start(args, fmt);
-	vfprintf(fp, fmt, args);
-	va_end(args);
-	fputc('\n', fp);
+	fprintf(fp, "[%s] %s\n", tag, message.c_str());
 	fclose(fp);
 }
 

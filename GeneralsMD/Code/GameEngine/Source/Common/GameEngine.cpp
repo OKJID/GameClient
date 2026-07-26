@@ -492,6 +492,10 @@ void GameEngine::init()
 
 		initSubsystem(TheArchiveFileSystem, "TheArchiveFileSystem", createArchiveFileSystem(), nullptr); // this MUST come after TheLocalFileSystem creation
 
+		// Before any INI is parsed: GameData is read below, and a mod must be able to replace it.
+		// -mod is parsed in paramsForStartup, so m_modDir is already known here.
+		TheArchiveFileSystem->loadMods();
+
 #ifdef DUMP_PERF_STATS///////////////////////////////////////////////////////////////////////////
 		GetPrecisionTimer(&endTime64);//////////////////////////////////////////////////////////////////
 		sprintf(Buf, "----------------------------------------------------------------------------After TheArchiveFileSystem  = %f seconds", ((double)(endTime64 - startTime64) / (double)(freq64)));
@@ -523,8 +527,6 @@ void GameEngine::init()
 
 		// special-case: parse command-line parameters after loading global data
 		CommandLine::parseCommandLineForEngineInit();
-
-		TheArchiveFileSystem->loadMods();
 
 		// doesn't require resets so just create a single instance here.
 		TheGameLODManager = MSGNEW("GameEngineSubsystem") GameLODManager;

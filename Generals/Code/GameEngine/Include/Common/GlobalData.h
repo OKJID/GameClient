@@ -562,6 +562,13 @@ public:
 	AsciiString m_modDir;
 	AsciiString m_modBIG;
 
+	// Mod package manifest (Mods/<id>/config.json). Empty id means "no manifest".
+	AsciiString m_modId;
+	AsciiString m_modDisplayName;
+	AsciiString m_modVersion;
+	Bool				m_modOnline;
+	Bool				m_modMaskBaseScripts;
+
 	// the trailing '\' is included!
 	AsciiString getPath_UserData() const;
 

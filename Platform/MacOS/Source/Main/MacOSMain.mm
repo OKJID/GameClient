@@ -36,6 +36,7 @@
 #include "Common/GameEngine.h"
 #include "Common/GameMemory.h"
 #include "Common/Debug.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/Mouse.h"
@@ -290,8 +291,28 @@ extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
 
 static NSWindow* g_splashWindow = nil;
 
+static NSString* ModSplashPath() {
+    if (!TheGlobalData || TheGlobalData->m_modDir.isEmpty()) {
+        return nil;
+    }
+
+    AsciiString enginePath = TheGlobalData->m_modDir;
+    enginePath.concat("Install_Final.bmp");
+
+    std::string nativePath = NativeFileSystem::get_safe_path(enginePath.str());
+    if (!NativeFileSystem::exists(nativePath)) {
+        return nil;
+    }
+
+    return [NSString stringWithUTF8String:nativePath.c_str()];
+}
+
 - (void)showSplashWindow {
-    NSString* splashPath = [[NSBundle mainBundle] pathForResource:@"Install_Final" ofType:@"bmp"];
+    NSString* splashPath = ModSplashPath();
+    if (!splashPath) {
+        splashPath = [[NSBundle mainBundle] pathForResource:@"Install_Final" ofType:@"bmp"];
+    }
+
     if (!splashPath) {
         return;
     }

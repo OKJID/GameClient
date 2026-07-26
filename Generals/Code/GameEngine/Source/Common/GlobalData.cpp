@@ -985,6 +985,9 @@ GlobalData::GlobalData()
 	m_isBreakableMovie = FALSE;
 	m_breakTheMovie = FALSE;
 
+	m_modOnline = TRUE;
+	m_modMaskBaseScripts = FALSE;
+
 	setTimeOfDay( m_timeOfDay );
 
 	m_buildMapCache = FALSE;

@@ -9,6 +9,7 @@
 #   sh build_run_mac.sh --lldb                # build + run with lldb
 #   sh build_run_mac.sh --release             # configure/build game with debug logging/crashing
 #   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
+#   sh build_run_mac.sh --mod=Contra008       # build + run with a mod (see MOD_PATH)
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -24,6 +25,7 @@ GAME_FLAG_NOAUDIO=false
 GAME_FLAG_WIN=false
 GAME_FLAG_XRES=""       # e.g. "1024"
 GAME_FLAG_YRES=""       # e.g. "768"
+MOD_PATH=""
 
 
 DO_CLEAN=false
@@ -31,6 +33,7 @@ DO_SCREENSHOT=false
 DO_TEST=false
 DO_LLDB=false
 DO_CRC_LOGS=false
+DO_CONSOLE_LOGS=true
 DO_DEBUG=true
 TEST_FILTER=""
 SCREENSHOT_DELAY=""
@@ -66,6 +69,9 @@ for arg in "$@"; do
         --rep_def)
             DO_REPLAY_DEF=true
             ;;
+        --mod=*)
+            MOD_PATH="${arg#--mod=}"
+            ;;
     esac
 done
 
@@ -78,6 +84,12 @@ if [ -z "$GENERALS_MAC_DEBUG" ]; then
     fi
 else
     export GENERALS_MAC_DEBUG="$GENERALS_MAC_DEBUG"
+fi
+
+if [ "$DO_CONSOLE_LOGS" = true ]; then
+    export GENERALS_MAC_DEBUG_CONSOLE=1
+else
+    export GENERALS_MAC_DEBUG_CONSOLE=0
 fi
 
 if [ "$DO_CLEAN" = true ]; then
@@ -195,15 +207,34 @@ if [ -z "$SCREENSHOT_DELAY" ]; then
 fi
 
 # ── Build Game Args ──
-GAME_ARGS=""
-[ "$GAME_FLAG_NOSHELLMAP" = true ] && GAME_ARGS="$GAME_ARGS -noshellmap"
-[ "$GAME_FLAG_QUICKSTART" = true ] && GAME_ARGS="$GAME_ARGS -quickstart"
-[ "$GAME_FLAG_NOAUDIO" = true ]    && GAME_ARGS="$GAME_ARGS -noaudio"
-[ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS="$GAME_ARGS -win"
-[ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS="$GAME_ARGS -xRes $GAME_FLAG_XRES"
-[ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS="$GAME_ARGS -yRes $GAME_FLAG_YRES"
-[ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS="$GAME_ARGS -headless -replay 00000000.rep"
-[ "$DO_CRC_LOGS" = true ]         && GAME_ARGS="$GAME_ARGS -saveDebugCRCPerFrame $PWD/.agent/temp_mac_logs/CRCLogs -keepCRCSave -logObjectCRCs -logRandom"
+GAME_ARGS=()
+[ "$GAME_FLAG_NOSHELLMAP" = true ] && GAME_ARGS+=(-noshellmap)
+[ "$GAME_FLAG_QUICKSTART" = true ] && GAME_ARGS+=(-quickstart)
+[ "$GAME_FLAG_NOAUDIO" = true ]    && GAME_ARGS+=(-noaudio)
+[ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS+=(-win)
+[ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS+=(-xRes "$GAME_FLAG_XRES")
+[ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS+=(-yRes "$GAME_FLAG_YRES")
+[ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay 00000000.rep)
+[ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/temp_mac_logs/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
+
+if [ -n "$MOD_PATH" ]; then
+    case "$MOD_PATH" in
+        /*) ;;
+        *) MOD_PATH="$GENERALS_INSTALL_PATH/Mods/$MOD_PATH" ;;
+    esac
+
+    if [ -d "$MOD_PATH" ]; then
+        MOD_PATH="$MOD_PATH/config.json"
+    fi
+
+    if [ ! -f "$MOD_PATH" ]; then
+        echo "ERROR: mod manifest not found: $MOD_PATH"
+        exit 1
+    fi
+
+    echo "Mod: $MOD_PATH"
+    GAME_ARGS+=(-mod "$MOD_PATH")
+fi
 
 if [ ! -x "$GAME_CMD" ]; then
     echo "ERROR: $GAME_NAME executable not found at $GAME_CMD"
@@ -211,9 +242,16 @@ if [ ! -x "$GAME_CMD" ]; then
     exit 1
 fi
 
-if [ -n "$GAME_ARGS" ]; then
-    echo "Game args:$GAME_ARGS"
+if [ ${#GAME_ARGS[@]} -gt 0 ]; then
+    echo "Game args: ${GAME_ARGS[*]}"
 fi
+
+OPEN_ENV=(
+    --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH"
+    --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
+    --env GENERALS_MAC_DEBUG="$GENERALS_MAC_DEBUG"
+    --env GENERALS_MAC_DEBUG_CONSOLE="$GENERALS_MAC_DEBUG_CONSOLE"
+)
 
 echo "Starting game..."
 if [ "$DO_LLDB" = true ]; then
@@ -225,14 +263,14 @@ if [ "$DO_LLDB" = true ]; then
     lldb -n "$GAME_NAME" --wait-for -o "continue" &
     LLDB_PID=$!
     sleep 1
-    if [ -n "$GAME_ARGS" ]; then
-        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
+    if [ ${#GAME_ARGS[@]} -gt 0 ]; then
+        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" "${OPEN_ENV[@]}" --args "${GAME_ARGS[@]}"
     else
-        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
+        open -n "$GAME_BUNDLE" --stdout "$LLDB_LOG" --stderr "$LLDB_LOG" "${OPEN_ENV[@]}"
     fi
     wait $LLDB_PID
 elif [ "$DO_SCREENSHOT" = true ]; then
-    $GAME_CMD $GAME_ARGS > Platform/MacOS/Build/Logs/game.log 2>&1 &
+    "$GAME_CMD" "${GAME_ARGS[@]}" > Platform/MacOS/Build/Logs/game.log 2>&1 &
     GAME_PID=$!
     echo "Waiting ${SCREENSHOT_DELAY}s for game to load..."
     sleep ${SCREENSHOT_DELAY}
@@ -241,10 +279,10 @@ elif [ "$DO_SCREENSHOT" = true ]; then
     kill $GAME_PID 2>/dev/null
     wait $GAME_PID 2>/dev/null
 else
-    if [ -n "$GAME_ARGS" ]; then
-        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT" --args $GAME_ARGS
+    if [ ${#GAME_ARGS[@]} -gt 0 ]; then
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" "${OPEN_ENV[@]}" --args "${GAME_ARGS[@]}"
     else
-        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" --env GENERALS_INSTALL_PATH="$GENERALS_INSTALL_PATH" --env GENERALS_FPS_LIMIT="$GENERALS_FPS_LIMIT"
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" "${OPEN_ENV[@]}"
     fi
 fi
 

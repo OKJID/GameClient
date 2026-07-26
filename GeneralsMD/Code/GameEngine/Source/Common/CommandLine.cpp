@@ -29,7 +29,9 @@
 #include "Common/CommandLine.h"
 #include "Common/CRCDebug.h"
 #include "Common/LocalFileSystem.h"
+#include "Common/ModManifest.h"
 #include "Common/Recorder.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/TerrainVisual.h" // for TERRAIN_LOD_MIN definition
@@ -1082,51 +1084,85 @@ Int parseUpdateImages(char *args[], int num)
 	return 1;
 }
 
+static void setModDir(AsciiString modDir)
+{
+	if (!modDir.endsWith("\\") && !modDir.endsWith("/"))
+		modDir.concat('\\');
+
+	DEBUG_LOG(("Mod dir is '%s'.", modDir.str()));
+	TheWritableGlobalData->m_modDir = modDir;
+}
+
+static AsciiString parentDirectoryOf(const AsciiString& filePath)
+{
+	std::string path(filePath.str());
+	size_t cut = path.find_last_of("\\/");
+	if (cut == std::string::npos)
+		return AsciiString::TheEmptyString;
+
+	return AsciiString(path.substr(0, cut + 1).c_str());
+}
+
+static void loadManifestInModDir(const AsciiString& modDir)
+{
+	AsciiString manifestPath = modDir;
+	manifestPath.concat(ModManifest::fileName);
+
+	if (!NativeFileSystem::exists(manifestPath.str()))
+		return;
+
+	ModManifest::load(manifestPath);
+}
+
 Int parseMod(char *args[], Int num)
 {
-	if (num > 1)
+	if (num <= 1)
+		return 1;
+
+	AsciiString modPath = args[1];
+	if (strchr(modPath.str(), ':') || modPath.startsWith("/") || modPath.startsWith("\\"))
 	{
-		AsciiString modPath = args[1];
-		if (strchr(modPath.str(), ':') || modPath.startsWith("/") || modPath.startsWith("\\"))
-		{
-			// full path passed in.  Don't append base path.
-		}
-		else
-		{
-			modPath.format("%s%s", TheGlobalData->getPath_UserData().str(), args[1]);
-		}
-		DEBUG_LOG(("Looking for mod '%s'", modPath.str()));
+		// full path passed in.  Don't append base path.
+	}
+	else
+	{
+		modPath.format("%s%s", TheGlobalData->getPath_UserData().str(), args[1]);
+	}
+	DEBUG_LOG(("Looking for mod '%s'", modPath.str()));
 
-		if (!TheLocalFileSystem->doesFileExist(modPath.str()))
-		{
-			DEBUG_LOG(("Mod does not exist."));
-			return 2; // no such file/dir.
-		}
+	if (!NativeFileSystem::exists(modPath.str()))
+	{
+		DEBUG_LOG(("Mod does not exist."));
+		return 2; // no such file/dir.
+	}
 
-		// now check for dir-ness
-		struct _stat statBuf;
-		if (_stat(modPath.str(), &statBuf) != 0)
-		{
-			DEBUG_LOG(("Could not _stat() mod."));
-			return 2; // could not stat the file/dir.
-		}
-
-		if (statBuf.st_mode & _S_IFDIR)
-		{
-			if (!modPath.endsWith("\\") && !modPath.endsWith("/"))
-				modPath.concat('\\');
-			DEBUG_LOG(("Mod dir is '%s'.", modPath.str()));
-			TheWritableGlobalData->m_modDir = modPath;
-		}
-		else
-		{
-			DEBUG_LOG(("Mod file is '%s'.", modPath.str()));
-			TheWritableGlobalData->m_modBIG = modPath;
-		}
-
+	if (NativeFileSystem::is_directory(modPath.str()))
+	{
+		setModDir(modPath);
+		loadManifestInModDir(TheGlobalData->m_modDir);
 		return 2;
 	}
-	return 1;
+
+	if (modPath.endsWithNoCase(".json"))
+	{
+		AsciiString modDir = parentDirectoryOf(modPath);
+		if (modDir.isEmpty())
+		{
+			DEBUG_LOG(("Mod manifest '%s' has no directory.", modPath.str()));
+			return 2;
+		}
+
+		if (!ModManifest::load(modPath))
+			return 2; // broken manifest: run unmodded rather than half-loaded.
+
+		setModDir(modDir);
+		return 2;
+	}
+
+	DEBUG_LOG(("Mod file is '%s'.", modPath.str()));
+	TheWritableGlobalData->m_modBIG = modPath;
+
+	return 2;
 }
 
 #ifdef DEBUG_LOGGING
@@ -1188,6 +1224,11 @@ static CommandLineParam paramsForStartup[] =
 	// If you do not call this, all replays will be simulated in sequence in the same process.
 	{ "-jobs", parseJobs },
 
+	// Mod package or directory. Parsed before window creation so the splash screen
+	// can come from the mod. Uses NativeFileSystem, not TheLocalFileSystem, which
+	// does not exist yet at this point.
+	{ "-mod", parseMod },
+
 	// Export game stats as JSON alongside replay file.
 	{ "-exportStats", parseExportStats },
 
@@ -1209,7 +1250,6 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-particleEdit", parseParticleEdit },
 	{ "-scriptDebug", parseScriptDebug },
 	{ "-playStats", parsePlayStats },
-	{ "-mod", parseMod },
 	{ "-noshaders", parseNoShaders },
 	{ "-quickstart", parseQuickStart },
 	{ "-useWaveEditor", parseUseWaveEditor },

@@ -49,8 +49,10 @@
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 
+#include "Common/ArchiveFile.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/GameAudio.h"
+#include "Common/GlobalData.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/PerfTimer.h"
 
@@ -111,6 +113,76 @@ FileSystem	*TheFileSystem = nullptr;
 //----------------------------------------------------------------------------
 //         Private Functions
 //----------------------------------------------------------------------------
+
+// An active mod owns its loose files: they must win over the loose files of the
+// install it runs on. Engine paths, so backslashes.
+static AsciiString modLoosePath( const Char *filename )
+{
+	if (TheGlobalData == nullptr || TheGlobalData->m_modDir.isEmpty())
+		return AsciiString::TheEmptyString;
+
+	if (filename == nullptr || *filename == '\0')
+		return AsciiString::TheEmptyString;
+
+	if (*filename == '\\' || *filename == '/' || strchr(filename, ':') != nullptr)
+		return AsciiString::TheEmptyString;
+
+	AsciiString path = TheGlobalData->m_modDir;
+	path.concat(filename);
+
+	return path;
+}
+
+static Bool pathStartsWithDirectory( const Char *filename, const char *lowerDirectory )
+{
+	for (size_t i = 0; lowerDirectory[i] != '\0'; ++i)
+	{
+		Char c = filename[i];
+		if (c == '\0')
+			return FALSE;
+
+		if (c == '/')
+			c = '\\';
+		else
+			c = (Char)tolower((unsigned char)c);
+
+		if (c != lowerDirectory[i])
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+// Loose files normally outrank every archive. A mod is the exception: its archives carry
+// content the install must not shadow. Mod archives are inserted at the front of the
+// directory tree, so if the tree answers with one, no other archive holds that file.
+static Bool isServedByModArchive( const Char *filename )
+{
+	if (TheGlobalData == nullptr || TheGlobalData->m_modDir.isEmpty())
+		return FALSE;
+
+	if (TheArchiveFileSystem == nullptr)
+		return FALSE;
+
+	ArchiveFile *archive = TheArchiveFileSystem->getArchiveFile(AsciiString(filename), 0);
+	if (archive == nullptr)
+		return FALSE;
+
+	return archive->getName().startsWithNoCase(TheGlobalData->m_modDir);
+}
+
+// Contra and friends rely on their own AI scripts. On Windows a manual install deletes the
+// base ones; we keep them on disk, so the mod asks us to hide them instead.
+static Bool isMaskedBaseFile( const Char *filename )
+{
+	if (TheGlobalData == nullptr || TheGlobalData->m_modDir.isEmpty())
+		return FALSE;
+
+	if (!TheGlobalData->m_modMaskBaseScripts)
+		return FALSE;
+
+	return pathStartsWithDirectory(filename, "data\\scripts\\");
+}
 
 
 //----------------------------------------------------------------------------
@@ -178,16 +250,31 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 	DEBUG_FILESYSTEM_MAC(("openFile Request: %s", filename));
 	File *file = nullptr;
 
+	// Writes always go to the install, never into the mod package.
+	const Bool isRead = (access & (File::WRITE | File::APPEND | File::CREATE | File::TRUNCATE)) == 0;
+	const AsciiString modFile = isRead ? modLoosePath(filename) : AsciiString::TheEmptyString;
+	const Bool skipInstallLoose = isRead && (isMaskedBaseFile(filename)
+		|| (instance == 0 && isServedByModArchive(filename)));
+
 	if ( TheLocalFileSystem != nullptr )
 	{
 		if (instance != 0)
 		{
-			if (TheLocalFileSystem->doesFileExist(filename))
+			if (!modFile.isEmpty() && TheLocalFileSystem->doesFileExist(modFile.str()))
+			{
+				--instance;
+			}
+
+			if (instance != 0 && !skipInstallLoose && TheLocalFileSystem->doesFileExist(filename))
 			{
 				--instance;
 			}
 		}
-		else
+		else if (!modFile.isEmpty() && (file = TheLocalFileSystem->openFile( modFile.str(), access, bufferSize )) != nullptr)
+		{
+			DEBUG_FILESYSTEM_MAC(("openFile Served: %s <- mod loose", filename));
+		}
+		else if (!skipInstallLoose)
 		{
 			file = TheLocalFileSystem->openFile( filename, access, bufferSize );
 
@@ -208,6 +295,11 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 				}
 			}
 #endif
+
+			if (file != nullptr)
+			{
+				DEBUG_FILESYSTEM_MAC(("openFile Served: %s <- loose", filename));
+			}
 		}
 	}
 
@@ -215,6 +307,13 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 	{
 		// TheSuperHackers @todo Pass 'access' here?
 		file = TheArchiveFileSystem->openFile( filename, 0, instance );
+
+		if (file != nullptr)
+		{
+			ArchiveFile *archive = TheArchiveFileSystem->getArchiveFile(AsciiString(filename), instance);
+			DEBUG_FILESYSTEM_MAC(("openFile Served: %s <- %s", filename,
+				archive != nullptr ? archive->getName().str() : "archive"));
+		}
 	}
 
 	return file;
@@ -243,7 +342,26 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 	}
 #endif
 
-	if (TheLocalFileSystem->doesFileExist(filename))
+	const AsciiString modFile = modLoosePath(filename);
+	const Bool maskBase = isMaskedBaseFile(filename);
+
+	if (!modFile.isEmpty() && TheLocalFileSystem->doesFileExist(modFile.str()))
+	{
+		if (instance == 0)
+		{
+#if ENABLE_FILESYSTEM_EXISTENCE_CACHE
+			{
+				FastCriticalSectionClass::LockClass lock(m_fileExistMutex);
+				m_fileExist[filename];
+			}
+#endif
+			return TRUE;
+		}
+
+		--instance;
+	}
+
+	if (!maskBase && TheLocalFileSystem->doesFileExist(filename))
 	{
 		if (instance == 0)
 		{
@@ -305,7 +423,19 @@ Bool FileSystem::getFileInfo(const AsciiString& filename, FileInfo *fileInfo, Fi
 	}
 	memset(fileInfo, 0, sizeof(*fileInfo));
 
-	if (TheLocalFileSystem->getFileInfo(filename, fileInfo)) {
+	const AsciiString modFile = modLoosePath(filename.str());
+	const Bool skipInstallLoose = isMaskedBaseFile(filename.str())
+		|| (instance == 0 && isServedByModArchive(filename.str()));
+
+	if (!modFile.isEmpty() && TheLocalFileSystem->getFileInfo(modFile, fileInfo)) {
+		if (instance == 0) {
+			return TRUE;
+		}
+
+		--instance;
+	}
+
+	if (!skipInstallLoose && TheLocalFileSystem->getFileInfo(filename, fileInfo)) {
 		if (instance == 0) {
 			return TRUE;
 		}

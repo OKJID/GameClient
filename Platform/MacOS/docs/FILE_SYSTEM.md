@@ -148,6 +148,28 @@ Search paths are registered in `MacOSLocalFileSystem::init()`.
 Loose CWD > Loose ZH > Loose Base > BIG CWD > BIG Base
 ```
 
+## Mods (`-mod`)
+
+A mod is a package in `$GENERALS_INSTALL_PATH/Mods/<id>/` selected with
+`-mod .../Mods/<id>/config.json`. It runs on the install it was built for and replaces
+content instead of being installed over it.
+
+```
+Loose Mod > Loose CWD > Loose ZH > Loose Base > BIG Mod > BIG CWD > BIG Base
+```
+
+- **BIG Mod** wins because `ArchiveFileSystem::loadMods` passes `overwrite = TRUE`, which
+  inserts the entry at the **front** of the same-key list. The mod is loaded last but
+  answers first.
+- **Loose Mod** is resolved in `FileSystem::openFile` / `doesFileExist` / `getFileInfo`:
+  the request is first retried under `m_modDir`. Reads only — writes never go into the
+  mod package.
+- `loadMods()` runs right after `TheArchiveFileSystem` is created, **before**
+  `Data\INI\GameData` is parsed. Otherwise the mod cannot replace `GameData.ini`.
+- `maskBaseScripts` in the manifest hides loose `Data\Scripts\*` of the install, so base
+  AI scripts cannot shadow the mod's. On Windows a manual mod install deletes those files;
+  we keep them on disk and hide them instead.
+
 ## registry.cpp (`#ifdef __APPLE__`)
 
 On Windows, `GetStringFromGeneralsRegistry("", "InstallPath")` returns the Base path from the registry.
