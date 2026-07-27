@@ -675,18 +675,16 @@ struct MainView: View {
     }
 
     private func _buildModInstalled(_ profile: GameProfile) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundColor(neonGreen)
                 Text("\(profile.displayName) installed")
-                    .font(.system(size: 14, weight: .bold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.85))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.75))
             }
 
-            Text("Game client support for mods is not wired yet")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.orange.opacity(0.75))
+            _buildLaunchButton()
 
             HStack(spacing: 12) {
                 _buildModSecondaryButton(title: "Reinstall", color: profile.theme.accentSoft) {
@@ -761,7 +759,8 @@ struct MainView: View {
             .shadow(color: accent.opacity(0.5), radius: 12)
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(viewModel.isLaunching)
+        .disabled(viewModel.isLaunching || !viewModel.canLaunch)
+        .opacity(viewModel.canLaunch ? 1.0 : 0.45)
     }
 
     private func _buildTargetRequiredHint() -> some View {

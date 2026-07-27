@@ -439,8 +439,11 @@ class LauncherViewModel: ObservableObject {
     }
 
     var canLaunch: Bool {
-        // Mods have no engine wiring yet: the launcher only installs them.
-        guard !selectedProfile.isMod, !modInstaller.isBusy else { return false }
+        guard !modInstaller.isBusy else { return false }
+
+        if selectedProfile.isMod {
+            guard isModInstalled(selectedProfile), !isModDamaged(selectedProfile) else { return false }
+        }
 
         switch activeTab {
         case .steam: return steamCMD.areAssetsValid && isPatchReady
@@ -517,9 +520,29 @@ class LauncherViewModel: ObservableObject {
             return
         }
 
+        var arguments: [String] = []
+        if profile.isMod {
+            guard let root = installRootURL,
+                  let modDir = profile.modDirectory(installRoot: root) else {
+                alertMessage = "Mod folder is not available."
+                isLaunching = false
+                return
+            }
+
+            let configURL = modDir.appendingPathComponent(ModSpec.configFileName)
+            guard FileManager.default.fileExists(atPath: configURL.path) else {
+                alertMessage = "\(profile.displayName) is missing \(ModSpec.configFileName)."
+                isLaunching = false
+                return
+            }
+
+            arguments = ["-mod", configURL.path]
+        }
+
         let task = Process()
         task.executableURL = executableURL
         task.currentDirectoryURL = executableURL.deletingLastPathComponent()
+        task.arguments = arguments
 
         var env = ProcessInfo.processInfo.environment
         env["GENERALS_INSTALL_PATH"] = effectiveInstallPath

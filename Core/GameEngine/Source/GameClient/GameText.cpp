@@ -167,6 +167,9 @@ class GameTextManager : public GameTextInterface
 
 		StringInfo			*m_stringInfo;
 		StringLookUp		*m_stringLUT;
+		StringInfo			*m_fallbackStringInfo;
+		StringLookUp		*m_fallbackStringLUT;
+		Int							m_fallbackTextCount;
 		Bool						m_initialized;
 #if defined(RTS_DEBUG)
 		Bool						m_jabberWockie;
@@ -193,6 +196,8 @@ class GameTextManager : public GameTextInterface
 		Bool						getStringCount( const Char *filename, Int& textCount );
 		Bool						getCSFInfo ( const Char *filename );
 		Bool						parseCSF(  const Char *filename );
+		Bool						loadFallbackStrings( const Char *filename );
+		void						loadEnglishFallback();
 		Bool						parseStringFile( const char *filename );
 		Bool						parseMapStringFile( const char *filename );
 		Bool						readLine( char *buffer, Int max, File *file );
@@ -247,6 +252,9 @@ GameTextManager::GameTextManager()
 	m_maxLabelLen(0),
 	m_stringInfo(nullptr),
 	m_stringLUT(nullptr),
+	m_fallbackStringInfo(nullptr),
+	m_fallbackStringLUT(nullptr),
+	m_fallbackTextCount(0),
 	m_initialized(FALSE),
 	m_noStringList(nullptr),
 #if defined(RTS_DEBUG)
@@ -283,6 +291,28 @@ GameTextManager::~GameTextManager()
 
 extern const Char *g_strFile;
 extern const Char *g_csfFile;
+
+static const Char *CSF_FALLBACK_LANGUAGE = "english";
+
+static StringLookUp *buildLookUpTable( StringInfo *stringInfo, Int textCount )
+{
+	StringLookUp *lookUpTable = NEW StringLookUp[textCount];
+
+	StringLookUp *lut = lookUpTable;
+	StringInfo *info = stringInfo;
+
+	for ( Int i = 0; i < textCount; i++ )
+	{
+		lut->info = info;
+		lut->label = &info->label;
+		lut++;
+		info++;
+	}
+
+	qsort( lookUpTable, textCount, sizeof(StringLookUp), compareLUT );
+
+	return lookUpTable;
+}
 
 void GameTextManager::init()
 {
@@ -351,21 +381,12 @@ void GameTextManager::init()
 		}
 	}
 
-	m_stringLUT = NEW StringLookUp[m_textCount];
+	m_stringLUT = buildLookUpTable( m_stringInfo, m_textCount );
 
-	StringLookUp *lut = m_stringLUT;
-	StringInfo *info = m_stringInfo;
-
-	for ( Int i = 0; i < m_textCount; i++ )
+	if ( format == CSF_FILE )
 	{
-		lut->info = info;
-		lut->label = &info->label;
-		lut++;
-		info++;
+		loadEnglishFallback();
 	}
-
-	qsort( m_stringLUT, m_textCount, sizeof(StringLookUp), compareLUT  );
-
 }
 
 //============================================================================
@@ -380,6 +401,14 @@ void GameTextManager::deinit()
 
 	delete [] m_stringLUT;
 	m_stringLUT = nullptr;
+
+	delete [] m_fallbackStringInfo;
+	m_fallbackStringInfo = nullptr;
+
+	delete [] m_fallbackStringLUT;
+	m_fallbackStringLUT = nullptr;
+
+	m_fallbackTextCount = 0;
 
 	m_textCount = 0;
 
@@ -1014,6 +1043,70 @@ quit:
 
 
 //============================================================================
+// GameTextManager::loadFallbackStrings
+//============================================================================
+
+Bool GameTextManager::loadFallbackStrings( const Char *filename )
+{
+	StringInfo *primaryStringInfo = m_stringInfo;
+	Int primaryTextCount = m_textCount;
+	LanguageID primaryLanguage = m_language;
+
+	m_stringInfo = nullptr;
+	m_textCount = 0;
+
+	Bool parsed = FALSE;
+
+	if ( getCSFInfo( filename ) && m_textCount > 0 )
+	{
+		m_stringInfo = NEW StringInfo[m_textCount];
+		parsed = m_stringInfo != nullptr && parseCSF( filename );
+	}
+
+	StringInfo *fallbackStringInfo = m_stringInfo;
+	Int fallbackTextCount = m_textCount;
+
+	m_stringInfo = primaryStringInfo;
+	m_textCount = primaryTextCount;
+	m_language = primaryLanguage;
+
+	if ( !parsed )
+	{
+		delete [] fallbackStringInfo;
+		return FALSE;
+	}
+
+	m_fallbackStringInfo = fallbackStringInfo;
+	m_fallbackTextCount = fallbackTextCount;
+	m_fallbackStringLUT = buildLookUpTable( fallbackStringInfo, fallbackTextCount );
+
+	return TRUE;
+}
+
+//============================================================================
+// GameTextManager::loadEnglishFallback
+//============================================================================
+
+void GameTextManager::loadEnglishFallback()
+{
+	if ( GetRegistryLanguage().compareNoCase( CSF_FALLBACK_LANGUAGE ) == 0 )
+	{
+		return;
+	}
+
+	AsciiString fallbackFile;
+	fallbackFile.format( g_csfFile, CSF_FALLBACK_LANGUAGE );
+
+	if ( !loadFallbackStrings( fallbackFile.str() ) )
+	{
+		DEBUG_LOG(("GameTextManager - no fallback strings from %s", fallbackFile.str()));
+		return;
+	}
+
+	DEBUG_LOG(("GameTextManager - %d fallback strings loaded from %s", m_fallbackTextCount, fallbackFile.str()));
+}
+
+//============================================================================
 // GameTextManager::parseStringFile
 //============================================================================
 
@@ -1276,6 +1369,11 @@ UnicodeString GameTextManager::fetch( const Char *label, Bool *exists )
 	if ( lookUp == nullptr && m_mapStringLUT && m_mapTextCount )
 	{
 		lookUp = (StringLookUp *) bsearch( &key, (void*) m_mapStringLUT, m_mapTextCount, sizeof(StringLookUp), compareLUT );
+	}
+
+	if ( lookUp == nullptr && m_fallbackStringLUT && m_fallbackTextCount )
+	{
+		lookUp = (StringLookUp *) bsearch( &key, (void*) m_fallbackStringLUT, m_fallbackTextCount, sizeof(StringLookUp), compareLUT );
 	}
 
 	if( lookUp == nullptr )

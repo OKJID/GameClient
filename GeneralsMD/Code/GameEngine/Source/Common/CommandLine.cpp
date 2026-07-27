@@ -1086,9 +1086,17 @@ Int parseUpdateImages(char *args[], int num)
 
 static void setModDir(AsciiString modDir)
 {
-	if (!modDir.endsWith("\\") && !modDir.endsWith("/"))
-		modDir.concat('\\');
+	// Engine paths are backslash-form. Argv arrives native (/); NativeFileSystem translates out.
+	std::string enginePath(modDir.str());
+	for (char& c : enginePath)
+	{
+		if (c == '/')
+			c = '\\';
+	}
+	if (enginePath.empty() || enginePath.back() != '\\')
+		enginePath.push_back('\\');
 
+	modDir.set(enginePath.c_str());
 	DEBUG_LOG(("Mod dir is '%s'.", modDir.str()));
 	TheWritableGlobalData->m_modDir = modDir;
 }

@@ -32,6 +32,7 @@
 #include "Common/file.h"
 #include "Common/GameAudio.h"
 #include "Common/GameMemory.h"
+#include "Common/GlobalData.h"
 #include "Common/LocalFileSystem.h"
 
 #if RTS_ZEROHOUR
@@ -42,7 +43,28 @@
 #include "StdDevice/Common/StdBIGFileSystem.h"
 #include "Utility/endian_compat.h"
 
+#include <cctype>
+
 static const char *BIGFileIdentifier = "BIGF";
+
+// Community Patch drops overlays as NNN_Name.big into the ZH root. Under a curated mod they
+// fight the mod's UI (ControlBarPro/HD). Mod packages use the same NNN_ prefix, but they are
+// loaded later via loadMods(overwrite=TRUE) and are not affected by this filter.
+static Bool isCommunityPatchOverlayBig(const AsciiString& path)
+{
+	const char* base = path.str();
+	for (const char* p = path.str(); *p != '\0'; ++p)
+	{
+		if (*p == '\\' || *p == '/')
+			base = p + 1;
+	}
+
+	return std::isdigit(static_cast<unsigned char>(base[0]))
+		&& std::isdigit(static_cast<unsigned char>(base[1]))
+		&& std::isdigit(static_cast<unsigned char>(base[2]))
+		&& base[3] == '_'
+		&& path.endsWithNoCase(".big");
+}
 
 StdBIGFileSystem::StdBIGFileSystem() : ArchiveFileSystem() {
 }
@@ -227,6 +249,16 @@ Bool StdBIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString fi
 			continue;
 		}
 #endif
+
+		if (!overwrite
+			&& TheGlobalData != nullptr
+			&& TheGlobalData->m_modDir.isNotEmpty()
+			&& isCommunityPatchOverlayBig(*it))
+		{
+			DEBUG_LOG(("StdBIGFileSystem::loadBigFilesFromDirectory - skipping patch overlay under mod: %s", it->str()));
+			it++;
+			continue;
+		}
 
 		ArchiveFile *archiveFile = openArchiveFile((*it).str());
 

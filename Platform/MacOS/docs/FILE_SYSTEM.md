@@ -169,6 +169,9 @@ Loose Mod > Loose CWD > Loose ZH > Loose Base > BIG Mod > BIG CWD > BIG Base
 - `maskBaseScripts` in the manifest hides loose `Data\Scripts\*` of the install, so base
   AI scripts cannot shadow the mod's. On Windows a manual mod install deletes those files;
   we keep them on disk and hide them instead.
+- Community Patch overlays (`NNN_*.big` in the ZH root, e.g. `340_ControlBarProZH.big`)
+  are **not loaded** while a mod is active. They are ZH UI patches and collide with mod
+  control bars. Mod BIGs themselves still load via `loadMods` (`overwrite = TRUE`).
 
 ## registry.cpp (`#ifdef __APPLE__`)
 
@@ -205,6 +208,19 @@ The engine uses `GetRegistryLanguage()` to build localized paths for speech, mus
 2. Data/English/Movies/file.bik          ← English fallback
 3. Data\Movies\file.bik                  ← generic
 ```
+
+**Text** (`GameTextManager::init`):
+```
+1. Data\<Language>\Generals.csf          ← localized (from GetRegistryLanguage)
+2. Data\English\Generals.csf             ← fallback, only for labels missing above
+```
+
+> `fetch` looks up the main table, then the map table, then the English fallback table.
+> Required for mods with partial localization: Contra007 ships only
+> `Data\English\Generals.csf`, so under a non-English language the engine loads the
+> install's own CSF, which knows nothing about the mod's labels (e.g. `GUI:ResetFPS`).
+> Under a mod the fallback path resolves through the mod's archives first, so the mod's
+> own English CSF wins.
 
 > Steps 3 (audio) and 2 (video) are macOS-specific additions. Without them, non-English locales have no speech or campaign videos because `.big` archives only contain files under `English/` subfolders.
 
