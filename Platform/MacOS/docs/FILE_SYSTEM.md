@@ -209,18 +209,27 @@ The engine uses `GetRegistryLanguage()` to build localized paths for speech, mus
 3. Data\Movies\file.bik                  ← generic
 ```
 
-**Text** (`GameTextManager::init`):
+**Text** (`GameTextManager::init`). Without a mod the order is unchanged — `Data\Generals.str`,
+then `Data\<Language>\Generals.csf`, then English as a fallback. Under a mod each label is
+resolved through a chain, because a mod ships its own strings but rarely in every language:
+
 ```
-1. Data\<Language>\Generals.csf          ← localized (from GetRegistryLanguage)
-2. Data\English\Generals.csf             ← fallback, only for labels missing above
+1. Data\<Language>\Generals.csf   [mod]       ← mod's own locale, if it has one
+2. Data\<Language>\Generals.csf   [install]   ← the install's locale
+3. Data\English\Generals.csf      [mod]       ← Contra007/008 keep their strings here
+4. Data\Generals.str              [mod]       ← ContraX and Contra009 keep them here
+5. Data\Generals.str              [install]
+6. Data\English\Generals.csf      [install]
 ```
 
-> `fetch` looks up the main table, then the map table, then the English fallback table.
-> Required for mods with partial localization: Contra007 ships only
-> `Data\English\Generals.csf`, so under a non-English language the engine loads the
-> install's own CSF, which knows nothing about the mod's labels (e.g. `GUI:ResetFPS`).
-> Under a mod the fallback path resolves through the mod's archives first, so the mod's
-> own English CSF wins.
+> The first layer that loads becomes the main table; the rest stay as fallbacks, and `fetch`
+> walks main → map → fallbacks in order. Layers 3-4 are the same thing physically stored two
+> ways, so both are tried.
+>
+> `FileSystem::openFileInMod` / `openFileOutsideMod` provide the `[mod]` / `[install]` split:
+> the normal lookup cannot express it, since mod archives are inserted ahead of the install
+> and would always answer first. Observed with Contra009 under Ukrainian: interface text comes
+> from the install's `ukrainian` CSF (6422 labels), mod units from the mod's `.str` (5661).
 
 > Steps 3 (audio) and 2 (video) are macOS-specific additions. Without them, non-English locales have no speech or campaign videos because `.big` archives only contain files under `English/` subfolders.
 

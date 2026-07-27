@@ -155,6 +155,8 @@ public:
 	virtual void update() override;
 
 	File* openFile( const Char *filename, Int access = File::NONE, size_t bufferSize = File::BUFFERSIZE, FileInstance instance = 0 ); ///< opens a File interface to the specified file
+	File* openFileInMod( const Char *filename, Int access = File::NONE ); ///< opens the mod's own copy of the file, ignoring the install. nullptr when the mod does not carry it
+	File* openFileOutsideMod( const Char *filename, Int access = File::NONE ); ///< opens the install's copy of the file, ignoring whatever the mod overrides it with
 	Bool doesFileExist(const Char *filename, FileInstance instance = 0) const; ///< returns TRUE if the file exists.  filename should have no directory.
 	void getFileListInDirectory(const AsciiString& directory, const AsciiString& searchName, FilenameList &filenameList, Bool searchSubdirectories) const; ///< search the given directory for files matching the searchName (egs. *.ini, *.rep).  Possibly search subdirectories.
 	Bool getFileInfo(const AsciiString& filename, FileInfo *fileInfo, FileInstance instance = 0) const; ///< fills in the FileInfo struct for the file given. returns TRUE if successful.

@@ -320,6 +320,64 @@ File*		FileSystem::openFile( const Char *filename, Int access, size_t bufferSize
 }
 
 //============================================================================
+// FileSystem::openFileInMod
+//============================================================================
+
+File*		FileSystem::openFileInMod( const Char *filename, Int access )
+{
+	if (TheGlobalData == nullptr || TheGlobalData->m_modDir.isEmpty())
+		return nullptr;
+
+	const AsciiString modFile = modLoosePath(filename);
+	if (!modFile.isEmpty() && TheLocalFileSystem != nullptr)
+	{
+		File *file = TheLocalFileSystem->openFile(modFile.str(), access);
+		if (file != nullptr)
+			return file;
+	}
+
+	if (!isServedByModArchive(filename))
+		return nullptr;
+
+	return TheArchiveFileSystem->openFile(filename, access, 0);
+}
+
+//============================================================================
+// FileSystem::openFileOutsideMod
+//============================================================================
+
+File*		FileSystem::openFileOutsideMod( const Char *filename, Int access )
+{
+	if (TheLocalFileSystem != nullptr && !isMaskedBaseFile(filename))
+	{
+		File *file = TheLocalFileSystem->openFile(filename, access);
+		if (file != nullptr)
+			return file;
+	}
+
+	if (TheArchiveFileSystem == nullptr)
+		return nullptr;
+
+	const AsciiString archivedName(filename);
+
+	for (FileInstance instance = 0; instance < ~FileInstance(0); ++instance)
+	{
+		ArchiveFile *archive = TheArchiveFileSystem->getArchiveFile(archivedName, instance);
+		if (archive == nullptr)
+			return nullptr;
+
+		if (TheGlobalData == nullptr
+			|| TheGlobalData->m_modDir.isEmpty()
+			|| !archive->getName().startsWithNoCase(TheGlobalData->m_modDir))
+		{
+			return TheArchiveFileSystem->openFile(filename, access, instance);
+		}
+	}
+
+	return nullptr;
+}
+
+//============================================================================
 // FileSystem::doesFileExist
 //============================================================================
 

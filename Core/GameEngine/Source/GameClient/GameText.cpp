@@ -130,6 +130,31 @@ struct NoString
 
 
 //===============================
+// Text lookup chain
+//===============================
+
+enum TextFileSource
+{
+	TEXT_FILE_ANY,
+	TEXT_FILE_MOD,
+	TEXT_FILE_INSTALL,
+};
+
+struct TextSourceSpec
+{
+	AsciiString			filename;
+	TextFileSource	source;
+	Bool						isStringFile;
+};
+
+struct FallbackStringTable
+{
+	StringInfo		*info;
+	StringLookUp	*lut;
+	Int						count;
+};
+
+//===============================
 // GameTextManager
 //===============================
 
@@ -167,9 +192,8 @@ class GameTextManager : public GameTextInterface
 
 		StringInfo			*m_stringInfo;
 		StringLookUp		*m_stringLUT;
-		StringInfo			*m_fallbackStringInfo;
-		StringLookUp		*m_fallbackStringLUT;
-		Int							m_fallbackTextCount;
+		std::vector<FallbackStringTable>	m_fallbackTables;
+		TextFileSource	m_textSource;
 		Bool						m_initialized;
 #if defined(RTS_DEBUG)
 		Bool						m_jabberWockie;
@@ -196,8 +220,10 @@ class GameTextManager : public GameTextInterface
 		Bool						getStringCount( const Char *filename, Int& textCount );
 		Bool						getCSFInfo ( const Char *filename );
 		Bool						parseCSF(  const Char *filename );
-		Bool						loadFallbackStrings( const Char *filename );
-		void						loadEnglishFallback();
+		File*						openTextFile( const Char *filename, Int access ) const;
+		void						buildTextSourceChain( const AsciiString &localizedCsfFile, std::vector<TextSourceSpec> &chain ) const;
+		Bool						loadPrimaryTable( const TextSourceSpec &spec );
+		Bool						appendFallbackTable( const TextSourceSpec &spec );
 		Bool						parseStringFile( const char *filename );
 		Bool						parseMapStringFile( const char *filename );
 		Bool						readLine( char *buffer, Int max, File *file );
@@ -252,9 +278,7 @@ GameTextManager::GameTextManager()
 	m_maxLabelLen(0),
 	m_stringInfo(nullptr),
 	m_stringLUT(nullptr),
-	m_fallbackStringInfo(nullptr),
-	m_fallbackStringLUT(nullptr),
-	m_fallbackTextCount(0),
+	m_textSource(TEXT_FILE_ANY),
 	m_initialized(FALSE),
 	m_noStringList(nullptr),
 #if defined(RTS_DEBUG)
@@ -294,6 +318,17 @@ extern const Char *g_csfFile;
 
 static const Char *CSF_FALLBACK_LANGUAGE = "english";
 
+static const Char *textSourceName( TextFileSource source )
+{
+	if ( source == TEXT_FILE_MOD )
+		return "mod";
+
+	if ( source == TEXT_FILE_INSTALL )
+		return "install";
+
+	return "any";
+}
+
 static StringLookUp *buildLookUpTable( StringInfo *stringInfo, Int textCount )
 {
 	StringLookUp *lookUpTable = NEW StringLookUp[textCount];
@@ -316,10 +351,6 @@ static StringLookUp *buildLookUpTable( StringInfo *stringInfo, Int textCount )
 
 void GameTextManager::init()
 {
-	AsciiString csfFile;
-	csfFile.format(g_csfFile, GetRegistryLanguage().str());
-	Int format;
-
 	if ( m_initialized )
 	{
 		return;
@@ -336,57 +367,173 @@ void GameTextManager::init()
 	}
 #endif
 
-	if ( m_useStringFile && getStringCount( g_strFile, m_textCount ) )
-	{
-		format = STRING_FILE;
-	}
-	else if ( getCSFInfo ( csfFile.str() ) )
-	{
-		format = CSF_FILE;
-	}
-	else
-	{
-		return;
-	}
+	AsciiString csfFile;
+	csfFile.format(g_csfFile, GetRegistryLanguage().str());
 
-	if( m_textCount == 0 )
+	std::vector<TextSourceSpec> chain;
+	buildTextSourceChain( csfFile, chain );
+
+	size_t primaryIndex = chain.size();
+
+	for ( size_t i = 0; i < chain.size(); ++i )
 	{
-		return;
-	}
-
-	//Allocate StringInfo Array
-
-	m_stringInfo = NEW StringInfo[m_textCount];
-
-	if( m_stringInfo == nullptr )
-	{
-		deinit();
-		return;
-	}
-
-	if ( format == STRING_FILE )
-	{
-		if( parseStringFile( g_strFile ) == FALSE )
+		if ( loadPrimaryTable( chain[i] ) )
 		{
-			deinit();
-			return;
+			primaryIndex = i;
+			break;
 		}
 	}
-	else
+
+	if ( primaryIndex == chain.size() )
 	{
-		if ( !parseCSF ( csfFile.str() ) )
-		{
-			deinit();
-			return;
-		}
+		return;
 	}
 
 	m_stringLUT = buildLookUpTable( m_stringInfo, m_textCount );
 
-	if ( format == CSF_FILE )
+	for ( size_t i = primaryIndex + 1; i < chain.size(); ++i )
 	{
-		loadEnglishFallback();
+		appendFallbackTable( chain[i] );
 	}
+}
+
+//============================================================================
+// GameTextManager::buildTextSourceChain
+//============================================================================
+
+void GameTextManager::buildTextSourceChain( const AsciiString &localizedCsfFile, std::vector<TextSourceSpec> &chain ) const
+{
+	AsciiString englishCsfFile;
+	englishCsfFile.format( g_csfFile, CSF_FALLBACK_LANGUAGE );
+
+	const Bool localized = localizedCsfFile.compareNoCase( englishCsfFile ) != 0;
+	const Bool modActive = TheGlobalData != nullptr && TheGlobalData->m_modDir.isNotEmpty();
+
+	if ( !modActive )
+	{
+		const TextSourceSpec stringFile = { AsciiString( g_strFile ), TEXT_FILE_ANY, TRUE };
+		const TextSourceSpec localizedCsf = { localizedCsfFile, TEXT_FILE_ANY, FALSE };
+		const TextSourceSpec englishCsf = { englishCsfFile, TEXT_FILE_ANY, FALSE };
+
+		chain.push_back( stringFile );
+		chain.push_back( localizedCsf );
+
+		if ( localized )
+			chain.push_back( englishCsf );
+
+		return;
+	}
+
+	// Under a mod the label is resolved as: mod's locale, install's locale, mod's English,
+	// install's English. The mod ships its own strings, but rarely in every language.
+	if ( localized )
+	{
+		const TextSourceSpec modLocalized = { localizedCsfFile, TEXT_FILE_MOD, FALSE };
+		const TextSourceSpec installLocalized = { localizedCsfFile, TEXT_FILE_INSTALL, FALSE };
+
+		chain.push_back( modLocalized );
+		chain.push_back( installLocalized );
+	}
+
+	const TextSourceSpec modEnglishCsf = { englishCsfFile, TEXT_FILE_MOD, FALSE };
+	const TextSourceSpec modStringFile = { AsciiString( g_strFile ), TEXT_FILE_MOD, TRUE };
+	const TextSourceSpec installStringFile = { AsciiString( g_strFile ), TEXT_FILE_INSTALL, TRUE };
+	const TextSourceSpec installEnglishCsf = { englishCsfFile, TEXT_FILE_INSTALL, FALSE };
+
+	chain.push_back( modEnglishCsf );
+	chain.push_back( modStringFile );
+	chain.push_back( installStringFile );
+	chain.push_back( installEnglishCsf );
+}
+
+//============================================================================
+// GameTextManager::loadPrimaryTable
+//============================================================================
+
+Bool GameTextManager::loadPrimaryTable( const TextSourceSpec &spec )
+{
+	m_textSource = spec.source;
+	m_textCount = 0;
+
+	const Bool counted = spec.isStringFile
+		? ( m_useStringFile && getStringCount( spec.filename.str(), m_textCount ) )
+		: getCSFInfo( spec.filename.str() );
+
+	if ( !counted || m_textCount == 0 )
+	{
+		m_textSource = TEXT_FILE_ANY;
+		return FALSE;
+	}
+
+	m_stringInfo = NEW StringInfo[m_textCount];
+
+	const Bool parsed = m_stringInfo != nullptr
+		&& ( spec.isStringFile ? parseStringFile( spec.filename.str() ) : parseCSF( spec.filename.str() ) );
+
+	m_textSource = TEXT_FILE_ANY;
+
+	if ( parsed )
+	{
+		DEBUG_LOG(("GameTextManager - %d strings from %s [%s]", m_textCount, spec.filename.str(), textSourceName( spec.source )));
+		return TRUE;
+	}
+
+	delete [] m_stringInfo;
+	m_stringInfo = nullptr;
+	m_textCount = 0;
+
+	return FALSE;
+}
+
+//============================================================================
+// GameTextManager::appendFallbackTable
+//============================================================================
+
+Bool GameTextManager::appendFallbackTable( const TextSourceSpec &spec )
+{
+	StringInfo *primaryStringInfo = m_stringInfo;
+	Int primaryTextCount = m_textCount;
+	LanguageID primaryLanguage = m_language;
+
+	m_stringInfo = nullptr;
+
+	const Bool loaded = loadPrimaryTable( spec );
+
+	StringInfo *tableInfo = m_stringInfo;
+	Int tableCount = m_textCount;
+
+	m_stringInfo = primaryStringInfo;
+	m_textCount = primaryTextCount;
+	m_language = primaryLanguage;
+
+	if ( !loaded )
+	{
+		return FALSE;
+	}
+
+	FallbackStringTable table;
+	table.info = tableInfo;
+	table.count = tableCount;
+	table.lut = buildLookUpTable( tableInfo, tableCount );
+
+	m_fallbackTables.push_back( table );
+
+	return TRUE;
+}
+
+//============================================================================
+// GameTextManager::openTextFile
+//============================================================================
+
+File* GameTextManager::openTextFile( const Char *filename, Int access ) const
+{
+	if ( m_textSource == TEXT_FILE_MOD )
+		return TheFileSystem->openFileInMod( filename, access );
+
+	if ( m_textSource == TEXT_FILE_INSTALL )
+		return TheFileSystem->openFileOutsideMod( filename, access );
+
+	return TheFileSystem->openFile( filename, access );
 }
 
 //============================================================================
@@ -402,13 +549,13 @@ void GameTextManager::deinit()
 	delete [] m_stringLUT;
 	m_stringLUT = nullptr;
 
-	delete [] m_fallbackStringInfo;
-	m_fallbackStringInfo = nullptr;
+	for ( size_t i = 0; i < m_fallbackTables.size(); ++i )
+	{
+		delete [] m_fallbackTables[i].info;
+		delete [] m_fallbackTables[i].lut;
+	}
 
-	delete [] m_fallbackStringLUT;
-	m_fallbackStringLUT = nullptr;
-
-	m_fallbackTextCount = 0;
+	m_fallbackTables.clear();
 
 	m_textCount = 0;
 
@@ -832,7 +979,7 @@ Bool GameTextManager::getStringCount( const char *filename, Int& textCount )
 	textCount = 0;
 
 	File *file;
-	file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	file = openTextFile(filename, File::READ | File::TEXT);
 	DEBUG_LOG(("Looking in %s for string file", filename));
 
 	if ( file == nullptr )
@@ -873,7 +1020,7 @@ Bool GameTextManager::getCSFInfo ( const Char *filename )
 {
 	CSFHeader header;
 	Int ok = FALSE;
-	File *file = TheFileSystem->openFile(filename, File::READ | File::BINARY);
+	File *file = openTextFile(filename, File::READ | File::BINARY);
 
 	if ( file != nullptr )
 	{
@@ -916,7 +1063,7 @@ Bool GameTextManager::parseCSF( const Char *filename )
 	Bool ok = FALSE;
 	CSFHeader header;
 
-	file = TheFileSystem->openFile(filename, File::READ | File::BINARY);
+	file = openTextFile(filename, File::READ | File::BINARY);
 
 	if ( file == nullptr )
 	{
@@ -1043,70 +1190,6 @@ quit:
 
 
 //============================================================================
-// GameTextManager::loadFallbackStrings
-//============================================================================
-
-Bool GameTextManager::loadFallbackStrings( const Char *filename )
-{
-	StringInfo *primaryStringInfo = m_stringInfo;
-	Int primaryTextCount = m_textCount;
-	LanguageID primaryLanguage = m_language;
-
-	m_stringInfo = nullptr;
-	m_textCount = 0;
-
-	Bool parsed = FALSE;
-
-	if ( getCSFInfo( filename ) && m_textCount > 0 )
-	{
-		m_stringInfo = NEW StringInfo[m_textCount];
-		parsed = m_stringInfo != nullptr && parseCSF( filename );
-	}
-
-	StringInfo *fallbackStringInfo = m_stringInfo;
-	Int fallbackTextCount = m_textCount;
-
-	m_stringInfo = primaryStringInfo;
-	m_textCount = primaryTextCount;
-	m_language = primaryLanguage;
-
-	if ( !parsed )
-	{
-		delete [] fallbackStringInfo;
-		return FALSE;
-	}
-
-	m_fallbackStringInfo = fallbackStringInfo;
-	m_fallbackTextCount = fallbackTextCount;
-	m_fallbackStringLUT = buildLookUpTable( fallbackStringInfo, fallbackTextCount );
-
-	return TRUE;
-}
-
-//============================================================================
-// GameTextManager::loadEnglishFallback
-//============================================================================
-
-void GameTextManager::loadEnglishFallback()
-{
-	if ( GetRegistryLanguage().compareNoCase( CSF_FALLBACK_LANGUAGE ) == 0 )
-	{
-		return;
-	}
-
-	AsciiString fallbackFile;
-	fallbackFile.format( g_csfFile, CSF_FALLBACK_LANGUAGE );
-
-	if ( !loadFallbackStrings( fallbackFile.str() ) )
-	{
-		DEBUG_LOG(("GameTextManager - no fallback strings from %s", fallbackFile.str()));
-		return;
-	}
-
-	DEBUG_LOG(("GameTextManager - %d fallback strings loaded from %s", m_fallbackTextCount, fallbackFile.str()));
-}
-
-//============================================================================
 // GameTextManager::parseStringFile
 //============================================================================
 
@@ -1115,7 +1198,7 @@ Bool GameTextManager::parseStringFile( const char *filename )
 	Int listCount = 0;
 	Int ok = TRUE;
 
-	File *file = TheFileSystem->openFile(filename, File::READ | File::TEXT);
+	File *file = openTextFile(filename, File::READ | File::TEXT);
 
 	if ( file == nullptr )
 	{
@@ -1371,9 +1454,11 @@ UnicodeString GameTextManager::fetch( const Char *label, Bool *exists )
 		lookUp = (StringLookUp *) bsearch( &key, (void*) m_mapStringLUT, m_mapTextCount, sizeof(StringLookUp), compareLUT );
 	}
 
-	if ( lookUp == nullptr && m_fallbackStringLUT && m_fallbackTextCount )
+	for ( size_t i = 0; lookUp == nullptr && i < m_fallbackTables.size(); ++i )
 	{
-		lookUp = (StringLookUp *) bsearch( &key, (void*) m_fallbackStringLUT, m_fallbackTextCount, sizeof(StringLookUp), compareLUT );
+		const FallbackStringTable &table = m_fallbackTables[i];
+
+		lookUp = (StringLookUp *) bsearch( &key, (void*) table.lut, table.count, sizeof(StringLookUp), compareLUT );
 	}
 
 	if( lookUp == nullptr )
