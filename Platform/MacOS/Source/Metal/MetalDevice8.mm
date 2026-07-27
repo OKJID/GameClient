@@ -1329,19 +1329,17 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
     [MTL_CMD_BUF presentDrawable:MTL_DRAWABLE];
   }
   if (m_CurrentCommandBuffer) {
+    dispatch_semaphore_t frameSemaphore =
+        (__bridge dispatch_semaphore_t)m_FrameSemaphore;
+    [MTL_CMD_BUF addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+      dispatch_semaphore_signal(frameSemaphore);
+    }];
     [MTL_CMD_BUF commit];
-    // Wait for GPU to finish — matches DirectX 8's Present() which blocked
-    // until VSync. Without this, CPU races ahead causing resource conflicts.
-    // displaySyncEnabled=YES on CAMetalLayer handles the actual frame rate cap.
-    [MTL_CMD_BUF waitUntilCompleted];
-
-    // DIAG: Read back center pixel to verify GPU actually rendered something
 
     CLEAR_MTL(CurrentCommandBuffer);
   }
   CLEAR_MTL(CurrentDrawable);
   m_InScene = false;
-  m_RingBufferOffset = 0;
   g_metalPresentCount++;
   return D3D_OK;
 }
@@ -1953,6 +1951,10 @@ STDMETHODIMP MetalDevice8::BeginScene() {
     return D3D_OK; // Still have a valid drawable from this frame
   }
 
+  dispatch_semaphore_t frameSemaphore =
+      (__bridge dispatch_semaphore_t)m_FrameSemaphore;
+  dispatch_semaphore_wait(frameSemaphore, DISPATCH_TIME_FOREVER);
+
   // TheSuperHackers @fix macOS: nextDrawable can return nil if all drawables
   // are in flight. With displaySyncEnabled=NO this should not block for VSync.
   id<MTLCommandBuffer> cmdBuf = [MTL_QUEUE commandBuffer];
@@ -1962,6 +1964,7 @@ STDMETHODIMP MetalDevice8::BeginScene() {
   if (!drawable) {
     // printf("[DIAG] BeginScene: nextDrawable returned nil! layer=%p\n", m_MetalLayer);
     // fflush(stdout);
+    dispatch_semaphore_signal(frameSemaphore);
     m_InScene = false;
     CLEAR_MTL(CurrentCommandBuffer);
     return E_FAIL;
