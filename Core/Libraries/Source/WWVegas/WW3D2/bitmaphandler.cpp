@@ -170,18 +170,20 @@ void BitmapHandlerClass::Copy_Image(
 
 		unsigned src_bpp=Get_Bytes_Per_Pixel(src_surface_format);
 
+		// The 3x3 kernel below must never step outside the source image. A 512x512x24bpp TGA is
+		// exactly a whole number of pages, so malloc hands back a mapping with no slack and a
+		// single pixel of overrun faults instead of quietly reading junk.
+		const unsigned last_src_row		= src_surface_height-1;
+		const unsigned last_src_column	= src_surface_width-1;
+
 		for( unsigned y=0; y<dest_surface_height; y++ ) {
 			unsigned char* dest_ptr=dest_surface;
 			dest_ptr+=y*dest_surface_pitch;
-			unsigned char* src_ptr_mid=src_surface;
-			src_ptr_mid+=y*src_surface_pitch;
-			unsigned char* src_ptr_next_line = ( src_ptr_mid + src_surface_pitch );
-			unsigned char* src_ptr_prev_line = ( src_ptr_mid - src_surface_pitch );
 
-			if( y == src_surface_height-1 )  // Don't go past the last line
-				src_ptr_next_line = src_ptr_mid;
-			if( y == 0 )               // Don't go before first line
-				src_ptr_prev_line = src_ptr_mid;
+			const unsigned src_y = ( y < last_src_row ) ? y : last_src_row;
+			unsigned char* src_row			= src_surface + src_y*src_surface_pitch;
+			unsigned char* src_row_above	= ( src_y > 0 ) ? ( src_row - src_surface_pitch ) : src_row;
+			unsigned char* src_row_below	= ( src_y < last_src_row ) ? ( src_row + src_surface_pitch ) : src_row;
 
 			for( unsigned x=0; x<dest_surface_width; x++ ) {
 				unsigned pixel00;
@@ -190,11 +192,17 @@ void BitmapHandlerClass::Copy_Image(
 				unsigned pixel10;
 				unsigned pixel1M;
 
+				const unsigned src_x = ( x < last_src_column ) ? x : last_src_column;
+				const unsigned src_column_offset = src_x*src_bpp;
+				unsigned char* src_ptr_mid		= src_row + src_column_offset;
+				unsigned char* src_ptr_left		= ( src_x > 0 ) ? ( src_ptr_mid - src_bpp ) : src_ptr_mid;
+				unsigned char* src_ptr_right	= ( src_x < last_src_column ) ? ( src_ptr_mid + src_bpp ) : src_ptr_mid;
+
 				Read_B8G8R8A8(pixel00,src_ptr_mid,src_surface_format,nullptr,0);
-				Read_B8G8R8A8(pixel01,src_ptr_mid+src_bpp,src_surface_format,nullptr,0);
-				Read_B8G8R8A8(pixelM1,src_ptr_mid-src_bpp,src_surface_format,nullptr,0);
-				Read_B8G8R8A8(pixel10,src_ptr_prev_line,src_surface_format,nullptr,0);
-				Read_B8G8R8A8(pixel1M,src_ptr_next_line,src_surface_format,nullptr,0);
+				Read_B8G8R8A8(pixel01,src_ptr_right,src_surface_format,nullptr,0);
+				Read_B8G8R8A8(pixelM1,src_ptr_left,src_surface_format,nullptr,0);
+				Read_B8G8R8A8(pixel10,src_row_above+src_column_offset,src_surface_format,nullptr,0);
+				Read_B8G8R8A8(pixel1M,src_row_below+src_column_offset,src_surface_format,nullptr,0);
 
 				// Convert to luminance
 				unsigned char bv00;
@@ -245,11 +253,6 @@ void BitmapHandlerClass::Copy_Image(
 					WWASSERT(0);	// Unknown bumpmap format
 					break;
 				}
-
-				// Move one pixel to the left (src is 32-bpp)
-				src_ptr_mid+=src_bpp;
-				src_ptr_prev_line+=src_bpp;
-				src_ptr_next_line+=src_bpp;
 			}
 		}
 		return;
