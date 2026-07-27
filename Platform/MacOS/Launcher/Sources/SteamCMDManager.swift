@@ -128,7 +128,6 @@ class SteamCMDManager: ObservableObject {
                 appendLog("[*] Removed EA modern patch file: \(file)\n")
             }
             
-            // Also check root just in case
             let rootPath = installDir.appendingPathComponent(file)
             if fm.fileExists(atPath: rootPath.path) {
                 try? fm.removeItem(at: rootPath)
@@ -308,7 +307,6 @@ class SteamCMDManager: ObservableObject {
                     self.appendLog("\n[*] SteamCMD updated itself. Restarting process...\n")
                     self.runSteamCMD(username: username, password: password)
                 } else if case .failed = self.state {
-                    // already set
                 } else {
                     self.fail("SteamCMD exited with code \(proc.terminationStatus)")
                 }
@@ -399,7 +397,6 @@ class SteamCMDManager: ObservableObject {
                 return
             }
 
-            // Move the downloaded temp file so it doesn't get automatically deleted
             let tempZipURL = self.installDir.appendingPathComponent("temp_patch.zip")
             let fm = FileManager.default
             try? fm.removeItem(at: tempZipURL)
@@ -439,7 +436,7 @@ class SteamCMDManager: ObservableObject {
 
         process.terminationHandler = { [weak self] proc in
             DispatchQueue.main.async {
-                try? FileManager.default.removeItem(at: zipURL) // Clean up zip
+                try? FileManager.default.removeItem(at: zipURL)
                 
                 guard let self = self else { return }
 

@@ -9,7 +9,6 @@ struct AboutView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Force redraw when language changes by referencing launcherLanguage in body
             Text(launcherLanguage).frame(width: 0, height: 0).opacity(0)
             
             _buildLogo()
@@ -146,7 +145,6 @@ class AboutWindowController {
         win.center()
         win.isReleasedWhenClosed = false
         
-        // Clear reference on close so that it rebuilds next time
         NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification,
             object: win,

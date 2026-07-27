@@ -44,21 +44,18 @@ struct SettingsJsonHelper {
             json = existingJson
         }
         
-        // Patch camera section
         var camera = json["camera"] as? [String: Any] ?? [:]
         camera["min_height"] = cameraMinHeight
         camera["max_height_only_when_lobby_host"] = cameraMaxHeight
         camera["move_speed_ratio"] = cameraMoveSpeed
         json["camera"] = camera
         
-        // Patch render section
         var render = json["render"] as? [String: Any] ?? [:]
         render["limit_framerate"] = limitFramerate
         render["fps_limit"] = fpsLimit
         render["stats_overlay"] = statsOverlay
         json["render"] = render
         
-        // Patch network section
         var network = json["network"] as? [String: Any] ?? [:]
         network["use_alternative_endpoint"] = useAlternativeEndpoint
         if network["http_version"] == nil {

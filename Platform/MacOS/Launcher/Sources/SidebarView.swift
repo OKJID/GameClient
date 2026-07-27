@@ -10,7 +10,6 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Title & Global Reset
             HStack {
                 Image(systemName: "slider.horizontal.3")
                     .foregroundColor(accent)
@@ -37,11 +36,9 @@ struct SidebarView: View {
             }
             .padding(.bottom, 16)
             
-            // Scrolling Settings List
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 16) {
 
-                    // --- INTERFACE SECTION ---
                     if profile.supportsAny([.gameLanguage, .windowedEdgeScroll, .showHotkeyLabels]) {
                         _buildSectionHeader(title: L10n.settings.interfaceSection)
                     }
@@ -72,7 +69,6 @@ struct SidebarView: View {
                     _buildPerformanceSection()
                     _buildNetworkSection()
 
-                    // --- LEGEND SECTION ---
                     _buildLegendSection()
                 }
                 .padding(.trailing, 4)
@@ -80,7 +76,6 @@ struct SidebarView: View {
             
             Spacer()
             
-            // Bottom Tile Buttons
             VStack(spacing: 10) {
                 _buildLanguageTileButton()
                 _buildAboutTileButton()
@@ -485,7 +480,6 @@ struct SettingsSliderField: View {
                 }
                 Spacer()
                 
-                // Per-field reset button
                 if value != defaultValue && !isDisabled {
                     Button(action: {
                         value = defaultValue
