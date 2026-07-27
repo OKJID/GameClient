@@ -74,6 +74,13 @@ enum L10n {
         var submit: String { resolve("steam.submit") }
         var cancel: String { resolve("steam.cancel") }
         var download: String { resolve("steam.download") }
+        var usernamePlaceholder: String { resolve("steam.usernamePlaceholder") }
+        var passwordPlaceholder: String { resolve("steam.passwordPlaceholder") }
+        var storedPasswordHint: String { resolve("steam.storedPasswordHint") }
+        var storedPasswordTitle: String { resolve("steam.storedPasswordTitle") }
+        var storedPasswordMsg: String { resolve("steam.storedPasswordMsg") }
+        var storedPasswordUse: String { resolve("steam.storedPasswordUse") }
+        var storedPasswordType: String { resolve("steam.storedPasswordType") }
         let status = SteamStatus()
     }
 
@@ -352,7 +359,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "All installed files of this mod will be deleted.",
         "alert.cancel": "Cancel",
         "mod.status.removing": "Removing",
-        "mod.removingTitle": "REMOVING %@ — PLEASE WAIT"
+        "mod.removingTitle": "REMOVING %@ — PLEASE WAIT",
+        "steam.storedPasswordHint": "Click to fill in the password saved in your keychain",
+        "steam.usernamePlaceholder": "Steam login",
+        "steam.passwordPlaceholder": "Enter password...",
+        "steam.storedPasswordTitle": "Saved password found",
+        "steam.storedPasswordMsg": "A password for “%@” is stored in your keychain. Use it, or type a new one?",
+        "steam.storedPasswordUse": "Use saved",
+        "steam.storedPasswordType": "Type manually"
     ]
 
     static let ru: [String: String] = [
@@ -471,7 +485,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Все установленные файлы этого мода будут удалены.",
         "alert.cancel": "Отмена",
         "mod.status.removing": "Удаление",
-        "mod.removingTitle": "УДАЛЕНИЕ %@ — ПОДОЖДИТЕ"
+        "mod.removingTitle": "УДАЛЕНИЕ %@ — ПОДОЖДИТЕ",
+        "steam.storedPasswordHint": "Нажмите, чтобы подставить пароль из связки ключей",
+        "steam.usernamePlaceholder": "Логин Steam",
+        "steam.passwordPlaceholder": "Введите пароль...",
+        "steam.storedPasswordTitle": "Найден сохранённый пароль",
+        "steam.storedPasswordMsg": "Для «%@» в связке ключей есть пароль. Подставить его или ввести новый?",
+        "steam.storedPasswordUse": "Подставить",
+        "steam.storedPasswordType": "Ввести вручную"
     ]
 
     static let uk: [String: String] = [
@@ -590,7 +611,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Усі встановлені файли цього мода буде видалено.",
         "alert.cancel": "Скасувати",
         "mod.status.removing": "Видалення",
-        "mod.removingTitle": "ВИДАЛЕННЯ %@ — ЗАЧЕКАЙТЕ"
+        "mod.removingTitle": "ВИДАЛЕННЯ %@ — ЗАЧЕКАЙТЕ",
+        "steam.storedPasswordHint": "Натисніть, щоб підставити пароль зі сховища ключів",
+        "steam.usernamePlaceholder": "Логін Steam",
+        "steam.passwordPlaceholder": "Введіть пароль...",
+        "steam.storedPasswordTitle": "Знайдено збережений пароль",
+        "steam.storedPasswordMsg": "Для «%@» у сховищі ключів є пароль. Підставити його чи ввести новий?",
+        "steam.storedPasswordUse": "Підставити",
+        "steam.storedPasswordType": "Ввести вручну"
     ]
 
     static let hi: [String: String] = [
@@ -709,7 +737,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "इस मॉड की सभी इंस्टॉल फ़ाइलें हटा दी जाएंगी।",
         "alert.cancel": "रद्द करें",
         "mod.status.removing": "हटाया जा रहा है",
-        "mod.removingTitle": "%@ हटाया जा रहा है — कृपया प्रतीक्षा करें"
+        "mod.removingTitle": "%@ हटाया जा रहा है — कृपया प्रतीक्षा करें",
+        "steam.storedPasswordHint": "कीचेन में सहेजा गया पासवर्ड भरने के लिए क्लिक करें",
+        "steam.usernamePlaceholder": "Steam लॉगिन",
+        "steam.passwordPlaceholder": "पासवर्ड दर्ज करें...",
+        "steam.storedPasswordTitle": "सहेजा गया पासवर्ड मिला",
+        "steam.storedPasswordMsg": "कीचेन में “%@” के लिए पासवर्ड सहेजा है। उसे भरें या नया दर्ज करें?",
+        "steam.storedPasswordUse": "सहेजा हुआ भरें",
+        "steam.storedPasswordType": "खुद दर्ज करें"
     ]
 
     static let zh: [String: String] = [
@@ -828,7 +863,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "该模组已安装的所有文件都将被删除。",
         "alert.cancel": "取消",
         "mod.status.removing": "正在移除",
-        "mod.removingTitle": "正在移除 %@ — 请稍候"
+        "mod.removingTitle": "正在移除 %@ — 请稍候",
+        "steam.storedPasswordHint": "点击以填入钥匙串中保存的密码",
+        "steam.usernamePlaceholder": "Steam 账号",
+        "steam.passwordPlaceholder": "请输入密码...",
+        "steam.storedPasswordTitle": "找到已保存的密码",
+        "steam.storedPasswordMsg": "钥匙串中保存了“%@”的密码。要使用它还是输入新密码？",
+        "steam.storedPasswordUse": "使用已保存",
+        "steam.storedPasswordType": "手动输入"
     ]
 
     static let ar: [String: String] = [
@@ -947,7 +989,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "سيتم حذف جميع الملفات المثبتة لهذا التعديل.",
         "alert.cancel": "إلغاء",
         "mod.status.removing": "جارٍ الإزالة",
-        "mod.removingTitle": "جارٍ إزالة %@ — يرجى الانتظار"
+        "mod.removingTitle": "جارٍ إزالة %@ — يرجى الانتظار",
+        "steam.storedPasswordHint": "انقر لتعبئة كلمة المرور المحفوظة في سلسلة المفاتيح",
+        "steam.usernamePlaceholder": "اسم مستخدم Steam",
+        "steam.passwordPlaceholder": "أدخل كلمة المرور...",
+        "steam.storedPasswordTitle": "تم العثور على كلمة مرور محفوظة",
+        "steam.storedPasswordMsg": "توجد كلمة مرور لـ «%@» في سلسلة المفاتيح. هل تستخدمها أم تُدخل واحدة جديدة؟",
+        "steam.storedPasswordUse": "استخدام المحفوظة",
+        "steam.storedPasswordType": "إدخال يدوي"
     ]
 
     static let kk: [String: String] = [
@@ -1066,7 +1115,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Осы модтың барлық орнатылған файлдары жойылады.",
         "alert.cancel": "Болдырмау",
         "mod.status.removing": "Жойылуда",
-        "mod.removingTitle": "%@ ЖОЙЫЛУДА — КҮТЕ ТҰРЫҢЫЗ"
+        "mod.removingTitle": "%@ ЖОЙЫЛУДА — КҮТЕ ТҰРЫҢЫЗ",
+        "steam.storedPasswordHint": "Кілттер тізбегінде сақталған құпия сөзді қою үшін басыңыз",
+        "steam.usernamePlaceholder": "Steam логині",
+        "steam.passwordPlaceholder": "Құпия сөзді енгізіңіз...",
+        "steam.storedPasswordTitle": "Сақталған құпия сөз табылды",
+        "steam.storedPasswordMsg": "«%@» үшін кілттер тізбегінде құпия сөз бар. Соны қою керек пе, әлде жаңасын енгізесіз бе?",
+        "steam.storedPasswordUse": "Сақталғанды қою",
+        "steam.storedPasswordType": "Қолмен енгізу"
     ]
 
     static let vi: [String: String] = [
@@ -1185,7 +1241,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Tất cả tệp đã cài của mod này sẽ bị xoá.",
         "alert.cancel": "Huỷ",
         "mod.status.removing": "Đang gỡ",
-        "mod.removingTitle": "ĐANG GỠ %@ — VUI LÒNG ĐỢI"
+        "mod.removingTitle": "ĐANG GỠ %@ — VUI LÒNG ĐỢI",
+        "steam.storedPasswordHint": "Nhấn để điền mật khẩu đã lưu trong keychain",
+        "steam.usernamePlaceholder": "Tài khoản Steam",
+        "steam.passwordPlaceholder": "Nhập mật khẩu...",
+        "steam.storedPasswordTitle": "Đã tìm thấy mật khẩu đã lưu",
+        "steam.storedPasswordMsg": "Keychain có mật khẩu cho “%@”. Dùng mật khẩu đó hay nhập mật khẩu mới?",
+        "steam.storedPasswordUse": "Dùng đã lưu",
+        "steam.storedPasswordType": "Tự nhập"
     ]
 
     static let pl: [String: String] = [
@@ -1304,7 +1367,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Wszystkie zainstalowane pliki tego moda zostaną usunięte.",
         "alert.cancel": "Anuluj",
         "mod.status.removing": "Usuwanie",
-        "mod.removingTitle": "USUWANIE %@ — PROSZĘ CZEKAĆ"
+        "mod.removingTitle": "USUWANIE %@ — PROSZĘ CZEKAĆ",
+        "steam.storedPasswordHint": "Kliknij, aby wstawić hasło zapisane w pęku kluczy",
+        "steam.usernamePlaceholder": "Login Steam",
+        "steam.passwordPlaceholder": "Wpisz hasło...",
+        "steam.storedPasswordTitle": "Znaleziono zapisane hasło",
+        "steam.storedPasswordMsg": "W pęku kluczy jest hasło dla „%@”. Użyć go czy wpisać nowe?",
+        "steam.storedPasswordUse": "Użyj zapisanego",
+        "steam.storedPasswordType": "Wpisz ręcznie"
     ]
 
     static let de: [String: String] = [
@@ -1423,7 +1493,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Alle installierten Dateien dieser Mod werden gelöscht.",
         "alert.cancel": "Abbrechen",
         "mod.status.removing": "Wird entfernt",
-        "mod.removingTitle": "%@ WIRD ENTFERNT — BITTE WARTEN"
+        "mod.removingTitle": "%@ WIRD ENTFERNT — BITTE WARTEN",
+        "steam.storedPasswordHint": "Klicken, um das im Schlüsselbund gespeicherte Passwort einzusetzen",
+        "steam.usernamePlaceholder": "Steam-Login",
+        "steam.passwordPlaceholder": "Passwort eingeben...",
+        "steam.storedPasswordTitle": "Gespeichertes Passwort gefunden",
+        "steam.storedPasswordMsg": "Für „%@“ liegt ein Passwort im Schlüsselbund. Verwenden oder neu eingeben?",
+        "steam.storedPasswordUse": "Verwenden",
+        "steam.storedPasswordType": "Selbst eingeben"
     ]
 
     static let es: [String: String] = [
@@ -1542,7 +1619,14 @@ enum L10n {
         "mod.confirmRemoveMsg": "Se eliminarán todos los archivos instalados de este mod.",
         "alert.cancel": "Cancelar",
         "mod.status.removing": "Eliminando",
-        "mod.removingTitle": "ELIMINANDO %@ — POR FAVOR ESPERA"
+        "mod.removingTitle": "ELIMINANDO %@ — POR FAVOR ESPERA",
+        "steam.storedPasswordHint": "Haz clic para insertar la contraseña guardada en el llavero",
+        "steam.usernamePlaceholder": "Usuario de Steam",
+        "steam.passwordPlaceholder": "Introduce la contraseña...",
+        "steam.storedPasswordTitle": "Contraseña guardada encontrada",
+        "steam.storedPasswordMsg": "Hay una contraseña para «%@» en el llavero. ¿Usarla o escribir otra?",
+        "steam.storedPasswordUse": "Usar guardada",
+        "steam.storedPasswordType": "Escribir a mano"
     ]
 
     static let tr: [String: String] = [
@@ -1661,6 +1745,13 @@ enum L10n {
         "mod.confirmRemoveMsg": "Bu modun kurulu tüm dosyaları silinecek.",
         "alert.cancel": "İptal",
         "mod.status.removing": "Kaldırılıyor",
-        "mod.removingTitle": "%@ KALDIRILIYOR — LÜTFEN BEKLEYİN"
+        "mod.removingTitle": "%@ KALDIRILIYOR — LÜTFEN BEKLEYİN",
+        "steam.storedPasswordHint": "Anahtar zincirinde kayıtlı parolayı doldurmak için tıklayın",
+        "steam.usernamePlaceholder": "Steam kullanıcı adı",
+        "steam.passwordPlaceholder": "Parolayı girin...",
+        "steam.storedPasswordTitle": "Kayıtlı parola bulundu",
+        "steam.storedPasswordMsg": "“%@” için anahtar zincirinde bir parola var. Kullanılsın mı, yoksa yenisi mi girilsin?",
+        "steam.storedPasswordUse": "Kayıtlıyı kullan",
+        "steam.storedPasswordType": "Elle gir"
     ]
 }

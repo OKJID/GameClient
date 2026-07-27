@@ -106,8 +106,6 @@ struct MainView: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             .edgesIgnoringSafeArea(.all)
         }
-        // Only the last .alert on a view is ever presented, so every dialog goes through
-        // one binding instead of a stack of modifiers that silently swallow each other.
         .alert(item: _activeAlert) { alert in
             _buildAlert(alert)
         }
@@ -132,6 +130,10 @@ struct MainView: View {
                     return .modConfirmation(confirmation)
                 }
 
+                if viewModel.isAskingAboutStoredPassword, let account = viewModel.storedPasswordAccount {
+                    return .storedPassword(account: account)
+                }
+
                 return nil
             },
             set: { _ in
@@ -139,6 +141,7 @@ struct MainView: View {
                 viewModel.steamCMD.showPurchaseAlert = false
                 viewModel.showPatchConfirmation = false
                 viewModel.modConfirmation = nil
+                viewModel.isAskingAboutStoredPassword = false
             }
         )
     }
@@ -176,6 +179,18 @@ struct MainView: View {
 
         case .modConfirmation(let confirmation):
             return _buildModConfirmationAlert(confirmation)
+
+        case .storedPassword(let account):
+            return Alert(
+                title: Text(L10n.steam.storedPasswordTitle),
+                message: Text(String(format: L10n.steam.storedPasswordMsg, account)),
+                primaryButton: .default(Text(L10n.steam.storedPasswordUse)) {
+                    viewModel.revealStoredPassword()
+                },
+                secondaryButton: .cancel(Text(L10n.steam.storedPasswordType)) {
+                    viewModel.dismissStoredPassword()
+                }
+            )
         }
     }
 
@@ -282,8 +297,6 @@ struct MainView: View {
 
                 Spacer(minLength: 0)
 
-                // The selected row shows the chevron only: both badges do not fit, and
-                // the bottom panel already states what is installed.
                 if isInstalledMod, !isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 10))
@@ -425,8 +438,8 @@ struct MainView: View {
                 .foregroundColor(.white.opacity(0.6))
 
             HStack(spacing: 12) {
-                _buildTextField(placeholder: "Username", text: $viewModel.steamUsername, isSecure: false)
-                _buildTextField(placeholder: "Password", text: $viewModel.steamPassword, isSecure: true)
+                _buildTextField(placeholder: L10n.steam.usernamePlaceholder, text: $viewModel.steamUsername, isSecure: false)
+                _buildPasswordField()
 
                 if case .waitingSteamGuard = viewModel.steamCMD.state {
                     _buildTextField(placeholder: "Guard Code", text: $viewModel.steamCMD.steamGuardCode, isSecure: false)
@@ -495,6 +508,22 @@ struct MainView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(!canStart)
+    }
+
+    private func _buildPasswordField() -> some View {
+        _buildTextField(placeholder: L10n.steam.passwordPlaceholder, text: $viewModel.steamPassword, isSecure: true)
+            .overlay(_buildStoredPasswordOverlay())
+    }
+
+    @ViewBuilder
+    private func _buildStoredPasswordOverlay() -> some View {
+        if viewModel.hasStoredPassword {
+            Button(action: { viewModel.isAskingAboutStoredPassword = true }) {
+                Color.clear.contentShape(Rectangle())
+            }
+            .buttonStyle(PlainButtonStyle())
+            .help(L10n.steam.storedPasswordHint)
+        }
     }
 
     private func _buildTextField(placeholder: String, text: Binding<String>, isSecure: Bool) -> some View {
@@ -649,10 +678,8 @@ struct MainView: View {
 
     // MARK: - Mod Actions
 
-    // Shown on every profile while a mod installs: otherwise Zero Hour and Generals
-    // fall through to the "no game assets" hint and look broken mid-download.
     private func _buildModBusyAction(_ profile: GameProfile) -> some View {
-        let state = viewModel.modState(profile)
+        let state = viewModel.installingModState
         let isRemoving = state == .removing
 
         return VStack(spacing: 8) {
@@ -1090,6 +1117,7 @@ enum LauncherAlert: Identifiable {
     case purchase(username: String)
     case patchConfirmation
     case modConfirmation(LauncherViewModel.ModConfirmation)
+    case storedPassword(account: String)
 
     var id: String {
         switch self {
@@ -1097,6 +1125,7 @@ enum LauncherAlert: Identifiable {
         case .purchase: return "purchase"
         case .patchConfirmation: return "patch"
         case .modConfirmation(let confirmation): return "mod:\(confirmation.id)"
+        case .storedPassword: return "storedPassword"
         }
     }
 }

@@ -49,25 +49,30 @@ enum ModInstallState: Equatable {
     }
 }
 
-// Installs a mod package into $INSTALL/Mods/<dirName>/. Multi-part packages are
-// fetched in order and unpacked into the same directory; a mod counts as installed
-// only once every part landed and config.json is present.
+struct ModJob: Equatable {
+    let id: GameID
+    let root: URL
+    var state: ModInstallState
+}
+
 class ModInstaller: ObservableObject {
-    @Published private(set) var states: [GameID: ModInstallState] = [:]
+    @Published private(set) var job: ModJob?
     @Published private(set) var consoleLog: String = ""
 
     private var downloadObservation: NSKeyValueObservation?
 
     var isBusy: Bool {
-        states.values.contains { $0.isRunning }
+        job?.state.isRunning ?? false
     }
 
     var runningModID: GameID? {
-        states.first { $0.value.isRunning }?.key
+        guard let job = job, job.state.isRunning else { return nil }
+        return job.id
     }
 
-    func state(for id: GameID) -> ModInstallState {
-        states[id] ?? .idle
+    func state(for id: GameID, in root: URL) -> ModInstallState {
+        guard let job = job, job.id == id, job.root == root else { return .idle }
+        return job.state
     }
 
     func install(_ profile: GameProfile, installRoot: URL) {
@@ -78,6 +83,11 @@ class ModInstaller: ObservableObject {
 
         consoleLog = ""
         appendLog("[*] Installing \(profile.displayName) into \(destination.path)\n")
+        job = ModJob(
+            id: profile.id,
+            root: installRoot,
+            state: .downloading(part: 1, total: mod.partCount, progress: 0)
+        )
 
         do {
             try recreateDirectory(destination)
@@ -89,15 +99,13 @@ class ModInstaller: ObservableObject {
         downloadPart(0, profile: profile, mod: mod, destination: destination)
     }
 
-    // Deleting a multi-gigabyte mod takes long enough to freeze the window, and the running
-    // state is also what tells the view model to drop its cached install status.
     func remove(_ profile: GameProfile, installRoot: URL) {
         guard let destination = profile.modDirectory(installRoot: installRoot) else { return }
         guard !isBusy else { return }
 
         consoleLog = ""
         appendLog("[*] Removing \(profile.displayName) from \(destination.path)\n")
-        setState(.removing, for: profile.id)
+        job = ModJob(id: profile.id, root: installRoot, state: .removing)
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             try? FileManager.default.removeItem(at: destination)
@@ -105,14 +113,9 @@ class ModInstaller: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.appendLog("[*] Removed \(profile.displayName)\n")
-                self.setState(.idle, for: profile.id)
+                self.clearJob()
             }
         }
-    }
-
-    func resetState(for id: GameID) {
-        guard !state(for: id).isRunning else { return }
-        setState(.idle, for: id)
     }
 
     // MARK: - Download
@@ -123,7 +126,7 @@ class ModInstaller: ObservableObject {
             return
         }
 
-        setState(.downloading(part: index + 1, total: mod.partCount, progress: 0), for: profile.id)
+        setState(.downloading(part: index + 1, total: mod.partCount, progress: 0))
         appendLog("[⭳] Part \(index + 1)/\(mod.partCount): \(mod.downloadURLs[index].lastPathComponent)\n")
 
         let task = URLSession.shared.downloadTask(with: mod.downloadURLs[index]) { [weak self] localURL, _, error in
@@ -159,10 +162,7 @@ class ModInstaller: ObservableObject {
         downloadObservation = task.progress.observe(\.fractionCompleted) { [weak self] progress, _ in
             let fraction = progress.fractionCompleted
             DispatchQueue.main.async {
-                self?.setState(
-                    .downloading(part: index + 1, total: mod.partCount, progress: fraction),
-                    for: profile.id
-                )
+                self?.setState(.downloading(part: index + 1, total: mod.partCount, progress: fraction))
             }
         }
 
@@ -172,7 +172,7 @@ class ModInstaller: ObservableObject {
     // MARK: - Unpack
 
     private func unpackPart(_ index: Int, zip: URL, profile: GameProfile, mod: ModSpec, destination: URL) {
-        setState(.unpacking(part: index + 1, total: mod.partCount), for: profile.id)
+        setState(.unpacking(part: index + 1, total: mod.partCount))
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
@@ -217,7 +217,7 @@ class ModInstaller: ObservableObject {
         }
 
         appendLog("[✓] \(profile.displayName) installed\n")
-        setState(.completed, for: profile.id)
+        clearJob()
     }
 
     // MARK: - Helpers
@@ -231,9 +231,15 @@ class ModInstaller: ObservableObject {
         try fm.createDirectory(at: url, withIntermediateDirectories: true)
     }
 
-    private func setState(_ state: ModInstallState, for id: GameID) {
+    private func setState(_ state: ModInstallState) {
         DispatchQueue.main.async {
-            self.states[id] = state
+            self.job?.state = state
+        }
+    }
+
+    private func clearJob() {
+        DispatchQueue.main.async {
+            self.job = nil
         }
     }
 
@@ -243,7 +249,7 @@ class ModInstaller: ObservableObject {
         }
 
         appendLog("\n[✗] \(profile.displayName): \(message)\n")
-        setState(.failed(message), for: profile.id)
+        setState(.failed(message))
     }
 
     private func appendLog(_ text: String) {

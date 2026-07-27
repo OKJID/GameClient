@@ -44,6 +44,8 @@ class LauncherViewModel: ObservableObject {
     @Published var alertMessage: String? = nil
     @Published var steamUsername: String = ""
     @Published var steamPassword: String = ""
+    @Published private(set) var storedPasswordAccount: String? = nil
+    @Published var isAskingAboutStoredPassword: Bool = false
     @Published var isUpdateDismissed: Bool = false
     @Published var showPatchConfirmation: Bool = false
     @Published var modConfirmation: ModConfirmation? = nil
@@ -72,7 +74,6 @@ class LauncherViewModel: ObservableObject {
         }
     }
     
-    // settings.json camera settings
     @Published var cameraMinHeight: Double = SettingsDefaults.cameraMinHeight {
         didSet { saveSettings() }
     }
@@ -83,7 +84,6 @@ class LauncherViewModel: ObservableObject {
         didSet { saveSettings() }
     }
     
-    // settings.json render settings
     @Published var limitFramerate: Bool = SettingsDefaults.limitFramerate {
         didSet {
             saveSettings()
@@ -100,7 +100,6 @@ class LauncherViewModel: ObservableObject {
         }
     }
     
-    // settings.json network settings
     @Published var useAlternativeEndpoint: Bool = SettingsDefaults.useAlternativeEndpoint {
         didSet {
             saveSettings()
@@ -108,7 +107,6 @@ class LauncherViewModel: ObservableObject {
         }
     }
     
-    // Options.ini debug settings
     @Published var verboseLogging: Bool = SettingsDefaults.verboseLogging {
         didSet {
             OptionsIniHelper.writeValue(value: verboseLogging ? "yes" : "no", forKey: "VerboseEngineLogging")
@@ -123,9 +121,6 @@ class LauncherViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
 
-    // Install validation touches hundreds of files (patch markers, locales, mod
-    // markers). SwiftUI re-reads these on every redraw, so results are cached until
-    // the tab, the path or a finished download changes them.
     private struct ModStatus {
         let installed: Bool
         let damaged: Bool
@@ -161,7 +156,6 @@ class LauncherViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Progress ticks must not drop the cache; only finished work changes the disk.
         steamCMD.$state
             .removeDuplicates()
             .sink { [weak self] state in
@@ -178,8 +172,8 @@ class LauncherViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        modInstaller.$states
-            .map { states in states.values.contains { $0.isRunning } }
+        modInstaller.$job
+            .map { job in job?.state.isRunning ?? false }
             .removeDuplicates()
             .sink { [weak self] isRunning in
                 guard !isRunning else { return }
@@ -189,7 +183,7 @@ class LauncherViewModel: ObservableObject {
 
         if let username = KeychainHelper.savedUsername() {
             steamUsername = username
-            steamPassword = KeychainHelper.load(account: username) ?? ""
+            storedPasswordAccount = username
         }
 
         loadSettings()
@@ -259,6 +253,17 @@ class LauncherViewModel: ObservableObject {
         Analytics.logSettingsSnapshot(self)
     }
 
+    func revealStoredPassword() {
+        guard let account = storedPasswordAccount, account == steamUsername else { return }
+
+        storedPasswordAccount = nil
+        steamPassword = KeychainHelper.load(account: account) ?? ""
+    }
+
+    func dismissStoredPassword() {
+        storedPasswordAccount = nil
+    }
+
     func saveCredentials() {
         guard !steamUsername.isEmpty, !steamPassword.isEmpty else { return }
         KeychainHelper.save(account: steamUsername, password: steamPassword)
@@ -296,6 +301,11 @@ class LauncherViewModel: ObservableObject {
         verboseLogging = SettingsDefaults.verboseLogging
     }
 
+    var hasStoredPassword: Bool {
+        guard let account = storedPasswordAccount else { return false }
+        return account == steamUsername
+    }
+
     var isPathValid: Bool {
         syncValidationCache()
         if let cached = pathValidCache { return cached }
@@ -322,8 +332,6 @@ class LauncherViewModel: ObservableObject {
         pathValidCache = nil
     }
 
-    // Falls back to the base game while a mod cannot run, so a stale selection never
-    // blocks the launcher.
     var selectedProfile: GameProfile {
         let profile = GameProfile.profile(for: selectedGameID)
         guard profile.isMod, !isBaseReady(for: profile) else { return profile }
@@ -376,24 +384,23 @@ class LauncherViewModel: ObservableObject {
         return ready
     }
 
-    // Mods are meaningless without a launchable base game, so the whole section stays
-    // hidden until the base game passes validation.
     var availableMods: [GameProfile] {
         GameProfile.mods.filter { isBaseReady(for: $0) }
     }
 
-    // Set while a package is being fetched, so every screen can block actions that
-    // would kill the download (launching quits the launcher, patching writes in parallel).
     var installingMod: GameProfile? {
         guard let id = modInstaller.runningModID else { return nil }
         return GameProfile.mods.first { $0.id == id }
+    }
+
+    var installingModState: ModInstallState {
+        modInstaller.job?.state ?? .idle
     }
 
     func isModInstalled(_ profile: GameProfile) -> Bool {
         modStatus(profile).installed
     }
 
-    // User deleted or corrupted files after a successful install.
     func isModDamaged(_ profile: GameProfile) -> Bool {
         modStatus(profile).damaged
     }
@@ -427,13 +434,14 @@ class LauncherViewModel: ObservableObject {
     }
 
     func modState(_ profile: GameProfile) -> ModInstallState {
-        let state = modInstaller.state(for: profile.id)
-        guard case .idle = state, isModInstalled(profile) else { return state }
-        return .completed
+        guard let root = installRootURL else { return .idle }
+
+        let state = modInstaller.state(for: profile.id, in: root)
+        guard case .idle = state else { return state }
+
+        return isModInstalled(profile) ? .completed : .idle
     }
 
-    // Both actions wipe the mod directory before doing anything else, and ContraX alone is
-    // 3 GB over three parts, so they ask first.
     func requestModReinstall(_ profile: GameProfile) {
         modConfirmation = ModConfirmation(kind: .reinstall, profile: profile)
     }
