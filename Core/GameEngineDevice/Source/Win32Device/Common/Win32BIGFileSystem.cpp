@@ -42,8 +42,27 @@
 #include "Win32Device/Common/Win32BIGFileSystem.h"
 #include "Utility/endian_compat.h"
 
+#include <algorithm>
+#include <vector>
 
 static const char *BIGFileIdentifier = "BIGF";
+
+// An overwriting archive is inserted ahead of the ones already in the tree, so the last one
+// loaded would win. Walking the list backwards restores plain name order, which is what
+// Windows gets from a single directory listing: 00_Mod.big outranks 01_Mod.big.
+static std::vector<const AsciiString *> archivesInLoadOrder(const FilenameList &filenameList, Bool overwrite)
+{
+	std::vector<const AsciiString *> archives;
+	archives.reserve(filenameList.size());
+
+	for (FilenameList::const_iterator it = filenameList.begin(); it != filenameList.end(); ++it)
+		archives.push_back(&(*it));
+
+	if (overwrite)
+		std::reverse(archives.begin(), archives.end());
+
+	return archives;
+}
 
 Win32BIGFileSystem::Win32BIGFileSystem() : ArchiveFileSystem() {
 }
@@ -214,29 +233,27 @@ Bool Win32BIGFileSystem::loadBigFilesFromDirectory(AsciiString dir, AsciiString 
 	TheLocalFileSystem->getFileListInDirectory(dir, "", fileMask, filenameList, TRUE);
 
 	Bool actuallyAdded = FALSE;
-	FilenameListIter it = filenameList.begin();
-	while (it != filenameList.end()) {
+
+	for (const AsciiString *entry : archivesInLoadOrder(filenameList, overwrite)) {
+		const AsciiString &filename = *entry;
 #if RTS_ZEROHOUR
 		// TheSuperHackers @bugfix bobtista 18/11/2025 Skip duplicate INIZH.big in Data\INI to prevent CRC mismatches.
 		// English, Chinese, and Korean SKUs shipped with two INIZH.big files (one in Run directory, one in Run\Data\INI).
 		// The DeleteFile cleanup doesn't work on EA App/Origin installs because the folder is not writable, so we skip loading it instead.
-		if (it->endsWithNoCase("Data\\INI\\INIZH.big") || it->endsWithNoCase("Data/INI/INIZH.big")) {
-			it++;
+		if (filename.endsWithNoCase("Data\\INI\\INIZH.big") || filename.endsWithNoCase("Data/INI/INIZH.big")) {
 			continue;
 		}
 #endif
 
-		ArchiveFile *archiveFile = openArchiveFile((*it).str());
+		ArchiveFile *archiveFile = openArchiveFile(filename.str());
 
 		if (archiveFile != nullptr) {
-			DEBUG_LOG(("Win32BIGFileSystem::loadBigFilesFromDirectory - loading %s into the directory tree.", (*it).str()));
+			DEBUG_LOG(("Win32BIGFileSystem::loadBigFilesFromDirectory - loading %s into the directory tree.", filename.str()));
 			loadIntoDirectoryTree(archiveFile, overwrite);
-			m_archiveFileMap[(*it)] = archiveFile;
-			DEBUG_LOG(("Win32BIGFileSystem::loadBigFilesFromDirectory - %s inserted into the archive file map.", (*it).str()));
+			m_archiveFileMap[filename] = archiveFile;
+			DEBUG_LOG(("Win32BIGFileSystem::loadBigFilesFromDirectory - %s inserted into the archive file map.", filename.str()));
 			actuallyAdded = TRUE;
 		}
-
-		it++;
 	}
 
 	return actuallyAdded;
