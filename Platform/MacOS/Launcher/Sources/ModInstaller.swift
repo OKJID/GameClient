@@ -4,19 +4,20 @@ enum ModInstallState: Equatable {
     case idle
     case downloading(part: Int, total: Int, progress: Double)
     case unpacking(part: Int, total: Int)
+    case removing
     case completed
     case failed(String)
 
     var isRunning: Bool {
         switch self {
-        case .downloading, .unpacking: return true
+        case .downloading, .unpacking, .removing: return true
         default: return false
         }
     }
 
     var fraction: Double {
         switch self {
-        case .idle, .failed: return 0
+        case .idle, .failed, .removing: return 0
         case .completed: return 1
         case .downloading(let part, let total, let progress):
             return (Double(part - 1) + progress * 0.9) / Double(total)
@@ -38,6 +39,8 @@ enum ModInstallState: Equatable {
             return total > 1
                 ? String(format: L10n.mod.status.unpackingPart, part, total)
                 : L10n.mod.status.unpacking
+        case .removing:
+            return L10n.mod.status.removing
         case .completed:
             return L10n.mod.status.installed
         case .failed(let message):
@@ -86,13 +89,25 @@ class ModInstaller: ObservableObject {
         downloadPart(0, profile: profile, mod: mod, destination: destination)
     }
 
+    // Deleting a multi-gigabyte mod takes long enough to freeze the window, and the running
+    // state is also what tells the view model to drop its cached install status.
     func remove(_ profile: GameProfile, installRoot: URL) {
         guard let destination = profile.modDirectory(installRoot: installRoot) else { return }
         guard !isBusy else { return }
 
-        try? FileManager.default.removeItem(at: destination)
-        appendLog("[*] Removed \(profile.displayName)\n")
-        setState(.idle, for: profile.id)
+        consoleLog = ""
+        appendLog("[*] Removing \(profile.displayName) from \(destination.path)\n")
+        setState(.removing, for: profile.id)
+
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            try? FileManager.default.removeItem(at: destination)
+
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.appendLog("[*] Removed \(profile.displayName)\n")
+                self.setState(.idle, for: profile.id)
+            }
+        }
     }
 
     func resetState(for id: GameID) {

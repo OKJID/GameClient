@@ -130,6 +130,7 @@ enum L10n {
         var reinstall: String { resolve("mod.reinstall") }
         var remove: String { resolve("mod.remove") }
         var installingTitle: String { resolve("mod.installingTitle") }
+        var removingTitle: String { resolve("mod.removingTitle") }
         var installingHint: String { resolve("mod.installingHint") }
         var damaged: String { resolve("mod.damaged") }
         var sizeInfo: String { resolve("mod.sizeInfo") }
@@ -146,6 +147,7 @@ enum L10n {
         var downloading: String { resolve("mod.status.downloading") }
         var downloadingPart: String { resolve("mod.status.downloadingPart") }
         var unpacking: String { resolve("mod.status.unpacking") }
+        var removing: String { resolve("mod.status.removing") }
         var unpackingPart: String { resolve("mod.status.unpackingPart") }
         var installed: String { resolve("mod.status.installed") }
         var error: String { resolve("mod.status.error") }
@@ -348,7 +350,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "The installed files will be deleted first and downloaded again (%@).",
         "mod.confirmRemoveTitle": "Remove %@?",
         "mod.confirmRemoveMsg": "All installed files of this mod will be deleted.",
-        "alert.cancel": "Cancel"
+        "alert.cancel": "Cancel",
+        "mod.status.removing": "Removing",
+        "mod.removingTitle": "REMOVING %@ — PLEASE WAIT"
     ]
 
     static let ru: [String: String] = [
@@ -465,7 +469,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Установленные файлы сначала будут удалены и загружены заново (%@).",
         "mod.confirmRemoveTitle": "Удалить %@?",
         "mod.confirmRemoveMsg": "Все установленные файлы этого мода будут удалены.",
-        "alert.cancel": "Отмена"
+        "alert.cancel": "Отмена",
+        "mod.status.removing": "Удаление",
+        "mod.removingTitle": "УДАЛЕНИЕ %@ — ПОДОЖДИТЕ"
     ]
 
     static let uk: [String: String] = [
@@ -582,7 +588,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Встановлені файли спочатку буде видалено та завантажено знову (%@).",
         "mod.confirmRemoveTitle": "Видалити %@?",
         "mod.confirmRemoveMsg": "Усі встановлені файли цього мода буде видалено.",
-        "alert.cancel": "Скасувати"
+        "alert.cancel": "Скасувати",
+        "mod.status.removing": "Видалення",
+        "mod.removingTitle": "ВИДАЛЕННЯ %@ — ЗАЧЕКАЙТЕ"
     ]
 
     static let hi: [String: String] = [
@@ -699,7 +707,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "इंस्टॉल फ़ाइलें पहले हटाई जाएंगी और फिर से डाउनलोड होंगी (%@)।",
         "mod.confirmRemoveTitle": "%@ हटाएं?",
         "mod.confirmRemoveMsg": "इस मॉड की सभी इंस्टॉल फ़ाइलें हटा दी जाएंगी।",
-        "alert.cancel": "रद्द करें"
+        "alert.cancel": "रद्द करें",
+        "mod.status.removing": "हटाया जा रहा है",
+        "mod.removingTitle": "%@ हटाया जा रहा है — कृपया प्रतीक्षा करें"
     ]
 
     static let zh: [String: String] = [
@@ -816,7 +826,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "已安装的文件将先被删除，然后重新下载（%@）。",
         "mod.confirmRemoveTitle": "移除 %@？",
         "mod.confirmRemoveMsg": "该模组已安装的所有文件都将被删除。",
-        "alert.cancel": "取消"
+        "alert.cancel": "取消",
+        "mod.status.removing": "正在移除",
+        "mod.removingTitle": "正在移除 %@ — 请稍候"
     ]
 
     static let ar: [String: String] = [
@@ -933,7 +945,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "سيتم حذف الملفات المثبتة أولاً ثم تنزيلها من جديد (%@).",
         "mod.confirmRemoveTitle": "إزالة %@؟",
         "mod.confirmRemoveMsg": "سيتم حذف جميع الملفات المثبتة لهذا التعديل.",
-        "alert.cancel": "إلغاء"
+        "alert.cancel": "إلغاء",
+        "mod.status.removing": "جارٍ الإزالة",
+        "mod.removingTitle": "جارٍ إزالة %@ — يرجى الانتظار"
     ]
 
     static let kk: [String: String] = [
@@ -1050,7 +1064,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Орнатылған файлдар алдымен жойылып, қайта жүктеледі (%@).",
         "mod.confirmRemoveTitle": "%@ жойылсын ба?",
         "mod.confirmRemoveMsg": "Осы модтың барлық орнатылған файлдары жойылады.",
-        "alert.cancel": "Болдырмау"
+        "alert.cancel": "Болдырмау",
+        "mod.status.removing": "Жойылуда",
+        "mod.removingTitle": "%@ ЖОЙЫЛУДА — КҮТЕ ТҰРЫҢЫЗ"
     ]
 
     static let vi: [String: String] = [
@@ -1167,7 +1183,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Các tệp đã cài sẽ bị xoá trước rồi tải lại (%@).",
         "mod.confirmRemoveTitle": "Gỡ %@?",
         "mod.confirmRemoveMsg": "Tất cả tệp đã cài của mod này sẽ bị xoá.",
-        "alert.cancel": "Huỷ"
+        "alert.cancel": "Huỷ",
+        "mod.status.removing": "Đang gỡ",
+        "mod.removingTitle": "ĐANG GỠ %@ — VUI LÒNG ĐỢI"
     ]
 
     static let pl: [String: String] = [
@@ -1284,7 +1302,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Zainstalowane pliki zostaną najpierw usunięte i pobrane ponownie (%@).",
         "mod.confirmRemoveTitle": "Usunąć %@?",
         "mod.confirmRemoveMsg": "Wszystkie zainstalowane pliki tego moda zostaną usunięte.",
-        "alert.cancel": "Anuluj"
+        "alert.cancel": "Anuluj",
+        "mod.status.removing": "Usuwanie",
+        "mod.removingTitle": "USUWANIE %@ — PROSZĘ CZEKAĆ"
     ]
 
     static let de: [String: String] = [
@@ -1401,7 +1421,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Die installierten Dateien werden zuerst gelöscht und erneut heruntergeladen (%@).",
         "mod.confirmRemoveTitle": "%@ entfernen?",
         "mod.confirmRemoveMsg": "Alle installierten Dateien dieser Mod werden gelöscht.",
-        "alert.cancel": "Abbrechen"
+        "alert.cancel": "Abbrechen",
+        "mod.status.removing": "Wird entfernt",
+        "mod.removingTitle": "%@ WIRD ENTFERNT — BITTE WARTEN"
     ]
 
     static let es: [String: String] = [
@@ -1518,7 +1540,9 @@ enum L10n {
         "mod.confirmReinstallMsg": "Los archivos instalados se eliminarán primero y se descargarán de nuevo (%@).",
         "mod.confirmRemoveTitle": "¿Eliminar %@?",
         "mod.confirmRemoveMsg": "Se eliminarán todos los archivos instalados de este mod.",
-        "alert.cancel": "Cancelar"
+        "alert.cancel": "Cancelar",
+        "mod.status.removing": "Eliminando",
+        "mod.removingTitle": "ELIMINANDO %@ — POR FAVOR ESPERA"
     ]
 
     static let tr: [String: String] = [
@@ -1635,6 +1659,8 @@ enum L10n {
         "mod.confirmReinstallMsg": "Kurulu dosyalar önce silinecek ve yeniden indirilecek (%@).",
         "mod.confirmRemoveTitle": "%@ kaldırılsın mı?",
         "mod.confirmRemoveMsg": "Bu modun kurulu tüm dosyaları silinecek.",
-        "alert.cancel": "İptal"
+        "alert.cancel": "İptal",
+        "mod.status.removing": "Kaldırılıyor",
+        "mod.removingTitle": "%@ KALDIRILIYOR — LÜTFEN BEKLEYİN"
     ]
 }

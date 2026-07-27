@@ -106,16 +106,56 @@ struct MainView: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             .edgesIgnoringSafeArea(.all)
         }
-        .alert(item: Binding<AlertItem?>(
-            get: { viewModel.alertMessage.map { AlertItem(message: $0) } },
-            set: { _ in viewModel.alertMessage = nil }
-        )) { alert in
-            Alert(title: Text(L10n.alerts.launchError), message: Text(alert.message), dismissButton: .default(Text(L10n.alerts.ok)))
+        // Only the last .alert on a view is ever presented, so every dialog goes through
+        // one binding instead of a stack of modifiers that silently swallow each other.
+        .alert(item: _activeAlert) { alert in
+            _buildAlert(alert)
         }
-        .alert(isPresented: $viewModel.steamCMD.showPurchaseAlert) {
-            Alert(
+    }
+
+    private var _activeAlert: Binding<LauncherAlert?> {
+        Binding(
+            get: {
+                if let message = viewModel.alertMessage {
+                    return .message(message)
+                }
+
+                if viewModel.steamCMD.showPurchaseAlert {
+                    return .purchase(username: viewModel.steamCMD.lastUsername)
+                }
+
+                if viewModel.showPatchConfirmation {
+                    return .patchConfirmation
+                }
+
+                if let confirmation = viewModel.modConfirmation {
+                    return .modConfirmation(confirmation)
+                }
+
+                return nil
+            },
+            set: { _ in
+                viewModel.alertMessage = nil
+                viewModel.steamCMD.showPurchaseAlert = false
+                viewModel.showPatchConfirmation = false
+                viewModel.modConfirmation = nil
+            }
+        )
+    }
+
+    private func _buildAlert(_ alert: LauncherAlert) -> Alert {
+        switch alert {
+        case .message(let text):
+            return Alert(
+                title: Text(L10n.alerts.launchError),
+                message: Text(text),
+                dismissButton: .default(Text(L10n.alerts.ok))
+            )
+
+        case .purchase(let username):
+            return Alert(
                 title: Text(L10n.alerts.gameNotFound),
-                message: Text(L10n.alerts.gameNotFoundMsg.replacingOccurrences(of: "%@", with: viewModel.steamCMD.lastUsername)),
+                message: Text(L10n.alerts.gameNotFoundMsg.replacingOccurrences(of: "%@", with: username)),
                 primaryButton: .default(Text(L10n.alerts.openSteamStore)) {
                     if let url = URL(string: SteamCMDManager.storeURL) {
                         NSWorkspace.shared.open(url)
@@ -123,19 +163,19 @@ struct MainView: View {
                 },
                 secondaryButton: .cancel(Text(L10n.alerts.close))
             )
-        }
-        .alert(isPresented: $viewModel.showPatchConfirmation) {
-            Alert(
+
+        case .patchConfirmation:
+            return Alert(
                 title: Text(L10n.alerts.patchTitle),
                 message: Text(L10n.alerts.patchMsg),
                 primaryButton: .destructive(Text(L10n.alerts.patchButton)) {
                     viewModel.confirmPatching()
                 },
-                secondaryButton: .cancel()
+                secondaryButton: .cancel(Text(L10n.alerts.cancel))
             )
-        }
-        .alert(item: $viewModel.modConfirmation) { confirmation in
-            _buildModConfirmationAlert(confirmation)
+
+        case .modConfirmation(let confirmation):
+            return _buildModConfirmationAlert(confirmation)
         }
     }
 
@@ -612,18 +652,26 @@ struct MainView: View {
     // Shown on every profile while a mod installs: otherwise Zero Hour and Generals
     // fall through to the "no game assets" hint and look broken mid-download.
     private func _buildModBusyAction(_ profile: GameProfile) -> some View {
-        VStack(spacing: 8) {
-            Text(String(format: L10n.mod.installingTitle, profile.shortName))
+        let state = viewModel.modState(profile)
+        let isRemoving = state == .removing
+
+        return VStack(spacing: 8) {
+            Text(String(
+                format: isRemoving ? L10n.mod.removingTitle : L10n.mod.installingTitle,
+                profile.shortName
+            ))
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .foregroundColor(profile.theme.accentSoft)
 
-            _buildModProgress(profile, state: viewModel.modState(profile))
+            _buildModProgress(profile, state: state)
 
-            Text(L10n.mod.installingHint)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.55))
-                .multilineTextAlignment(.center)
-                .frame(maxWidth: 420)
+            if !isRemoving {
+                Text(L10n.mod.installingHint)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.55))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
         }
     }
 
@@ -633,7 +681,7 @@ struct MainView: View {
 
         VStack(spacing: 10) {
             switch state {
-            case .downloading, .unpacking:
+            case .downloading, .unpacking, .removing:
                 _buildModProgress(profile, state: state)
             case .completed:
                 _buildModInstalled(profile)
@@ -1037,7 +1085,18 @@ struct MainView: View {
 
 // MARK: - Alert Helper
 
-struct AlertItem: Identifiable {
-    let id = UUID()
-    let message: String
+enum LauncherAlert: Identifiable {
+    case message(String)
+    case purchase(username: String)
+    case patchConfirmation
+    case modConfirmation(LauncherViewModel.ModConfirmation)
+
+    var id: String {
+        switch self {
+        case .message(let text): return "message:\(text)"
+        case .purchase: return "purchase"
+        case .patchConfirmation: return "patch"
+        case .modConfirmation(let confirmation): return "mod:\(confirmation.id)"
+        }
+    }
 }
