@@ -263,7 +263,12 @@ void MacOSLocalFileSystem::getFileListInDirectory(const AsciiString& currentDire
 				std::string ext = iter->path().extension().string();
 				bool extMatch = strcasecmp(ext.c_str(), searchExt.string().c_str()) == 0;
 
-				if (!iter->is_directory() && extMatch &&
+				// Entries the process cannot stat (system files under a denied TCC scope) must be
+				// skipped: the throwing overload would abort startup instead of ignoring them.
+				std::error_code statEc;
+				const bool isDirectory = iter->is_directory(statEc);
+
+				if (!statEc && !isDirectory && extMatch &&
 					(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
 					
 					AsciiString newFilename = asciisearch;
@@ -308,7 +313,11 @@ void MacOSLocalFileSystem::getFileListInDirectory(const AsciiString& currentDire
 				// that leaked past the translation boundary. Recursing into it would re-read
 				// it as a path and walk outside the install directory.
 				const bool nameIsLeakedPath = filenameStr.find('\\') != std::string::npos;
-				if(subIter->is_directory() && !nameIsLeakedPath &&
+
+				std::error_code subStatEc;
+				const bool subIsDirectory = subIter->is_directory(subStatEc);
+
+				if(!subStatEc && subIsDirectory && !nameIsLeakedPath &&
 					(strcmp(filenameStr.c_str(), ".") != 0 && strcmp(filenameStr.c_str(), "..") != 0)) {
 					AsciiString tempsearchstr = currentDirectory;
 					if (!tempsearchstr.isEmpty()) {
