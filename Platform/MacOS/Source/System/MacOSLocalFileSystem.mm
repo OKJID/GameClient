@@ -2,6 +2,7 @@
 #include "StdDevice/Common/StdLocalFile.h"
 #include "Common/GameMemory.h"
 #include <algorithm>
+#include <cctype>
 #include <strings.h>
 
 MacOSLocalFileSystem::MacOSLocalFileSystem() : StdLocalFileSystem()
@@ -32,6 +33,12 @@ std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Cha
 
 	// Slash Boundary (Inbound): Replace backslashes with forward slashes
 	std::replace(fixedFilename.begin(), fixedFilename.end(), '\\', '/');
+
+	const Bool readOnly = !(access & File::WRITE);
+
+	if (readOnly && isInsideMissingPath(makeCacheKey(fixedFilename))) {
+		return std::filesystem::path();
+	}
 
 	std::filesystem::path path(std::move(fixedFilename));
 
@@ -73,8 +80,9 @@ std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Cha
 
 			if (pathFixedPart.empty())
 			{
-				if (!(access & File::WRITE))
+				if (readOnly)
 				{
+					rememberMissingPath(pathFixed / p);
 					return std::filesystem::path();
 				}
 				pathFixedPart = p;
@@ -88,7 +96,53 @@ std::filesystem::path MacOSLocalFileSystem::fixFilenameFromWindowsPath(const Cha
 	return path;
 }
 
-std::filesystem::path MacOSLocalFileSystem::resolveWithSearchPaths(const Char *filename, Int access) const
+std::string MacOSLocalFileSystem::makeCacheKey(const std::string& path)
+{
+	std::string key(path);
+	std::replace(key.begin(), key.end(), '\\', '/');
+	std::transform(key.begin(), key.end(), key.begin(),
+		[](unsigned char c) { return std::tolower(c); });
+	return key;
+}
+
+Bool MacOSLocalFileSystem::isInsideMissingPath(const std::string& key) const
+{
+	std::shared_lock<std::shared_mutex> lock(m_cacheMutex);
+
+	if (m_missingPaths.empty()) {
+		return FALSE;
+	}
+
+	for (std::string::size_type slash = key.find('/'); slash != std::string::npos; slash = key.find('/', slash + 1)) {
+		if (m_missingPaths.count(key.substr(0, slash)) != 0) {
+			return TRUE;
+		}
+	}
+
+	return m_missingPaths.count(key) != 0;
+}
+
+void MacOSLocalFileSystem::rememberMissingPath(const std::filesystem::path& path) const
+{
+	std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
+	m_missingPaths.insert(makeCacheKey(path.string()));
+}
+
+void MacOSLocalFileSystem::forgetCachedPath(const Char *filename)
+{
+	std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
+	m_resolvedPaths.erase(makeCacheKey(filename));
+	m_missingPaths.clear();
+}
+
+void MacOSLocalFileSystem::clearPathCache()
+{
+	std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
+	m_resolvedPaths.clear();
+	m_missingPaths.clear();
+}
+
+std::filesystem::path MacOSLocalFileSystem::resolveInSearchPaths(const Char *filename, Int access) const
 {
 	std::filesystem::path path = fixFilenameFromWindowsPath(filename, access);
 	if (!path.empty()) {
@@ -113,6 +167,34 @@ std::filesystem::path MacOSLocalFileSystem::resolveWithSearchPaths(const Char *f
 	return std::filesystem::path();
 }
 
+std::filesystem::path MacOSLocalFileSystem::resolveWithSearchPaths(const Char *filename, Int access) const
+{
+	if (access & File::WRITE) {
+		return resolveInSearchPaths(filename, access);
+	}
+
+	const std::string key = makeCacheKey(filename);
+
+	{
+		std::shared_lock<std::shared_mutex> lock(m_cacheMutex);
+		auto cached = m_resolvedPaths.find(key);
+		if (cached != m_resolvedPaths.end()) {
+			return cached->second.empty()
+				? std::filesystem::path()
+				: std::filesystem::path(cached->second);
+		}
+	}
+
+	std::filesystem::path resolved = resolveInSearchPaths(filename, access);
+
+	{
+		std::unique_lock<std::shared_mutex> lock(m_cacheMutex);
+		m_resolvedPaths[key] = resolved.string();
+	}
+
+	return resolved;
+}
+
 void MacOSLocalFileSystem::addSearchPath(const AsciiString& path)
 {
 	if (path.isEmpty()) {
@@ -135,6 +217,7 @@ void MacOSLocalFileSystem::addSearchPath(const AsciiString& path)
 	printf("MacOSLocalFileSystem::addSearchPath - '%s'\n", normalized.c_str());
 	fflush(stdout);
 	m_searchPaths.push_back(std::move(normalized));
+	clearPathCache();
 }
 
 File * MacOSLocalFileSystem::openFile(const Char *filename, Int access, size_t bufferSize)
@@ -166,6 +249,10 @@ File * MacOSLocalFileSystem::openFile(const Char *filename, Int access, size_t b
 		file = nullptr;
 	} else {
 		file->deleteOnClose();
+	}
+
+	if (file != nullptr && (access & File::WRITE)) {
+		forgetCachedPath(filename);
 	}
 
 	return file;
@@ -356,6 +443,8 @@ Bool MacOSLocalFileSystem::createDirectory(AsciiString directory)
 	if (ec) {
 		return FALSE;
 	}
+
+	clearPathCache();
 
 	return TRUE;
 }
