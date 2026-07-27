@@ -8,6 +8,17 @@ class LauncherViewModel: ObservableObject {
         case local = "Local Archive"
     }
 
+    struct ModConfirmation: Identifiable {
+        enum Kind {
+            case reinstall
+            case remove
+        }
+
+        let id = UUID()
+        let kind: Kind
+        let profile: GameProfile
+    }
+
     private static let activeTabKey = "ActiveTab"
 
     private static var restoredTab: Tab {
@@ -35,6 +46,7 @@ class LauncherViewModel: ObservableObject {
     @Published var steamPassword: String = ""
     @Published var isUpdateDismissed: Bool = false
     @Published var showPatchConfirmation: Bool = false
+    @Published var modConfirmation: ModConfirmation? = nil
     @Published var selectedLanguage: String = L10n.current
     @Published var isWindowedEdgeScrollEnabled: Bool = false {
         didSet {
@@ -420,9 +432,26 @@ class LauncherViewModel: ObservableObject {
         return .completed
     }
 
+    // Both actions wipe the mod directory before doing anything else, and ContraX alone is
+    // 3 GB over three parts, so they ask first.
+    func requestModReinstall(_ profile: GameProfile) {
+        modConfirmation = ModConfirmation(kind: .reinstall, profile: profile)
+    }
+
+    func requestModRemoval(_ profile: GameProfile) {
+        modConfirmation = ModConfirmation(kind: .remove, profile: profile)
+    }
+
+    func confirmModAction(_ confirmation: ModConfirmation) {
+        switch confirmation.kind {
+        case .reinstall: installMod(confirmation.profile)
+        case .remove: removeMod(confirmation.profile)
+        }
+    }
+
     func installMod(_ profile: GameProfile) {
         guard let root = installRootURL else {
-            alertMessage = "Game folder is not selected yet."
+            alertMessage = L10n.alerts.folderNotSelected
             return
         }
 
@@ -529,7 +558,7 @@ class LauncherViewModel: ObservableObject {
         }
 
         guard FileManager.default.fileExists(atPath: executableURL.path) else {
-            alertMessage = "\(profile.displayName) binary not found at \(executableURL.path)"
+            alertMessage = String(format: L10n.alerts.binaryNotFound, profile.displayName, executableURL.path)
             isLaunching = false
             return
         }
@@ -538,14 +567,14 @@ class LauncherViewModel: ObservableObject {
         if profile.isMod {
             guard let root = installRootURL,
                   let modDir = profile.modDirectory(installRoot: root) else {
-                alertMessage = "Mod folder is not available."
+                alertMessage = L10n.alerts.modFolderMissing
                 isLaunching = false
                 return
             }
 
             let configURL = modDir.appendingPathComponent(ModSpec.configFileName)
             guard FileManager.default.fileExists(atPath: configURL.path) else {
-                alertMessage = "\(profile.displayName) is missing \(ModSpec.configFileName)."
+                alertMessage = String(format: L10n.alerts.modConfigMissing, profile.displayName, ModSpec.configFileName)
                 isLaunching = false
                 return
             }
@@ -577,7 +606,7 @@ class LauncherViewModel: ObservableObject {
                 }
             }
         } catch {
-            alertMessage = "Failed to launch game: \(error.localizedDescription)"
+            alertMessage = String(format: L10n.alerts.launchFailed, error.localizedDescription)
             isLaunching = false
         }
     }

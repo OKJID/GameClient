@@ -52,7 +52,7 @@ struct AboutView: View {
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
                 .foregroundColor(accent)
 
-            Text("Version \(version)")
+            Text(String(format: L10n.about.version, version))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.white.opacity(0.5))
         }

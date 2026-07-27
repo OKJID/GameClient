@@ -25,7 +25,7 @@ struct SidebarView: View {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.counterclockwise")
                             .font(.system(size: 10, weight: .bold))
-                        Text("RESET")
+                        Text(L10n.sidebar.reset)
                             .font(.system(size: 9, weight: .black, design: .monospaced))
                     }
                     .foregroundColor(accent.opacity(0.8))

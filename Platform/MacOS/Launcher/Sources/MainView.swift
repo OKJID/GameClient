@@ -134,6 +134,32 @@ struct MainView: View {
                 secondaryButton: .cancel()
             )
         }
+        .alert(item: $viewModel.modConfirmation) { confirmation in
+            _buildModConfirmationAlert(confirmation)
+        }
+    }
+
+    private func _buildModConfirmationAlert(_ confirmation: LauncherViewModel.ModConfirmation) -> Alert {
+        let profile = confirmation.profile
+        let isRemoval = confirmation.kind == .remove
+
+        let title = String(
+            format: isRemoval ? L10n.mod.confirmRemoveTitle : L10n.mod.confirmReinstallTitle,
+            profile.displayName
+        )
+
+        let message = isRemoval
+            ? L10n.mod.confirmRemoveMsg
+            : String(format: L10n.mod.confirmReinstallMsg, _modDownloadSizeText(profile))
+
+        return Alert(
+            title: Text(title),
+            message: Text(message),
+            primaryButton: .destructive(Text(isRemoval ? L10n.mod.remove : L10n.mod.reinstall)) {
+                viewModel.confirmModAction(confirmation)
+            },
+            secondaryButton: .cancel(Text(L10n.alerts.cancel))
+        )
     }
 
     // MARK: - Background
@@ -186,7 +212,7 @@ struct MainView: View {
         let mods = viewModel.availableMods
 
         if !mods.isEmpty {
-            Text("MODS")
+            Text(L10n.mod.section)
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.35))
                 .padding(.leading, 8)
@@ -587,13 +613,13 @@ struct MainView: View {
     // fall through to the "no game assets" hint and look broken mid-download.
     private func _buildModBusyAction(_ profile: GameProfile) -> some View {
         VStack(spacing: 8) {
-            Text("INSTALLING \(profile.shortName) — PLEASE WAIT")
+            Text(String(format: L10n.mod.installingTitle, profile.shortName))
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .foregroundColor(profile.theme.accentSoft)
 
             _buildModProgress(profile, state: viewModel.modState(profile))
 
-            Text("Your games are fine — launching and patching stay locked so the download is not interrupted")
+            Text(L10n.mod.installingHint)
                 .font(.system(size: 10, weight: .medium, design: .monospaced))
                 .foregroundColor(.white.opacity(0.55))
                 .multilineTextAlignment(.center)
@@ -640,7 +666,7 @@ struct MainView: View {
         let sizeText = _modSizeText(profile)
         let isDamaged = viewModel.isModDamaged(profile)
         let damageText = isDamaged
-            ? "\(viewModel.missingModFileCount(profile)) file(s) missing — reinstall to repair"
+            ? String(format: L10n.mod.damaged, viewModel.missingModFileCount(profile))
             : nil
 
         return VStack(spacing: 8) {
@@ -654,7 +680,7 @@ struct MainView: View {
             Button(action: { viewModel.installMod(profile) }) {
                 HStack(spacing: 10) {
                     Image(systemName: isDamaged ? "wrench.and.screwdriver.fill" : "arrow.down.circle.fill")
-                    Text("\(isDamaged ? "REPAIR" : "INSTALL") \(profile.shortName)")
+                    Text("\(isDamaged ? L10n.mod.repair : L10n.mod.install) \(profile.shortName)")
                 }
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
@@ -679,7 +705,7 @@ struct MainView: View {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundColor(neonGreen)
-                Text("\(profile.displayName) installed")
+                Text(String(format: L10n.mod.installed, profile.displayName))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.75))
             }
@@ -687,12 +713,12 @@ struct MainView: View {
             _buildLaunchButton()
 
             HStack(spacing: 12) {
-                _buildModSecondaryButton(title: "Reinstall", color: profile.theme.accentSoft) {
-                    viewModel.installMod(profile)
+                _buildModSecondaryButton(title: L10n.mod.reinstall, color: profile.theme.accentSoft) {
+                    viewModel.requestModReinstall(profile)
                 }
 
-                _buildModSecondaryButton(title: "Remove", color: .red.opacity(0.8)) {
-                    viewModel.removeMod(profile)
+                _buildModSecondaryButton(title: L10n.mod.remove, color: .red.opacity(0.8)) {
+                    viewModel.requestModRemoval(profile)
                 }
             }
         }
@@ -720,14 +746,20 @@ struct MainView: View {
         .disabled(viewModel.modInstaller.isBusy)
     }
 
+    private func _modDownloadSizeText(_ profile: GameProfile) -> String {
+        guard let mod = profile.mod else { return "" }
+
+        return String(format: "%.1f GB", Double(mod.downloadSizeMB) / 1024)
+    }
+
     private func _modSizeText(_ profile: GameProfile) -> String {
         guard let mod = profile.mod else { return "" }
 
         let download = String(format: "%.1f GB", Double(mod.downloadSizeMB) / 1024)
         let disk = String(format: "%.1f GB", Double(mod.diskSizeMB) / 1024)
-        let parts = mod.partCount > 1 ? " · \(mod.partCount) parts" : ""
+        let parts = mod.partCount > 1 ? String(format: L10n.mod.sizeParts, mod.partCount) : ""
 
-        return "download \(download) · disk \(disk)\(parts)"
+        return String(format: L10n.mod.sizeInfo, download, disk) + parts
     }
 
     private func _buildLaunchButton() -> some View {

@@ -56,6 +56,8 @@ enum L10n {
     static let folder = Folder()
     static let settings = Settings()
     static let about = About()
+    static let mod = Mod()
+    static let sidebar = Sidebar()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -112,6 +114,45 @@ enum L10n {
         var patchTitle: String { resolve("alert.patchTitle") }
         var patchMsg: String { resolve("alert.patchMsg") }
         var patchButton: String { resolve("alert.patchButton") }
+        var folderNotSelected: String { resolve("alert.folderNotSelected") }
+        var binaryNotFound: String { resolve("alert.binaryNotFound") }
+        var modFolderMissing: String { resolve("alert.modFolderMissing") }
+        var modConfigMissing: String { resolve("alert.modConfigMissing") }
+        var launchFailed: String { resolve("alert.launchFailed") }
+        var cancel: String { resolve("alert.cancel") }
+    }
+
+    struct Mod {
+        var section: String { resolve("mod.section") }
+        var install: String { resolve("mod.install") }
+        var repair: String { resolve("mod.repair") }
+        var installed: String { resolve("mod.installed") }
+        var reinstall: String { resolve("mod.reinstall") }
+        var remove: String { resolve("mod.remove") }
+        var installingTitle: String { resolve("mod.installingTitle") }
+        var installingHint: String { resolve("mod.installingHint") }
+        var damaged: String { resolve("mod.damaged") }
+        var sizeInfo: String { resolve("mod.sizeInfo") }
+        var sizeParts: String { resolve("mod.sizeParts") }
+        var confirmReinstallTitle: String { resolve("mod.confirmReinstallTitle") }
+        var confirmReinstallMsg: String { resolve("mod.confirmReinstallMsg") }
+        var confirmRemoveTitle: String { resolve("mod.confirmRemoveTitle") }
+        var confirmRemoveMsg: String { resolve("mod.confirmRemoveMsg") }
+        let status = ModStatus()
+    }
+
+    struct ModStatus {
+        var notInstalled: String { resolve("mod.status.notInstalled") }
+        var downloading: String { resolve("mod.status.downloading") }
+        var downloadingPart: String { resolve("mod.status.downloadingPart") }
+        var unpacking: String { resolve("mod.status.unpacking") }
+        var unpackingPart: String { resolve("mod.status.unpackingPart") }
+        var installed: String { resolve("mod.status.installed") }
+        var error: String { resolve("mod.status.error") }
+    }
+
+    struct Sidebar {
+        var reset: String { resolve("sidebar.reset") }
     }
 
     struct Update {
@@ -184,6 +225,7 @@ enum L10n {
         var builtOnTop: String { resolve("about.builtOnTop") }
         var website: String { resolve("about.website") }
         var legal: String { resolve("about.legal") }
+        var version: String { resolve("about.version") }
     }
 
     static let translations: [String: [String: String]] = [
@@ -276,7 +318,37 @@ enum L10n {
         "about.portAuthor": "macOS Port by Dima Ok (OKJI)",
         "about.builtOnTop": "Built on top of the EA GPLv3 open-source release",
         "about.website": "Website",
-        "about.legal": "C&C: Generals Zero Hour™ is a trademark of Electronic Arts.\nGame engine source code licensed under GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ is a trademark of Electronic Arts.\nGame engine source code licensed under GPLv3.",
+        "mod.section": "MODS",
+        "mod.install": "INSTALL",
+        "mod.repair": "REPAIR",
+        "mod.installed": "%@ installed",
+        "mod.reinstall": "Reinstall",
+        "mod.remove": "Remove",
+        "mod.installingTitle": "INSTALLING %@ — PLEASE WAIT",
+        "mod.installingHint": "Your games are fine — launching and patching stay locked so the download is not interrupted",
+        "mod.damaged": "%d file(s) missing — reinstall to repair",
+        "mod.sizeInfo": "download %@ · disk %@",
+        "mod.sizeParts": " · %d parts",
+        "mod.status.notInstalled": "Not installed",
+        "mod.status.downloading": "Downloading — %d%%",
+        "mod.status.downloadingPart": "Downloading part %d of %d — %d%%",
+        "mod.status.unpacking": "Unpacking",
+        "mod.status.unpackingPart": "Unpacking part %d of %d",
+        "mod.status.installed": "Installed",
+        "mod.status.error": "Error: %@",
+        "alert.folderNotSelected": "Game folder is not selected yet.",
+        "alert.binaryNotFound": "%@ binary not found at %@",
+        "alert.modFolderMissing": "Mod folder is not available.",
+        "alert.modConfigMissing": "%@ is missing %@.",
+        "alert.launchFailed": "Failed to launch game: %@",
+        "sidebar.reset": "RESET",
+        "about.version": "Version %@",
+        "mod.confirmReinstallTitle": "Reinstall %@?",
+        "mod.confirmReinstallMsg": "The installed files will be deleted first and downloaded again (%@).",
+        "mod.confirmRemoveTitle": "Remove %@?",
+        "mod.confirmRemoveMsg": "All installed files of this mod will be deleted.",
+        "alert.cancel": "Cancel"
     ]
 
     static let ru: [String: String] = [
@@ -363,7 +435,37 @@ enum L10n {
         "about.portAuthor": "Порт для macOS: Дима Ок (OKJI)",
         "about.builtOnTop": "Разработано на базе открытого исходного кода EA GPLv3",
         "about.website": "Сайт",
-        "about.legal": "C&C: Generals Zero Hour™ является товарным знаком Electronic Arts.\nИсходный код игрового движка лицензирован под GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ является товарным знаком Electronic Arts.\nИсходный код игрового движка лицензирован под GPLv3.",
+        "mod.section": "МОДЫ",
+        "mod.install": "УСТАНОВИТЬ",
+        "mod.repair": "ВОССТАНОВИТЬ",
+        "mod.installed": "%@ установлен",
+        "mod.reinstall": "Переустановить",
+        "mod.remove": "Удалить",
+        "mod.installingTitle": "УСТАНОВКА %@ — ПОДОЖДИТЕ",
+        "mod.installingHint": "С играми всё в порядке — запуск и патч заблокированы, чтобы не прервать загрузку",
+        "mod.damaged": "Не хватает файлов: %d — переустановите для восстановления",
+        "mod.sizeInfo": "загрузка %@ · диск %@",
+        "mod.sizeParts": " · частей: %d",
+        "mod.status.notInstalled": "Не установлен",
+        "mod.status.downloading": "Загрузка — %d%%",
+        "mod.status.downloadingPart": "Загрузка части %d из %d — %d%%",
+        "mod.status.unpacking": "Распаковка",
+        "mod.status.unpackingPart": "Распаковка части %d из %d",
+        "mod.status.installed": "Установлен",
+        "mod.status.error": "Ошибка: %@",
+        "alert.folderNotSelected": "Папка с игрой ещё не выбрана.",
+        "alert.binaryNotFound": "Исполняемый файл %@ не найден: %@",
+        "alert.modFolderMissing": "Папка мода недоступна.",
+        "alert.modConfigMissing": "У %@ отсутствует %@.",
+        "alert.launchFailed": "Не удалось запустить игру: %@",
+        "sidebar.reset": "СБРОС",
+        "about.version": "Версия %@",
+        "mod.confirmReinstallTitle": "Переустановить %@?",
+        "mod.confirmReinstallMsg": "Установленные файлы сначала будут удалены и загружены заново (%@).",
+        "mod.confirmRemoveTitle": "Удалить %@?",
+        "mod.confirmRemoveMsg": "Все установленные файлы этого мода будут удалены.",
+        "alert.cancel": "Отмена"
     ]
 
     static let uk: [String: String] = [
@@ -450,7 +552,37 @@ enum L10n {
         "about.portAuthor": "Порт для macOS: Діма Ок (OKJI)",
         "about.builtOnTop": "Розроблено на базі відкритого вихідного коду EA GPLv3",
         "about.website": "Сайт",
-        "about.legal": "C&C: Generals Zero Hour™ є товарним знаком Electronic Arts.\nВихідний код ігрового движка ліцензовано під GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ є товарним знаком Electronic Arts.\nВихідний код ігрового движка ліцензовано під GPLv3.",
+        "mod.section": "МОДИ",
+        "mod.install": "ВСТАНОВИТИ",
+        "mod.repair": "ВІДНОВИТИ",
+        "mod.installed": "%@ встановлено",
+        "mod.reinstall": "Перевстановити",
+        "mod.remove": "Видалити",
+        "mod.installingTitle": "ВСТАНОВЛЕННЯ %@ — ЗАЧЕКАЙТЕ",
+        "mod.installingHint": "З іграми все гаразд — запуск і патч заблоковані, щоб не перервати завантаження",
+        "mod.damaged": "Бракує файлів: %d — перевстановіть для відновлення",
+        "mod.sizeInfo": "завантаження %@ · диск %@",
+        "mod.sizeParts": " · частин: %d",
+        "mod.status.notInstalled": "Не встановлено",
+        "mod.status.downloading": "Завантаження — %d%%",
+        "mod.status.downloadingPart": "Завантаження частини %d з %d — %d%%",
+        "mod.status.unpacking": "Розпакування",
+        "mod.status.unpackingPart": "Розпакування частини %d з %d",
+        "mod.status.installed": "Встановлено",
+        "mod.status.error": "Помилка: %@",
+        "alert.folderNotSelected": "Папку з грою ще не вибрано.",
+        "alert.binaryNotFound": "Виконуваний файл %@ не знайдено: %@",
+        "alert.modFolderMissing": "Папка мода недоступна.",
+        "alert.modConfigMissing": "У %@ відсутній %@.",
+        "alert.launchFailed": "Не вдалося запустити гру: %@",
+        "sidebar.reset": "СКИДАННЯ",
+        "about.version": "Версія %@",
+        "mod.confirmReinstallTitle": "Перевстановити %@?",
+        "mod.confirmReinstallMsg": "Встановлені файли спочатку буде видалено та завантажено знову (%@).",
+        "mod.confirmRemoveTitle": "Видалити %@?",
+        "mod.confirmRemoveMsg": "Усі встановлені файли цього мода буде видалено.",
+        "alert.cancel": "Скасувати"
     ]
 
     static let hi: [String: String] = [
@@ -537,7 +669,37 @@ enum L10n {
         "about.portAuthor": "Dima Ok (OKJI) द्वारा macOS पोर्ट",
         "about.builtOnTop": "EA GPLv3 ओपन-सोर्स रिलीज़ के आधार पर निर्मित",
         "about.website": "वेबसाइट",
-        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts का एक ट्रेडमार्क है।\nगेम इंजन सोर्स कोड GPLv3 के तहत लाइसेंस प्राप्त है।"
+        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts का एक ट्रेडमार्क है।\nगेम इंजन सोर्स कोड GPLv3 के तहत लाइसेंस प्राप्त है।",
+        "mod.section": "मॉड्स",
+        "mod.install": "इंस्टॉल करें",
+        "mod.repair": "मरम्मत करें",
+        "mod.installed": "%@ इंस्टॉल हो गया",
+        "mod.reinstall": "फिर से इंस्टॉल करें",
+        "mod.remove": "हटाएं",
+        "mod.installingTitle": "%@ इंस्टॉल हो रहा है — कृपया प्रतीक्षा करें",
+        "mod.installingHint": "आपके गेम ठीक हैं — डाउनलोड बाधित न हो इसलिए लॉन्च और पैच बंद हैं",
+        "mod.damaged": "%d फ़ाइल(ें) गायब — मरम्मत के लिए फिर से इंस्टॉल करें",
+        "mod.sizeInfo": "डाउनलोड %@ · डिस्क %@",
+        "mod.sizeParts": " · %d भाग",
+        "mod.status.notInstalled": "इंस्टॉल नहीं है",
+        "mod.status.downloading": "डाउनलोड हो रहा है — %d%%",
+        "mod.status.downloadingPart": "भाग %d/%d डाउनलोड हो रहा है — %d%%",
+        "mod.status.unpacking": "अनपैक हो रहा है",
+        "mod.status.unpackingPart": "भाग %d/%d अनपैक हो रहा है",
+        "mod.status.installed": "इंस्टॉल है",
+        "mod.status.error": "त्रुटि: %@",
+        "alert.folderNotSelected": "गेम फ़ोल्डर अभी तक चुना नहीं गया।",
+        "alert.binaryNotFound": "%@ की executable फ़ाइल %@ पर नहीं मिली",
+        "alert.modFolderMissing": "मॉड फ़ोल्डर उपलब्ध नहीं है।",
+        "alert.modConfigMissing": "%@ में %@ नहीं है।",
+        "alert.launchFailed": "गेम लॉन्च नहीं हो सका: %@",
+        "sidebar.reset": "रीसेट",
+        "about.version": "संस्करण %@",
+        "mod.confirmReinstallTitle": "%@ फिर से इंस्टॉल करें?",
+        "mod.confirmReinstallMsg": "इंस्टॉल फ़ाइलें पहले हटाई जाएंगी और फिर से डाउनलोड होंगी (%@)।",
+        "mod.confirmRemoveTitle": "%@ हटाएं?",
+        "mod.confirmRemoveMsg": "इस मॉड की सभी इंस्टॉल फ़ाइलें हटा दी जाएंगी।",
+        "alert.cancel": "रद्द करें"
     ]
 
     static let zh: [String: String] = [
@@ -624,7 +786,37 @@ enum L10n {
         "about.portAuthor": "macOS 移植者：Dima Ok (OKJI)",
         "about.builtOnTop": "基于 EA GPLv3 开源版本开发",
         "about.website": "官方网站",
-        "about.legal": "C&C: Generals Zero Hour™ 是 Electronic Arts 的商标。\n游戏引擎源码基于 GPLv3 授权。"
+        "about.legal": "C&C: Generals Zero Hour™ 是 Electronic Arts 的商标。\n游戏引擎源码基于 GPLv3 授权。",
+        "mod.section": "模组",
+        "mod.install": "安装",
+        "mod.repair": "修复",
+        "mod.installed": "%@ 已安装",
+        "mod.reinstall": "重新安装",
+        "mod.remove": "移除",
+        "mod.installingTitle": "正在安装 %@ — 请稍候",
+        "mod.installingHint": "你的游戏没有问题 — 启动和修补已锁定，以免中断下载",
+        "mod.damaged": "缺少 %d 个文件 — 重新安装以修复",
+        "mod.sizeInfo": "下载 %@ · 占用 %@",
+        "mod.sizeParts": " · %d 个分卷",
+        "mod.status.notInstalled": "未安装",
+        "mod.status.downloading": "下载中 — %d%%",
+        "mod.status.downloadingPart": "正在下载第 %d/%d 个分卷 — %d%%",
+        "mod.status.unpacking": "解压中",
+        "mod.status.unpackingPart": "正在解压第 %d/%d 个分卷",
+        "mod.status.installed": "已安装",
+        "mod.status.error": "错误：%@",
+        "alert.folderNotSelected": "尚未选择游戏文件夹。",
+        "alert.binaryNotFound": "未在 %@ 找到 %@ 的可执行文件",
+        "alert.modFolderMissing": "模组文件夹不可用。",
+        "alert.modConfigMissing": "%@ 缺少 %@。",
+        "alert.launchFailed": "启动游戏失败：%@",
+        "sidebar.reset": "重置",
+        "about.version": "版本 %@",
+        "mod.confirmReinstallTitle": "重新安装 %@？",
+        "mod.confirmReinstallMsg": "已安装的文件将先被删除，然后重新下载（%@）。",
+        "mod.confirmRemoveTitle": "移除 %@？",
+        "mod.confirmRemoveMsg": "该模组已安装的所有文件都将被删除。",
+        "alert.cancel": "取消"
     ]
 
     static let ar: [String: String] = [
@@ -711,7 +903,37 @@ enum L10n {
         "about.portAuthor": "نقل إلى macOS بواسطة Dima Ok (OKJI)",
         "about.builtOnTop": "مبني على إصدار EA GPLv3 مفتوح المصدر",
         "about.website": "الموقع الإلكتروني",
-        "about.legal": "C&C: Generals Zero Hour™ هي علامة تجارية لشركة Electronic Arts.\nرمز مصدر محرك اللعبة مرخص بموجب GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ هي علامة تجارية لشركة Electronic Arts.\nرمز مصدر محرك اللعبة مرخص بموجب GPLv3.",
+        "mod.section": "التعديلات",
+        "mod.install": "تثبيت",
+        "mod.repair": "إصلاح",
+        "mod.installed": "تم تثبيت %@",
+        "mod.reinstall": "إعادة التثبيت",
+        "mod.remove": "إزالة",
+        "mod.installingTitle": "جارٍ تثبيت %@ — يرجى الانتظار",
+        "mod.installingHint": "ألعابك بخير — التشغيل والتصحيح مقفلان حتى لا ينقطع التحميل",
+        "mod.damaged": "%d ملف مفقود — أعد التثبيت للإصلاح",
+        "mod.sizeInfo": "التحميل %@ · القرص %@",
+        "mod.sizeParts": " · %d أجزاء",
+        "mod.status.notInstalled": "غير مثبت",
+        "mod.status.downloading": "جارٍ التحميل — %d%%",
+        "mod.status.downloadingPart": "جارٍ تحميل الجزء %d من %d — %d%%",
+        "mod.status.unpacking": "جارٍ فك الضغط",
+        "mod.status.unpackingPart": "جارٍ فك ضغط الجزء %d من %d",
+        "mod.status.installed": "مثبت",
+        "mod.status.error": "خطأ: %@",
+        "alert.folderNotSelected": "لم يتم تحديد مجلد اللعبة بعد.",
+        "alert.binaryNotFound": "لم يتم العثور على ملف %@ التنفيذي في %@",
+        "alert.modFolderMissing": "مجلد التعديل غير متاح.",
+        "alert.modConfigMissing": "%@ ينقصه %@.",
+        "alert.launchFailed": "تعذّر تشغيل اللعبة: %@",
+        "sidebar.reset": "إعادة تعيين",
+        "about.version": "الإصدار %@",
+        "mod.confirmReinstallTitle": "إعادة تثبيت %@؟",
+        "mod.confirmReinstallMsg": "سيتم حذف الملفات المثبتة أولاً ثم تنزيلها من جديد (%@).",
+        "mod.confirmRemoveTitle": "إزالة %@؟",
+        "mod.confirmRemoveMsg": "سيتم حذف جميع الملفات المثبتة لهذا التعديل.",
+        "alert.cancel": "إلغاء"
     ]
 
     static let kk: [String: String] = [
@@ -798,7 +1020,37 @@ enum L10n {
         "about.portAuthor": "macOS порты: Дима Ок (OKJI)",
         "about.builtOnTop": "EA GPLv3 ашық бастапқы коды негізінде жасалған",
         "about.website": "Веб-сайт",
-        "about.legal": "C&C: Generals Zero Hour™ — Electronic Arts сауда белгісі.\nОйын қозғалтқышының бастапқы коды GPLv3 лицензиясымен таратылады."
+        "about.legal": "C&C: Generals Zero Hour™ — Electronic Arts сауда белгісі.\nОйын қозғалтқышының бастапқы коды GPLv3 лицензиясымен таратылады.",
+        "mod.section": "МОДТАР",
+        "mod.install": "ОРНАТУ",
+        "mod.repair": "ҚАЛПЫНА КЕЛТІРУ",
+        "mod.installed": "%@ орнатылды",
+        "mod.reinstall": "Қайта орнату",
+        "mod.remove": "Жою",
+        "mod.installingTitle": "%@ ОРНАТЫЛУДА — КҮТЕ ТҰРЫҢЫЗ",
+        "mod.installingHint": "Ойындарыңыз аман — жүктеу үзілмес үшін іске қосу мен патч бұғатталған",
+        "mod.damaged": "%d файл жетіспейді — қалпына келтіру үшін қайта орнатыңыз",
+        "mod.sizeInfo": "жүктеу %@ · диск %@",
+        "mod.sizeParts": " · %d бөлік",
+        "mod.status.notInstalled": "Орнатылмаған",
+        "mod.status.downloading": "Жүктелуде — %d%%",
+        "mod.status.downloadingPart": "%d/%d бөлігі жүктелуде — %d%%",
+        "mod.status.unpacking": "Ашылуда",
+        "mod.status.unpackingPart": "%d/%d бөлігі ашылуда",
+        "mod.status.installed": "Орнатылды",
+        "mod.status.error": "Қате: %@",
+        "alert.folderNotSelected": "Ойын қалтасы әлі таңдалмаған.",
+        "alert.binaryNotFound": "%@ орындалатын файлы табылмады: %@",
+        "alert.modFolderMissing": "Мод қалтасы қолжетімсіз.",
+        "alert.modConfigMissing": "%@ ішінде %@ жоқ.",
+        "alert.launchFailed": "Ойынды іске қосу мүмкін болмады: %@",
+        "sidebar.reset": "ЫСЫРУ",
+        "about.version": "Нұсқа %@",
+        "mod.confirmReinstallTitle": "%@ қайта орнатылсын ба?",
+        "mod.confirmReinstallMsg": "Орнатылған файлдар алдымен жойылып, қайта жүктеледі (%@).",
+        "mod.confirmRemoveTitle": "%@ жойылсын ба?",
+        "mod.confirmRemoveMsg": "Осы модтың барлық орнатылған файлдары жойылады.",
+        "alert.cancel": "Болдырмау"
     ]
 
     static let vi: [String: String] = [
@@ -885,7 +1137,37 @@ enum L10n {
         "about.portAuthor": "Bản chuyển đổi macOS bởi Dima Ok (OKJI)",
         "about.builtOnTop": "Được xây dựng trên nền tảng nguồn mở EA GPLv3",
         "about.website": "Trang web",
-        "about.legal": "C&C: Generals Zero Hour™ là nhãn hiệu của Electronic Arts.\nMã nguồn công cụ trò chơi được cấp phép theo GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ là nhãn hiệu của Electronic Arts.\nMã nguồn công cụ trò chơi được cấp phép theo GPLv3.",
+        "mod.section": "MOD",
+        "mod.install": "CÀI ĐẶT",
+        "mod.repair": "SỬA CHỮA",
+        "mod.installed": "Đã cài %@",
+        "mod.reinstall": "Cài lại",
+        "mod.remove": "Gỡ bỏ",
+        "mod.installingTitle": "ĐANG CÀI %@ — VUI LÒNG ĐỢI",
+        "mod.installingHint": "Game của bạn vẫn ổn — khởi chạy và vá bị khoá để không làm gián đoạn tải xuống",
+        "mod.damaged": "Thiếu %d tệp — cài lại để sửa",
+        "mod.sizeInfo": "tải %@ · đĩa %@",
+        "mod.sizeParts": " · %d phần",
+        "mod.status.notInstalled": "Chưa cài đặt",
+        "mod.status.downloading": "Đang tải — %d%%",
+        "mod.status.downloadingPart": "Đang tải phần %d/%d — %d%%",
+        "mod.status.unpacking": "Đang giải nén",
+        "mod.status.unpackingPart": "Đang giải nén phần %d/%d",
+        "mod.status.installed": "Đã cài đặt",
+        "mod.status.error": "Lỗi: %@",
+        "alert.folderNotSelected": "Chưa chọn thư mục game.",
+        "alert.binaryNotFound": "Không tìm thấy tệp thực thi %@ tại %@",
+        "alert.modFolderMissing": "Thư mục mod không khả dụng.",
+        "alert.modConfigMissing": "%@ thiếu %@.",
+        "alert.launchFailed": "Không thể khởi chạy game: %@",
+        "sidebar.reset": "ĐẶT LẠI",
+        "about.version": "Phiên bản %@",
+        "mod.confirmReinstallTitle": "Cài lại %@?",
+        "mod.confirmReinstallMsg": "Các tệp đã cài sẽ bị xoá trước rồi tải lại (%@).",
+        "mod.confirmRemoveTitle": "Gỡ %@?",
+        "mod.confirmRemoveMsg": "Tất cả tệp đã cài của mod này sẽ bị xoá.",
+        "alert.cancel": "Huỷ"
     ]
 
     static let pl: [String: String] = [
@@ -972,7 +1254,37 @@ enum L10n {
         "about.portAuthor": "Port macOS autorstwa Dima Ok (OKJI)",
         "about.builtOnTop": "Zbudowano na bazie wersji open-source EA GPLv3",
         "about.website": "Strona internetowa",
-        "about.legal": "C&C: Generals Zero Hour™ jest znakiem towarowym Electronic Arts.\nKod źródłowy silnika gry licencjonowany na GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ jest znakiem towarowym Electronic Arts.\nKod źródłowy silnika gry licencjonowany na GPLv3.",
+        "mod.section": "MODY",
+        "mod.install": "ZAINSTALUJ",
+        "mod.repair": "NAPRAW",
+        "mod.installed": "%@ zainstalowany",
+        "mod.reinstall": "Zainstaluj ponownie",
+        "mod.remove": "Usuń",
+        "mod.installingTitle": "INSTALOWANIE %@ — PROSZĘ CZEKAĆ",
+        "mod.installingHint": "Twoje gry są bezpieczne — uruchamianie i łatka są zablokowane, aby nie przerwać pobierania",
+        "mod.damaged": "Brakuje plików: %d — zainstaluj ponownie, aby naprawić",
+        "mod.sizeInfo": "pobieranie %@ · dysk %@",
+        "mod.sizeParts": " · części: %d",
+        "mod.status.notInstalled": "Niezainstalowany",
+        "mod.status.downloading": "Pobieranie — %d%%",
+        "mod.status.downloadingPart": "Pobieranie części %d z %d — %d%%",
+        "mod.status.unpacking": "Rozpakowywanie",
+        "mod.status.unpackingPart": "Rozpakowywanie części %d z %d",
+        "mod.status.installed": "Zainstalowany",
+        "mod.status.error": "Błąd: %@",
+        "alert.folderNotSelected": "Nie wybrano jeszcze folderu gry.",
+        "alert.binaryNotFound": "Nie znaleziono pliku %@ w: %@",
+        "alert.modFolderMissing": "Folder moda jest niedostępny.",
+        "alert.modConfigMissing": "W %@ brakuje %@.",
+        "alert.launchFailed": "Nie udało się uruchomić gry: %@",
+        "sidebar.reset": "RESET",
+        "about.version": "Wersja %@",
+        "mod.confirmReinstallTitle": "Zainstalować %@ ponownie?",
+        "mod.confirmReinstallMsg": "Zainstalowane pliki zostaną najpierw usunięte i pobrane ponownie (%@).",
+        "mod.confirmRemoveTitle": "Usunąć %@?",
+        "mod.confirmRemoveMsg": "Wszystkie zainstalowane pliki tego moda zostaną usunięte.",
+        "alert.cancel": "Anuluj"
     ]
 
     static let de: [String: String] = [
@@ -1059,7 +1371,37 @@ enum L10n {
         "about.portAuthor": "macOS-Port von Dima Ok (OKJI)",
         "about.builtOnTop": "Erstellt auf Basis der EA GPLv3 Open-Source-Version",
         "about.website": "Webseite",
-        "about.legal": "C&C: Generals Zero Hour™ ist eine Marke von Electronic Arts.\nSpiel-Engine-Quellcode lizenziert unter GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ ist eine Marke von Electronic Arts.\nSpiel-Engine-Quellcode lizenziert unter GPLv3.",
+        "mod.section": "MODS",
+        "mod.install": "INSTALLIEREN",
+        "mod.repair": "REPARIEREN",
+        "mod.installed": "%@ installiert",
+        "mod.reinstall": "Neu installieren",
+        "mod.remove": "Entfernen",
+        "mod.installingTitle": "%@ WIRD INSTALLIERT — BITTE WARTEN",
+        "mod.installingHint": "Deine Spiele sind in Ordnung — Start und Patch bleiben gesperrt, damit der Download nicht abbricht",
+        "mod.damaged": "%d Datei(en) fehlen — zum Reparieren neu installieren",
+        "mod.sizeInfo": "Download %@ · Speicher %@",
+        "mod.sizeParts": " · %d Teile",
+        "mod.status.notInstalled": "Nicht installiert",
+        "mod.status.downloading": "Wird geladen — %d%%",
+        "mod.status.downloadingPart": "Teil %d von %d wird geladen — %d%%",
+        "mod.status.unpacking": "Wird entpackt",
+        "mod.status.unpackingPart": "Teil %d von %d wird entpackt",
+        "mod.status.installed": "Installiert",
+        "mod.status.error": "Fehler: %@",
+        "alert.folderNotSelected": "Es wurde noch kein Spielordner ausgewählt.",
+        "alert.binaryNotFound": "%@-Programmdatei nicht gefunden: %@",
+        "alert.modFolderMissing": "Mod-Ordner ist nicht verfügbar.",
+        "alert.modConfigMissing": "%@ fehlt %@.",
+        "alert.launchFailed": "Spiel konnte nicht gestartet werden: %@",
+        "sidebar.reset": "ZURÜCKSETZEN",
+        "about.version": "Version %@",
+        "mod.confirmReinstallTitle": "%@ neu installieren?",
+        "mod.confirmReinstallMsg": "Die installierten Dateien werden zuerst gelöscht und erneut heruntergeladen (%@).",
+        "mod.confirmRemoveTitle": "%@ entfernen?",
+        "mod.confirmRemoveMsg": "Alle installierten Dateien dieser Mod werden gelöscht.",
+        "alert.cancel": "Abbrechen"
     ]
 
     static let es: [String: String] = [
@@ -1146,7 +1488,37 @@ enum L10n {
         "about.portAuthor": "Puerto de macOS por Dima Ok (OKJI)",
         "about.builtOnTop": "Creado sobre la versión de código abierto EA GPLv3",
         "about.website": "Sitio web",
-        "about.legal": "C&C: Generals Zero Hour™ es una marca comercial de Electronic Arts.\nCódigo fuente del motor de juego bajo licencia GPLv3."
+        "about.legal": "C&C: Generals Zero Hour™ es una marca comercial de Electronic Arts.\nCódigo fuente del motor de juego bajo licencia GPLv3.",
+        "mod.section": "MODS",
+        "mod.install": "INSTALAR",
+        "mod.repair": "REPARAR",
+        "mod.installed": "%@ instalado",
+        "mod.reinstall": "Reinstalar",
+        "mod.remove": "Eliminar",
+        "mod.installingTitle": "INSTALANDO %@ — POR FAVOR ESPERA",
+        "mod.installingHint": "Tus juegos están bien — el inicio y el parche quedan bloqueados para no interrumpir la descarga",
+        "mod.damaged": "Faltan %d archivo(s) — reinstala para reparar",
+        "mod.sizeInfo": "descarga %@ · disco %@",
+        "mod.sizeParts": " · %d partes",
+        "mod.status.notInstalled": "No instalado",
+        "mod.status.downloading": "Descargando — %d%%",
+        "mod.status.downloadingPart": "Descargando parte %d de %d — %d%%",
+        "mod.status.unpacking": "Descomprimiendo",
+        "mod.status.unpackingPart": "Descomprimiendo parte %d de %d",
+        "mod.status.installed": "Instalado",
+        "mod.status.error": "Error: %@",
+        "alert.folderNotSelected": "Aún no se ha seleccionado la carpeta del juego.",
+        "alert.binaryNotFound": "No se encontró el ejecutable de %@ en %@",
+        "alert.modFolderMissing": "La carpeta del mod no está disponible.",
+        "alert.modConfigMissing": "A %@ le falta %@.",
+        "alert.launchFailed": "No se pudo iniciar el juego: %@",
+        "sidebar.reset": "RESTABLECER",
+        "about.version": "Versión %@",
+        "mod.confirmReinstallTitle": "¿Reinstalar %@?",
+        "mod.confirmReinstallMsg": "Los archivos instalados se eliminarán primero y se descargarán de nuevo (%@).",
+        "mod.confirmRemoveTitle": "¿Eliminar %@?",
+        "mod.confirmRemoveMsg": "Se eliminarán todos los archivos instalados de este mod.",
+        "alert.cancel": "Cancelar"
     ]
 
     static let tr: [String: String] = [
@@ -1233,6 +1605,36 @@ enum L10n {
         "about.portAuthor": "macOS Portu: Dima Ok (OKJI)",
         "about.builtOnTop": "EA GPLv3 açık kaynak sürümü temel alınarak oluşturulmuştur",
         "about.website": "Web Sitesi",
-        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts'ın ticari markasıdır.\nOyun motoru kaynak kodu GPLv3 lisanslıdır."
+        "about.legal": "C&C: Generals Zero Hour™ Electronic Arts'ın ticari markasıdır.\nOyun motoru kaynak kodu GPLv3 lisanslıdır.",
+        "mod.section": "MODLAR",
+        "mod.install": "KUR",
+        "mod.repair": "ONAR",
+        "mod.installed": "%@ kuruldu",
+        "mod.reinstall": "Yeniden kur",
+        "mod.remove": "Kaldır",
+        "mod.installingTitle": "%@ KURULUYOR — LÜTFEN BEKLEYİN",
+        "mod.installingHint": "Oyunlarınız güvende — indirme kesilmesin diye başlatma ve yama kilitli tutuluyor",
+        "mod.damaged": "%d dosya eksik — onarmak için yeniden kurun",
+        "mod.sizeInfo": "indirme %@ · disk %@",
+        "mod.sizeParts": " · %d parça",
+        "mod.status.notInstalled": "Kurulu değil",
+        "mod.status.downloading": "İndiriliyor — %%%d",
+        "mod.status.downloadingPart": "Parça %d/%d indiriliyor — %%%d",
+        "mod.status.unpacking": "Açılıyor",
+        "mod.status.unpackingPart": "Parça %d/%d açılıyor",
+        "mod.status.installed": "Kuruldu",
+        "mod.status.error": "Hata: %@",
+        "alert.folderNotSelected": "Oyun klasörü henüz seçilmedi.",
+        "alert.binaryNotFound": "%@ çalıştırılabilir dosyası bulunamadı: %@",
+        "alert.modFolderMissing": "Mod klasörü kullanılamıyor.",
+        "alert.modConfigMissing": "%@ içinde %@ eksik.",
+        "alert.launchFailed": "Oyun başlatılamadı: %@",
+        "sidebar.reset": "SIFIRLA",
+        "about.version": "Sürüm %@",
+        "mod.confirmReinstallTitle": "%@ yeniden kurulsun mu?",
+        "mod.confirmReinstallMsg": "Kurulu dosyalar önce silinecek ve yeniden indirilecek (%@).",
+        "mod.confirmRemoveTitle": "%@ kaldırılsın mı?",
+        "mod.confirmRemoveMsg": "Bu modun kurulu tüm dosyaları silinecek.",
+        "alert.cancel": "İptal"
     ]
 }

@@ -27,16 +27,21 @@ enum ModInstallState: Equatable {
 
     var statusText: String {
         switch self {
-        case .idle: return "Not installed"
+        case .idle:
+            return L10n.mod.status.notInstalled
         case .downloading(let part, let total, let progress):
             let percent = Int(progress * 100)
             return total > 1
-                ? "Downloading part \(part) of \(total) — \(percent)%"
-                : "Downloading — \(percent)%"
+                ? String(format: L10n.mod.status.downloadingPart, part, total, percent)
+                : String(format: L10n.mod.status.downloading, percent)
         case .unpacking(let part, let total):
-            return total > 1 ? "Unpacking part \(part) of \(total)" : "Unpacking"
-        case .completed: return "Installed"
-        case .failed(let message): return "Error: \(message)"
+            return total > 1
+                ? String(format: L10n.mod.status.unpackingPart, part, total)
+                : L10n.mod.status.unpacking
+        case .completed:
+            return L10n.mod.status.installed
+        case .failed(let message):
+            return String(format: L10n.mod.status.error, message)
         }
     }
 }
