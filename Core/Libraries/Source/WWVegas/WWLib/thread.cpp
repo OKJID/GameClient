@@ -33,7 +33,6 @@
 #ifdef __APPLE__
 #include <pthread.h>
 #include <unistd.h>
-#include <sched.h>
 #endif
 
 ThreadClass::ThreadClass(const char *thread_name, ExceptionHandlerType exception_handler) : handle(0), running(false), thread_priority(0)
@@ -174,7 +173,7 @@ HANDLE test_event = ::CreateEvent (nullptr, FALSE, FALSE, "");
 void ThreadClass::Switch_Thread()
 {
 #ifdef __APPLE__
-	sched_yield();
+	usleep(1000);
 #elif defined(_UNIX)
 	return;
 #else
