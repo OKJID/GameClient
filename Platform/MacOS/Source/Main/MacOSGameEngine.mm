@@ -341,7 +341,7 @@ void MacOSGameEngine::serviceWindowsOS()
 	@autoreleasepool {
 		NSEvent* event;
 		while ((event = [NSApp nextEventMatchingMask:NSEventMaskAny
-		                                  untilDate:[NSDate dateWithTimeIntervalSinceNow:0.001]
+		                                  untilDate:[NSDate distantPast]
 		                                     inMode:NSDefaultRunLoopMode
 		                                    dequeue:YES])) {
 			
