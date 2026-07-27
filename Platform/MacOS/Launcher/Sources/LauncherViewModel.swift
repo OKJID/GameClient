@@ -8,8 +8,22 @@ class LauncherViewModel: ObservableObject {
         case local = "Local Archive"
     }
 
-    @Published var activeTab: Tab = .steam {
-        didSet { invalidateValidation() }
+    private static let activeTabKey = "ActiveTab"
+
+    private static var restoredTab: Tab {
+        guard let raw = UserDefaults.standard.string(forKey: activeTabKey),
+              let tab = Tab(rawValue: raw) else {
+            return .steam
+        }
+
+        return tab
+    }
+
+    @Published var activeTab: Tab = LauncherViewModel.restoredTab {
+        didSet {
+            UserDefaults.standard.set(activeTab.rawValue, forKey: LauncherViewModel.activeTabKey)
+            invalidateValidation()
+        }
     }
     @Published var selectedGameID: GameID = GameProfile.selectedID
     @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? "" {
