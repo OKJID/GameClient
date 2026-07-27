@@ -473,9 +473,7 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   // which deadlocks our single-threaded game loop (can't pump events while
   // waiting for VSync). Frame rate is controlled by FramePacer instead.
   layer.displaySyncEnabled = NO;
-  const char *fpsEnv = getenv("GENERALS_FPS_LIMIT");
-  int fpsLimit = fpsEnv ? atoi(fpsEnv) : 60;
-  fprintf(stderr, "[MetalDevice8] VSync: OFF (frame rate controlled by FramePacer, target=%d)\n", fpsLimit);
+  fprintf(stderr, "[MetalDevice8] VSync: OFF (frame rate controlled by FramePacer)\n");
 
   m_MetalLayer = (__bridge_retained void *)layer;
 

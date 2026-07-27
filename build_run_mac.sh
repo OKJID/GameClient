@@ -25,6 +25,7 @@ GAME_FLAG_NOAUDIO=false
 GAME_FLAG_WIN=false
 GAME_FLAG_XRES=""       # e.g. "1024"
 GAME_FLAG_YRES=""       # e.g. "768"
+GAME_FPS_LIMIT=""       # "" = in-game setting, "0" = uncapped, below 60 is clamped up to 60
 MOD_PATH=""
 
 
@@ -195,11 +196,7 @@ if [ -f "$SPLASH_SRC" ]; then
     cp -f "$SPLASH_SRC" "$GAME_BUNDLE/Contents/Resources/Install_Final.bmp"
 fi
 
-# Metal frame rate control:
-# 60 = VSync (default)
-# 0  = uncapped
-# 30/120/240 = custom
-export GENERALS_FPS_LIMIT="${GENERALS_FPS_LIMIT:-60}"
+export GENERALS_FPS_LIMIT="$GAME_FPS_LIMIT"
 
 # Screenshot delay (default 12s)
 if [ -z "$SCREENSHOT_DELAY" ]; then

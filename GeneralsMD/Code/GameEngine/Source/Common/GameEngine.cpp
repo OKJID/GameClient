@@ -114,7 +114,26 @@
 #include "../OnlineServices_Init.h"
 #include "GameNetwork/GameSpyOverlay.h"
 #include <chrono>
+#include <stdlib.h>
 #include "ww3d.h"
+
+static UnsignedInt s_frameRateLimitOverride = 0;
+
+#ifdef __APPLE__
+static void readFrameRateLimitOverride()
+{
+	const char *env = getenv("GENERALS_FPS_LIMIT");
+
+	if (env == nullptr || env[0] == '\0')
+	{
+		return;
+	}
+
+	const Int fps = atoi(env);
+
+	s_frameRateLimitOverride = (fps > 0) ? (UnsignedInt)fps : RenderFpsPreset::UncappedFpsValue;
+}
+#endif
 
 static bool g_bTearDownGeneralsOnlineRequested = false;
 void TearDownGeneralsOnline()
@@ -862,6 +881,11 @@ void GameEngine::init()
 		NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate() ? 1 : 0,
 		NGMP_OnlineServicesManager::Settings.Graphics_DrawStatsOverlay() ? 1 : 0));
 #endif
+
+#ifdef __APPLE__
+	readFrameRateLimitOverride();
+	DEBUG_SETTINGS_MAC(("[init] FrameRateLimitOverride=%u", s_frameRateLimitOverride));
+#endif
 }
 
 /** -----------------------------------------------------------------------------------------------
@@ -997,7 +1021,11 @@ void GameEngine::update()
 				static bool s_fpsLogOnce = false;
 				bool inGame = TheGameLogic->isInGame();
 				bool shellActive = TheShell->isShellActive();
-				if (inGame && !shellActive)
+				if (s_frameRateLimitOverride != 0)
+				{
+					TheFramePacer->setFramesPerSecondLimit(s_frameRateLimitOverride);
+				}
+				else if (inGame && !shellActive)
 				{
 					int fpsLimit = NGMP_OnlineServicesManager::Settings.Graphics_GetFPSLimit();
 					bool limitOn = NGMP_OnlineServicesManager::Settings.Graphics_LimitFramerate();
