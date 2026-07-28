@@ -191,9 +191,13 @@ public:
 	}
 
 private:
+	void LogConnectionDiagnostics(const char* szOutcome, int httpResponseCode, bool bFailed);
+
 	CURL* m_pCurlWS = nullptr;
     CURLM* m_pMulti = nullptr;
 	struct curl_slist* m_pHeaders = nullptr;
+
+	char m_szCurlErrorBuffer[CURL_ERROR_SIZE] = { 0 };
 
 	bool m_bConnected = false;
 

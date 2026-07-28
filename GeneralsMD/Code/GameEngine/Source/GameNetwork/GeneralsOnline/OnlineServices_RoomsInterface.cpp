@@ -143,11 +143,13 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 			return;
 		}
 
+		std::string& strAuthToken = pAuthInterface->GetAuthToken();
+
 		char szHeaderBuffer[8192] = { 0 };
 #ifdef __APPLE__
-		snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+		snprintf(szHeaderBuffer, sizeof(szHeaderBuffer), "Authorization: Bearer %s", strAuthToken.c_str());
 #else
-		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", pAuthInterface->GetAuthToken().c_str());
+		sprintf_s(szHeaderBuffer, "Authorization: Bearer %s", strAuthToken.c_str());
 #endif
 		m_pHeaders = curl_slist_append(m_pHeaders, szHeaderBuffer);
 
@@ -160,12 +162,62 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_HTTPHEADER, m_pHeaders);
 
+		m_szCurlErrorBuffer[0] = 0;
+		curl_easy_setopt(m_pCurlWS, CURLOPT_ERRORBUFFER, m_szCurlErrorBuffer);
+
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connecting to %s (reconnect: %s, auth token: %d chars, requested http version: %s)",
+			url,
+			bIsReconnect ? "true" : "false",
+			(int)strAuthToken.length(),
+			GetHTTPVersionName(NGMP_OnlineServicesManager::Settings.Network_GetHTTPVersionForCurl()));
+
 		//curl_easy_setopt(m_pCurl, CURLOPT_TIMEOUT_MS, 1000);
 
 		/* Perform the request, res gets the return code */
 		//CURLcode res = curl_easy_perform(m_pCurl);
 		curl_multi_add_handle(m_pMulti, m_pCurlWS);
 	}
+}
+
+void WebSocket::LogConnectionDiagnostics(const char* szOutcome, int httpResponseCode, bool bFailed)
+{
+	if (m_pCurlWS == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] %s: no curl handle", szOutcome);
+		return;
+	}
+
+	char* szPrimaryIP = nullptr;
+	char* szLocalIP = nullptr;
+	long primaryPort = 0;
+	long httpVersionUsed = 0;
+	curl_easy_getinfo(m_pCurlWS, CURLINFO_PRIMARY_IP, &szPrimaryIP);
+	curl_easy_getinfo(m_pCurlWS, CURLINFO_LOCAL_IP, &szLocalIP);
+	curl_easy_getinfo(m_pCurlWS, CURLINFO_PRIMARY_PORT, &primaryPort);
+	curl_easy_getinfo(m_pCurlWS, CURLINFO_HTTP_VERSION, &httpVersionUsed);
+
+	if (!bFailed)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] %s: url %s, http code %d, server %s:%ld, local address %s, http version %s",
+			szOutcome,
+			m_strWebsocketAddr.c_str(),
+			httpResponseCode,
+			szPrimaryIP != nullptr ? szPrimaryIP : "unknown",
+			primaryPort,
+			szLocalIP != nullptr ? szLocalIP : "unknown",
+			GetHTTPVersionName(httpVersionUsed));
+		return;
+	}
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] %s: url %s, http code %d, server %s:%ld, local address %s, http version %s, detail: %s",
+		szOutcome,
+		m_strWebsocketAddr.c_str(),
+		httpResponseCode,
+		szPrimaryIP != nullptr ? szPrimaryIP : "unknown",
+		primaryPort,
+		szLocalIP != nullptr ? szLocalIP : "unknown",
+		GetHTTPVersionName(httpVersionUsed),
+		m_szCurlErrorBuffer[0] != 0 ? m_szCurlErrorBuffer : "none");
 }
 
 void WebSocket::SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction)
@@ -578,6 +630,7 @@ void WebSocket::Tick()
                         m_bConnected = false;
                         m_vecWSPartialBuffer.clear();
                         NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Failed to connect (%d - %s)", m->data.result, curl_easy_strerror(m->data.result));
+                        LogConnectionDiagnostics("Failed to connect", httpResponseCode, true);
 
                         // reconnecting? give up eventually
                         if (m_bReconnecting)
@@ -628,6 +681,8 @@ void WebSocket::Tick()
                         {
                             NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Connected");
                         }
+
+                        LogConnectionDiagnostics("Connection established", httpResponseCode, false);
 
                         /* connected and ready */
                         m_bConnected = true;

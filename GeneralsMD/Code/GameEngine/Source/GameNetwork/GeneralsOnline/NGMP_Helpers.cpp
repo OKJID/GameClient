@@ -9,6 +9,20 @@
 #include "../OnlineServices_Auth.h"
 #include "Common/System/NativeFileSystem.h"
 
+const char* GetHTTPVersionName(long curlHTTPVersion)
+{
+	switch (curlHTTPVersion)
+	{
+		case CURL_HTTP_VERSION_NONE: return "auto";
+		case CURL_HTTP_VERSION_1_0: return "1.0";
+		case CURL_HTTP_VERSION_1_1: return "1.1";
+		case CURL_HTTP_VERSION_2_0: return "2";
+		case CURL_HTTP_VERSION_3: return "3";
+	}
+
+	return "unknown";
+}
+
 std::string m_strNetworkLogFileName;
 std::mutex m_logMutex;
 

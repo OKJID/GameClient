@@ -928,6 +928,11 @@ void NGMP_OnlineServicesManager::OnLogin(ELoginResult loginResult, const char* s
 		// TODO_NGMP: This should come from the service, if the service was russia-aware
 		std::string strWebsocketAddr = NGMP_OnlineServicesManager::Settings.Network_UseAlternativeEndpoint() ? "wss://api-ru.playgenerals.online/ws" : std::string(szWSAddr);
 
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Service returned websocket address %s, using %s (alternative endpoint: %s)",
+			szWSAddr,
+			strWebsocketAddr.c_str(),
+			NGMP_OnlineServicesManager::Settings.Network_UseAlternativeEndpoint() ? "true" : "false");
+
         m_pWebSocket->Connect(strWebsocketAddr.c_str(), false, [=]()
             {
                 // Get friends list and blocked list

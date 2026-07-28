@@ -55,6 +55,59 @@ struct MOTDResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MOTDResponse, MOTD)
 };
 
+static std::string GetTokenClaim(const std::string& strToken, const char* szClaim)
+{
+	size_t payloadStart = strToken.find('.');
+	if (payloadStart == std::string::npos)
+	{
+		return "<no token>";
+	}
+
+	size_t payloadEnd = strToken.find('.', payloadStart + 1);
+	if (payloadEnd == std::string::npos)
+	{
+		return "<malformed token>";
+	}
+
+	std::string strPayload = strToken.substr(payloadStart + 1, payloadEnd - payloadStart - 1);
+	std::replace(strPayload.begin(), strPayload.end(), '-', '+');
+	std::replace(strPayload.begin(), strPayload.end(), '_', '/');
+
+	std::vector<uint8_t> vecDecoded = Base64Decode(strPayload);
+	std::string strJSON = std::string((const char*)vecDecoded.data(), vecDecoded.size());
+
+	size_t objectEnd = strJSON.rfind('}');
+	if (objectEnd == std::string::npos)
+	{
+		return "<undecodable token>";
+	}
+	strJSON.resize(objectEnd + 1);
+
+	try
+	{
+		nlohmann::json jsonPayload = nlohmann::json::parse(strJSON);
+
+		if (!jsonPayload.contains(szClaim))
+		{
+			return "<absent>";
+		}
+
+		nlohmann::json claimValue = jsonPayload[szClaim];
+		return claimValue.is_string() ? claimValue.get<std::string>() : claimValue.dump();
+	}
+	catch (...)
+	{
+		return "<unparsable token>";
+	}
+}
+
+static void LogIssuedSession(const char* szSource, const std::string& strSessionToken, const std::string& strRefreshToken, int64_t userID, const std::string& strDisplayName)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: %s issued session for user id %lld, display name '%s'", szSource, userID, strDisplayName.c_str());
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Session token bound to address %s, expires %s", GetTokenClaim(strSessionToken, "address").c_str(), GetTokenClaim(strSessionToken, "exp").c_str());
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Refresh token bound to address %s", GetTokenClaim(strRefreshToken, "address").c_str());
+}
+
 std::string GenerateGamecode()
 {
 #if defined(_DEBUG) && !defined(USE_TEST_ENV) && !defined(USE_DEBUG_ON_LIVE_SERVER)
@@ -179,8 +232,18 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 
 	std::string strRefreshToken;
 	bool bValidCreds = GetCredentials(strRefreshToken);
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: BeginLogin, cached credentials %s (exe crc %u, ini crc %u)",
+		bValidCreds ? "found" : "absent",
+		TheGlobalData->m_exeCRC,
+		TheGlobalData->m_iniCRC);
+
 	if (bValidCreds)
 	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Cached refresh token bound to address %s, expires %s",
+			GetTokenClaim(strRefreshToken, "address").c_str(),
+			GetTokenClaim(strRefreshToken, "exp").c_str());
+
 		// login
 		std::map<std::string, std::string> mapHeaders;
 
@@ -215,7 +278,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 					}
 					else
 					{
-						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed due to 4XX code, trying to re-auth");
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed with code %d, cached refresh token was rejected, trying to re-auth", statusCode);
 						DoReAuth();
 					}
 				}
@@ -232,6 +295,7 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 							GSMessageBoxNoButtons(UnicodeString(L"Logging In"), UnicodeString(L"Logged in!"), true);
 
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
+							LogIssuedSession("LoginWithToken", authResp.session_token, authResp.refresh_token, authResp.user_id, authResp.display_name);
 							m_bWaitingLogin = false;
 
 							SaveCredentials(authResp.refresh_token.c_str());
@@ -402,6 +466,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						else if (authResp.result == EAuthResponseResult::SUCCEEDED)
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Logged in");
+							LogIssuedSession("CheckLogin", authResp.session_token, authResp.refresh_token, authResp.user_id, authResp.display_name);
 							m_bWaitingLogin = false;
 
 							SaveCredentials(authResp.refresh_token.c_str());
@@ -486,8 +551,16 @@ void NGMP_OnlineServices_AuthInterface::SaveCredentials(const char* szRefreshTok
 
 	std::string strData = root.dump(1);
 
-	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "wb");
-	if (file)
+	std::string strCredentialsPath = GetCredentialsFilePath();
+	FILE* file = NativeFileSystem::fopen(strCredentialsPath, "wb");
+	if (file == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Failed to store credentials at %s, next launch will need the browser again", strCredentialsPath.c_str());
+		return;
+	}
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Storing credentials at %s", strCredentialsPath.c_str());
+
 	{
 #if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS) && defined(_WIN32)
 		DATA_BLOB inputBlob;
@@ -519,8 +592,14 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 	return false;
 #endif
 	std::vector<uint8_t> vecBytes;
-	FILE* file = NativeFileSystem::fopen(GetCredentialsFilePath(), "rb");
-	if (file)
+	std::string strCredentialsPath = GetCredentialsFilePath();
+	FILE* file = NativeFileSystem::fopen(strCredentialsPath, "rb");
+	if (file == nullptr)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: No credentials file at %s", strCredentialsPath.c_str());
+		return false;
+	}
+
 	{
 		fseek(file, 0, SEEK_END);
 		long fileSize = ftell(file);
@@ -533,8 +612,12 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 		fclose(file);
 	}
 
+	if (vecBytes.empty())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Credentials file at %s is empty", strCredentialsPath.c_str());
+		return false;
+	}
 
-	if (!vecBytes.empty())
 	{
 		// needs decrypt first
 #if defined(GENERALS_ONLINE_ENCRYPT_CREDENTIALS) && defined(_WIN32)
@@ -572,16 +655,20 @@ bool NGMP_OnlineServices_AuthInterface::GetCredentials(std::string& strRefreshTo
 
 					if (strRefreshToken.empty())
 					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Stored refresh token is empty");
 						return false;
 					}
 
 					return true;
 				}
+
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Credentials file has no refresh token");
 			}
 
 		}
 		catch (...)
 		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Credentials file could not be parsed");
 			return false;
 		}
 	}

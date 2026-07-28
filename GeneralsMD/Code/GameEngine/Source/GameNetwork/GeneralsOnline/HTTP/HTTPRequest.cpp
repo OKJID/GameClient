@@ -216,7 +216,12 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	}
 #endif
 
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s|Verb %d] Response was %d - %s!", this, strURIRedacted.c_str(), m_httpVerb, m_responseCode, strResponse.c_str());
+	char* szPrimaryIP = nullptr;
+	long httpVersionUsed = 0;
+	curl_easy_getinfo(m_pCURL, CURLINFO_PRIMARY_IP, &szPrimaryIP);
+	curl_easy_getinfo(m_pCURL, CURLINFO_HTTP_VERSION, &httpVersionUsed);
+
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[%p|%s|Verb %d] Response was %d via server %s (http version %s) - %s!", this, strURIRedacted.c_str(), m_httpVerb, m_responseCode, szPrimaryIP != nullptr ? szPrimaryIP : "unknown", GetHTTPVersionName(httpVersionUsed), strResponse.c_str());
 
 	// trigger callback
 	InvokeCallbackIfComplete();
