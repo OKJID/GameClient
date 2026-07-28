@@ -21,6 +21,10 @@
 #include <chrono>
 #include <thread>
 
+#ifdef __APPLE__
+#include <mach/mach_time.h>
+#endif
+
 
 #ifdef _WIN32
 FrameRateLimit::FrameRateLimit()
@@ -67,17 +71,39 @@ FrameRateLimit::FrameRateLimit()
 	m_freq = std::chrono::high_resolution_clock::period::den / std::chrono::high_resolution_clock::period::num;
 }
 
+#ifdef __APPLE__
+static void sleepForSeconds(double seconds)
+{
+	static mach_timebase_info_data_t timebase = { 0, 0 };
+	if (timebase.denom == 0)
+	{
+		mach_timebase_info(&timebase);
+	}
+
+	const uint64_t nanoseconds = static_cast<uint64_t>(seconds * 1.0e9);
+	mach_wait_until(mach_absolute_time() + nanoseconds * timebase.denom / timebase.numer);
+}
+
+static const double s_spinWaitSeconds = 0.0005;
+#else
+static const double s_spinWaitSeconds = 0.002;
+#endif
+
 Real FrameRateLimit::wait(UnsignedInt maxFps)
 {
 	auto now = std::chrono::high_resolution_clock::now();
 	double elapsedSeconds = static_cast<double>(now.time_since_epoch().count() - m_start) / m_freq;
 	const double targetSeconds = 1.0 / maxFps;
-	const double sleepSeconds = targetSeconds - elapsedSeconds - 0.002; 
+	const double sleepSeconds = targetSeconds - elapsedSeconds - s_spinWaitSeconds;
 
 	if (sleepSeconds > 0.0)
 	{
+#ifdef __APPLE__
+		sleepForSeconds(sleepSeconds);
+#else
 		// Sleep for millisecond
 		std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<long long>(sleepSeconds * 1000)));
+#endif
 	}
 
 	// Busy wait for remaining time
@@ -88,7 +114,16 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 	}
 	while (elapsedSeconds < targetSeconds);
 
-	m_start = now.time_since_epoch().count();
+	const long long targetTicks = static_cast<long long>(targetSeconds * m_freq);
+	const long long nowTicks = now.time_since_epoch().count();
+
+	m_start += targetTicks;
+
+	if (nowTicks - m_start > targetTicks)
+	{
+		m_start = nowTicks;
+	}
+
 	return (Real)elapsedSeconds;
 }
 #endif
