@@ -9,6 +9,7 @@
 #   sh build_run_mac.sh --lldb                # build + run with lldb
 #   sh build_run_mac.sh --release             # configure/build game with debug logging/crashing
 #   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
+#   sh build_run_mac.sh --rep_def             # build + ran replay
 #   sh build_run_mac.sh --mod=Contra008       # build + run with a mod (see MOD_PATH)
 
 export PATH="/opt/homebrew/bin:$PATH"

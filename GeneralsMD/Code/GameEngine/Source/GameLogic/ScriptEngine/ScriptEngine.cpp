@@ -7943,12 +7943,16 @@ void ScriptEngine::setSequentialTimer(Team* team, Int frameCount)
 void ScriptEngine::evaluateAndProgressAllSequentialScripts()
 {
 	VecSequentialScriptPtrIt it;
-	SequentialScript* lastScript = NULL;
+	// TheSuperHackers @bugfix xezon 18/01/2026 Detect a spinning sequential script by its index instead of
+	// its pointer, because a cleaned up entry puts a different script at the same index and would reset the
+	// spin counter. Ported from TheSuperHackers PR #2129 to keep macOS in sync with the reference build.
+	size_t currIndex = 0;
+	size_t prevIndex = ~0u;
 	Bool itAdvanced = false;
 
 	Int spinCount = 0;
 	for (it = m_sequentialScripts.begin(); it != m_sequentialScripts.end(); /* empty */) {
-		if ((*it) == lastScript) {
+		if (currIndex == prevIndex) {
 			++spinCount;
 		}
 		else {
@@ -7962,11 +7966,11 @@ void ScriptEngine::evaluateAndProgressAllSequentialScripts()
 					seqScript->m_scriptToExecuteSequentially->getName().str()));
 			}
 			++it;
+			++currIndex;
 			continue;
 		}
 
-		lastScript = (*it);
-
+		prevIndex = currIndex;
 		itAdvanced = false;
 
 		SequentialScript* seqScript = (*it);
@@ -8081,6 +8085,7 @@ void ScriptEngine::evaluateAndProgressAllSequentialScripts()
 					// Check to see if executing our action told us to wait. If so, skip to the next Sequential script
 					if (seqScript->m_dontAdvanceInstruction) {
 						++it;
+						++currIndex;
 						itAdvanced = true;
 						continue;
 					}
@@ -8137,6 +8142,7 @@ void ScriptEngine::evaluateAndProgressAllSequentialScripts()
 
 		if (!itAdvanced) {
 			++it;
+			++currIndex;
 		}
 	}
 	m_currentPlayer = NULL;
