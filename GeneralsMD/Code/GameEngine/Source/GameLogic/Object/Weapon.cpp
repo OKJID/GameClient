@@ -30,6 +30,8 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
+#include <string.h>
+
 #define DEFINE_DEATH_NAMES
 #define DEFINE_WEAPONBONUSCONDITION_NAMES
 #define DEFINE_WEAPONBONUSFIELD_NAMES
@@ -321,6 +323,7 @@ WeaponTemplate::WeaponTemplate() : m_nextTemplate(nullptr)
 	m_infantryInaccuracyDist				= 0.0f;
 	m_damageStatusType							= OBJECT_STATUS_NONE;
 	m_suspendFXDelay								= 0;
+	m_dieOnDetonate						= FALSE;
 
 	m_historicDamageTriggerId = 0;
 }
@@ -1683,12 +1686,13 @@ WeaponTemplate *WeaponStore::newWeaponTemplate(AsciiString name)
 
 	if (strcmp(name.str(), "SupW_AuroraFuelBombWeapon") == 0)
 	{
-        // Note: m_dieOnDetonate is set to true to fix the Alpha Aurora second explosion inconsistency when targeting structures.
+		// Note: m_dieOnDetonate is set to true to fix the Alpha Aurora second explosion inconsistency when targeting structures.
 		// SupW_AuroraFuelBombWeapon does not specify MissileCallsOnDie in INI, so getDieOnDetonate()
 		// returned false, causing detonate() to skip attemptDamage() which is what triggers die modules.
 		// When INI is editable, we should add MissileCallsOnDie = yes for SupW_AuroraFuelBombWeapon
 		// and change m_dieOnDetonate back to false.
-        wt->m_dieOnDetonate = TRUE;
+		wt->m_dieOnDetonate = TRUE;
+		DEBUG_LOG(("WeaponStore::newWeaponTemplate() - forcing MissileCallsOnDie for %s", name.str()));
 	}
 
 	m_weaponTemplateVector.push_back(wt);
