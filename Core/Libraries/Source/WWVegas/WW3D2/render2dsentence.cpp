@@ -1268,10 +1268,12 @@ FontCharsClass::Get_Char_Data (WCHAR ch)
 	{
 		retval = ASCIICharArray[ch];
 	}
+#ifndef __APPLE__
  	else if ( AlternateUnicodeFont && this != AlternateUnicodeFont )
 	{
 		return AlternateUnicodeFont->Get_Char_Data( ch );
 	}
+#endif
 	else
 	{
 		Grow_Unicode_Array( ch );
