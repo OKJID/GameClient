@@ -526,7 +526,7 @@ WWINLINE float WWMath::Sqrt(float x)
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
 #else
-	return (float)Sqrt((double)x);
+	return sqrtf(x);
 #endif
 }
 
