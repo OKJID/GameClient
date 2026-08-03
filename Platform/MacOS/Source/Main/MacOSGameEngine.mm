@@ -366,10 +366,17 @@ void MacOSGameEngine::serviceWindowsOS()
 							unichar ch = [chars characterAtIndex:i];
 							// Convert macOS keypad enter (0x03) to standard CR (0x0D)
 							if (ch == 0x03 || ch == 0x0A) ch = 0x0D;
-							// Pass printable characters and Enter (used by GUI textboxes)
-							if (ch >= 32 || ch == 0x0D) {
-								TheIMEManager->serviceIMEMessage(ApplicationHWnd, 0x0102 /* WM_CHAR */, ch, 0);
+
+							const bool isEnter = (ch == 0x0D);
+							const bool isControl = (ch < 32 || ch == 0x7F);
+							const bool isFunctionKey = (ch >= 0xF700 && ch <= 0xF8FF);
+
+							if (!isEnter && (isControl || isFunctionKey)) {
+								continue;
 							}
+
+							// Pass printable characters and Enter (used by GUI textboxes)
+							TheIMEManager->serviceIMEMessage(ApplicationHWnd, 0x0102 /* WM_CHAR */, ch, 0);
 						}
 					}
 				}
