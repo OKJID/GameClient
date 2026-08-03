@@ -171,6 +171,39 @@ static Bool isServedByModArchive( const Char *filename )
 	return archive->getName().startsWithNoCase(TheGlobalData->m_modDir);
 }
 
+// A mod brings loose files the install has never heard of: its own INI, its own maps.
+// Enumeration has to offer them too, otherwise the engine only ever discovers names the
+// base already knows and the mod's new factions and maps simply do not exist.
+// Every local file system composes its results from the directory it was handed, so the
+// mod copy is listed under the mod root and the root is stripped off again: callers see
+// install-relative paths, identical in form to the ones the install itself returns.
+static void listModLooseFiles( const AsciiString& directory, const AsciiString& searchName,
+	FilenameList &filenameList, Bool searchSubdirectories )
+{
+	if (TheLocalFileSystem == nullptr)
+		return;
+
+	const AsciiString modDirectory = modLoosePath(directory.str());
+	if (modDirectory.isEmpty())
+		return;
+
+	FilenameList modFiles;
+	TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, modDirectory,
+		searchName, modFiles, searchSubdirectories);
+
+	const Int modRootLength = TheGlobalData->m_modDir.getLength();
+	for (const AsciiString &modFile : modFiles)
+	{
+		filenameList.insert(AsciiString(modFile.str() + modRootLength));
+	}
+
+	if (!modFiles.empty())
+	{
+		DEBUG_FILESYSTEM_MAC(("getFileListInDirectory: %s <- %d entries from mod",
+			directory.str(), (Int)modFiles.size()));
+	}
+}
+
 // Contra and friends rely on their own AI scripts. On Windows a manual install deletes the
 // base ones; we keep them on disk, so the mod asks us to hide them instead.
 static Bool isMaskedBaseFile( const Char *filename )
@@ -463,6 +496,7 @@ Bool FileSystem::doesFileExist(const Char *filename, FileInstance instance) cons
 void FileSystem::getFileListInDirectory(const AsciiString& directory, const AsciiString& searchName, FilenameList &filenameList, Bool searchSubdirectories) const
 {
 	USE_PERF_TIMER(FileSystem)
+	listModLooseFiles(directory, searchName, filenameList, searchSubdirectories);
 	TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, filenameList, searchSubdirectories);
 	TheArchiveFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, directory, searchName, filenameList, searchSubdirectories);
 }
