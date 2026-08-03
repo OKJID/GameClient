@@ -29,6 +29,7 @@ class Vector4;
 class TextureClass;
 class RenderInfoClass;
 class DX8IndexBufferClass;
+class SurfaceClass;
 
 //#define USE_COPY_RECTS	1	//this was the old method that didn't render to texture. Just copied backbuffer into texture. Slow on Nvidia.
 
@@ -47,6 +48,10 @@ public:
 
 private:
 	Bool testHardwareSupport();		///<test if video card supports the effect.
+
+#ifdef __APPLE__
+	Bool isBackBufferResized(const SurfaceClass *backBuffer) const;
+#endif
 
 	enum { MAX_POINTS_PER_GROUP = 512 };
 

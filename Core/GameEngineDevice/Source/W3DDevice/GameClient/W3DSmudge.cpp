@@ -308,6 +308,16 @@ Bool W3DSmudgeManager::testHardwareSupport()
 	return (SMUDGE_SUPPORT_YES == m_hardwareSupportStatus);
 }
 
+#ifdef __APPLE__
+Bool W3DSmudgeManager::isBackBufferResized(const SurfaceClass *backBuffer) const
+{
+	SurfaceClass::SurfaceDescription surface_desc;
+	const_cast<SurfaceClass *>(backBuffer)->Get_Description(surface_desc);
+
+	return (Int)surface_desc.Width != m_backBufferWidth || (Int)surface_desc.Height != m_backBufferHeight;
+}
+#endif
+
 void W3DSmudgeManager::render(RenderInfoClass &rinfo)
 {
 	//Verify that the card supports the effect.
@@ -318,6 +328,19 @@ void W3DSmudgeManager::render(RenderInfoClass &rinfo)
 
 	if (!backBuffer)
 		return;
+
+#ifdef __APPLE__
+	if (isBackBufferResized(backBuffer))
+	{
+		REF_PTR_RELEASE(backBuffer);
+		ReAcquireResources();
+
+		backBuffer = DX8Wrapper::_Get_DX8_Back_Buffer();
+
+		if (!backBuffer)
+			return;
+	}
+#endif
 
 	SurfaceClass *background=m_backgroundTexture ? m_backgroundTexture->Get_Surface_Level() : nullptr;
 
