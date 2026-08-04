@@ -777,7 +777,9 @@ Bool FlightDeckBehavior::isAbleToGiveUpParkingSpace( Object *jet )
 		return TRUE;
 	}
 
-	JetAIUpdate *ai = (JetAIUpdate*)jet->getAI();
+	// Same reason as isAbleToMoveForward: the object in the space may not be a jet at all.
+	AIUpdateInterface *baseAI = jet->getAI();
+	JetAIUpdate *ai = baseAI ? baseAI->getJetAIUpdate() : nullptr;
 	if( ai )
 	{
 		//If I'm not idle, I'm certainly not parked. But I could be on route to park in my space!
@@ -839,7 +841,11 @@ Bool FlightDeckBehavior::isInPositionToTakeoff( const Object &jet ) const
 //-------------------------------------------------------------------------------------------------
 Bool FlightDeckBehavior::isAbleToMoveForward( const Object &jet ) const
 {
-	JetAIUpdate *jetAI = (JetAIUpdate*)jet.getAI();
+	// A parking space is not guaranteed to hold a jet: mods park helicopters and even infantry
+	// on the deck. isReloading() exists only on JetAIUpdate, so calling it through a cast of a
+	// foreign AI jumps into the wrong vtable slot. getJetAIUpdate() answers nullptr for those.
+	const AIUpdateInterface *ai = jet.getAI();
+	const JetAIUpdate *jetAI = ai ? ai->getJetAIUpdate() : nullptr;
 	if( jetAI && !jet.isAirborneTarget() )
 	{
 		//We're not airborne.
