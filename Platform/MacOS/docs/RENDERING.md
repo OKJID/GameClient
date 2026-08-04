@@ -193,11 +193,53 @@ Three paths:
 1. `LockRect` → staging buffer via `malloc`
 2. `UnlockRect` → `replaceRegion`, then `free`
 
+**The staging buffer is measured in 4×4 blocks, not in pixels:**
+
+```
+pitch    = ceil(width / 4)  * blockBytes      // 8 for DXT1, 16 for DXT2..5
+dataSize = pitch * ceil(height / 4)
+```
+
+A 512×512 DXT1 surface therefore has `Pitch` 1024 and holds 131 072 bytes, not
+512 × 4 × 512. Any copy that walks *pixel* rows over such a buffer runs four
+times past its end — see `CopyRects` below.
+
+> **Trap:** `BytesPerPixelFromD3D` returns **bytes per block** (8/16) for the DXT
+> formats, and WW3D's own `Get_Bytes_Per_Pixel` returns **0** for them. Neither
+> value may be multiplied by a pixel count. Both mistakes have already cost heap
+> corruption that surfaced far away — inside libobjc, AppKit and the Metal driver.
+
+`generateMipmapsForTexture` requires a color-renderable, filterable format, so it
+must never be called for a compressed texture: the AGX compiler service segfaults
+building the downsample blit shader and takes the process with it. `MetalTexture8`,
+`MetalCubeTexture8` and `D3DXFilterTexture` all skip it for these formats.
+
+### Surface Copies (`CopyRects`)
+
+`DX8Wrapper::_Copy_DX8_Rects` → `MetalDevice8::CopyRects` serves four different
+cases, picked by whether either side owns a parent `MetalTexture8`:
+
+| Case | Source → destination | How |
+|---|---|---|
+| 0 | backbuffer → GPU texture | blit encoder; used by the smudge/heat-haze pass |
+| 1 | GPU texture → GPU texture | blit encoder, `waitUntilCompleted` |
+| 2 | GPU texture → standalone surface | `getBytes` readback into the locked buffer; used by `Recolor_Texture_One_Time` |
+| 3–4 | CPU surface → GPU texture | upload via `replaceRegion` |
+
+Case 2 is the one that must respect block geometry: it reads back into a locked
+staging buffer, so a compressed destination is copied block row by block row.
+
+`SurfaceClass::Copy` picks between `CopyRects` and `D3DXLoadSurfaceFromSurface`:
+identical format **and** size go to the former, anything else to the latter. Both
+paths therefore need the same block handling.
+
 ### Format Conversion
 Formats R8G8B8, A4L4 are converted to BGRA8/RG8 via `m_ConvertBuf`.
 
 ### 16-bit ↔ 32-bit Conversion
 On macOS, 16-bit formats (A1R5G5B5, R5G6B5) are stored as 32-bit BGRA8Unorm internally. `Convert16to32()` expands on lock, `Convert32to16()` compresses on unlock. This enables CPU-side texture recoloring (house colors) to work correctly — the recoloring algorithm reads/modifies 16-bit pixel data, which must round-trip through the 32-bit Metal texture.
+
+Recoloring a **compressed** texture changes nothing: `Remap_Palette` only acts when `Get_Bytes_Per_Pixel` reports 2 or 4, and DXT reports 0. The surface copy that precedes it still runs, which is why that copy has to be block-correct even though the remap is a no-op.
 
 ### Surface Caching
 `MetalTexture8::GetSurfaceLevel` returns a **cached** surface per mip level (not a new allocation each call). This prevents the radar/shroud per-cell update pattern (7500+ calls) from overwriting data with zeroed staging buffers.
