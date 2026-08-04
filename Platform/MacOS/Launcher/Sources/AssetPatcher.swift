@@ -39,6 +39,12 @@ class AssetPatcher: ObservableObject {
     @Published var consoleLog: String = ""
 
     private var downloadObservation: NSKeyValueObservation?
+    private var startedAt: Date?
+
+    private var elapsedSeconds: Double {
+        guard let startedAt else { return 0 }
+        return Date().timeIntervalSince(startedAt)
+    }
 
     static let patchURL = "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip"
 
@@ -63,6 +69,7 @@ class AssetPatcher: ObservableObject {
         }
 
         consoleLog = ""
+        startedAt = Date()
         appendLog("[*] Starting patch process...\n")
         for target in targets {
             appendLog("[*] \(target.profile.displayName): \(target.directory.path)\n")
@@ -202,6 +209,7 @@ class AssetPatcher: ObservableObject {
             }
 
             appendLog("[✓] Community Patch successfully applied!\n")
+            Analytics.logPatchFinished(seconds: elapsedSeconds)
             state = .completed
         } catch {
             try? fm.removeItem(at: extractDir)
@@ -268,6 +276,8 @@ class AssetPatcher: ObservableObject {
     }
 
     private func fail(_ message: String) {
+        Analytics.logPatchFailed(reason: message)
+
         DispatchQueue.main.async {
             self.state = .failed(message)
             self.appendLog("\n[✗] \(message)\n")

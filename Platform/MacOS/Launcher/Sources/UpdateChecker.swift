@@ -59,7 +59,10 @@ class UpdateChecker: ObservableObject {
 
                 if self.isNewerVersion(update.version, than: Self.currentVersion)
                     || update.build > Self.currentBuild {
+                    guard self.availableUpdate?.version != update.version else { return }
+
                     self.availableUpdate = update
+                    Analytics.logUpdateOffered(version: update.version)
                 }
             }
         }.resume()

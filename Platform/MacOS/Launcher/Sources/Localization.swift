@@ -57,6 +57,7 @@ enum L10n {
     static let settings = Settings()
     static let about = About()
     static let mod = Mod()
+    static let portal = Portal()
     static let sidebar = Sidebar()
 
     struct App {
@@ -158,6 +159,11 @@ enum L10n {
         var unpackingPart: String { resolve("mod.status.unpackingPart") }
         var installed: String { resolve("mod.status.installed") }
         var error: String { resolve("mod.status.error") }
+    }
+
+    struct Portal {
+        var onlineNotice: String { resolve("portal.onlineNotice") }
+        var findOpponents: String { resolve("portal.findOpponents") }
     }
 
     struct Sidebar {
@@ -336,6 +342,8 @@ enum L10n {
         "mod.remove": "Remove",
         "mod.installingTitle": "INSTALLING %@ — PLEASE WAIT",
         "mod.installingHint": "Your games are fine — launching and patching stay locked so the download is not interrupted",
+        "portal.onlineNotice": "Online play (player vs player) works between macOS and macOS",
+        "portal.findOpponents": "Find opponents:",
         "mod.damaged": "%d file(s) missing — reinstall to repair",
         "mod.sizeInfo": "download %@ · disk %@",
         "mod.sizeParts": " · %d parts",
@@ -462,6 +470,8 @@ enum L10n {
         "mod.remove": "Удалить",
         "mod.installingTitle": "УСТАНОВКА %@ — ПОДОЖДИТЕ",
         "mod.installingHint": "С играми всё в порядке — запуск и патч заблокированы, чтобы не прервать загрузку",
+        "portal.onlineNotice": "Онлайн-игра (игрок против игрока) работает только между macOS и macOS",
+        "portal.findOpponents": "Соперников ищите здесь:",
         "mod.damaged": "Не хватает файлов: %d — переустановите для восстановления",
         "mod.sizeInfo": "загрузка %@ · диск %@",
         "mod.sizeParts": " · частей: %d",
@@ -588,6 +598,8 @@ enum L10n {
         "mod.remove": "Видалити",
         "mod.installingTitle": "ВСТАНОВЛЕННЯ %@ — ЗАЧЕКАЙТЕ",
         "mod.installingHint": "З іграми все гаразд — запуск і патч заблоковані, щоб не перервати завантаження",
+        "portal.onlineNotice": "Онлайн-гра (гравець проти гравця) працює лише між macOS і macOS",
+        "portal.findOpponents": "Суперників шукайте тут:",
         "mod.damaged": "Бракує файлів: %d — перевстановіть для відновлення",
         "mod.sizeInfo": "завантаження %@ · диск %@",
         "mod.sizeParts": " · частин: %d",
@@ -714,6 +726,8 @@ enum L10n {
         "mod.remove": "हटाएं",
         "mod.installingTitle": "%@ इंस्टॉल हो रहा है — कृपया प्रतीक्षा करें",
         "mod.installingHint": "आपके गेम ठीक हैं — डाउनलोड बाधित न हो इसलिए लॉन्च और पैच बंद हैं",
+        "portal.onlineNotice": "ऑनलाइन खेल (खिलाड़ी बनाम खिलाड़ी) केवल macOS और macOS के बीच काम करता है",
+        "portal.findOpponents": "प्रतिद्वंद्वी यहाँ खोजें:",
         "mod.damaged": "%d फ़ाइल(ें) गायब — मरम्मत के लिए फिर से इंस्टॉल करें",
         "mod.sizeInfo": "डाउनलोड %@ · डिस्क %@",
         "mod.sizeParts": " · %d भाग",
@@ -840,6 +854,8 @@ enum L10n {
         "mod.remove": "移除",
         "mod.installingTitle": "正在安装 %@ — 请稍候",
         "mod.installingHint": "你的游戏没有问题 — 启动和修补已锁定，以免中断下载",
+        "portal.onlineNotice": "联机对战（玩家对玩家）目前仅支持 macOS 与 macOS 之间",
+        "portal.findOpponents": "在这里寻找对手：",
         "mod.damaged": "缺少 %d 个文件 — 重新安装以修复",
         "mod.sizeInfo": "下载 %@ · 占用 %@",
         "mod.sizeParts": " · %d 个分卷",
@@ -966,6 +982,8 @@ enum L10n {
         "mod.remove": "إزالة",
         "mod.installingTitle": "جارٍ تثبيت %@ — يرجى الانتظار",
         "mod.installingHint": "ألعابك بخير — التشغيل والتصحيح مقفلان حتى لا ينقطع التحميل",
+        "portal.onlineNotice": "اللعب عبر الإنترنت (لاعب ضد لاعب) يعمل بين macOS وmacOS فقط",
+        "portal.findOpponents": "ابحث عن منافسين هنا:",
         "mod.damaged": "%d ملف مفقود — أعد التثبيت للإصلاح",
         "mod.sizeInfo": "التحميل %@ · القرص %@",
         "mod.sizeParts": " · %d أجزاء",
@@ -1092,6 +1110,8 @@ enum L10n {
         "mod.remove": "Жою",
         "mod.installingTitle": "%@ ОРНАТЫЛУДА — КҮТЕ ТҰРЫҢЫЗ",
         "mod.installingHint": "Ойындарыңыз аман — жүктеу үзілмес үшін іске қосу мен патч бұғатталған",
+        "portal.onlineNotice": "Онлайн ойын (ойыншыға қарсы ойыншы) тек macOS пен macOS арасында жұмыс істейді",
+        "portal.findOpponents": "Қарсыластарды осы жерден табыңыз:",
         "mod.damaged": "%d файл жетіспейді — қалпына келтіру үшін қайта орнатыңыз",
         "mod.sizeInfo": "жүктеу %@ · диск %@",
         "mod.sizeParts": " · %d бөлік",
@@ -1218,6 +1238,8 @@ enum L10n {
         "mod.remove": "Gỡ bỏ",
         "mod.installingTitle": "ĐANG CÀI %@ — VUI LÒNG ĐỢI",
         "mod.installingHint": "Game của bạn vẫn ổn — khởi chạy và vá bị khoá để không làm gián đoạn tải xuống",
+        "portal.onlineNotice": "Chơi mạng (người với người) chỉ hoạt động giữa macOS và macOS",
+        "portal.findOpponents": "Tìm đối thủ tại:",
         "mod.damaged": "Thiếu %d tệp — cài lại để sửa",
         "mod.sizeInfo": "tải %@ · đĩa %@",
         "mod.sizeParts": " · %d phần",
@@ -1344,6 +1366,8 @@ enum L10n {
         "mod.remove": "Usuń",
         "mod.installingTitle": "INSTALOWANIE %@ — PROSZĘ CZEKAĆ",
         "mod.installingHint": "Twoje gry są bezpieczne — uruchamianie i łatka są zablokowane, aby nie przerwać pobierania",
+        "portal.onlineNotice": "Gra online (gracz kontra gracz) działa tylko między macOS a macOS",
+        "portal.findOpponents": "Przeciwników znajdziesz tu:",
         "mod.damaged": "Brakuje plików: %d — zainstaluj ponownie, aby naprawić",
         "mod.sizeInfo": "pobieranie %@ · dysk %@",
         "mod.sizeParts": " · części: %d",
@@ -1470,6 +1494,8 @@ enum L10n {
         "mod.remove": "Entfernen",
         "mod.installingTitle": "%@ WIRD INSTALLIERT — BITTE WARTEN",
         "mod.installingHint": "Deine Spiele sind in Ordnung — Start und Patch bleiben gesperrt, damit der Download nicht abbricht",
+        "portal.onlineNotice": "Online-Spiel (Spieler gegen Spieler) funktioniert nur zwischen macOS und macOS",
+        "portal.findOpponents": "Gegner findest du hier:",
         "mod.damaged": "%d Datei(en) fehlen — zum Reparieren neu installieren",
         "mod.sizeInfo": "Download %@ · Speicher %@",
         "mod.sizeParts": " · %d Teile",
@@ -1596,6 +1622,8 @@ enum L10n {
         "mod.remove": "Eliminar",
         "mod.installingTitle": "INSTALANDO %@ — POR FAVOR ESPERA",
         "mod.installingHint": "Tus juegos están bien — el inicio y el parche quedan bloqueados para no interrumpir la descarga",
+        "portal.onlineNotice": "El juego en línea (jugador contra jugador) solo funciona entre macOS y macOS",
+        "portal.findOpponents": "Encuentra rivales aquí:",
         "mod.damaged": "Faltan %d archivo(s) — reinstala para reparar",
         "mod.sizeInfo": "descarga %@ · disco %@",
         "mod.sizeParts": " · %d partes",
@@ -1722,6 +1750,8 @@ enum L10n {
         "mod.remove": "Kaldır",
         "mod.installingTitle": "%@ KURULUYOR — LÜTFEN BEKLEYİN",
         "mod.installingHint": "Oyunlarınız güvende — indirme kesilmesin diye başlatma ve yama kilitli tutuluyor",
+        "portal.onlineNotice": "Çevrimiçi oyun (oyuncuya karşı oyuncu) yalnızca macOS ile macOS arasında çalışır",
+        "portal.findOpponents": "Rakipleri burada bul:",
         "mod.damaged": "%d dosya eksik — onarmak için yeniden kurun",
         "mod.sizeInfo": "indirme %@ · disk %@",
         "mod.sizeParts": " · %d parça",

@@ -60,6 +60,8 @@ class ModInstaller: ObservableObject {
     @Published private(set) var consoleLog: String = ""
 
     private var downloadObservation: NSKeyValueObservation?
+    private var startedAt: Date?
+    private var stage: String = "idle"
 
     var isBusy: Bool {
         job?.state.isRunning ?? false
@@ -89,6 +91,10 @@ class ModInstaller: ObservableObject {
             state: .downloading(part: 1, total: mod.partCount, progress: 0)
         )
 
+        startedAt = Date()
+        stage = "prepare"
+        Analytics.logModInstallStarted(profile.id, parts: mod.partCount)
+
         do {
             try recreateDirectory(destination)
         } catch {
@@ -113,6 +119,7 @@ class ModInstaller: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.appendLog("[*] Removed \(profile.displayName)\n")
+                Analytics.logModRemoved(profile.id)
                 self.clearJob()
             }
         }
@@ -126,6 +133,7 @@ class ModInstaller: ObservableObject {
             return
         }
 
+        stage = "download_part_\(index + 1)"
         setState(.downloading(part: index + 1, total: mod.partCount, progress: 0))
         appendLog("[⭳] Part \(index + 1)/\(mod.partCount): \(mod.downloadURLs[index].lastPathComponent)\n")
 
@@ -172,6 +180,7 @@ class ModInstaller: ObservableObject {
     // MARK: - Unpack
 
     private func unpackPart(_ index: Int, zip: URL, profile: GameProfile, mod: ModSpec, destination: URL) {
+        stage = "unpack_part_\(index + 1)"
         setState(.unpacking(part: index + 1, total: mod.partCount))
 
         let process = Process()
@@ -205,6 +214,7 @@ class ModInstaller: ObservableObject {
     }
 
     private func finish(_ profile: GameProfile, destination: URL) {
+        stage = "verify"
         let fm = FileManager.default
         let missing = (profile.mod?.markers ?? []).filter { marker in
             !fm.fileExists(atPath: destination.appendingPathComponent(marker).path)
@@ -217,7 +227,13 @@ class ModInstaller: ObservableObject {
         }
 
         appendLog("[✓] \(profile.displayName) installed\n")
+        Analytics.logModInstallFinished(profile.id, seconds: elapsedSeconds())
         clearJob()
+    }
+
+    private func elapsedSeconds() -> Double {
+        guard let startedAt else { return 0 }
+        return Date().timeIntervalSince(startedAt)
     }
 
     // MARK: - Helpers
@@ -249,6 +265,7 @@ class ModInstaller: ObservableObject {
         }
 
         appendLog("\n[✗] \(profile.displayName): \(message)\n")
+        Analytics.logModInstallFailed(profile.id, stage: stage, reason: message)
         setState(.failed(message))
     }
 

@@ -24,6 +24,22 @@ enum SteamCMDState: Equatable {
         }
     }
 
+    var analyticsStage: String {
+        switch self {
+        case .idle: return "idle"
+        case .downloadingSteamCMD: return "installing_steamcmd"
+        case .waitingForCredentials: return "awaiting_credentials"
+        case .authenticating: return "authenticating"
+        case .waitingSteamGuard: return "steam_guard"
+        case .downloading: return "downloading"
+        case .validating: return "validating"
+        case .downloadingPatch: return "downloading_patch"
+        case .unpackingPatch: return "unpacking_patch"
+        case .completed: return "completed"
+        case .failed: return "failed"
+        }
+    }
+
     var statusText: String {
         switch self {
         case .idle: return L10n.steam.status.ready
@@ -54,6 +70,12 @@ class SteamCMDManager: ObservableObject {
     private var process: Process?
     private var inputPipe: Pipe?
     private var downloadObservation: NSKeyValueObservation?
+    private var startedAt: Date?
+
+    private var elapsedSeconds: Double {
+        guard let startedAt else { return 0 }
+        return Date().timeIntervalSince(startedAt)
+    }
 
     var supportDir: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -148,6 +170,8 @@ class SteamCMDManager: ObservableObject {
 
         consoleLog = ""
         lastUsername = username
+        startedAt = Date()
+        Analytics.logSteamDownloadStarted(needsSteamCMD: !isSteamCMDInstalled)
 
         if !isSteamCMDInstalled {
             installSteamCMD { [weak self] success in
@@ -171,6 +195,8 @@ class SteamCMDManager: ObservableObject {
     }
 
     func cancel() {
+        Analytics.logSteamDownloadCancelled(stage: state.analyticsStage)
+
         process?.terminate()
         process = nil
         inputPipe = nil
@@ -328,7 +354,11 @@ class SteamCMDManager: ObservableObject {
         let lower = text.lowercased()
 
         if lower.contains("steam guard") || lower.contains("two-factor") || lower.contains("enter the current code") {
-            DispatchQueue.main.async { self.state = .waitingSteamGuard }
+            DispatchQueue.main.async {
+                guard self.state != .waitingSteamGuard else { return }
+                self.state = .waitingSteamGuard
+                Analytics.logSteamGuardPrompted()
+            }
             return
         }
 
@@ -365,6 +395,8 @@ class SteamCMDManager: ObservableObject {
     }
 
     private func fail(_ message: String) {
+        Analytics.logSteamDownloadFailed(reason: message)
+
         DispatchQueue.main.async {
             self.state = .failed(message)
             self.appendLog("\n[✗] \(message)\n")
@@ -460,6 +492,7 @@ class SteamCMDManager: ObservableObject {
                     }
 
                     self.appendLog("[✓] Community Patch successfully applied!\n")
+                    Analytics.logSteamDownloadFinished(seconds: self.elapsedSeconds)
                     self.state = .completed
                 } catch {
                     try? FileManager.default.removeItem(at: extractDir)

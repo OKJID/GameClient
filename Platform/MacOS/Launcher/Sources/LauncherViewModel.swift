@@ -118,6 +118,7 @@ class LauncherViewModel: ObservableObject {
     var assetPatcher = AssetPatcher()
     var modInstaller = ModInstaller()
     var updateChecker = UpdateChecker()
+    var announcements = AnnouncementsFeed()
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
 
@@ -150,6 +151,13 @@ class LauncherViewModel: ObservableObject {
         }.store(in: &cancellables)
 
         updateChecker.$availableUpdate
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        announcements.$items
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
@@ -190,8 +198,13 @@ class LauncherViewModel: ObservableObject {
 
         self.isInitializing = false
         updateChecker.startPeriodicChecks()
+        announcements.start()
 
-        Analytics.logOpen(uiLanguage: selectedLanguage)
+        Analytics.logOpen(
+            uiLanguage: selectedLanguage,
+            baseReady: isBaseReady(for: selectedProfile),
+            hasStoredPath: !installPath.isEmpty
+        )
         Analytics.logSettingsSnapshot(self)
     }
 
@@ -459,6 +472,7 @@ class LauncherViewModel: ObservableObject {
 
     func installMod(_ profile: GameProfile) {
         guard let root = installRootURL else {
+            Analytics.logModInstallFailed(profile.id, stage: "precheck", reason: "folder_not_selected")
             alertMessage = L10n.alerts.folderNotSelected
             return
         }
@@ -520,6 +534,8 @@ class LauncherViewModel: ObservableObject {
         panel.message = NSLocalizedString("Select the Windows Game Folder (containing .big files)", comment: "")
 
         if panel.runModal() == .OK, let url = panel.url {
+            Analytics.logFolderChosen(isValid: _validateGameFolder(at: url))
+
             DispatchQueue.main.async {
                 self.installPath = url.path
                 UserDefaults.standard.set(self.installPath, forKey: "GENERALS_INSTALL_PATH")
@@ -561,11 +577,13 @@ class LauncherViewModel: ObservableObject {
         guard let executableURL = Bundle.main.executableURL?
             .deletingLastPathComponent()
             .appendingPathComponent(profile.executableName) else {
+            Analytics.logLaunchFailed(reason: "executable_path_unresolved")
             isLaunching = false
             return
         }
 
         guard FileManager.default.fileExists(atPath: executableURL.path) else {
+            Analytics.logLaunchFailed(reason: "binary_not_found")
             alertMessage = String(format: L10n.alerts.binaryNotFound, profile.displayName, executableURL.path)
             isLaunching = false
             return
@@ -575,6 +593,7 @@ class LauncherViewModel: ObservableObject {
         if profile.isMod {
             guard let root = installRootURL,
                   let modDir = profile.modDirectory(installRoot: root) else {
+                Analytics.logLaunchFailed(reason: "mod_folder_missing")
                 alertMessage = L10n.alerts.modFolderMissing
                 isLaunching = false
                 return
@@ -582,6 +601,7 @@ class LauncherViewModel: ObservableObject {
 
             let configURL = modDir.appendingPathComponent(ModSpec.configFileName)
             guard FileManager.default.fileExists(atPath: configURL.path) else {
+                Analytics.logLaunchFailed(reason: "mod_config_missing")
                 alertMessage = String(format: L10n.alerts.modConfigMissing, profile.displayName, ModSpec.configFileName)
                 isLaunching = false
                 return
@@ -602,18 +622,17 @@ class LauncherViewModel: ObservableObject {
         do {
             try task.run()
 
-            Analytics.logGameLaunched()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if let app = NSRunningApplication(processIdentifier: task.processIdentifier) {
+                    app.activate(options: .activateIgnoringOtherApps)
+                }
 
-            DispatchQueue.global().async {
-                Thread.sleep(forTimeInterval: 0.5)
-                DispatchQueue.main.async {
-                    if let app = NSRunningApplication(processIdentifier: task.processIdentifier) {
-                        app.activate(options: .activateIgnoringOtherApps)
-                    }
+                Analytics.logGameLaunched {
                     NSApplication.shared.terminate(nil)
                 }
             }
         } catch {
+            Analytics.logLaunchFailed(reason: "process_run_failed")
             alertMessage = String(format: L10n.alerts.launchFailed, error.localizedDescription)
             isLaunching = false
         }

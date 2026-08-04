@@ -98,6 +98,8 @@ struct AboutView: View {
 
     private func _buildLink(title: String, url: String) -> some View {
         Button(action: {
+            Analytics.logLinkOpened(target: title.lowercased(), location: "about")
+
             if let link = URL(string: url) {
                 NSWorkspace.shared.open(link)
             }

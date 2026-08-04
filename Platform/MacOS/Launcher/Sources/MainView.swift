@@ -68,13 +68,17 @@ struct MainView: View {
                 WindowAccessor().frame(width: 0, height: 0)
 
                 _buildBackground(size: geometry.size)
+                
+                _buildFooter()
+                    .padding(.top, 72)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
                 HStack(spacing: 0) {
                     _buildGameSwitcher()
 
                     VStack(spacing: 0) {
                         _buildHeader()
-                            .padding(.top, 30)
+                            .padding(.top, 16)
 
                         if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
                             _buildUpdateBanner(update)
@@ -87,15 +91,15 @@ struct MainView: View {
 
                         _buildActiveTab()
                             .padding(.horizontal, 40)
-                            .padding(.top, 16)
+                            .padding(.top, 8)
 
                         Spacer()
 
                         _buildBottomAction()
-                            .padding(.bottom, 12)
-
-                        _buildFooter()
-                            .padding(.bottom, 20)
+                            .padding(.bottom, 8)
+                        AnnouncementPortalView(items: viewModel.announcements.items, accent: accent)
+                            .padding(.horizontal, 40)
+                            .padding(.bottom, 8)
                     }
                     .padding(.horizontal, 20)
                     .frame(maxWidth: .infinity)
@@ -160,6 +164,8 @@ struct MainView: View {
                 title: Text(L10n.alerts.gameNotFound),
                 message: Text(L10n.alerts.gameNotFoundMsg.replacingOccurrences(of: "%@", with: username)),
                 primaryButton: .default(Text(L10n.alerts.openSteamStore)) {
+                    Analytics.logLinkOpened(target: "steam_store", location: "purchase_alert")
+
                     if let url = URL(string: SteamCMDManager.storeURL) {
                         NSWorkspace.shared.open(url)
                     }
@@ -776,7 +782,7 @@ struct MainView: View {
     }
 
     private func _buildModInstalled(_ profile: GameProfile) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundColor(neonGreen)
@@ -1001,7 +1007,10 @@ struct MainView: View {
 
                 Spacer()
 
-                Button(action: { viewModel.isUpdateDismissed = true }) {
+                Button(action: {
+                    Analytics.logUpdateDismissed(version: update.version)
+                    viewModel.isUpdateDismissed = true
+                }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white.opacity(0.5))
@@ -1016,6 +1025,8 @@ struct MainView: View {
 
             HStack(spacing: 10) {
                 Button(action: {
+                    Analytics.logUpdateOpened(version: update.version)
+
                     if let url = URL(string: update.downloadURL) {
                         NSWorkspace.shared.open(url)
                     }
@@ -1036,6 +1047,8 @@ struct MainView: View {
                 .buttonStyle(PlainButtonStyle())
 
                 Button(action: {
+                    Analytics.logLinkOpened(target: "website", location: "update_banner")
+
                     if let url = URL(string: "https://general-online-zh.web.app") {
                         NSWorkspace.shared.open(url)
                     }
@@ -1090,11 +1103,12 @@ struct MainView: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 8)
     }
 
     private func _buildFooterLink(title: String, url: String) -> some View {
         Button(action: {
+            Analytics.logLinkOpened(target: title.lowercased(), location: "footer")
             if let link = URL(string: url) { NSWorkspace.shared.open(link) }
         }) {
             Text(title)

@@ -5,7 +5,7 @@ struct GeneralsLauncherApp: App {
     var body: some Scene {
         WindowGroup {
             MainView()
-                .frame(minWidth: 860, idealWidth: 860, minHeight: 580, idealHeight: 580)
+                .frame(minWidth: 1040, idealWidth: 1200, minHeight: 660, idealHeight: 720)
                 .edgesIgnoringSafeArea(.all)
         }
         .windowStyle(.hiddenTitleBar)
