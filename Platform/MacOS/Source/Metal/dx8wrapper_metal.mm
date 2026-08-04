@@ -1535,18 +1535,22 @@ HRESULT WINAPI D3DXLoadSurfaceFromSurface(
             pDestSurface->GetDesc(&destDesc);
             
             unsigned int bpp = 4;
+            unsigned int blockBytes = 0;
             if (destDesc.Format == D3DFMT_A8R8G8B8 || destDesc.Format == D3DFMT_X8R8G8B8) bpp = 4;
             else if (destDesc.Format == D3DFMT_R5G6B5 || destDesc.Format == D3DFMT_A1R5G5B5 || destDesc.Format == D3DFMT_A4R4G4B4 || destDesc.Format == D3DFMT_X1R5G5B5) bpp = 2;
             else if (destDesc.Format == D3DFMT_A8 || destDesc.Format == D3DFMT_L8 || destDesc.Format == D3DFMT_P8) bpp = 1;
-            
+            else if (destDesc.Format == D3DFMT_DXT1) blockBytes = 8;
+            else if (destDesc.Format == D3DFMT_DXT2 || destDesc.Format == D3DFMT_DXT3
+                  || destDesc.Format == D3DFMT_DXT4 || destDesc.Format == D3DFMT_DXT5) blockBytes = 16;
+
             unsigned int copyWidth = pDestRect ? (pDestRect->right - pDestRect->left) : destDesc.Width;
             unsigned int copyHeight = pDestRect ? (pDestRect->bottom - pDestRect->top) : destDesc.Height;
-            
+
             if (pSrcRect) {
                 copyWidth = std::min<unsigned int>(copyWidth, pSrcRect->right - pSrcRect->left);
                 copyHeight = std::min<unsigned int>(copyHeight, pSrcRect->bottom - pSrcRect->top);
             }
-            
+
             // Note: Since MetalSurface8 natively ignores pRect in LockRect (returning base pointer),
             // we must manually offset our starting read/write pointers here just in case.
             // D3D allows LockRect to return an offset pointer, but we do it manually to be safe.
@@ -1554,10 +1558,32 @@ HRESULT WINAPI D3DXLoadSurfaceFromSurface(
             unsigned int dstOffY = pDestRect ? pDestRect->top : 0;
             unsigned int srcOffX = pSrcRect ? pSrcRect->left : 0;
             unsigned int srcOffY = pSrcRect ? pSrcRect->top : 0;
-            
-            for (unsigned int y = 0; y < copyHeight; ++y) {
+
+            // A block-compressed surface is locked as 4x4 blocks: one row of the locked
+            // buffer covers four pixel rows, and the buffer holds only height/4 of them.
+            // Walking pixel rows here overran it fourfold and trampled the heap, which
+            // libmalloc reported as "memory corruption of free block". Rects are stated
+            // in pixels, so they cannot address blocks and are ignored for these formats.
+            unsigned int rowBytes = copyWidth * bpp;
+            unsigned int rows = copyHeight;
+            if (blockBytes != 0) {
+                rowBytes = ((copyWidth + 3) / 4) * blockBytes;
+                rows = (copyHeight + 3) / 4;
+                dstOffX = dstOffY = srcOffX = srcOffY = 0;
+            }
+
+            // Whatever the caller asked for, a row must fit both pitches and a copy must
+            // stay inside both surfaces.
+            rowBytes = std::min<unsigned int>(rowBytes,
+                std::min<unsigned int>(srcLR.Pitch, destLR.Pitch));
+
+            const unsigned int destRowsLeft = (dstOffY < destDesc.Height) ? (destDesc.Height - dstOffY) : 0;
+            const unsigned int srcRowsLeft = (srcOffY < srcDesc.Height) ? (srcDesc.Height - srcOffY) : 0;
+            rows = std::min<unsigned int>(rows, std::min(destRowsLeft, srcRowsLeft));
+
+            for (unsigned int y = 0; y < rows; ++y) {
                 memcpy((char*)destLR.pBits + (dstOffY + y) * destLR.Pitch + (dstOffX * bpp),
-                       (char*)srcLR.pBits + (srcOffY + y) * srcLR.Pitch + (srcOffX * bpp), copyWidth * bpp);
+                       (char*)srcLR.pBits + (srcOffY + y) * srcLR.Pitch + (srcOffX * bpp), rowBytes);
             }
             pDestSurface->UnlockRect();
         }
@@ -1578,7 +1604,25 @@ HRESULT WINAPI D3DXFilterTexture(
     if (!tex || tex.mipmapLevelCount <= 1) {
         return D3D_OK; // No mipmaps to generate
     }
-    
+
+    // generateMipmapsForTexture needs a color-renderable, filterable format. Block-compressed
+    // textures are neither: the AGX compiler service segfaults building the downsample blit
+    // shader (AGCLLVMTextureFetchFragmentShader::buildMRCDownsampleBlitShader) and takes the
+    // process down with "[AGX] Crashed.". MetalTexture8 and MetalCubeTexture8 already skip it
+    // for the same reason; recoloring a DXT texture lands here.
+    const MTLPixelFormat pixelFormat = tex.pixelFormat;
+    const bool isCompressed = (pixelFormat == MTLPixelFormatBC1_RGBA ||
+                               pixelFormat == MTLPixelFormatBC2_RGBA ||
+                               pixelFormat == MTLPixelFormatBC3_RGBA ||
+                               pixelFormat == MTLPixelFormatBC1_RGBA_sRGB ||
+                               pixelFormat == MTLPixelFormatBC2_RGBA_sRGB ||
+                               pixelFormat == MTLPixelFormatBC3_RGBA_sRGB);
+    if (isCompressed) {
+        DEBUG_RENDERING_MAC(("D3DXFilterTexture: skipping mip generation for compressed texture %dx%d, %d levels",
+            (int)tex.width, (int)tex.height, (int)tex.mipmapLevelCount));
+        return D3D_OK;
+    }
+
     id<MTLDevice> device = tex.device;
     id<MTLCommandQueue> queue = [device newCommandQueue];
     if (!queue) return E_FAIL;
