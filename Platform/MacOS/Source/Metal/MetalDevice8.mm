@@ -1577,6 +1577,39 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
     UINT dstBpp = BytesPerPixelFromD3D(dstFmt);
     bool is16bit = Is16BitFormat(dstFmt);
 
+    // A block-compressed surface has no bytes per pixel: BytesPerPixelFromD3D reports the
+    // size of a 4x4 block, and LockRect hands out a buffer of blocksWide*blockBytes per
+    // block row. Reading it back pixel-wise wrote four pixel rows worth of bytes over every
+    // block row and ran hundreds of kilobytes past the buffer, which libmalloc reported as
+    // "memory corruption of free block". Compressed data is copied block for block instead.
+    const UINT blockBytes = (dstFmt == D3DFMT_DXT1) ? 8
+                          : (dstFmt == D3DFMT_DXT2 || dstFmt == D3DFMT_DXT3
+                          || dstFmt == D3DFMT_DXT4 || dstFmt == D3DFMT_DXT5) ? 16 : 0;
+    if (blockBytes != 0) {
+      const UINT blocksWide = std::max(1u, (copyW + 3) / 4);
+      const UINT blocksHigh = std::max(1u, (copyH + 3) / 4);
+      const UINT blockPitch = blocksWide * blockBytes;
+
+      void *blockBuf = malloc(blockPitch * blocksHigh);
+      if (blockBuf) {
+        MTLRegion region = MTLRegionMake2D(0, 0, copyW, copyH);
+        [mtlSrc getBytes:blockBuf bytesPerRow:blockPitch fromRegion:region mipmapLevel:0];
+
+        const UINT rowBytes = std::min<UINT>(blockPitch, (UINT)dstLocked.Pitch);
+        const uint8_t *srcRow = (const uint8_t *)blockBuf;
+        uint8_t *dstRow = (uint8_t *)dstLocked.pBits;
+        for (UINT row = 0; row < blocksHigh; row++) {
+          memcpy(dstRow, srcRow, rowBytes);
+          srcRow += blockPitch;
+          dstRow += dstLocked.Pitch;
+        }
+        free(blockBuf);
+      }
+
+      dstSurf->UnlockRect();
+      return D3D_OK;
+    }
+
     UINT mtlPitch = copyW * 4;
     void *tmpBuf = malloc(mtlPitch * copyH);
     if (tmpBuf) {
