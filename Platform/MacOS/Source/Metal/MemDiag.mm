@@ -30,7 +30,8 @@ const char *kSiteName[MDS_COUNT] = {
     "FAN_IDX32",  "DEPTH_TEX",       "MSAA_COLOR",
     "MSAA_DEPTH", "ZERO_BUF",        "PSO",
     "SAMPLER",    "DSS",             "CMDBUF_SCENE",
-    "CMDBUF_MIPS", "CMDBUF_COPY",    "CMDQUEUE_FILTER",
+    "CMDBUF_MIPS", "CMDBUF_COPY",    "CMDQUEUE_MAIN",
+    "CMDQUEUE_FILTER",
     "W_VB",       "W_IB",            "W_TEX",
     "W_SURFACE",  "W_CUBE",
 };
@@ -66,6 +67,10 @@ static const void *kMemDiagKey = &kMemDiagKey;
 
 void MemDiag_Track(id obj, int site, uint64_t bytes) {
   if (!obj || site < 0 || site >= MDS_COUNT) {
+    return;
+  }
+
+  if (objc_getAssociatedObject(obj, kMemDiagKey)) {
     return;
   }
 

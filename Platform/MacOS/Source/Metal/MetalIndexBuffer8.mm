@@ -47,8 +47,10 @@ STDMETHODIMP MetalIndexBuffer8::QueryInterface(REFIID riid, void **ppvObj) {
 STDMETHODIMP_(ULONG) MetalIndexBuffer8::AddRef() { return ++m_RefCount; }
 
 STDMETHODIMP_(ULONG) MetalIndexBuffer8::Release() {
-  if (m_RefCount > 0)
-    --m_RefCount;
+  if (--m_RefCount == 0) {
+    delete this;
+    return 0;
+  }
   return m_RefCount;
 }
 

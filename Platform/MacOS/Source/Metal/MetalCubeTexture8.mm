@@ -116,6 +116,7 @@ MetalCubeTexture8::MetalCubeTexture8(MetalDevice8 *device, void *mtlTexture,
 
   id<MTLTexture> tex = (__bridge id<MTLTexture>)mtlTexture;
   if (tex) {
+    MEMDIAG_TRACK(tex, MDS_CUBE_RESIZE, 0);
     m_Texture = (__bridge_retained void *)tex;
     m_Size = (UINT)tex.width;
     m_Levels = (UINT)tex.mipmapLevelCount;

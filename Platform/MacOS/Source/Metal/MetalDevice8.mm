@@ -439,6 +439,7 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   }
 
   id<MTLCommandQueue> queue = [device newCommandQueue];
+  MEMDIAG_TRACK(queue, MDS_CMDQUEUE_MAIN, 0);
   SET_MTL(CommandQueue, queue);
 
   id<MTLLibrary> library = [device newDefaultLibrary];

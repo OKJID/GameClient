@@ -18,8 +18,6 @@ MetalSurface8::MetalSurface8(MetalDevice8 *device, MetalSurface8::SurfaceKind ki
   MemDiag_NoteWrapperCreate(MDS_W_SURFACE);
   if (m_Device)
     m_Device->AddRef();
-  if (m_ParentTexture)
-    m_ParentTexture->AddRef();
 }
 
 MetalSurface8::~MetalSurface8() {
@@ -28,10 +26,7 @@ MetalSurface8::~MetalSurface8() {
     free(m_LockedData);
     m_LockedData = nullptr;
   }
-  if (m_ParentTexture) {
-    m_ParentTexture->Release();
-    m_ParentTexture = nullptr;
-  }
+  m_ParentTexture = nullptr;
   if (m_Device) {
     m_Device->Release();
     m_Device = nullptr;
