@@ -37,6 +37,8 @@ set(AUDIO_SRC
     Source/Audio/AVAudioBridge.h
     Source/Audio/MacOSVideoAudioStream.mm
     Source/Audio/MacOSVideoAudioStream.h
+    Source/Audio/AdpcmWavDecoder.cpp
+    Source/Audio/AdpcmWavDecoder.h
 )
 
 # ── Input ──
@@ -86,6 +88,7 @@ target_include_directories(macos_platform PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Main
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/Input
     ${CMAKE_CURRENT_SOURCE_DIR}/Source/System
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Audio
 )
 
 target_include_directories(macos_platform PRIVATE

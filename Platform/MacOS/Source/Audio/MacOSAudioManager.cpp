@@ -1,12 +1,15 @@
 #include "MacOSAudioManager.h"
 #include "MacOSVideoAudioStream.h"
+#include "AdpcmWavDecoder.h"
 #include "Common/AudioAffect.h"
 #include "Common/AudioEventInfo.h"
 #include "Common/AudioEventRTS.h"
 #include "Common/AudioHandleSpecialValues.h"
 #include "Common/AudioRequest.h"
+#include "Common/AudioSettings.h"
 #include "Common/Debug.h"
 #include "Common/GameMemory.h"
+#include "Common/GameSounds.h"
 #include "Common/FileSystem.h"
 #include "Common/file.h"
 #include "Common/System/NativeFileSystem.h"
@@ -171,23 +174,27 @@ MacOSAudioManager::~MacOSAudioManager() {
 void MacOSAudioManager::init() {
     AudioManager::init();
 
-    if (!avbridge_init(MAX_SOURCES)) {
+    const AudioSettings *settings = getAudioSettings();
+    m_num2DSamples = (settings && settings->m_sampleCount2D > 0) ? settings->m_sampleCount2D : 4;
+    m_num3DSamples = (settings && settings->m_sampleCount3D > 0) ? settings->m_sampleCount3D : 25;
+    m_numStreams = (settings && settings->m_streamCount > 0) ? settings->m_streamCount : 3;
+    // Shared AVAudio node pool ≈ Miles 2D + 3D + stream handles.
+    m_maxSources = m_num2DSamples + m_num3DSamples + m_numStreams;
+    if (m_maxSources < 8) {
+        m_maxSources = 8;
+    }
+
+    if (!avbridge_init(m_maxSources)) {
         printf("MACOS AUDIO: AVAudioEngine init FAILED!\n");
         fflush(stdout);
         return;
     }
 
-    for (int i = 0; i < MAX_SOURCES; ++i) {
-        PlayingAudio pa;
-        pa.playerID = -1;
-        pa.isPlaying = FALSE;
-        pa.eventRTS = nullptr;
-        pa.handle = 0;
-        pa.priority = 0;
-        m_sources.push_back(pa);
-    }
+    m_sources.clear();
+    m_sources.resize((size_t)m_maxSources);
 
-    printf("MACOS AUDIO: AVAudioEngine Init Success. %d source slots.\n", MAX_SOURCES);
+    printf("MACOS AUDIO: AVAudioEngine Init Success. pool=%d (2D=%d 3D=%d streams=%d).\n",
+           m_maxSources, m_num2DSamples, m_num3DSamples, m_numStreams);
     fflush(stdout);
 }
 
@@ -199,13 +206,12 @@ void MacOSAudioManager::reset() {
     DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() called. %d sources were active.", activeCount));
 
     AudioManager::reset();
-    avbridge_stopAll();
     for (auto &pa : m_sources) {
-        pa.playerID = -1;
-        pa.isPlaying = FALSE;
-        if (pa.eventRTS) { delete pa.eventRTS; pa.eventRTS = nullptr; }
-        pa.handle = 0;
+        if (pa.isPlaying) {
+            stopSourceAndFree(pa);
+        }
     }
+    avbridge_stopAll();
 
     DEBUG_AUDIO_MAC(("MacOSAudioManager::reset() completed. Buffer cache has %zu entries.", m_bufferCache.size()));
 }
@@ -232,17 +238,63 @@ void MacOSAudioManager::update() {
 
 #pragma mark - Source Management
 
+void MacOSAudioManager::notifySampleStart(PlayingAudio &pa) {
+    if (!m_sound || pa.counted) {
+        return;
+    }
+    // Miles only counts sample handles, not music/speech streams.
+    if (pa.eventRTS && pa.eventRTS->getAudioEventInfo()) {
+        const AudioType st = pa.eventRTS->getAudioEventInfo()->m_soundType;
+        if (st == AT_Music || st == AT_Streaming) {
+            return;
+        }
+    }
+    if (pa.is3D) {
+        m_sound->notifyOf3DSampleStart();
+    } else {
+        m_sound->notifyOf2DSampleStart();
+    }
+    pa.counted = TRUE;
+}
+
+void MacOSAudioManager::notifySampleCompletion(PlayingAudio &pa) {
+    if (!m_sound || !pa.counted) {
+        return;
+    }
+    if (pa.is3D) {
+        m_sound->notifyOf3DSampleCompletion();
+    } else {
+        m_sound->notifyOf2DSampleCompletion();
+    }
+    pa.counted = FALSE;
+}
+
 void MacOSAudioManager::stopSourceAndFree(PlayingAudio &pa) {
+    notifySampleCompletion(pa);
     if (pa.playerID >= 0) {
         avbridge_stop(pa.playerID);
     }
     pa.playerID = -1;
     pa.isPlaying = FALSE;
     pa.handle = 0;
+    pa.priority = 0;
+    pa.is3D = FALSE;
     if (pa.eventRTS) {
         delete pa.eventRTS;
         pa.eventRTS = nullptr;
     }
+}
+
+PlayingAudio* MacOSAudioManager::findSourceByHandle(AudioHandle handle) {
+    if (handle == 0) {
+        return nullptr;
+    }
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying && pa.handle == handle) {
+            return &pa;
+        }
+    }
+    return nullptr;
 }
 
 PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand) {
@@ -274,7 +326,7 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     std::string cacheKey = originalPath + (forceMono ? "_mono" : "_stereo");
     auto hit = m_bufferCache.find(cacheKey);
     if (hit != m_bufferCache.end()) {
-        if (hit->second <= 0) return 0; // Previously failed to load/parse
+        if (hit->second <= 0) return -1; // Previously failed to load/parse
         return hit->second;
     }
 
@@ -292,35 +344,57 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     }
 
     WavParseResult wav;
-    if (!parseWavHeader(fileData, fileSize, &wav)) {
-        // Log once, then cache the failure to avoid thread stutter
-        DEBUG_AUDIO_MAC(("loadAudioBuffer: WAV parse failed for %s (not PCM WAV)", pathStr.c_str()));
+    uint8_t *decodedPcm = nullptr;
+    uint32_t decodedBytes = 0;
+    uint32_t decodedRate = 0;
+    uint16_t decodedChannels = 0;
+
+    uint16_t outChannels = 0;
+    uint32_t sampleRate = 0;
+    uint16_t bitsPerSample = 16;
+    const uint8_t *pcmData = nullptr;
+    uint32_t pcmBytes = 0;
+    uint8_t *monoData = nullptr;
+
+    if (parseWavHeader(fileData, fileSize, &wav)) {
+        outChannels = wav.channels;
+        sampleRate = wav.sampleRate;
+        bitsPerSample = wav.bitsPerSample;
+        pcmData = wav.pcmStart;
+        pcmBytes = wav.pcmBytes;
+    } else if (AdpcmWav_DecodeImaToPcm16(fileData, fileSize, &decodedPcm, &decodedBytes,
+                                         &decodedRate, &decodedChannels)) {
+        outChannels = decodedChannels;
+        sampleRate = decodedRate;
+        bitsPerSample = 16;
+        pcmData = decodedPcm;
+        pcmBytes = decodedBytes;
+        DEBUG_AUDIO_MAC(("loadAudioBuffer: IMA ADPCM decoded %s -> pcm bytes=%u ch=%u rate=%u",
+            pathStr.c_str(), decodedBytes, decodedChannels, decodedRate));
+    } else {
+        DEBUG_AUDIO_MAC(("loadAudioBuffer: WAV parse/decode failed for %s", pathStr.c_str()));
         m_bufferCache[cacheKey] = -1;
         free(fileData);
         return 0;
     }
 
-    uint16_t outChannels = wav.channels;
-    const uint8_t *pcmData = wav.pcmStart;
-    uint32_t pcmBytes = wav.pcmBytes;
-    uint8_t *monoData = nullptr;
-
-    if (forceMono && wav.channels == 2 && wav.bitsPerSample == 16) {
-        uint32_t numSamples = wav.pcmBytes / 4;
-        monoData = (uint8_t*)malloc(numSamples * 2);
-        const int16_t *src = (const int16_t*)wav.pcmStart;
+    if (forceMono && outChannels == 2 && bitsPerSample == 16) {
+        uint32_t numFrames = pcmBytes / 4;
+        monoData = (uint8_t*)malloc(numFrames * 2);
+        const int16_t *src = (const int16_t*)pcmData;
         int16_t *dst = (int16_t*)monoData;
-        for (uint32_t i = 0; i < numSamples; i++) {
+        for (uint32_t i = 0; i < numFrames; i++) {
             dst[i] = (int16_t)(((int32_t)src[i*2] + (int32_t)src[i*2+1]) / 2);
         }
         pcmData = monoData;
-        pcmBytes = numSamples * 2;
+        pcmBytes = numFrames * 2;
         outChannels = 1;
     }
 
-    int bufID = avbridge_loadBuffer(pcmData, pcmBytes, wav.sampleRate, outChannels, wav.bitsPerSample);
+    int bufID = avbridge_loadBuffer(pcmData, pcmBytes, sampleRate, outChannels, bitsPerSample);
 
     if (monoData) free(monoData);
+    if (decodedPcm) free(decodedPcm);
     free(fileData);
 
     if (bufID <= 0) {
@@ -329,7 +403,7 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     }
 
     DEBUG_AUDIO_MAC(("loadAudioBuffer: OK %s -> bridge buf=%d ch=%d rate=%u",
-        pathStr.c_str(), bufID, outChannels, wav.sampleRate));
+        pathStr.c_str(), bufID, outChannels, sampleRate));
 
     m_bufferCache[cacheKey] = bufID;
     return bufID;
@@ -438,11 +512,11 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     AudioEventRTS *event = eventToPlay;
     event->generateFilename();
     AsciiString filename = event->getFilename();
+    const AudioEventInfo *info = event->getAudioEventInfo();
+    int priority = info ? info->m_priority : 50;
+
     if (filename.isEmpty()) {
-        // An event whose info carries no sounds is the engine's own "silent event"
-        // path (units without a turret sound, for one) and is not worth reporting.
-        // A missing AudioEventInfo means the event name resolved to nothing at all.
-        if (!event->getAudioEventInfo()) {
+        if (!info) {
             DEBUG_AUDIO_MAC(("playAudioEvent: no AudioEventInfo for '%s'. Deleting event.",
                 event->getEventName().str()));
         }
@@ -450,19 +524,23 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
         return;
     }
 
-    int priority = 50;
-    const AudioEventInfo *info = event->getAudioEventInfo();
-    if (info) priority = info->m_priority;
-
     bool isStream = (info && (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming));
     int bufID = 0;
+    bool isPos = false;
 
     if (!isStream) {
-        bool isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
+        isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
         bufID = loadAudioBuffer(filename, isPos);
         if (bufID <= 0) {
             delete event;
             return;
+        }
+    }
+
+    const AudioHandle killHandle = event->getHandleToKill();
+    if (killHandle != 0) {
+        if (PlayingAudio *victim = findSourceByHandle(killHandle)) {
+            stopSourceAndFree(*victim);
         }
     }
 
@@ -492,6 +570,8 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
             playerID = avbridge_playStream(physicalPath.c_str(), gain, pitch, false);
         } else {
             DEBUG_AUDIO_MAC(("playAudioEvent: Failed to extract stream %s", filename.str()));
+            delete event;
+            return;
         }
     } else {
         const Coord3D *pos = event->getPosition();
@@ -499,6 +579,7 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
             playerID = avbridge_play3D(bufID, gain, pitch,
                                        pos->x, pos->y, pos->z,
                                        500.0f, 50.0f);
+            isPos = true;
         } else {
             playerID = avbridge_play(bufID, gain, pitch, false);
         }
@@ -517,6 +598,9 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     pa->eventRTS = event;
     pa->handle = event->getPlayingHandle();
     pa->priority = priority;
+    pa->is3D = isPos ? TRUE : FALSE;
+    pa->counted = FALSE;
+    notifySampleStart(*pa);
 }
 
 #pragma mark - Force Play (2D UI/Lobby Sounds)
@@ -653,13 +737,134 @@ void MacOSAudioManager::unselectProvider() {}
 UnsignedInt MacOSAudioManager::getSelectedProvider() const { return 0; }
 void MacOSAudioManager::setSpeakerType(UnsignedInt speakerType) {}
 UnsignedInt MacOSAudioManager::getSpeakerType() { return 0; }
-UnsignedInt MacOSAudioManager::getNum2DSamples() const { return MAX_SOURCES; }
-UnsignedInt MacOSAudioManager::getNum3DSamples() const { return MAX_SOURCES; }
-UnsignedInt MacOSAudioManager::getNumStreams() const { return 8; }
-Bool MacOSAudioManager::doesViolateLimit(AudioEventRTS *event) const { return FALSE; }
-Bool MacOSAudioManager::isPlayingLowerPriority(AudioEventRTS *event) const { return FALSE; }
-Bool MacOSAudioManager::isPlayingAlready(AudioEventRTS *event) const { return FALSE; }
-Bool MacOSAudioManager::isObjectPlayingVoice(UnsignedInt objID) const { return FALSE; }
+UnsignedInt MacOSAudioManager::getNum2DSamples() const { return (UnsignedInt)m_num2DSamples; }
+UnsignedInt MacOSAudioManager::getNum3DSamples() const { return (UnsignedInt)m_num3DSamples; }
+UnsignedInt MacOSAudioManager::getNumStreams() const { return (UnsignedInt)m_numStreams; }
+
+Bool MacOSAudioManager::doesViolateLimit(AudioEventRTS *event) const {
+    if (!event || !event->getAudioEventInfo()) {
+        return FALSE;
+    }
+
+    const Int limit = event->getAudioEventInfo()->m_limit;
+    if (limit == 0) {
+        return FALSE;
+    }
+
+    Int totalCount = 0;
+    Int totalRequestCount = 0;
+    const Bool wantPositional = event->isPositionalAudio();
+
+    for (const auto &pa : m_sources) {
+        if (!pa.isPlaying || !pa.eventRTS) {
+            continue;
+        }
+        if (pa.eventRTS->getEventName() != event->getEventName()) {
+            continue;
+        }
+        const Bool playingPos = pa.is3D ? TRUE : FALSE;
+        if (playingPos != wantPositional) {
+            continue;
+        }
+        if (totalCount == 0) {
+            event->setHandleToKill(pa.eventRTS->getPlayingHandle());
+        }
+        ++totalCount;
+    }
+
+    for (AudioRequest *req : m_audioRequests) {
+        if (!req || !req->m_usePendingEvent || !req->m_pendingEvent) {
+            continue;
+        }
+        if (req->m_pendingEvent->getEventName() == event->getEventName()) {
+            ++totalRequestCount;
+            ++totalCount;
+        }
+    }
+
+    if (event->getAudioEventInfo()->m_control & AC_INTERRUPT) {
+        if (totalRequestCount < limit) {
+            const Int totalPlayingCount = totalCount - totalRequestCount;
+            if (totalRequestCount + totalPlayingCount < limit) {
+                event->setHandleToKill(0);
+                return FALSE;
+            }
+            return FALSE;
+        }
+    }
+
+    if (totalCount < limit) {
+        event->setHandleToKill(0);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+Bool MacOSAudioManager::isPlayingLowerPriority(AudioEventRTS *event) const {
+    if (!event || !event->getAudioEventInfo()) {
+        return FALSE;
+    }
+
+    const AudioPriority priority = event->getAudioEventInfo()->m_priority;
+    if (priority == AP_LOWEST) {
+        return FALSE;
+    }
+
+    const Bool wantPositional = event->isPositionalAudio();
+    for (const auto &pa : m_sources) {
+        if (!pa.isPlaying || !pa.eventRTS || !pa.eventRTS->getAudioEventInfo()) {
+            continue;
+        }
+        const Bool playingPos = pa.is3D ? TRUE : FALSE;
+        if (playingPos != wantPositional) {
+            continue;
+        }
+        if (pa.eventRTS->getAudioEventInfo()->m_priority < priority) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+Bool MacOSAudioManager::isPlayingAlready(AudioEventRTS *event) const {
+    if (!event) {
+        return FALSE;
+    }
+    const Bool wantPositional = event->isPositionalAudio();
+    for (const auto &pa : m_sources) {
+        if (!pa.isPlaying || !pa.eventRTS) {
+            continue;
+        }
+        if (pa.eventRTS->getEventName() != event->getEventName()) {
+            continue;
+        }
+        const Bool playingPos = pa.is3D ? TRUE : FALSE;
+        if (playingPos == wantPositional) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+Bool MacOSAudioManager::isObjectPlayingVoice(UnsignedInt objID) const {
+    if (objID == 0) {
+        return FALSE;
+    }
+    for (const auto &pa : m_sources) {
+        if (!pa.isPlaying || !pa.eventRTS || !pa.eventRTS->getAudioEventInfo()) {
+            continue;
+        }
+        if (pa.eventRTS->getObjectID() != objID) {
+            continue;
+        }
+        if (pa.eventRTS->getAudioEventInfo()->m_type & ST_VOICE) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 void MacOSAudioManager::adjustVolumeOfPlayingAudio(AsciiString eventName, Real newVolume) {}
 void MacOSAudioManager::removePlayingAudio(AsciiString eventName) {}
 void MacOSAudioManager::removeAllDisabledAudio() {}

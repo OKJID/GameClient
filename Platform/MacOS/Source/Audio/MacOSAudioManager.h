@@ -7,11 +7,13 @@
 #include <unordered_map>
 
 struct PlayingAudio {
-    int playerID;
-    Bool isPlaying;
-    AudioEventRTS *eventRTS;
-    AudioHandle handle;
-    int priority;
+    int playerID = -1;
+    Bool isPlaying = FALSE;
+    AudioEventRTS *eventRTS = nullptr;
+    AudioHandle handle = 0;
+    int priority = 0;
+    Bool is3D = FALSE;
+    Bool counted = FALSE;
 };
 
 class MacOSVideoAudioStream;
@@ -93,9 +95,15 @@ protected:
   std::string getPhysicalPathForStream(const std::string& vfsPath);
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand);
+  PlayingAudio* findSourceByHandle(AudioHandle handle);
+  void notifySampleStart(PlayingAudio &pa);
+  void notifySampleCompletion(PlayingAudio &pa);
 
 private:
-  static const int MAX_SOURCES = 64;
+  int m_maxSources = 0;
+  int m_num2DSamples = 0;
+  int m_num3DSamples = 0;
+  int m_numStreams = 0;
   std::vector<PlayingAudio> m_sources;
   std::unordered_map<std::string, int> m_bufferCache;
   MacOSVideoAudioStream* m_videoAudioStream = nullptr;
