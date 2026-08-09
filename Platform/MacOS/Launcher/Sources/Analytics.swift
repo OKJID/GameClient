@@ -99,6 +99,7 @@ enum Analytics {
             (.gameLanguage, "game_language", vm.gameLanguage),
             (.windowedEdgeScroll, "windowed_edge_scroll", vm.isWindowedEdgeScrollEnabled.gaFlag),
             (.showHotkeyLabels, "hotkey_labels", vm.showHotkeyLabels.gaFlag),
+            (.wasdMapScroll, "wasd_map_scroll", vm.wasdMapScroll.gaFlag),
             (.limitFramerate, "limit_framerate", vm.limitFramerate.gaFlag),
             (.fpsLimit, "fps_limit", Int(vm.fpsLimit)),
             (.statsOverlay, "stats_overlay", vm.statsOverlay.gaFlag),

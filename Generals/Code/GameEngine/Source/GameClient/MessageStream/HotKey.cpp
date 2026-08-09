@@ -58,6 +58,8 @@
 #include "GameClient/Keyboard.h"
 #include "GameClient/GameText.h"
 #include "Common/AudioEventRTS.h"
+#include "Common/OptionPreferences.h"
+#include "GameClient/Shell.h"
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -98,6 +100,17 @@ GameMessageDisposition HotKeyTranslator::translateGameMessage(const GameMessage 
 		}
 		if(newModState != 0)
 			return disp;
+#ifdef __APPLE__
+		{
+			static const Bool s_wasdMapScroll = OptionPreferences().getWASDMapScroll();
+			if (s_wasdMapScroll && !(TheShell && TheShell->isShellActive()))
+			{
+				const Int keyCode = msg->getArgument(0)->integer;
+				if (keyCode == KEY_W || keyCode == KEY_A || keyCode == KEY_S || keyCode == KEY_D)
+					return disp;
+			}
+		}
+#endif
 		WideChar key = TheKeyboard->getPrintableKey((KeyDefType)msg->getArgument(0)->integer, 0);
 		UnicodeString uKey;
 		uKey.concat(key);

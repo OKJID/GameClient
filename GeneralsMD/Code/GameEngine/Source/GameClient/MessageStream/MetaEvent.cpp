@@ -51,6 +51,8 @@
 #include "GameClient/GameText.h"
 #include "GameClient/MetaEvent.h"
 
+#include "Common/OptionPreferences.h"
+
 #include "GameLogic/GameLogic.h" // for TheGameLogic->getFrame()
 
 
@@ -605,6 +607,19 @@ void MetaEventTranslator::onKeyPressed(GameMessageDisposition &disp, Int systemK
 {
 	// TheSuperHackers @info The regular key handler only triggers events when the mapped key is pressed,
 	// not when the modifier (CTRL, ALT, SHIFT) is pressed, unless the key is MK_NONE.
+
+#ifdef __APPLE__
+	// WASD map-scroll (Options.ini) must dominate unmodified W/A/S/D in gameplay so
+	// LookAtTranslator receives them; MetaEvent runs earlier in the stream.
+	if (keyModState == NONE &&
+		(keyType == MK_W || keyType == MK_A || keyType == MK_S || keyType == MK_D) &&
+		!(TheShell && TheShell->isShellActive()))
+	{
+		static const Bool s_wasdMapScroll = OptionPreferences().getWASDMapScroll();
+		if (s_wasdMapScroll)
+			return;
+	}
+#endif
 
 	for (const MetaMapRec *map = TheMetaMap->getFirstMetaMapRec(); map; map = map->m_next)
 	{

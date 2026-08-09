@@ -51,6 +51,8 @@
 #include "GameClient/GameText.h"
 #include "GameClient/MetaEvent.h"
 
+#include "Common/OptionPreferences.h"
+
 #include "GameLogic/GameLogic.h" // for TheGameLogic->getFrame()
 
 MetaMap *TheMetaMap = nullptr;
@@ -420,6 +422,21 @@ GameMessageDisposition MetaEventTranslator::translateGameMessage(const GameMessa
 		{
 			newModState |= ALT;
 		}
+
+#ifdef __APPLE__
+		if (newModState == 0 &&
+			(key == MK_W || key == MK_A || key == MK_S || key == MK_D) &&
+			!(TheShell && TheShell->isShellActive()))
+		{
+			static const Bool s_wasdMapScroll = OptionPreferences().getWASDMapScroll();
+			if (s_wasdMapScroll)
+			{
+				m_lastModState = newModState;
+				m_lastKeyDown = key;
+				return disp;
+			}
+		}
+#endif
 
 		for (const MetaMapRec *map = TheMetaMap->getFirstMetaMapRec(); map; map = map->m_next)
 		{

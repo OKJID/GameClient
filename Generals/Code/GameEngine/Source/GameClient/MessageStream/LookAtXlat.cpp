@@ -200,6 +200,26 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage 
 			case KEY_RIGHT:
 				scrollDir[DIR_RIGHT] = isPressed;
 				break;
+#ifdef __APPLE__
+			case KEY_W:
+			case KEY_A:
+			case KEY_S:
+			case KEY_D:
+			{
+				static const Bool s_wasdMapScroll = OptionPreferences().getWASDMapScroll();
+				if (!s_wasdMapScroll)
+					break;
+				if (key == KEY_W)
+					scrollDir[DIR_UP] = isPressed;
+				else if (key == KEY_S)
+					scrollDir[DIR_DOWN] = isPressed;
+				else if (key == KEY_A)
+					scrollDir[DIR_LEFT] = isPressed;
+				else
+					scrollDir[DIR_RIGHT] = isPressed;
+				break;
+			}
+#endif
 			}
 
 			if (TheInGameUI->isSelecting() || (m_isScrolling && m_scrollType != SCROLL_KEY))

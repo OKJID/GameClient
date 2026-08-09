@@ -39,7 +39,7 @@ struct SidebarView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: 16) {
 
-                    if profile.supportsAny([.gameLanguage, .windowedEdgeScroll, .showHotkeyLabels]) {
+                    if profile.supportsAny([.gameLanguage, .windowedEdgeScroll, .showHotkeyLabels, .wasdMapScroll]) {
                         _buildSectionHeader(title: L10n.settings.interfaceSection)
                     }
                     
@@ -61,6 +61,15 @@ struct SidebarView: View {
                             title: L10n.settings.showHotkeyLabels,
                             description: L10n.settings.showHotkeyLabelsDesc,
                             isOn: $viewModel.showHotkeyLabels,
+                            scope: .global
+                        )
+                    }
+
+                    if profile.supports(.wasdMapScroll) {
+                        _buildSidebarSettingToggle(
+                            title: L10n.settings.wasdMapScroll,
+                            description: L10n.settings.wasdMapScrollDesc,
+                            isOn: $viewModel.wasdMapScroll,
                             scope: .global
                         )
                     }

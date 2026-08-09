@@ -442,6 +442,18 @@ Bool OptionPreferences::getShowHotKeyLabels() const
 	return FALSE;
 }
 
+Bool OptionPreferences::getWASDMapScroll() const
+{
+	OptionPreferences::const_iterator it = find("WASDMapScroll");
+	if (it == end())
+		return FALSE;
+
+	if (stricmp(it->second.str(), "yes") == 0)
+		return TRUE;
+
+	return FALSE;
+}
+
 Bool OptionPreferences::getVerboseEngineLogging() const
 {
 	OptionPreferences::const_iterator it = find("VerboseEngineLogging");

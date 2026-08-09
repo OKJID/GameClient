@@ -83,6 +83,7 @@ public:
 	Bool getScreenEdgeScrollEnabledInFullscreenApp() const;
 	ScreenEdgeScrollMode getScreenEdgeScrollMode() const;
 	Bool getShowHotKeyLabels() const;
+	Bool getWASDMapScroll() const;
 	Bool getVerboseEngineLogging() const;
 	Bool getSendDelay();
 	Int getFirewallBehavior();

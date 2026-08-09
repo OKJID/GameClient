@@ -66,6 +66,12 @@ class LauncherViewModel: ObservableObject {
             reportSettingChange("hotkey_labels", showHotkeyLabels)
         }
     }
+    @Published var wasdMapScroll: Bool = SettingsDefaults.wasdMapScroll {
+        didSet {
+            OptionsIniHelper.writeValue(value: wasdMapScroll ? "yes" : "no", forKey: "WASDMapScroll")
+            reportSettingChange("wasd_map_scroll", wasdMapScroll)
+        }
+    }
     @Published var gameLanguage: String = SettingsDefaults.gameLanguage {
         didSet {
             guard !isInitializing else { return }
@@ -219,6 +225,7 @@ class LauncherViewModel: ObservableObject {
 
         isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
         showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
+        wasdMapScroll = OptionsIniHelper.readValue(forKey: "WASDMapScroll") == "yes"
         verboseLogging = OptionsIniHelper.readValue(forKey: "VerboseEngineLogging") == "yes"
         gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
 
@@ -303,6 +310,7 @@ class LauncherViewModel: ObservableObject {
     func resetAllSettings() {
         isWindowedEdgeScrollEnabled = SettingsDefaults.isWindowedEdgeScrollEnabled
         showHotkeyLabels = SettingsDefaults.showHotkeyLabels
+        wasdMapScroll = SettingsDefaults.wasdMapScroll
         gameLanguage = SettingsDefaults.gameLanguage
         cameraMinHeight = SettingsDefaults.cameraMinHeight
         cameraMaxHeight = SettingsDefaults.cameraMaxHeight

@@ -36,6 +36,7 @@ enum SettingKey: String, CaseIterable, Identifiable {
     case gameLanguage
     case windowedEdgeScroll
     case showHotkeyLabels
+    case wasdMapScroll
     case cameraMaxHeight
     case cameraMinHeight
     case cameraSpeed
@@ -279,6 +280,7 @@ extension GameProfile {
             .gameLanguage,
             .windowedEdgeScroll,
             .showHotkeyLabels,
+            .wasdMapScroll,
             .cameraMaxHeight,
             .cameraMinHeight,
             .cameraSpeed,
@@ -317,6 +319,7 @@ extension GameProfile {
             .gameLanguage,
             .windowedEdgeScroll,
             .showHotkeyLabels,
+            .wasdMapScroll,
             .verboseLogging
         ],
         mod: nil
