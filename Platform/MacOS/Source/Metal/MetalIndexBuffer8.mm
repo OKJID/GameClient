@@ -1,4 +1,5 @@
 #import "MetalIndexBuffer8.h"
+#import "MemDiag.h"
 #import "MetalVertexBuffer8.h"
 #include "dx8indexbuffer.h"
 #include "dx8vertexbuffer.h"
@@ -17,11 +18,13 @@ MetalIndexBuffer8::MetalIndexBuffer8(unsigned int count, bool is32bit)
     : m_Count(count), m_Is32Bit(is32bit), m_RefCount(1), m_MTLBuffer(nullptr),
       m_SysMemCopy(nullptr) {
   uint32_t size = count * (is32bit ? 4 : 2);
+  MemDiag_NoteWrapperCreate(MDS_W_IB);
   if (g_MetalMTLDevice) {
     id<MTLDevice> device = (__bridge id<MTLDevice>)g_MetalMTLDevice;
     id<MTLBuffer> buf =
         [device newBufferWithLength:size
                             options:MTLResourceStorageModeShared];
+    MEMDIAG_TRACK(buf, MDS_IB_CTOR, size);
     m_MTLBuffer = (__bridge_retained void *)buf;
   } else {
     m_SysMemCopy = new uint8_t[size];
@@ -29,6 +32,7 @@ MetalIndexBuffer8::MetalIndexBuffer8(unsigned int count, bool is32bit)
 }
 
 MetalIndexBuffer8::~MetalIndexBuffer8() {
+  MemDiag_NoteWrapperDestroy(MDS_W_IB);
   delete[] m_SysMemCopy;
   if (m_MTLBuffer) {
     id<MTLBuffer> buf = (__bridge_transfer id<MTLBuffer>)m_MTLBuffer;
@@ -90,6 +94,7 @@ STDMETHODIMP MetalIndexBuffer8::Lock(UINT OffsetToLock, UINT SizeToLock,
       id<MTLBuffer> buf =
           [device newBufferWithLength:size
                               options:MTLResourceStorageModeShared];
+      MEMDIAG_TRACK(buf, MDS_IB_LOCK_DISCARD, size);
       id<MTLBuffer> old_buf = (__bridge_transfer id<MTLBuffer>)m_MTLBuffer;
       old_buf = nil; // Automatically released by ARC once command buffers finish
       m_MTLBuffer = (__bridge_retained void *)buf;
@@ -127,6 +132,7 @@ void *MetalIndexBuffer8::GetMTLBuffer() {
         [device newBufferWithBytes:m_SysMemCopy
                             length:size
                            options:MTLResourceStorageModeShared];
+    MEMDIAG_TRACK(buf, MDS_IB_GETMTL, size);
     m_MTLBuffer = (__bridge_retained void *)buf;
     delete[] m_SysMemCopy;
     m_SysMemCopy = nullptr;
@@ -134,6 +140,7 @@ void *MetalIndexBuffer8::GetMTLBuffer() {
     id<MTLBuffer> buf =
         [device newBufferWithLength:size
                             options:MTLResourceStorageModeShared];
+    MEMDIAG_TRACK(buf, MDS_IB_GETMTL, size);
     m_MTLBuffer = (__bridge_retained void *)buf;
   }
 

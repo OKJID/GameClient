@@ -1,4 +1,5 @@
 #include "MetalCubeTexture8.h"
+#include "MemDiag.h"
 #include "MetalDevice8.h"
 #include "MetalFormatConvert.h"
 #include "MetalBridgeMappings.h"
@@ -37,8 +38,11 @@ MetalCubeTexture8::MetalCubeTexture8(MetalDevice8 *device, UINT edgeLength,
   }
   desc.storageMode = MTLStorageModeShared;
 
+  MemDiag_NoteWrapperCreate(MDS_W_CUBE);
+
   id<MTLDevice> mtlDev = (__bridge id<MTLDevice>)m_Device->GetMTLDevice();
   id<MTLTexture> tex = [mtlDev newTextureWithDescriptor:desc];
+  MEMDIAG_TRACK(tex, MDS_CUBE_CTOR, 0);
   m_Texture = (__bridge_retained void *)tex;
 
   // Zero-fill all mip levels for all 6 faces
@@ -108,6 +112,8 @@ MetalCubeTexture8::MetalCubeTexture8(MetalDevice8 *device, void *mtlTexture,
   if (m_Device)
     m_Device->AddRef();
 
+  MemDiag_NoteWrapperCreate(MDS_W_CUBE);
+
   id<MTLTexture> tex = (__bridge id<MTLTexture>)mtlTexture;
   if (tex) {
     m_Texture = (__bridge_retained void *)tex;
@@ -119,6 +125,7 @@ MetalCubeTexture8::MetalCubeTexture8(MetalDevice8 *device, void *mtlTexture,
 }
 
 MetalCubeTexture8::~MetalCubeTexture8() {
+  MemDiag_NoteWrapperDestroy(MDS_W_CUBE);
   if (m_Texture) {
     CFRelease(m_Texture);
     m_Texture = nullptr;
@@ -383,6 +390,7 @@ STDMETHODIMP MetalCubeTexture8::UnlockRect(D3DCUBEMAP_FACES FaceType, UINT Level
     if (queuePtr) {
       id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
       id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
+      MEMDIAG_TRACK(cmdBuf, MDS_CMDBUF_MIPS, 0);
       if (cmdBuf) {
         id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
         [blit generateMipmapsForTexture:tex];

@@ -4,6 +4,7 @@
 // All static fields and methods of DX8Wrapper class are defined here.
 
 #include "dx8wrapper.h"
+#include "MemDiag.h"
 #include "dx8caps.h"
 #include "dx8texman.h"
 #include "dx8renderer.h"
@@ -1626,9 +1627,11 @@ HRESULT WINAPI D3DXFilterTexture(
     id<MTLDevice> device = tex.device;
     id<MTLCommandQueue> queue = [device newCommandQueue];
     if (!queue) return E_FAIL;
-    
+    MEMDIAG_TRACK(queue, MDS_CMDQUEUE_FILTER, 0);
+
     id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
     if (!cmdBuf) return E_FAIL;
+    MEMDIAG_TRACK(cmdBuf, MDS_CMDBUF_MIPS, 0);
     
     id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
     [blit generateMipmapsForTexture:tex];
