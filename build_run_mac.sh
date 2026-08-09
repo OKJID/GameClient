@@ -10,7 +10,7 @@
 #   sh build_run_mac.sh --release             # configure/build game with debug logging/crashing
 #   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
 #   sh build_run_mac.sh --rep_def             # build + ran replay
-#   sh build_run_mac.sh --mod=Apocalptic       # build + run with a mod (see MOD_PATH)
+#   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic
 
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -178,8 +178,8 @@ if [ "$DO_CRC_LOGS" = true ]; then
     mkdir -p "$PWD/.agent/temp_mac_logs/CRCLogs2"
 fi
 
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 
 # Purge previous-run diagnostics from the game dir BEFORE the run, so append-mode
 # ("a") diags never mix two runs. Same patterns the gather step collects below.
