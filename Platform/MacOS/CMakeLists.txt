@@ -9,8 +9,6 @@ set(METAL_SRC
     Source/Metal/MetalTexture8.mm
     Source/Metal/MetalCubeTexture8.mm
     Source/Metal/MacOSDisplayManager.mm
-    Source/Metal/MemDiag.mm
-    Source/Metal/MemDiag.h
     Source/Metal/MetalBridgeMappings.h
     Source/Metal/MetalDevice8.h
     Source/Metal/MetalFormatConvert.h
@@ -203,7 +201,6 @@ set_source_files_properties(
     Source/Metal/MetalTexture8.mm
     Source/Metal/MetalCubeTexture8.mm
     Source/Metal/MacOSDisplayManager.mm
-    Source/Metal/MemDiag.mm
     Source/Input/MacOSKeyboard.mm
     Source/System/MacOSLocalFileSystem.mm
     Source/Audio/AVAudioBridge.mm

@@ -1,5 +1,4 @@
 #include "MetalTexture8.h"
-#include "MemDiag.h"
 #include "MetalDevice8.h"
 #include "MetalSurface8.h"
 #include "MetalFormatConvert.h"
@@ -49,11 +48,8 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
   //   it can be sampled as a shader input (e.g., RTT → fullscreen blit for soft water edges)
   desc.storageMode = MTLStorageModeShared;
 
-  MemDiag_NoteWrapperCreate(MDS_W_TEX);
-
   id<MTLDevice> mtlDev = (__bridge id<MTLDevice>)m_Device->GetMTLDevice();
   id<MTLTexture> tex = [mtlDev newTextureWithDescriptor:desc];
-  MEMDIAG_TRACK(tex, MDS_TEX_CTOR, 0);
   m_Texture = (__bridge_retained void *)tex; // Retain manual ref
 
   // Zero-fill all mip levels — MTLStorageModeShared starts with undefined data.
@@ -120,8 +116,6 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
   if (m_Device)
     m_Device->AddRef();
 
-  MemDiag_NoteWrapperCreate(MDS_W_TEX);
-
   id<MTLTexture> tex = (__bridge id<MTLTexture>)mtlTexture;
   if (tex) {
     m_Texture = (__bridge_retained void *)tex;
@@ -134,8 +128,6 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, void *mtlTexture,
 }
 
 MetalTexture8::~MetalTexture8() {
-  MemDiag_NoteWrapperDestroy(MDS_W_TEX);
-
   // TheSuperHackers @fix Release cached surfaces before destroying texture.
   for (auto &pair : m_CachedSurfaces) {
     if (pair.second) {
@@ -382,7 +374,6 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
       desc.usage = tex.usage;
       desc.storageMode = MTLStorageModeShared;
       id<MTLTexture> backTex = [tex.device newTextureWithDescriptor:desc];
-      MEMDIAG_TRACK(backTex, MDS_TEX_BACK, 0);
       m_BackTexture = (__bridge_retained void *)backTex;
     }
     // Swap front ↔ back
@@ -490,7 +481,6 @@ STDMETHODIMP MetalTexture8::UnlockRect(UINT Level) {
     if (queuePtr) {
       id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
       id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
-      MEMDIAG_TRACK(cmdBuf, MDS_CMDBUF_MIPS, 0);
       if (cmdBuf) {
         id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
         [blit generateMipmapsForTexture:tex];

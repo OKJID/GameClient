@@ -13,7 +13,6 @@
 
 // Now include our header (which includes d3d8.h / win_compat.h)
 #import "MetalDevice8.h"
-#include "MemDiag.h"
 #include "MetalBridgeMappings.h"
 #include "MetalFormatConvert.h"
 #include "MetalIndexBuffer8.h"
@@ -434,12 +433,10 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
         [device newBufferWithBytes:defaultData
                             length:sizeof(defaultData)
                            options:MTLResourceStorageModeShared];
-    MEMDIAG_TRACK(zeroBuf, MDS_ZERO_BUF, sizeof(defaultData));
     m_ZeroBuffer = (__bridge_retained void *)zeroBuf;
   }
 
   id<MTLCommandQueue> queue = [device newCommandQueue];
-  MEMDIAG_TRACK(queue, MDS_CMDQUEUE_MAIN, 0);
   SET_MTL(CommandQueue, queue);
 
   id<MTLLibrary> library = [device newDefaultLibrary];
@@ -590,7 +587,6 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
   depthDesc.storageMode = MTLStorageModePrivate;
 
   id<MTLTexture> depthTex = [MTL_DEVICE newTextureWithDescriptor:depthDesc];
-  MEMDIAG_TRACK(depthTex, MDS_DEPTH_TEX, 0);
   if (depthTex) {
     depthTex.label = @"MetalDevice8 DepthStencilBuffer";
     m_DepthTexture = (__bridge_retained void *)depthTex;
@@ -618,7 +614,6 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
     msaaColorDesc.usage = MTLTextureUsageRenderTarget;
 
     id<MTLTexture> msaaColor = [MTL_DEVICE newTextureWithDescriptor:msaaColorDesc];
-    MEMDIAG_TRACK(msaaColor, MDS_MSAA_COLOR, 0);
     if (msaaColor) {
       msaaColor.label = @"MetalDevice8 MSAA Color";
       m_MSAAColorTexture = (__bridge_retained void *)msaaColor;
@@ -636,7 +631,6 @@ void MetalDevice8::CreateDepthTexture(UINT width, UINT height) {
     msaaDepthDesc.usage = MTLTextureUsageRenderTarget;
 
     id<MTLTexture> msaaDepth = [MTL_DEVICE newTextureWithDescriptor:msaaDepthDesc];
-    MEMDIAG_TRACK(msaaDepth, MDS_MSAA_DEPTH, 0);
     if (msaaDepth) {
       msaaDepth.label = @"MetalDevice8 MSAA Depth+Stencil";
       m_MSAADepthTexture = (__bridge_retained void *)msaaDepth;
@@ -711,7 +705,6 @@ void *MetalDevice8::GetDepthStencilState() {
 
   id<MTLDepthStencilState> dss =
       [MTL_DEVICE newDepthStencilStateWithDescriptor:dsd];
-  MEMDIAG_TRACK(dss, MDS_DSS, 0);
   if (dss) {
     m_DepthStencilStateCache[key] = (__bridge_retained void *)dss;
     m_DepthStencilState = (__bridge void *)dss;
@@ -1135,7 +1128,6 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
   sd.mipFilter = MapD3DMipFilterToMTL(mipF);
 
   id<MTLSamplerState> sampler = [MTL_DEVICE newSamplerStateWithDescriptor:sd];
-  MEMDIAG_TRACK(sampler, MDS_SAMPLER, 0);
   if (sampler) {
     m_SamplerStateCache[key] = (__bridge_retained void *)sampler;
     return (__bridge void *)sampler;
@@ -1349,7 +1341,6 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
   CLEAR_MTL(CurrentDrawable);
   m_InScene = false;
   g_metalPresentCount++;
-  MemDiag_Frame(g_metalPresentCount, m_Device);
   return D3D_OK;
 }
 
@@ -1549,7 +1540,6 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
     if (queuePtr) {
       id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
       id<MTLCommandBuffer> cmdBuf = [queue commandBuffer];
-      MEMDIAG_TRACK(cmdBuf, MDS_CMDBUF_COPY, 0);
       if (cmdBuf) {
         id<MTLBlitCommandEncoder> blit = [cmdBuf blitCommandEncoder];
         UINT copyW = std::min((UINT)mtlSrc.width, (UINT)mtlDst.width);
@@ -2001,7 +1991,6 @@ STDMETHODIMP MetalDevice8::BeginScene() {
   // TheSuperHackers @fix macOS: nextDrawable can return nil if all drawables
   // are in flight. With displaySyncEnabled=NO this should not block for VSync.
   id<MTLCommandBuffer> cmdBuf = [MTL_QUEUE commandBuffer];
-  MEMDIAG_TRACK(cmdBuf, MDS_CMDBUF_SCENE, 0);
   SET_MTL(CurrentCommandBuffer, cmdBuf);
 
   id<CAMetalDrawable> drawable = [MTL_LAYER nextDrawable];
@@ -2649,7 +2638,6 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
     return nil;
   }
 
-  MEMDIAG_TRACK(pso, MDS_PSO, 0);
   m_PsoCache[key] = (__bridge_retained void *)pso;
   return (__bridge void *)pso;
 }
@@ -2778,7 +2766,6 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
     id<MTLBuffer> tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data()
                                                             length:indexCount * sizeof(uint16_t)
                                                            options:MTLResourceStorageModeShared];
-    MEMDIAG_TRACK(tempIdxBuffer, MDS_FAN_UP, indexCount * sizeof(uint16_t));
     [MTL_ENCODER drawIndexedPrimitives:MTLPrimitiveTypeTriangle
                             indexCount:indexCount
                              indexType:MTLIndexTypeUInt16
@@ -2885,7 +2872,6 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
           fan[i * 3 + 2] = src[i + 2];
         }
         tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data() length:indexCount * 4 options:MTLResourceStorageModeShared];
-        MEMDIAG_TRACK(tempIdxBuffer, MDS_FAN_IDX32, indexCount * 4);
         offset = 0;
       } else {
         std::vector<uint16_t> fan(indexCount);
@@ -2896,7 +2882,6 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
           fan[i * 3 + 2] = src[i + 2];
         }
         tempIdxBuffer = [MTL_DEVICE newBufferWithBytes:fan.data() length:indexCount * 2 options:MTLResourceStorageModeShared];
-        MEMDIAG_TRACK(tempIdxBuffer, MDS_FAN_IDX16, indexCount * 2);
         offset = 0;
       }
     }
@@ -3056,7 +3041,6 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
     if (!m_RingBuffer) {
       id<MTLBuffer> rb = [MTL_DEVICE newBufferWithLength:m_RingBufferSize
                                                 options:MTLResourceStorageModeShared];
-      MEMDIAG_TRACK(rb, MDS_RING_FIRST, m_RingBufferSize);
       m_RingBuffer = (__bridge_retained void *)rb;
     }
 
@@ -3066,7 +3050,6 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
       // Re-allocate ring buffer on wrap to avoid overwriting GPU-in-flight data
       id<MTLBuffer> rb = [MTL_DEVICE newBufferWithLength:m_RingBufferSize
                                                 options:MTLResourceStorageModeShared];
-      MEMDIAG_TRACK(rb, MDS_RING_WRAP, m_RingBufferSize);
       id<MTLBuffer> old_rb = (__bridge_transfer id<MTLBuffer>)m_RingBuffer;
       old_rb = nil;
       m_RingBuffer = (__bridge_retained void *)rb;
@@ -3082,7 +3065,6 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
           [MTL_DEVICE newBufferWithBytes:data
                                   length:dataSize
                                  options:MTLResourceStorageModeShared];
-      MEMDIAG_TRACK(tmpBuf, MDS_UP_OVERSIZE, dataSize);
       if (!tmpBuf)
         return D3D_OK;
       [MTL_ENCODER setVertexBuffer:tmpBuf offset:0 atIndex:0];

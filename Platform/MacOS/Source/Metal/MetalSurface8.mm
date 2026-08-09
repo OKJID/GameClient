@@ -1,5 +1,4 @@
 #import "MetalSurface8.h"
-#import "MemDiag.h"
 #import "MetalDevice8.h"
 #import "MetalTexture8.h"
 #include <cstdlib>
@@ -15,13 +14,11 @@ MetalSurface8::MetalSurface8(MetalDevice8 *device, MetalSurface8::SurfaceKind ki
                              MetalTexture8 *parentTexture, UINT mipLevel)
     : m_RefCount(1), m_Device(device), m_Kind(kind), m_Width(w), m_Height(h),
       m_Format(fmt), m_ParentTexture(parentTexture), m_MipLevel(mipLevel) {
-  MemDiag_NoteWrapperCreate(MDS_W_SURFACE);
   if (m_Device)
     m_Device->AddRef();
 }
 
 MetalSurface8::~MetalSurface8() {
-  MemDiag_NoteWrapperDestroy(MDS_W_SURFACE);
   if (m_LockedData) {
     free(m_LockedData);
     m_LockedData = nullptr;

@@ -1,5 +1,4 @@
 #import "MetalVertexBuffer8.h"
-#import "MemDiag.h"
 #import "MetalIndexBuffer8.h"
 #include "dx8indexbuffer.h"
 #include "dx8vertexbuffer.h"
@@ -21,13 +20,11 @@ MetalVertexBuffer8::MetalVertexBuffer8(unsigned int fvf, unsigned short count,
                                        unsigned int size)
     : m_FVF(fvf), m_VertexCount(count), m_VertexSize(size), m_RefCount(1),
       m_MTLBuffer(nullptr), m_SysMemCopy(nullptr) {
-  MemDiag_NoteWrapperCreate(MDS_W_VB);
   if (g_MetalMTLDevice) {
     id<MTLDevice> device = (__bridge id<MTLDevice>)g_MetalMTLDevice;
     id<MTLBuffer> buf =
         [device newBufferWithLength:count * size
                             options:MTLResourceStorageModeShared];
-    MEMDIAG_TRACK(buf, MDS_VB_CTOR, count * size);
     m_MTLBuffer = (__bridge_retained void *)buf;
   } else {
     m_SysMemCopy = new uint8_t[count * size];
@@ -35,7 +32,6 @@ MetalVertexBuffer8::MetalVertexBuffer8(unsigned int fvf, unsigned short count,
 }
 
 MetalVertexBuffer8::~MetalVertexBuffer8() {
-  MemDiag_NoteWrapperDestroy(MDS_W_VB);
   delete[] m_SysMemCopy;
   if (m_MTLBuffer) {
     id<MTLBuffer> buf = (__bridge_transfer id<MTLBuffer>)m_MTLBuffer;
@@ -98,7 +94,6 @@ STDMETHODIMP MetalVertexBuffer8::Lock(UINT OffsetToLock, UINT SizeToLock,
       id<MTLBuffer> buf =
           [device newBufferWithLength:m_VertexCount * m_VertexSize
                               options:MTLResourceStorageModeShared];
-      MEMDIAG_TRACK(buf, MDS_VB_LOCK_DISCARD, m_VertexCount * m_VertexSize);
       id<MTLBuffer> old_buf = (__bridge_transfer id<MTLBuffer>)m_MTLBuffer;
       old_buf = nil; // Automatically released by ARC once command buffers finish
       m_MTLBuffer = (__bridge_retained void *)buf;
@@ -134,7 +129,6 @@ void *MetalVertexBuffer8::GetMTLBuffer() {
         [device newBufferWithBytes:m_SysMemCopy
                             length:m_VertexCount * m_VertexSize
                            options:MTLResourceStorageModeShared];
-    MEMDIAG_TRACK(buf, MDS_VB_GETMTL, m_VertexCount * m_VertexSize);
     m_MTLBuffer = (__bridge_retained void *)buf;
     delete[] m_SysMemCopy;
     m_SysMemCopy = nullptr;
@@ -142,7 +136,6 @@ void *MetalVertexBuffer8::GetMTLBuffer() {
     id<MTLBuffer> buf =
         [device newBufferWithLength:m_VertexCount * m_VertexSize
                             options:MTLResourceStorageModeShared];
-    MEMDIAG_TRACK(buf, MDS_VB_GETMTL, m_VertexCount * m_VertexSize);
     m_MTLBuffer = (__bridge_retained void *)buf;
   }
 
