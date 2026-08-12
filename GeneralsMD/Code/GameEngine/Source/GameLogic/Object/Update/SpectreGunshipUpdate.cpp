@@ -616,7 +616,12 @@ UpdateSleepTime SpectreGunshipUpdate::update()
 
           // GATTLING TARGETING LOGIC------------------------------------------
 				  const ParticleSystemTemplate *tmp = data->m_gattlingStrafeFXParticleSystem;
+				  // TheSuperHackers @fix The particle system is now decoupled from the logic crc
+#if RETAIL_COMPATIBLE_CRC
 				  if (tmp && gattling && gattling->testStatus( OBJECT_STATUS_IS_FIRING_WEAPON) )
+#else
+				  if (gattling && gattling->testStatus( OBJECT_STATUS_IS_FIRING_WEAPON) )
+#endif
 				  {
 
 

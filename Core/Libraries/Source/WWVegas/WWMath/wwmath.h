@@ -105,7 +105,6 @@ static void			Shutdown();
 
 static WWINLINE double Pow(double x, double y);
 static WWINLINE float  Powf(float x, float y);
-static WWINLINE double Sqr(float x);
 static WWINLINE double Sqrt(double x);
 static WWINLINE float  Sqrtf(float x);
 static WWINLINE float  Inv_Sqrt_Legacy(float a);
@@ -224,18 +223,9 @@ static WWINLINE double Div_Safe(double dividend, double divisor, double fallback
 WWINLINE double WWMath::Pow(double x, double y)
 {
 #if USE_DETERMINISTIC_MATH
-	return gm_pow(x, y);
+	return (double)gm_powf((float)x, (float)y); // gm_pow diverges on x87, gm_powf is bit-identical
 #else
 	return pow(x, y);
-#endif
-}
-
-WWINLINE double WWMath::Sqr(float x)
-{
-#if USE_DETERMINISTIC_MATH
-	return (double)(x * x);
-#else
-	return Pow((double)x, 2.0);
 #endif
 }
 
