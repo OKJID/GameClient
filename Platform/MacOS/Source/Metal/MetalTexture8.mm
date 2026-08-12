@@ -131,6 +131,7 @@ MetalTexture8::~MetalTexture8() {
   // TheSuperHackers @fix Release cached surfaces before destroying texture.
   for (auto &pair : m_CachedSurfaces) {
     if (pair.second) {
+      pair.second->ForgetParentTexture();
       pair.second->Release();
     }
   }

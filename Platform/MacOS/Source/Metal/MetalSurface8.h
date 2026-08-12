@@ -35,6 +35,7 @@ public:
 
   SurfaceKind GetKind() const { return m_Kind; }
   MetalTexture8 *GetParentTexture() const { return m_ParentTexture; }
+  void ForgetParentTexture() { m_ParentTexture = nullptr; }
   UINT GetWidth() const { return m_Width; }
   UINT GetHeight() const { return m_Height; }
   D3DFORMAT GetD3DFormat() const { return m_Format; }
