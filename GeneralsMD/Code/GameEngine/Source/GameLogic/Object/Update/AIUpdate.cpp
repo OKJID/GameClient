@@ -3835,9 +3835,11 @@ void AIUpdateInterface::privateExit( Object *objectToExit, CommandSourceType cmd
 		// TheSuperHackers @bugfix Caball009 10/08/2026 Don't process invalid exit commands,
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
-		// @todo Remove function parameter 'objectToExit' because it's become obsolete.
+		// TheSuperHackers @bugfix Okladnoj 13/08/2026 Tunnel Networks share one contents list, so ask the addressed container whether it holds us.
+		const ContainModuleInterface* contain = objectToExit->getContain();
+		const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
 
-		if (us->getContainedBy() != objectToExit)
+		if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
 			return;
 #endif
 	}
@@ -3874,9 +3876,11 @@ void AIUpdateInterface::privateExitInstantly( Object *objectToExit, CommandSourc
 		// TheSuperHackers @bugfix Caball009 10/08/2026 Don't process invalid exit commands,
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
-		// @todo Remove function parameter 'objectToExit' because it's become obsolete.
+		// TheSuperHackers @bugfix Okladnoj 13/08/2026 Tunnel Networks share one contents list, so ask the addressed container whether it holds us.
+		const ContainModuleInterface* contain = objectToExit->getContain();
+		const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
 
-		if (us->getContainedBy() != objectToExit)
+		if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
 			return;
 #endif
 	}
