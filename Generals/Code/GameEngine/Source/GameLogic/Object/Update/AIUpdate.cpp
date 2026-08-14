@@ -3677,15 +3677,17 @@ void AIUpdateInterface::privateExit( Object *objectToExit, CommandSourceType cmd
 	}
 	else
 	{
-		// TheSuperHackers @bugfix Caball009 / Okladnoj 13/08/2026 Don't process invalid exit commands,
+		// TheSuperHackers @bugfix Caball009 / Okladnoj 10/08/2026 Don't process invalid exit commands,
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
 		if (us->getContainedBy() != objectToExit)
 		{
-			// also check the contain list; this is relevant for tunnel networks
+			// A Tunnel Network shares one passenger list, so a passenger is contained by the tunnel it entered, not by the one ordered to unload.
 			const ContainModuleInterface* contain = objectToExit->getContain();
-			const ContainedItemsList* items = contain ? contain->getContainedItemsList() : nullptr;
+			if (contain == nullptr)
+				return;
 
+			const ContainedItemsList* items = contain->getContainedItemsList();
 			if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
 				return;
 		}
