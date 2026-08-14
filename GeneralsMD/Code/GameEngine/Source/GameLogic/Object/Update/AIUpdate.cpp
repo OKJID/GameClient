@@ -3836,11 +3836,14 @@ void AIUpdateInterface::privateExit( Object *objectToExit, CommandSourceType cmd
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
 		// TheSuperHackers @bugfix Okladnoj 13/08/2026 Tunnel Networks share one contents list, so ask the addressed container whether it holds us.
-		const ContainModuleInterface* contain = objectToExit->getContain();
-		const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
+		if (us->getContainedBy() != objectToExit)
+		{
+			const ContainModuleInterface* contain = objectToExit->getContain();
+			const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
 
-		if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
-			return;
+			if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
+				return;
+		}
 #endif
 	}
 
@@ -3877,11 +3880,14 @@ void AIUpdateInterface::privateExitInstantly( Object *objectToExit, CommandSourc
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
 		// TheSuperHackers @bugfix Okladnoj 13/08/2026 Tunnel Networks share one contents list, so ask the addressed container whether it holds us.
-		const ContainModuleInterface* contain = objectToExit->getContain();
-		const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
+		if (us->getContainedBy() != objectToExit)
+		{
+			const ContainModuleInterface* contain = objectToExit->getContain();
+			const ContainedItemsList* items = contain != nullptr ? contain->getContainedItemsList() : nullptr;
 
-		if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
-			return;
+			if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
+				return;
+		}
 #endif
 	}
 
