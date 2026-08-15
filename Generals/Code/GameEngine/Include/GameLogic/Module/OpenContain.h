@@ -190,6 +190,7 @@ public:
 	virtual Bool isGarrisonable() const override { return false; }		///< can this unit be Garrisoned? (ick)
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
 	virtual Bool isTunnelContain() const override { return FALSE; }
+	virtual Bool isSharedContainer() const override { return FALSE; }
 	virtual Bool isSpecialZeroSlotContainer() const override { return false; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }
 

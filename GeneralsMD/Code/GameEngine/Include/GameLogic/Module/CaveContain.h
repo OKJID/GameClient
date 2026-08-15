@@ -101,6 +101,7 @@ public:
 	virtual UnsignedInt getContainCount() const override;
 	virtual Int getContainMax() const override;
 	virtual const ContainedItemsList* getContainedItemsList() const override;
+	virtual Bool isSharedContainer() const override { return TRUE; }
 	virtual Bool isKickOutOnCapture() override { return FALSE; }///< Caves and Tunnels don't kick out on capture.
 
 	// override the onDie we inherit from OpenContain

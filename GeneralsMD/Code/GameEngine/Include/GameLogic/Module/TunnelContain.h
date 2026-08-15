@@ -91,6 +91,7 @@ public:
 	virtual Bool isBustable() const override { return TRUE; }	///< can this container get busted by a bunkerbuster
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
 	virtual Bool isTunnelContain() const override { return TRUE; }
+	virtual Bool isSharedContainer() const override { return TRUE; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }
   virtual Bool isSpecialOverlordStyleContainer() const override {return FALSE;}
 

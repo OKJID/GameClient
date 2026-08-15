@@ -89,6 +89,7 @@ public:
 	virtual OpenContain *asOpenContain() override { return this; }  ///< treat as open container
 	virtual Bool isGarrisonable() const override { return false; }	///< can this unit be Garrisoned? (ick)
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
+	virtual Bool isSharedContainer() const override { return TRUE; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }
 
 	virtual void onContaining( Object *obj ) override;		///< object now contains 'obj'

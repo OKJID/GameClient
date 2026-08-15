@@ -3682,9 +3682,9 @@ void AIUpdateInterface::privateExit( Object *objectToExit, CommandSourceType cmd
 #if !RETAIL_COMPATIBLE_CRC
 		if (us->getContainedBy() != objectToExit)
 		{
-			// A Tunnel Network shares one passenger list, so a passenger is contained by the tunnel it entered, not by the one ordered to unload.
+			// A shared container holds one passenger list for the whole network, so a passenger is contained by the endpoint it entered, not by the one ordered to unload.
 			const ContainModuleInterface* contain = objectToExit->getContain();
-			if (contain == nullptr)
+			if (contain == nullptr || !contain->isSharedContainer())
 				return;
 
 			const ContainedItemsList* items = contain->getContainedItemsList();
