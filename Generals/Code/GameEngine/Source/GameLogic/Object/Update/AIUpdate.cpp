@@ -3662,6 +3662,24 @@ void AIUpdateInterface::privateCombatDrop( Object *target, const Coord3D& pos, C
 }
 
 //----------------------------------------------------------------------------------------
+#if !RETAIL_COMPATIBLE_CRC
+static Bool isContainedBy( const Object *us, const Object *container )
+{
+	if (us->getContainedBy() == container)
+		return TRUE;
+
+	// A shared container holds one passenger list for the whole network, so a passenger is contained
+	// by the endpoint it entered and not by the one that was ordered to unload.
+	const ContainModuleInterface *contain = container->getContain();
+	if (contain == nullptr || !contain->isSharedContainer())
+		return FALSE;
+
+	const ContainedItemsList *items = contain->getContainedItemsList();
+	return items != nullptr && std::find(items->begin(), items->end(), us) != items->end();
+}
+#endif
+
+//----------------------------------------------------------------------------------------
 /**
  * Get out of whatever it is inside of
  */
@@ -3680,17 +3698,8 @@ void AIUpdateInterface::privateExit( Object *objectToExit, CommandSourceType cmd
 		// TheSuperHackers @bugfix Caball009 / Okladnoj 10/08/2026 Don't process invalid exit commands,
 		// because an object should not attempt to exit something it's not contained by.
 #if !RETAIL_COMPATIBLE_CRC
-		if (us->getContainedBy() != objectToExit)
-		{
-			// A shared container holds one passenger list for the whole network, so a passenger is contained by the endpoint it entered, not by the one ordered to unload.
-			const ContainModuleInterface* contain = objectToExit->getContain();
-			if (contain == nullptr || !contain->isSharedContainer())
-				return;
-
-			const ContainedItemsList* items = contain->getContainedItemsList();
-			if (items == nullptr || std::find(items->begin(), items->end(), us) == items->end())
-				return;
-		}
+		if (!isContainedBy(us, objectToExit))
+			return;
 #endif
 	}
 
