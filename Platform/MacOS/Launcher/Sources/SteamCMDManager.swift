@@ -4,6 +4,7 @@ import Security
 
 enum SteamCMDState: Equatable {
     case idle
+    case installingRosetta
     case downloadingSteamCMD
     case waitingForCredentials
     case authenticating
@@ -17,7 +18,7 @@ enum SteamCMDState: Equatable {
 
     var isRunning: Bool {
         switch self {
-        case .downloadingSteamCMD, .authenticating, .downloading, .validating, .downloadingPatch, .unpackingPatch:
+        case .installingRosetta, .downloadingSteamCMD, .authenticating, .downloading, .validating, .downloadingPatch, .unpackingPatch:
             return true
         default:
             return false
@@ -27,6 +28,7 @@ enum SteamCMDState: Equatable {
     var analyticsStage: String {
         switch self {
         case .idle: return "idle"
+        case .installingRosetta: return "installing_rosetta"
         case .downloadingSteamCMD: return "installing_steamcmd"
         case .waitingForCredentials: return "awaiting_credentials"
         case .authenticating: return "authenticating"
@@ -43,6 +45,7 @@ enum SteamCMDState: Equatable {
     var statusText: String {
         switch self {
         case .idle: return L10n.steam.status.ready
+        case .installingRosetta: return L10n.steam.status.installingRosetta
         case .downloadingSteamCMD: return L10n.steam.status.installingSteamCMD
         case .waitingForCredentials: return L10n.steam.status.awaitingCreds
         case .authenticating: return L10n.steam.status.authenticating
@@ -57,11 +60,17 @@ enum SteamCMDState: Equatable {
     }
 }
 
+struct SteamCredentials {
+    let username: String
+    let password: String
+}
+
 class SteamCMDManager: ObservableObject {
     @Published var state: SteamCMDState = .idle
     @Published var consoleLog: String = ""
     @Published var steamGuardCode: String = ""
     @Published var showPurchaseAlert: Bool = false
+    @Published var showRosettaAlert: Bool = false
 
     var lastUsername: String = ""
 
@@ -71,6 +80,7 @@ class SteamCMDManager: ObservableObject {
     private var inputPipe: Pipe?
     private var downloadObservation: NSKeyValueObservation?
     private var startedAt: Date?
+    private var pendingCredentials: SteamCredentials?
 
     private var elapsedSeconds: Double {
         guard let startedAt else { return 0 }
@@ -173,6 +183,11 @@ class SteamCMDManager: ObservableObject {
         startedAt = Date()
         Analytics.logSteamDownloadStarted(needsSteamCMD: !isSteamCMDInstalled)
 
+        if RosettaInstaller.isRequired(toRun: steamCMDBinary) {
+            requestRosetta(username: username, password: password)
+            return
+        }
+
         if !isSteamCMDInstalled {
             installSteamCMD { [weak self] success in
                 guard let self, success else { return }
@@ -182,6 +197,58 @@ class SteamCMDManager: ObservableObject {
         }
 
         runSteamCMD(username: username, password: password)
+    }
+
+    // MARK: - Rosetta
+
+    func installRosetta() {
+        guard !state.isRunning else { return }
+
+        DispatchQueue.main.async { self.state = .installingRosetta }
+        appendLog("[*] Installing Rosetta 2 — an administrator password is required...\n")
+
+        RosettaInstaller.install { [weak self] result in
+            DispatchQueue.main.async { self?.handleRosettaResult(result) }
+        }
+    }
+
+    func declineRosetta() {
+        pendingCredentials = nil
+        fail("Rosetta 2 is required to run SteamCMD on Apple Silicon")
+    }
+
+    private func requestRosetta(username: String, password: String) {
+        pendingCredentials = SteamCredentials(username: username, password: password)
+        appendLog("[!] SteamCMD ships as an Intel-only binary and needs Rosetta 2.\n")
+        DispatchQueue.main.async { self.showRosettaAlert = true }
+    }
+
+    private func handleRosettaResult(_ result: RosettaInstallResult) {
+        switch result {
+        case .installed:
+            appendLog("[✓] Rosetta 2 installed\n\n")
+            resumePendingDownload()
+
+        case .cancelled:
+            pendingCredentials = nil
+            state = .idle
+            appendLog("[*] Rosetta 2 installation cancelled\n")
+
+        case .failed(let reason):
+            pendingCredentials = nil
+            fail("Rosetta 2 installation failed: \(reason)")
+        }
+    }
+
+    private func resumePendingDownload() {
+        guard let credentials = pendingCredentials else {
+            state = .idle
+            return
+        }
+
+        pendingCredentials = nil
+        state = .idle
+        startDownload(username: credentials.username, password: credentials.password)
     }
 
     func submitSteamGuard() {
@@ -342,8 +409,22 @@ class SteamCMDManager: ObservableObject {
         do {
             try task.run()
         } catch {
-            fail("Failed to launch SteamCMD: \(error.localizedDescription)")
+            handleLaunchFailure(error, username: username, password: password)
         }
+    }
+
+    private func handleLaunchFailure(_ error: Error, username: String, password: String) {
+        let needsRosetta = RosettaInstaller.isArchitectureFailure(error)
+            || RosettaInstaller.isRequired(toRun: steamCMDBinary)
+
+        guard needsRosetta else {
+            fail("Failed to launch SteamCMD: \(error.localizedDescription)")
+            return
+        }
+
+        pendingCredentials = SteamCredentials(username: username, password: password)
+        fail("SteamCMD is an Intel-only binary and needs Rosetta 2")
+        DispatchQueue.main.async { self.showRosettaAlert = true }
     }
 
     static let storeURL = "https://store.steampowered.com/app/2732960"

@@ -126,6 +126,10 @@ struct MainView: View {
                     return .purchase(username: viewModel.steamCMD.lastUsername)
                 }
 
+                if viewModel.steamCMD.showRosettaAlert {
+                    return .rosetta
+                }
+
                 if viewModel.showPatchConfirmation {
                     return .patchConfirmation
                 }
@@ -143,6 +147,7 @@ struct MainView: View {
             set: { _ in
                 viewModel.alertMessage = nil
                 viewModel.steamCMD.showPurchaseAlert = false
+                viewModel.steamCMD.showRosettaAlert = false
                 viewModel.showPatchConfirmation = false
                 viewModel.modConfirmation = nil
                 viewModel.isAskingAboutStoredPassword = false
@@ -171,6 +176,18 @@ struct MainView: View {
                     }
                 },
                 secondaryButton: .cancel(Text(L10n.alerts.close))
+            )
+
+        case .rosetta:
+            return Alert(
+                title: Text(L10n.alerts.rosettaTitle),
+                message: Text(L10n.alerts.rosettaMsg),
+                primaryButton: .default(Text(L10n.alerts.rosettaInstall)) {
+                    viewModel.steamCMD.installRosetta()
+                },
+                secondaryButton: .cancel(Text(L10n.alerts.cancel)) {
+                    viewModel.steamCMD.declineRosetta()
+                }
             )
 
         case .patchConfirmation:
@@ -591,7 +608,7 @@ struct MainView: View {
     private func _statusColor() -> Color {
         switch viewModel.steamCMD.state {
         case .idle, .waitingForCredentials: return .gray
-        case .downloadingSteamCMD, .authenticating, .downloading, .validating, .waitingSteamGuard, .downloadingPatch, .unpackingPatch: return .orange
+        case .installingRosetta, .downloadingSteamCMD, .authenticating, .downloading, .validating, .waitingSteamGuard, .downloadingPatch, .unpackingPatch: return .orange
         case .completed: return neonGreen
         case .failed: return .red
         }
@@ -1129,6 +1146,7 @@ struct MainView: View {
 enum LauncherAlert: Identifiable {
     case message(String)
     case purchase(username: String)
+    case rosetta
     case patchConfirmation
     case modConfirmation(LauncherViewModel.ModConfirmation)
     case storedPassword(account: String)
@@ -1137,6 +1155,7 @@ enum LauncherAlert: Identifiable {
         switch self {
         case .message(let text): return "message:\(text)"
         case .purchase: return "purchase"
+        case .rosetta: return "rosetta"
         case .patchConfirmation: return "patch"
         case .modConfirmation(let confirmation): return "mod:\(confirmation.id)"
         case .storedPassword: return "storedPassword"
