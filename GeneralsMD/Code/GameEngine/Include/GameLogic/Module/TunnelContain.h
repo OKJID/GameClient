@@ -91,7 +91,6 @@ public:
 	virtual Bool isBustable() const override { return TRUE; }	///< can this container get busted by a bunkerbuster
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
 	virtual Bool isTunnelContain() const override { return TRUE; }
-	virtual Bool isSharedContainer() const override { return TRUE; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }
   virtual Bool isSpecialOverlordStyleContainer() const override {return FALSE;}
 
@@ -116,6 +115,7 @@ public:
 	virtual UnsignedInt getHeroUnitsContained() const override;
 	virtual Int getContainMax() const override;
 	virtual const ContainedItemsList* getContainedItemsList() const override;
+	virtual Bool isContained( const Object *obj ) const override;
 	virtual UnsignedInt getFullTimeForHeal() const; ///< Returns the time in frames until a contained object becomes fully healed
 	virtual Bool isDisplayedOnControlBar() const override { return TRUE; } ///< Does this container display its contents on the ControlBar?
 	virtual Bool isKickOutOnCapture() override { return FALSE; }///< Caves and Tunnels don't kick out on capture.

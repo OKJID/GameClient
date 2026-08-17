@@ -171,6 +171,7 @@ public:
 	virtual void iterateContained( ContainIterateFunc func, void *userData, Bool reverse ) override;
 	virtual UnsignedInt getContainCount() const override { return m_containListSize; }
 	virtual const ContainedItemsList* getContainedItemsList() const override { return &m_containList; }
+	virtual Bool isContained( const Object *obj ) const override;
 	virtual const Object *friend_getRider() const override {return nullptr;} ///< Damn.  The draw order dependency bug for riders means that our draw module needs to cheat to get around it.
 	virtual Real getContainedItemsMass() const override;
 	virtual UnsignedInt getStealthUnitsContained() const override { return m_stealthUnitsContained; }
@@ -201,7 +202,6 @@ public:
 	virtual Bool isBustable() const override { return false; }		///< can this container get busted by a bunkerbuster
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
 	virtual Bool isTunnelContain() const override { return FALSE; }
-	virtual Bool isSharedContainer() const override { return FALSE; }
 	virtual Bool isRiderChangeContain() const override { return FALSE; }
 	virtual Bool isSpecialZeroSlotContainer() const override { return false; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }

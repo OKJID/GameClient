@@ -89,7 +89,6 @@ public:
 	virtual OpenContain *asOpenContain() override { return this; }  ///< treat as open container
 	virtual Bool isGarrisonable() const override { return false; }	///< can this unit be Garrisoned? (ick)
 	virtual Bool isHealContain() const override { return false; } ///< true when container only contains units while healing (not a transport!)
-	virtual Bool isSharedContainer() const override { return TRUE; }
 	virtual Bool isImmuneToClearBuildingAttacks() const override { return true; }
 
 	virtual void onContaining( Object *obj ) override;		///< object now contains 'obj'
@@ -110,6 +109,7 @@ public:
 	virtual UnsignedInt getHeroUnitsContained() const override;
 	virtual Int getContainMax() const override;
 	virtual const ContainedItemsList* getContainedItemsList() const override;
+	virtual Bool isContained( const Object *obj ) const override;
 	virtual UnsignedInt getFullTimeForHeal() const; ///< Returns the time in frames until a contained object becomes fully healed
 	virtual Bool isDisplayedOnControlBar() const override { return TRUE; } ///< Does this container display its contents on the ControlBar?
 	virtual Bool isKickOutOnCapture() override { return FALSE; }///< Caves and Tunnels don't kick out on capture.
