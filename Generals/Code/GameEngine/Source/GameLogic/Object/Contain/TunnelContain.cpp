@@ -208,8 +208,8 @@ void TunnelContain::onSelling()
 }
 
 //-------------------------------------------------------------------------------------------------
-// TheSuperHackers @bugfix Caball009 / Okladnoj 10/08/2026 A whole network shares one passenger list,
-// so a passenger is contained by the endpoint it entered and not by the one that was ordered to unload.
+// TheSuperHackers @info A whole network shares one passenger list, so a passenger is contained by
+// the endpoint it entered and not by the one that was ordered to unload.
 Bool TunnelContain::isContained( const Object *obj ) const
 {
 	if (OpenContain::isContained(obj))
