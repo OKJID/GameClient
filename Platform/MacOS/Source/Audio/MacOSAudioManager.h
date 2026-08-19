@@ -91,8 +91,18 @@ protected:
   void processRequestList() override;
   void playAudioEvent(AudioEventRTS *eventToPlay);
 
+  int startPlayback(AudioEventRTS *eventToPlay, Bool &isPositional);
+  Bool shouldLoopSeamlessly(const AudioEventRTS *event) const;
+  Bool restartCurrentPortion(PlayingAudio &pa);
+  Bool startNextLoop(PlayingAudio &pa);
+  void advancePlayingAudio(PlayingAudio &pa);
+
+  Bool isAffectedBy(const PlayingAudio &pa, AudioAffect which) const;
+
+  Real measureFileLengthMS(const std::string &path) const;
+
   int loadAudioBuffer(const AsciiString& path, bool forceMono = false);
-  std::string getPhysicalPathForStream(const std::string& vfsPath);
+  std::string getPhysicalPathForStream(const std::string& vfsPath) const;
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand);
   PlayingAudio* findSourceByHandle(AudioHandle handle);
@@ -106,6 +116,7 @@ private:
   int m_numStreams = 0;
   std::vector<PlayingAudio> m_sources;
   std::unordered_map<std::string, int> m_bufferCache;
+  mutable std::unordered_map<std::string, Real> m_fileLengthCache;
   MacOSVideoAudioStream* m_videoAudioStream = nullptr;
 };
 

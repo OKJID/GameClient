@@ -231,7 +231,7 @@ void MacOSAudioManager::update() {
         if (pa.playerID < 0) continue;
 
         if (!avbridge_isPlaying(pa.playerID)) {
-            stopSourceAndFree(pa);
+            advancePlayingAudio(pa);
         }
     }
 }
@@ -409,7 +409,7 @@ int MacOSAudioManager::loadAudioBuffer(const AsciiString& path, bool forceMono) 
     return bufID;
 }
 
-std::string MacOSAudioManager::getPhysicalPathForStream(const std::string& vfsPath) {
+std::string MacOSAudioManager::getPhysicalPathForStream(const std::string& vfsPath) const {
     std::string safePath = NativeFileSystem::get_safe_path(vfsPath);
     if (NativeFileSystem::exists(safePath)) {
         return safePath;
@@ -506,35 +506,83 @@ void MacOSAudioManager::processRequestList() {
 
 #pragma mark - Play Audio Event (3D Game Sounds)
 
+Bool MacOSAudioManager::shouldLoopSeamlessly(const AudioEventRTS *event) const {
+    const AudioEventInfo *info = event ? event->getAudioEventInfo() : nullptr;
+    if (!info) {
+        return FALSE;
+    }
+    if (info->m_soundType == AT_Music) {
+        return TRUE;
+    }
+    return info->isPermanentSound();
+}
+
+static AsciiString filenameForCurrentPortion(AudioEventRTS *event) {
+    switch (event->getNextPlayPortion()) {
+        case PP_Attack: return event->getAttackFilename();
+        case PP_Sound:  return event->getFilename();
+        case PP_Decay:  return event->getDecayFilename();
+        default:        return AsciiString::TheEmptyString;
+    }
+}
+
+int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, Bool &isPositional) {
+    isPositional = FALSE;
+
+    const AudioEventInfo *info = eventToPlay->getAudioEventInfo();
+    const AsciiString filename = filenameForCurrentPortion(eventToPlay);
+    if (!info || filename.isEmpty()) {
+        return -1;
+    }
+
+    const Bool loop = shouldLoopSeamlessly(eventToPlay);
+    const float pitch = eventToPlay->getPitchShift() > 0 ? eventToPlay->getPitchShift() : 1.0f;
+
+    float baseVol = getVolume(AudioAffect_Sound);
+    if (info->m_soundType == AT_Music) {
+        baseVol = getVolume(AudioAffect_Music);
+    } else if (info->m_soundType == AT_Streaming) {
+        baseVol = getVolume(AudioAffect_Speech);
+    }
+    const float gain = eventToPlay->getVolume() * baseVol;
+
+    if (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming) {
+        const std::string physicalPath = getPhysicalPathForStream(filename.str());
+        if (physicalPath.empty()) {
+            DEBUG_AUDIO_MAC(("startPlayback: Failed to extract stream %s", filename.str()));
+            return -1;
+        }
+        return avbridge_playStream(physicalPath.c_str(), gain, pitch, loop != FALSE);
+    }
+
+    const Coord3D *pos = eventToPlay->getPosition();
+    isPositional = (pos != nullptr && eventToPlay->isPositionalAudio()) ? TRUE : FALSE;
+
+    const int bufID = loadAudioBuffer(filename, isPositional != FALSE);
+    if (bufID <= 0) {
+        return -1;
+    }
+
+    if (isPositional) {
+        return avbridge_play3D(bufID, gain, pitch,
+                               pos->x, pos->y, pos->z,
+                               500.0f, 50.0f, loop != FALSE);
+    }
+    return avbridge_play(bufID, gain, pitch, loop != FALSE);
+}
+
 void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     if (!eventToPlay) return;
 
     AudioEventRTS *event = eventToPlay;
-    event->generateFilename();
-    AsciiString filename = event->getFilename();
     const AudioEventInfo *info = event->getAudioEventInfo();
-    int priority = info ? info->m_priority : 50;
+    const int priority = info ? info->m_priority : 50;
 
-    if (filename.isEmpty()) {
-        if (!info) {
-            DEBUG_AUDIO_MAC(("playAudioEvent: no AudioEventInfo for '%s'. Deleting event.",
-                event->getEventName().str()));
-        }
+    if (!info || filenameForCurrentPortion(event).isEmpty()) {
+        DEBUG_AUDIO_MAC(("playAudioEvent: no playable data for '%s'. Deleting event.",
+            event->getEventName().str()));
         delete event;
         return;
-    }
-
-    bool isStream = (info && (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming));
-    int bufID = 0;
-    bool isPos = false;
-
-    if (!isStream) {
-        isPos = (event->getPosition() != nullptr && event->isPositionalAudio());
-        bufID = loadAudioBuffer(filename, isPos);
-        if (bufID <= 0) {
-            delete event;
-            return;
-        }
     }
 
     const AudioHandle killHandle = event->getHandleToKill();
@@ -546,61 +594,81 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
 
     PlayingAudio *pa = findFreeSource(priority);
     if (!pa) {
-        DEBUG_AUDIO_MAC(("playAudioEvent: No free source for %s (pri %d). Deleting event.", filename.str(), priority));
+        DEBUG_AUDIO_MAC(("playAudioEvent: No free source for %s (pri %d). Deleting event.",
+            event->getFilename().str(), priority));
         delete event;
         return;
     }
 
-    float baseVol = 1.0f;
-    if (info) {
-        if (info->m_soundType == AT_Music) baseVol = getVolume(AudioAffect_Music);
-        else if (info->m_soundType == AT_Streaming) baseVol = getVolume(AudioAffect_Speech);
-        else baseVol = getVolume(AudioAffect_Sound);
-    } else {
-        baseVol = getVolume(AudioAffect_Sound);
-    }
-
-    float gain = event->getVolume() * baseVol;
-    float pitch = event->getPitchShift() > 0 ? event->getPitchShift() : 1.0f;
-
-    int playerID = -1;
-    if (isStream) {
-        std::string physicalPath = getPhysicalPathForStream(filename.str());
-        if (!physicalPath.empty()) {
-            playerID = avbridge_playStream(physicalPath.c_str(), gain, pitch, false);
-        } else {
-            DEBUG_AUDIO_MAC(("playAudioEvent: Failed to extract stream %s", filename.str()));
-            delete event;
-            return;
-        }
-    } else {
-        const Coord3D *pos = event->getPosition();
-        if (pos && event->isPositionalAudio()) {
-            playerID = avbridge_play3D(bufID, gain, pitch,
-                                       pos->x, pos->y, pos->z,
-                                       500.0f, 50.0f);
-            isPos = true;
-        } else {
-            playerID = avbridge_play(bufID, gain, pitch, false);
-        }
-    }
-
+    Bool isPos = FALSE;
+    const int playerID = startPlayback(event, isPos);
     if (playerID < 0) {
-        DEBUG_AUDIO_MAC(("playAudioEvent: avbridge_play failed for %s", filename.str()));
+        DEBUG_AUDIO_MAC(("playAudioEvent: playback failed for %s", event->getFilename().str()));
         delete event;
         return;
     }
 
-    DEBUG_AUDIO_MAC(("playAudioEvent: PLAYING %s! playerID=%d, Volume=%.2f", filename.str(), playerID, gain));
+    DEBUG_AUDIO_MAC(("playAudioEvent: PLAYING %s! event=%s playerID=%d looping=%d",
+        event->getFilename().str(), event->getEventName().str(), playerID,
+        shouldLoopSeamlessly(event) ? 1 : 0));
 
     pa->playerID = playerID;
     pa->isPlaying = TRUE;
     pa->eventRTS = event;
     pa->handle = event->getPlayingHandle();
     pa->priority = priority;
-    pa->is3D = isPos ? TRUE : FALSE;
+    pa->is3D = isPos;
     pa->counted = FALSE;
     notifySampleStart(*pa);
+}
+
+Bool MacOSAudioManager::restartCurrentPortion(PlayingAudio &pa) {
+    Bool isPos = FALSE;
+    const int playerID = startPlayback(pa.eventRTS, isPos);
+    if (playerID < 0) {
+        return FALSE;
+    }
+
+    pa.playerID = playerID;
+    pa.is3D = isPos;
+    return TRUE;
+}
+
+Bool MacOSAudioManager::startNextLoop(PlayingAudio &pa) {
+    pa.eventRTS->generateFilename();
+    return restartCurrentPortion(pa);
+}
+
+void MacOSAudioManager::advancePlayingAudio(PlayingAudio &pa) {
+    AudioEventRTS *event = pa.eventRTS;
+    const AudioEventInfo *info = event ? event->getAudioEventInfo() : nullptr;
+    if (!info) {
+        stopSourceAndFree(pa);
+        return;
+    }
+
+
+    if (BitIsSet(info->m_control, AC_LOOP)) {
+        if (event->getNextPlayPortion() == PP_Attack) {
+            event->setNextPlayPortion(PP_Sound);
+        }
+        if (event->getNextPlayPortion() == PP_Sound) {
+            event->decreaseLoopCount();
+            if (event->hasMoreLoops() && startNextLoop(pa)) {
+                DEBUG_AUDIO_MAC(("LOOP RESTART: event=%s file=%s playerID=%d",
+                    event->getEventName().str(), event->getFilename().str(), pa.playerID));
+                return;
+            }
+        }
+    }
+
+    event->advanceNextPlayPortion();
+    if (event->getNextPlayPortion() != PP_Done && restartCurrentPortion(pa)) {
+        DEBUG_AUDIO_MAC(("advancePlayingAudio: next portion of %s", event->getEventName().str()));
+        return;
+    }
+
+    stopSourceAndFree(pa);
 }
 
 #pragma mark - Force Play (2D UI/Lobby Sounds)
@@ -666,18 +734,43 @@ Bool MacOSAudioManager::isCurrentlyPlaying(AudioHandle handle) {
 
 #pragma mark - Global Controls
 
+Bool MacOSAudioManager::isAffectedBy(const PlayingAudio &pa, AudioAffect which) const {
+    const AudioEventInfo *info = pa.eventRTS ? pa.eventRTS->getAudioEventInfo() : nullptr;
+    if (!info) {
+        return BitIsSet(which, AudioAffect_Sound);
+    }
+
+    if (info->m_soundType == AT_Music) {
+        return BitIsSet(which, AudioAffect_Music);
+    }
+    if (info->m_soundType == AT_Streaming) {
+        return BitIsSet(which, AudioAffect_Speech);
+    }
+    return BitIsSet(which, pa.is3D ? AudioAffect_Sound3D : AudioAffect_Sound);
+}
+
 void MacOSAudioManager::stopAudio(AudioAffect which) {
     for (auto &pa : m_sources) {
-        if (pa.isPlaying) stopSourceAndFree(pa);
+        if (pa.isPlaying && isAffectedBy(pa, which)) {
+            stopSourceAndFree(pa);
+        }
     }
 }
 
 void MacOSAudioManager::pauseAudio(AudioAffect which) {
-    avbridge_pauseAll();
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying && pa.playerID >= 0 && isAffectedBy(pa, which)) {
+            avbridge_pause(pa.playerID);
+        }
+    }
 }
 
 void MacOSAudioManager::resumeAudio(AudioAffect which) {
-    avbridge_resumeAll();
+    for (auto &pa : m_sources) {
+        if (pa.isPlaying && pa.playerID >= 0 && isAffectedBy(pa, which)) {
+            avbridge_resume(pa.playerID);
+        }
+    }
 }
 
 void MacOSAudioManager::pauseAmbient(Bool shouldPause) {}
@@ -714,7 +807,23 @@ Bool MacOSAudioManager::isMusicPlaying() const {
     }
     return FALSE;
 }
-Bool MacOSAudioManager::hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const { return FALSE; }
+Bool MacOSAudioManager::hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const {
+    for (const auto &pa : m_sources) {
+        if (!pa.isPlaying || pa.playerID < 0 || !pa.eventRTS || !pa.eventRTS->getAudioEventInfo()) {
+            continue;
+        }
+        if (pa.eventRTS->getAudioEventInfo()->m_soundType != AT_Music) {
+            continue;
+        }
+        if (pa.eventRTS->getEventName() != trackName) {
+            continue;
+        }
+        if (avbridge_getLoopCount(pa.playerID) >= numberOfTimes) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 AsciiString MacOSAudioManager::getMusicTrackName() const {
     for (auto &pa : m_sources) {
         if (pa.isPlaying && pa.eventRTS && pa.eventRTS->getAudioEventInfo()) {
@@ -883,7 +992,59 @@ void MacOSAudioManager::releaseHandleForBink() {
 }
 void MacOSAudioManager::setPreferredProvider(AsciiString providerNdx) {}
 void MacOSAudioManager::setPreferredSpeaker(AsciiString speakerType) {}
-Real MacOSAudioManager::getFileLengthMS(AsciiString strToLoad) const { return 0.0f; }
+Real MacOSAudioManager::measureFileLengthMS(const std::string &path) const {
+    uint8_t *fileData = nullptr;
+    size_t fileSize = 0;
+
+    bool loaded = loadWavFromDisk(NativeFileSystem::get_safe_path(path), &fileData, &fileSize);
+    if (!loaded) {
+        loaded = loadWavFromBig(path, &fileData, &fileSize);
+    }
+
+    if (loaded && fileData) {
+        Real lengthMS = 0.0f;
+        WavParseResult wav;
+        float adpcmMS = 0.0f;
+
+        if (parseWavHeader(fileData, fileSize, &wav)) {
+            const uint32_t bytesPerFrame = wav.channels * (wav.bitsPerSample / 8);
+            if (bytesPerFrame > 0 && wav.sampleRate > 0) {
+                lengthMS = (Real)((double)wav.pcmBytes * 1000.0 / (double)(bytesPerFrame * wav.sampleRate));
+            }
+        } else if (AdpcmWav_GetDurationMS(fileData, fileSize, &adpcmMS)) {
+            lengthMS = (Real)adpcmMS;
+        }
+
+        free(fileData);
+        if (lengthMS > 0.0f) {
+            return lengthMS;
+        }
+    }
+
+    const std::string physicalPath = getPhysicalPathForStream(path);
+    if (physicalPath.empty()) {
+        return 0.0f;
+    }
+    return (Real)avbridge_getFileDurationMS(physicalPath.c_str());
+}
+
+Real MacOSAudioManager::getFileLengthMS(AsciiString strToLoad) const {
+    if (strToLoad.isEmpty()) {
+        return 0.0f;
+    }
+
+    const std::string key = strToLoad.str();
+    auto hit = m_fileLengthCache.find(key);
+    if (hit != m_fileLengthCache.end()) {
+        return hit->second;
+    }
+
+    const Real lengthMS = measureFileLengthMS(key);
+    m_fileLengthCache[key] = lengthMS;
+
+    DEBUG_AUDIO_MAC(("getFileLengthMS: %s -> %.1f ms", key.c_str(), lengthMS));
+    return lengthMS;
+}
 void MacOSAudioManager::closeAnySamplesUsingFile(const void *fileToClose) {}
 
 #if defined(RTS_DEBUG)
