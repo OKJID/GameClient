@@ -224,6 +224,7 @@ void MacOSAudioManager::update() {
     }
 
     setDeviceListenerPosition();
+    avbridge_serviceLoops();
     processRequestList();
 
     for (auto &pa : m_sources) {
@@ -479,6 +480,15 @@ void MacOSAudioManager::processRequestList() {
             continue;
         }
 
+        // Events carry a per-play delay (INI "Delay min max"), which also spaces
+        // out every repeat of a looping sound. Hold the request until it runs out.
+        if (req->m_usePendingEvent && req->m_pendingEvent &&
+            req->m_pendingEvent->getDelay() >= MSEC_PER_LOGICFRAME_REAL) {
+            req->m_pendingEvent->decrementDelay(MSEC_PER_LOGICFRAME_REAL);
+            ++it;
+            continue;
+        }
+
         switch (req->m_request) {
             case AR_Play: {
                 if (req->m_usePendingEvent && req->m_pendingEvent) {
@@ -506,15 +516,13 @@ void MacOSAudioManager::processRequestList() {
 
 #pragma mark - Play Audio Event (3D Game Sounds)
 
+// Only music repeats as one unbroken buffer. Looping sound effects list several
+// variants (INI "Sounds = a b c d") and carry attack/decay parts, so each repeat
+// has to go back through generateFilename to pick the next one — replaying a
+// single buffer forever is what makes an engine loop sound mechanical.
 Bool MacOSAudioManager::shouldLoopSeamlessly(const AudioEventRTS *event) const {
     const AudioEventInfo *info = event ? event->getAudioEventInfo() : nullptr;
-    if (!info) {
-        return FALSE;
-    }
-    if (info->m_soundType == AT_Music) {
-        return TRUE;
-    }
-    return info->isPermanentSound();
+    return (info && info->m_soundType == AT_Music) ? TRUE : FALSE;
 }
 
 static AsciiString filenameForCurrentPortion(AudioEventRTS *event) {
@@ -635,7 +643,22 @@ Bool MacOSAudioManager::restartCurrentPortion(PlayingAudio &pa) {
 }
 
 Bool MacOSAudioManager::startNextLoop(PlayingAudio &pa) {
-    pa.eventRTS->generateFilename();
+    AudioEventRTS *event = pa.eventRTS;
+    event->generateFilename();
+
+    // generateFilename rolls a fresh delay for this repeat. A spaced-out repeat
+    // goes back through the request queue, which counts the delay down, instead
+    // of restarting the sample right away.
+    if (event->getDelay() > MSEC_PER_LOGICFRAME_REAL) {
+        AudioRequest *req = allocateAudioRequest(TRUE);
+        req->m_pendingEvent = event;
+        appendAudioRequest(req);
+
+        pa.eventRTS = nullptr;
+        stopSourceAndFree(pa);
+        return TRUE;
+    }
+
     return restartCurrentPortion(pa);
 }
 

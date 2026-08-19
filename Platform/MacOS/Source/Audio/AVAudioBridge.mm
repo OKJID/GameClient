@@ -26,6 +26,13 @@ struct AVBridgePlayerSlot {
     uint32_t generation;
     CFAbsoluteTime expiry;  // 0 = never expires (looping or streaming)
     uint32_t loopsCompleted;
+
+    // Looping streams re-arm from the main thread; see avbridge_serviceLoops.
+    char loopPath[1024];
+    bool loopEnabled;
+    bool needsReschedule;
+    double fileSeconds;
+    CFAbsoluteTime scheduledAt;
 };
 
 struct AVBridgeBufferEntry {
@@ -382,6 +389,8 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     gSlots[idx].expiry = computeSlotExpiry(entry->buffer, pitch, loop);
     gSlots[idx].generation++;
     gSlots[idx].loopsCompleted = 0;
+    gSlots[idx].needsReschedule = false;
+    gSlots[idx].loopEnabled = false;
     uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
 
@@ -436,6 +445,8 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
     gSlots[idx].expiry = computeSlotExpiry(entry->buffer, pitch, loop);
     gSlots[idx].generation++;
     gSlots[idx].loopsCompleted = 0;
+    gSlots[idx].needsReschedule = false;
+    gSlots[idx].loopEnabled = false;
     uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
 
@@ -477,16 +488,20 @@ static void releaseStreamSlot(int idx) {
     gSlots[idx].active = false;
     gSlots[idx].bufferID = 0;
     gSlots[idx].expiry = 0;
+    gSlots[idx].needsReschedule = false;
+    gSlots[idx].loopEnabled = false;
 }
 
-// A fresh AVAudioFile per pass: rewinding the one still being read by the
-// player node truncates playback. The callback type must be DataPlayedBack —
-// the default fires once the data is consumed, long before it is heard.
+// Must run on the thread that drives the engine. Touching an AVAudioPlayerNode
+// from the completion queue deadlocks: the handler would wait for the engine
+// lock that a concurrent -stop already holds while draining that same queue.
+// A fresh AVAudioFile per pass, too — rewinding the one still being read
+// truncates playback.
 static bool scheduleStreamFile(int idx, uint32_t capturedGen, NSURL *url, bool loop) {
     NSError *err = nil;
     AVAudioFile *file = [[AVAudioFile alloc] initForReading:url error:&err];
     if (!file) {
-        DEBUG_AUDIO_MAC(("scheduleStreamFile: failed to reopen %s: %s",
+        DEBUG_AUDIO_MAC(("scheduleStreamFile: failed to open %s: %s",
             [[url path] UTF8String], [[err localizedDescription] UTF8String]));
         return false;
     }
@@ -495,57 +510,79 @@ static bool scheduleStreamFile(int idx, uint32_t capturedGen, NSURL *url, bool l
         ? (double)file.length / file.processingFormat.sampleRate : 0.0;
     const CFAbsoluteTime scheduledAt = CFAbsoluteTimeGetCurrent();
 
-    DEBUG_AUDIO_MAC(("STREAM SCHEDULE: slot=%d gen=%u loop=%d file=%s len=%.2fs pass=%u gain=%.3f playing=%d engineRunning=%d",
+    os_unfair_lock_lock(&gLock);
+    gSlots[idx].loopEnabled = loop;
+    gSlots[idx].fileSeconds = fileSeconds;
+    gSlots[idx].scheduledAt = scheduledAt;
+    gSlots[idx].needsReschedule = false;
+    strlcpy(gSlots[idx].loopPath, [[url path] UTF8String], sizeof(gSlots[idx].loopPath));
+    os_unfair_lock_unlock(&gLock);
+
+    DEBUG_AUDIO_MAC(("STREAM SCHEDULE: slot=%d gen=%u loop=%d file=%s len=%.2fs pass=%u gain=%.3f",
         idx, capturedGen, (int)loop, [[url lastPathComponent] UTF8String], fileSeconds,
-        gSlots[idx].loopsCompleted, gSlots[idx].node.volume,
-        (int)gSlots[idx].node.playing, (int)gEngine.running));
+        gSlots[idx].loopsCompleted, gSlots[idx].node.volume));
 
     [gSlots[idx].node scheduleFile:file
                             atTime:nil
             completionCallbackType:AVAudioPlayerNodeCompletionDataPlayedBack
                  completionHandler:^(AVAudioPlayerNodeCompletionCallbackType callbackType) {
+        // Nothing here may call into AVAudioEngine or its nodes.
         const double elapsed = CFAbsoluteTimeGetCurrent() - scheduledAt;
-        const bool nodeStillPlaying = gSlots[idx].node.playing;
 
         os_unfair_lock_lock(&gLock);
         if (gSlots[idx].generation != capturedGen) {
-            DEBUG_AUDIO_MAC(("avbridge_playStream COMPLETION: STALE callback slot=%d gen=%u vs current=%u -> IGNORED",
-                idx, capturedGen, gSlots[idx].generation));
             os_unfair_lock_unlock(&gLock);
             return;
         }
 
-        // Stopping or pausing a node also fires this handler, and node.playing
-        // still reads TRUE inside it, so only elapsed time tells a finished
-        // track from an interrupted one. Rescheduling an interrupted stream
-        // would restart it from the top, on and on.
+        // Stopping or pausing a node fires this handler as well, so only the
+        // elapsed time separates a finished track from an interrupted one.
+        // Rescheduling an interrupted stream would restart it from the top.
         const bool playedToEnd = fileSeconds <= 0.0 || elapsed >= fileSeconds * 0.9;
 
-        DEBUG_AUDIO_MAC(("STREAM COMPLETE: slot=%d gen=%u after=%.2fs expected=%.2fs type=%ld nodePlaying=%d loop=%d playedToEnd=%d",
-            idx, capturedGen, elapsed, fileSeconds, (long)callbackType, (int)nodeStillPlaying,
-            (int)loop, (int)playedToEnd));
+        DEBUG_AUDIO_MAC(("STREAM COMPLETE: slot=%d gen=%u after=%.2fs expected=%.2fs loop=%d playedToEnd=%d",
+            idx, capturedGen, elapsed, fileSeconds, (int)loop, (int)playedToEnd));
 
         if (playedToEnd) {
             gSlots[idx].loopsCompleted++;
         }
 
-        if (!loop || !playedToEnd) {
+        if (loop && playedToEnd) {
+            gSlots[idx].needsReschedule = true;
+        } else {
             releaseStreamSlot(idx);
-            os_unfair_lock_unlock(&gLock);
-            return;
+        }
+        os_unfair_lock_unlock(&gLock);
+    }];
+
+    return true;
+}
+
+void avbridge_serviceLoops(void) {
+    for (int idx = 0; idx < gMaxNodes; ++idx) {
+        os_unfair_lock_lock(&gLock);
+        const bool due = gSlots[idx].active && gSlots[idx].needsReschedule;
+        const uint32_t generation = gSlots[idx].generation;
+        char path[sizeof(gSlots[idx].loopPath)];
+        if (due) {
+            gSlots[idx].needsReschedule = false;
+            strlcpy(path, gSlots[idx].loopPath, sizeof(path));
         }
         os_unfair_lock_unlock(&gLock);
 
-        if (!scheduleStreamFile(idx, capturedGen, url, loop)) {
+        if (!due) {
+            continue;
+        }
+
+        NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
+        if (!scheduleStreamFile(idx, generation, url, true)) {
             os_unfair_lock_lock(&gLock);
-            if (gSlots[idx].generation == capturedGen) {
+            if (gSlots[idx].generation == generation) {
                 releaseStreamSlot(idx);
             }
             os_unfair_lock_unlock(&gLock);
         }
-    }];
-
-    return true;
+    }
 }
 
 int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop) {
@@ -572,6 +609,8 @@ int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop
     gSlots[idx].is3D = false;
     gSlots[idx].generation++;
     gSlots[idx].loopsCompleted = 0;
+    gSlots[idx].needsReschedule = false;
+    gSlots[idx].loopEnabled = false;
     uint32_t capturedGen = gSlots[idx].generation;
     os_unfair_lock_unlock(&gLock);
 

@@ -28,6 +28,9 @@ int     avbridge_getLoopCount(int playerID);
 // Seconds this slot's node has actually rendered; -1 when unavailable.
 double  avbridge_getPlayedSeconds(int playerID);
 
+// Re-arms looping streams whose pass finished. Call from the engine thread only.
+void    avbridge_serviceLoops(void);
+
 // Duration of a stream file (mp3, wav) in milliseconds; 0.0f when unreadable.
 float   avbridge_getFileDurationMS(const char* filepath);
 
