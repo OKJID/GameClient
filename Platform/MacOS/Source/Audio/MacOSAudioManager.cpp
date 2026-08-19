@@ -193,6 +193,17 @@ void MacOSAudioManager::init() {
     m_sources.clear();
     m_sources.resize((size_t)m_maxSources);
 
+    for (int i = 0; i < m_maxSources; ++i) {
+        if (i < m_num2DSamples) {
+            m_sources[i].poolKind = SK_2D;
+        } else if (i < m_num2DSamples + m_num3DSamples) {
+            m_sources[i].poolKind = SK_3D;
+        } else {
+            m_sources[i].poolKind = SK_Stream;
+        }
+        m_sources[i].kind = m_sources[i].poolKind;
+    }
+
     printf("MACOS AUDIO: AVAudioEngine Init Success. pool=%d (2D=%d 3D=%d streams=%d).\n",
            m_maxSources, m_num2DSamples, m_num3DSamples, m_numStreams);
     fflush(stdout);
@@ -298,16 +309,26 @@ PlayingAudio* MacOSAudioManager::findSourceByHandle(AudioHandle handle) {
     return nullptr;
 }
 
-PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand) {
+PlayingAudio* MacOSAudioManager::findFreeSource(int priorityToDemand, SourceKind kind) {
     PlayingAudio *lowestPriorityPlaying = nullptr;
     int lowestPri = 999999;
 
     for (auto &pa : m_sources) {
+        if (pa.poolKind != kind) continue;
         if (!pa.isPlaying) return &pa;
 
         if (pa.priority < lowestPri) {
             lowestPri = pa.priority;
             lowestPriorityPlaying = &pa;
+        }
+    }
+
+    // Miles caps 2D and 3D handles but never streams — "streams are basically
+    // free" — so music and speech borrow any idle slot rather than being turned
+    // away while a firefight owns the effect pools.
+    if (kind == SK_Stream) {
+        for (auto &pa : m_sources) {
+            if (!pa.isPlaying) return &pa;
         }
     }
 
@@ -534,9 +555,18 @@ static AsciiString filenameForCurrentPortion(AudioEventRTS *event) {
     }
 }
 
-int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, Bool &isPositional) {
-    isPositional = FALSE;
+SourceKind MacOSAudioManager::sourceKindFor(AudioEventRTS *event) const {
+    const AudioEventInfo *info = event ? event->getAudioEventInfo() : nullptr;
+    if (!info) {
+        return SK_2D;
+    }
+    if (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming) {
+        return SK_Stream;
+    }
+    return (event->getPosition() != nullptr && event->isPositionalAudio()) ? SK_3D : SK_2D;
+}
 
+int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, SourceKind kind) {
     const AudioEventInfo *info = eventToPlay->getAudioEventInfo();
     const AsciiString filename = filenameForCurrentPortion(eventToPlay);
     if (!info || filename.isEmpty()) {
@@ -554,7 +584,7 @@ int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, Bool &isPositio
     }
     const float gain = eventToPlay->getVolume() * baseVol;
 
-    if (info->m_soundType == AT_Music || info->m_soundType == AT_Streaming) {
+    if (kind == SK_Stream) {
         const std::string physicalPath = getPhysicalPathForStream(filename.str());
         if (physicalPath.empty()) {
             DEBUG_AUDIO_MAC(("startPlayback: Failed to extract stream %s", filename.str()));
@@ -563,15 +593,13 @@ int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, Bool &isPositio
         return avbridge_playStream(physicalPath.c_str(), gain, pitch, loop != FALSE);
     }
 
-    const Coord3D *pos = eventToPlay->getPosition();
-    isPositional = (pos != nullptr && eventToPlay->isPositionalAudio()) ? TRUE : FALSE;
-
-    const int bufID = loadAudioBuffer(filename, isPositional != FALSE);
+    const int bufID = loadAudioBuffer(filename, kind == SK_3D);
     if (bufID <= 0) {
         return -1;
     }
 
-    if (isPositional) {
+    if (kind == SK_3D) {
+        const Coord3D *pos = eventToPlay->getPosition();
         return avbridge_play3D(bufID, gain, pitch,
                                pos->x, pos->y, pos->z,
                                500.0f, 50.0f, loop != FALSE);
@@ -600,7 +628,9 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
         }
     }
 
-    PlayingAudio *pa = findFreeSource(priority);
+    const SourceKind kind = sourceKindFor(event);
+
+    PlayingAudio *pa = findFreeSource(priority, kind);
     if (!pa) {
         DEBUG_AUDIO_MAC(("playAudioEvent: No free source for %s (pri %d). Deleting event.",
             event->getFilename().str(), priority));
@@ -608,8 +638,7 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
         return;
     }
 
-    Bool isPos = FALSE;
-    const int playerID = startPlayback(event, isPos);
+    const int playerID = startPlayback(event, kind);
     if (playerID < 0) {
         DEBUG_AUDIO_MAC(("playAudioEvent: playback failed for %s", event->getFilename().str()));
         delete event;
@@ -625,20 +654,19 @@ void MacOSAudioManager::playAudioEvent(AudioEventRTS *eventToPlay) {
     pa->eventRTS = event;
     pa->handle = event->getPlayingHandle();
     pa->priority = priority;
-    pa->is3D = isPos;
+    pa->kind = kind;
+    pa->is3D = (kind == SK_3D) ? TRUE : FALSE;
     pa->counted = FALSE;
     notifySampleStart(*pa);
 }
 
 Bool MacOSAudioManager::restartCurrentPortion(PlayingAudio &pa) {
-    Bool isPos = FALSE;
-    const int playerID = startPlayback(pa.eventRTS, isPos);
+    const int playerID = startPlayback(pa.eventRTS, pa.kind);
     if (playerID < 0) {
         return FALSE;
     }
 
     pa.playerID = playerID;
-    pa.is3D = isPos;
     return TRUE;
 }
 

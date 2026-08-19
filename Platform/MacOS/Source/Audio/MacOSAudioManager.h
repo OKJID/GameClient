@@ -6,12 +6,23 @@
 #include <string>
 #include <unordered_map>
 
+// Miles keeps three independent channel sets (2D handles, 3D handles, streams),
+// so a firefight can never starve the interface or the music. Slots carry their
+// kind for the same reason.
+enum SourceKind {
+    SK_2D,
+    SK_3D,
+    SK_Stream,
+};
+
 struct PlayingAudio {
     int playerID = -1;
     Bool isPlaying = FALSE;
     AudioEventRTS *eventRTS = nullptr;
     AudioHandle handle = 0;
     int priority = 0;
+    SourceKind poolKind = SK_2D;   // fixed at init: which pool owns this slot
+    SourceKind kind = SK_2D;       // what the sound currently playing here is
     Bool is3D = FALSE;
     Bool counted = FALSE;
 };
@@ -91,7 +102,8 @@ protected:
   void processRequestList() override;
   void playAudioEvent(AudioEventRTS *eventToPlay);
 
-  int startPlayback(AudioEventRTS *eventToPlay, Bool &isPositional);
+  int startPlayback(AudioEventRTS *eventToPlay, SourceKind kind);
+  SourceKind sourceKindFor(AudioEventRTS *event) const;
   Bool shouldLoopSeamlessly(const AudioEventRTS *event) const;
   Bool restartCurrentPortion(PlayingAudio &pa);
   Bool startNextLoop(PlayingAudio &pa);
@@ -104,7 +116,7 @@ protected:
   int loadAudioBuffer(const AsciiString& path, bool forceMono = false);
   std::string getPhysicalPathForStream(const std::string& vfsPath) const;
   void stopSourceAndFree(PlayingAudio &pa);
-  PlayingAudio* findFreeSource(int priorityToDemand);
+  PlayingAudio* findFreeSource(int priorityToDemand, SourceKind kind);
   PlayingAudio* findSourceByHandle(AudioHandle handle);
   void notifySampleStart(PlayingAudio &pa);
   void notifySampleCompletion(PlayingAudio &pa);
