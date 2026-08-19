@@ -14,3 +14,6 @@ bool AdpcmWav_DecodeImaToPcm16(
     uint32_t *outPcmBytes,
     uint32_t *outSampleRate,
     uint16_t *outChannels);
+
+// Duration from the header alone — no decoding, no allocation.
+bool AdpcmWav_GetDurationMS(const uint8_t *wavData, size_t wavBytes, float *outMS);

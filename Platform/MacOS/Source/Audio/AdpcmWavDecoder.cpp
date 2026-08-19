@@ -101,6 +101,50 @@ static bool findChunks(const uint8_t *wav, size_t len, WavChunks *out) {
   return out->fmt && out->fmtSize >= 16 && out->data && out->dataSize > 0;
 }
 
+struct ImaFormat {
+  uint16_t channels;
+  uint32_t sampleRate;
+  uint16_t blockAlign;
+  uint16_t samplesPerBlock;
+  uint32_t numBlocks;
+};
+
+static bool parseImaFormat(const uint8_t *wavData, size_t wavBytes, WavChunks *outChunks, ImaFormat *out) {
+  if (!findChunks(wavData, wavBytes, outChunks)) {
+    return false;
+  }
+
+  if (rd16(outChunks->fmt) != 17) {
+    return false;
+  }
+
+  out->channels = rd16(outChunks->fmt + 2);
+  out->sampleRate = rd32(outChunks->fmt + 4);
+  out->blockAlign = rd16(outChunks->fmt + 12);
+  out->samplesPerBlock = outChunks->fmtSize >= 20 ? rd16(outChunks->fmt + 18) : 0;
+
+  if (out->channels < 1 || out->channels > 2) {
+    return false;
+  }
+  if (out->sampleRate == 0 || out->sampleRate > 96000) {
+    return false;
+  }
+  if (out->blockAlign < (out->channels == 1 ? 4u : 8u)) {
+    return false;
+  }
+
+  if (out->samplesPerBlock == 0) {
+    if (out->channels == 1) {
+      out->samplesPerBlock = (uint16_t)(((out->blockAlign - 4) * 2) + 1);
+    } else {
+      out->samplesPerBlock = (uint16_t)(((out->blockAlign - 8) * 2) / 2 + 1);
+    }
+  }
+
+  out->numBlocks = outChunks->dataSize / out->blockAlign;
+  return out->numBlocks != 0;
+}
+
 }  // namespace
 
 bool AdpcmWav_DecodeImaToPcm16(
@@ -117,44 +161,16 @@ bool AdpcmWav_DecodeImaToPcm16(
   *outPcmBytes = 0;
 
   WavChunks chunks;
-  if (!findChunks(wavData, wavBytes, &chunks)) {
+  ImaFormat format;
+  if (!parseImaFormat(wavData, wavBytes, &chunks, &format)) {
     return false;
   }
 
-  const uint16_t format = rd16(chunks.fmt);
-  if (format != 17) {
-    return false;
-  }
-
-  const uint16_t channels = rd16(chunks.fmt + 2);
-  const uint32_t sampleRate = rd32(chunks.fmt + 4);
-  const uint16_t blockAlign = rd16(chunks.fmt + 12);
-  uint16_t samplesPerBlock = 0;
-  if (chunks.fmtSize >= 20) {
-    samplesPerBlock = rd16(chunks.fmt + 18);
-  }
-
-  if (channels < 1 || channels > 2) {
-    return false;
-  }
-  if (sampleRate == 0 || sampleRate > 96000) {
-    return false;
-  }
-  if (blockAlign < (channels == 1 ? 4u : 8u)) {
-    return false;
-  }
-  if (samplesPerBlock == 0) {
-    if (channels == 1) {
-      samplesPerBlock = (uint16_t)(((blockAlign - 4) * 2) + 1);
-    } else {
-      samplesPerBlock = (uint16_t)(((blockAlign - 8) * 2) / 2 + 1);
-    }
-  }
-
-  const uint32_t numBlocks = chunks.dataSize / blockAlign;
-  if (numBlocks == 0) {
-    return false;
-  }
+  const uint16_t channels = format.channels;
+  const uint32_t sampleRate = format.sampleRate;
+  const uint16_t blockAlign = format.blockAlign;
+  const uint16_t samplesPerBlock = format.samplesPerBlock;
+  const uint32_t numBlocks = format.numBlocks;
 
   const uint64_t totalFrames = (uint64_t)numBlocks * (uint64_t)samplesPerBlock;
   const uint64_t totalSamples = totalFrames * (uint64_t)channels;
@@ -229,4 +245,20 @@ bool AdpcmWav_DecodeImaToPcm16(
   *outSampleRate = sampleRate;
   *outChannels = channels;
   return outIndex > 0;
+}
+
+bool AdpcmWav_GetDurationMS(const uint8_t *wavData, size_t wavBytes, float *outMS) {
+  if (!wavData || !outMS) {
+    return false;
+  }
+
+  WavChunks chunks;
+  ImaFormat format;
+  if (!parseImaFormat(wavData, wavBytes, &chunks, &format)) {
+    return false;
+  }
+
+  const uint64_t totalFrames = (uint64_t)format.numBlocks * (uint64_t)format.samplesPerBlock;
+  *outMS = (float)((double)totalFrames * 1000.0 / (double)format.sampleRate);
+  return true;
 }
