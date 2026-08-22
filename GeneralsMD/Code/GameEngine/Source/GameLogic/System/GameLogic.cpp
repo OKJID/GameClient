@@ -594,6 +594,10 @@ static Object* placeObjectAtPosition(Int slotNum, AsciiString objectTemplateName
 	Object* obj = TheThingFactory->newObject(btt, pPlayer->getDefaultTeam());
 	DEBUG_ASSERTCRASH(obj, ("TheThingFactory didn't give me a valid Object for player %d's (%ls) starting building",
 		slotNum, pTemplate->getDisplayName().str()));
+	DEBUG_INFO_MAC(("[START_PLACE] slot=%d object='%s' wantPlayerKey=%d defaultTeam='%s' gotPlayerKey=%d",
+		slotNum, objectTemplateName.str(), (Int)pPlayer->getPlayerNameKey(),
+		pPlayer->getDefaultTeam() != nullptr ? pPlayer->getDefaultTeam()->getName().str() : "<null>",
+		(obj != nullptr && obj->getControllingPlayer() != nullptr) ? (Int)obj->getControllingPlayer()->getPlayerNameKey() : -1));
 	if (obj)
 	{
 		obj->setOrientation(obj->getTemplate()->getPlacementViewAngle());
@@ -2136,6 +2140,11 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			AsciiString playerName;
 			playerName.format("player%d", i);
 			Player* player = ThePlayerList->findPlayerWithNameKey(TheNameKeyGenerator->nameToKey(playerName));
+
+			DEBUG_INFO_MAC(("[START_SLOT] slot=%d isAI=%d isHuman=%d name='%s' nameKey=%d playerFound=%d playerIndex=%d startPos=%d",
+				i, slot->isAI() ? 1 : 0, slot->isHuman() ? 1 : 0, playerName.str(),
+				(Int)TheNameKeyGenerator->nameToKey(playerName), player != nullptr ? 1 : 0,
+				player != nullptr ? player->getPlayerIndex() : -1, slot->getStartPos()));
 
 			if (slot->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER)
 			{

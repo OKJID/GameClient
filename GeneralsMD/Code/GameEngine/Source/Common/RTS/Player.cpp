@@ -764,6 +764,10 @@ void Player::setDefaultTeam() {
 	tname.concat(m_playerName);
 	Team *dt = TheTeamFactory->findTeam(tname);
 	DEBUG_ASSERTCRASH(dt, ("no team"));
+	DEBUG_INFO_MAC(("[DEFAULT_TEAM] player='%s' playerKey=%d team='%s' teamKey=%d found=%d teamOwnerKey=%d",
+		m_playerName.str(), (Int)m_playerNameKey, tname.str(), (Int)NAMEKEY(tname),
+		dt != nullptr ? 1 : 0,
+		(dt != nullptr && dt->getControllingPlayer() != nullptr) ? (Int)dt->getControllingPlayer()->getPlayerNameKey() : -1));
 	if (dt) {
 		m_defaultTeam = dt;
 		dt->setActive();
@@ -776,6 +780,22 @@ void Player::deletePlayerAI()
 	deleteInstance(m_ai);
 	m_ai = nullptr;
 }
+
+#ifdef __APPLE__
+// TODO(PS_PATH): Apple-only guard against maps whose sides use legacy Plyr* names.
+static Bool skirmishSideOwnsTeams(Int skirmishNdx)
+{
+	const AsciiString sideName = TheSidesList->getSkirmishSideInfo(skirmishNdx)->getDict()->getAsciiString(TheKey_playerName);
+
+	for (Int teamNdx = 0; teamNdx < TheSidesList->getNumSkirmishTeams(); ++teamNdx)
+	{
+		if (TheSidesList->getSkirmishTeamInfo(teamNdx)->getDict()->getAsciiString(TheKey_teamOwner) == sideName)
+			return TRUE;
+	}
+
+	return FALSE;
+}
+#endif
 
 //=============================================================================
 // This is called from PlayerList->newGame()
@@ -871,10 +891,37 @@ void Player::initFromDict(const Dict* d)
 		Int i, skirmishNdx;
 		Bool found = false;
 		AsciiString  qualTemplatePlayerName;
+#ifdef __APPLE__
+		for (Int dumpNdx = 0; dumpNdx < TheSidesList->getNumSkirmishSides(); ++dumpNdx)
+		{
+			const Dict *sideDict = TheSidesList->getSkirmishSideInfo(dumpNdx)->getDict();
+			const AsciiString sideName = sideDict->getAsciiString(TheKey_playerName);
+			const AsciiString sideFaction = sideDict->getAsciiString(TheKey_playerFaction);
+			const PlayerTemplate *sideTemplate = ThePlayerTemplateStore->findPlayerTemplate(NAMEKEY(sideFaction));
+			const AsciiString templateSide = sideTemplate != nullptr ? sideTemplate->getSide() : AsciiString("<none>");
+
+			DEBUG_INFO_MAC(("[SKIRMISH_LIST] want='%s' idx=%d name='%s' faction='%s' templateFound=%d side='%s' ownsTeams=%d",
+				mySide.str(), dumpNdx,
+				sideName.str(),
+				sideFaction.str(),
+				sideTemplate != nullptr ? 1 : 0,
+				templateSide.str(),
+				skirmishSideOwnsTeams(dumpNdx) ? 1 : 0));
+		}
+#endif
 		for (skirmishNdx=0; skirmishNdx<TheSidesList->getNumSkirmishSides(); skirmishNdx++) {
 			AsciiString templateName = TheSidesList->getSkirmishSideInfo(skirmishNdx)->getDict()->getAsciiString(TheKey_playerFaction);
 			pt = ThePlayerTemplateStore->findPlayerTemplate(NAMEKEY(templateName));
 			if (pt && pt->getSide() == mySide) {
+#ifdef __APPLE__
+				if (!skirmishSideOwnsTeams(skirmishNdx))
+				{
+					DEBUG_INFO_MAC(("[SKIRMISH_SIDE] skipping side '%s' for '%s': owns no skirmish teams",
+						TheSidesList->getSkirmishSideInfo(skirmishNdx)->getDict()->getAsciiString(TheKey_playerName).str(),
+						m_playerName.str()));
+					continue;
+				}
+#endif
 				qualTemplatePlayerName.format("%s%d", TheSidesList->getSkirmishSideInfo(skirmishNdx)->getDict()->getAsciiString(TheKey_playerName).str(), m_mpStartIndex);
 				found = true;
 				break;
@@ -894,6 +941,8 @@ void Player::initFromDict(const Dict* d)
 		if (!found)
 		{
 			DEBUG_CRASH(("Could not find skirmish player for side %s", mySide.str()));
+			DEBUG_INFO_MAC(("[SKIRMISH_SIDE] no usable skirmish side for '%s' (side %s), keeping default team",
+				m_playerName.str(), mySide.str()));
 		} else {
 			m_playerName = qualTemplatePlayerName;
 			AsciiString qualifier;
