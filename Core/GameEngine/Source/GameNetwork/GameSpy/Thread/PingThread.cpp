@@ -42,8 +42,8 @@
 #endif
 
 #include "GameNetwork/GameSpy/PingThread.h"
-#include "mutex.h"
-#include "thread.h"
+#include "WWLib/mutex.h"
+#include "WWLib/thread.h"
 
 #include "Common/StackDump.h"
 #include "Common/SubsystemInterface.h"

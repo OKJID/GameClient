@@ -238,6 +238,11 @@ public:
 		return m_CurrentLobby;
 	}
 
+	const LobbyEntry& GetCurrentLobby() const
+	{
+		return m_CurrentLobby;
+	}
+
 	NGMPGame* GetCurrentGame()
 	{
 		return TheNGMPGame;
@@ -406,6 +411,7 @@ public:
 	bool m_bHostMigrated = false;
 	bool m_bPendingHostHasLeft = false;
 
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 	void StartAutoReadyCountdown()
 	{
 		m_timeStartAutoReadyCountdown = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -420,6 +426,7 @@ public:
 	{
 		return m_timeStartAutoReadyCountdown != -1;
 	}
+#endif
 
 	void SetLobbyTryingToJoin(LobbyEntry lobby)
 	{
@@ -459,7 +466,10 @@ private:
 
 	bool m_bLobbyListDirty = false;
 
+
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 	int64_t m_timeStartAutoReadyCountdown = -1;
+#endif
 
 	bool m_bAttemptingToJoinLobby = false;
 	LobbyEntry m_LobbyTryingToJoin;

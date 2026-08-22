@@ -310,13 +310,23 @@ void EMPUpdate::doDisableAttack()
 
 					for (UnsignedInt e = 0 ; e < emitterCount; ++e)
 					{
+#if RETAIL_COMPATIBLE_CRC
+						// TheSuperHackers @fix The particle system is now decoupled from the logic crc
+						// and the side effects on the logic random seed values are preserved for retail compatibility.
+						{
+							Coord3D offs = {0,0,0};
+							curVictim->getGeometryInfo().makeRandomOffsetWithinFootprint( offs, LogicRandomValueClass() );
+							GameLogicRandomValue(3, victimHeight);
+							GameLogicRandomValue(1, 100);
+						}
+#endif
 
 						ParticleSystem *sys = TheParticleSystemManager->createParticleSystem(tmp);
 
 						if (sys)
 						{
 							Coord3D offs = {0,0,0};
-							curVictim->getGeometryInfo().makeRandomOffsetWithinFootprint( offs, TRUE );
+							curVictim->getGeometryInfo().makeRandomOffsetWithinFootprint( offs, ClientRandomValueClass() );
 							offs.z = GameClientRandomValue(3, victimHeight);
 
 							//This puts all the sparks within a quadrahemicycloid (rectangular dome) volume
@@ -356,9 +366,9 @@ void EMPUpdate::doDisableAttack()
 		{
 			//Victim position
 			Coord3D coord;
-			coord.set( intendedVictim->getPosition() );
+			coord.set( *intendedVictim->getPosition() );
 			//Subtract this object (distance from missile to victim's previous position)
-			coord.sub( pos );
+			coord.sub( *pos );
 
 			Real lengthSqr = coord.lengthSqr();
 			if( lengthSqr <= radius * 2.0f || lengthSqr <= 40.0f * 40.0f )

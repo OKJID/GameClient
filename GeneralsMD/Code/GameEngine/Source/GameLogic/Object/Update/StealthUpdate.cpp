@@ -853,7 +853,7 @@ void setWakeupIfInRange( Object *obj, void *userData)
 	Coord3D srcpos = *obj->getPosition();
 	Coord3D dstpos = *victim->getPosition();
 
-	srcpos.sub(&dstpos);
+	srcpos.sub(dstpos);
 	if (srcpos.length() > vision)
 		return;
 

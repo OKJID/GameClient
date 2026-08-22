@@ -44,6 +44,7 @@ class Drawable;
 class FontLibrary;
 class GameWindowManager;
 class InGameUI;
+class Intro;
 class Keyboard;
 class Mouse;
 class ParticleSystemManager;
@@ -91,14 +92,13 @@ public:
 	// subsystem methods
 	virtual void init() override;																					///< Initialize resources
 	virtual void update() override;																				///< Updates the GUI, display, audio, etc
+	virtual void draw() override;
 	virtual void reset() override;																					///< reset system
 
 	virtual void setFrame( UnsignedInt frame ) { m_frame = frame; }			///< Set the GameClient's internal frame number
 	virtual void registerDrawable( Drawable *draw );										///< Given a drawable, register it with the GameClient and give it a unique ID
 
 	void step();
-	void updateHeadless();
-
 	void addDrawableToLookupTable( Drawable *draw );			///< add drawable ID to hash lookup table
 	void removeDrawableFromLookupTable( Drawable *draw );	///< remove drawable ID from hash lookup table
 
@@ -160,6 +160,8 @@ public:
 	void incrementRenderedObjectCount() { m_renderedObjectCount++; }
 	virtual void notifyTerrainObjectMoved(Object *obj) = 0;
 
+	Bool skipCurrentIntroStage();
+
 	static Bool isMovieAbortRequested();
 
 protected:
@@ -193,6 +195,7 @@ protected:
 
 private:
 
+	Intro* m_intro;
 	UnsignedInt m_renderedObjectCount;													///< Keeps track of the number of rendered objects -- resets each frame.
 
 	//---------------------------------------------------------------------------

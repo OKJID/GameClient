@@ -61,9 +61,17 @@ typedef struct _RightClickStruct
 	Int pos;
 } RightClickStruct;
 
+enum ListRowAnimMode
+{
+    LIST_ROW_ANIM_ID = 1,      // key by item ID, for lists that change order or have insertions/deletions
+    LIST_ROW_ANIM_SLOT = 2     // key by slot index, for append-only lists that don't change order
+};
+
 ///////////////////////////////////////////////////////////////////////////////
 // INLINING ///////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
+extern void SetListBoxRowAnimMode(GameWindow *window, ListRowAnimMode mode);
+extern void ApplyListBoxRowAnimation(GameWindow *window, Int rowIndex, Int rowHeight, Int &drawY);
 extern Int GadgetListBoxGetEntryBasedOnXY( GameWindow *listbox, Int x, Int y, Int &row, Int &column);
 extern void GadgetListboxCreateScrollbar( GameWindow *listbox );
 extern void GadgetListBoxAddMultiSelect( GameWindow *listbox );

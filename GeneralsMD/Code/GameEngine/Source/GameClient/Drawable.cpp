@@ -79,7 +79,7 @@
 #include "GameClient/Shadow.h"
 #include "GameClient/GameText.h"
 
-#include "ww3d.h"
+#include "WW3D2/ww3d.h"
 
 #define VERY_TRANSPARENT_MATERIAL_PASS_OPACITY (0.001f)
 #define MATERIAL_PASS_OPACITY_FADE_SCALAR (0.8f)
@@ -116,17 +116,13 @@ static_assert(ARRAY_SIZE(TheDrawableIconNames) == MAX_ICONS + 1, "Incorrect arra
  *
  * OK, so it's a bit of a hack, but it saves memory in every Drawable
  */
+class DynamicAudioEventInfoStatic : public DynamicAudioEventInfo
+{};
+static DynamicAudioEventInfoStatic s_noSoundMarker;
+
 static DynamicAudioEventInfo* getNoSoundMarker()
 {
-	static DynamicAudioEventInfo* marker = nullptr;
-
-	if (marker == nullptr)
-	{
-		// Initialize first time function is called
-		marker = newInstance(DynamicAudioEventInfo);
-	}
-
-	return marker;
+	return &s_noSoundMarker;
 }
 
 
@@ -1741,8 +1737,8 @@ void Drawable::calcPhysicsXformTreads(const Locomotor* locomotor, PhysicsXformIn
 				up.normalize();
 
 				Coord3D prp;
-				prp.crossProduct(&v, &up, &prp);
-				normal.crossProduct(&prp, &v, &normal);
+				prp.crossProduct( v, up, prp );
+				normal.crossProduct( prp, v, normal );
 
 				// compute unit normal
 				normal.normalize();
@@ -4481,29 +4477,29 @@ void Drawable::startAmbientSound(BodyDamageType dt, TimeOfDay tod, Bool onlyIfPe
 		const AudioEventInfo* info = m_ambientSound->m_event.getAudioEventInfo();
 		if (info)
 		{
-			if (!onlyIfPermanent || info->isPermanentSound())
-			{
-				if (BitIsSet(info->m_type, ST_GLOBAL) || info->m_priority == AP_CRITICAL)
-				{
-					//Play it anyways.
-					m_ambientSound->m_event.setDrawableID(getID());
-					m_ambientSound->m_event.setTimeOfDay(tod);
-					m_ambientSound->m_event.setPlayingHandle(TheAudio->addAudioEvent(&m_ambientSound->m_event));
-				}
-				else
-				{
-					//Check if it's close enough to try playing (optimization)
-					Coord3D vector = *getPosition();
-					vector.sub(TheAudio->getListenerPosition());
-					Real distSqr = vector.lengthSqr();
-					if (distSqr < sqr(info->m_maxDistance))
-					{
-						m_ambientSound->m_event.setDrawableID(getID());
-						m_ambientSound->m_event.setTimeOfDay(tod);
-						m_ambientSound->m_event.setPlayingHandle(TheAudio->addAudioEvent(&m_ambientSound->m_event));
-					}
-				}
-			}
+      if ( !onlyIfPermanent || info->isPermanentSound() )
+      {
+			  if( BitIsSet( info->m_type, ST_GLOBAL) || info->m_priority == AP_CRITICAL )
+			  {
+				  //Play it anyways.
+				  m_ambientSound->m_event.setDrawableID(getID());
+				  m_ambientSound->m_event.setTimeOfDay(tod);
+				  m_ambientSound->m_event.setPlayingHandle(TheAudio->addAudioEvent( &m_ambientSound->m_event ));
+			  }
+			  else
+			  {
+				  //Check if it's close enough to try playing (optimization)
+				  Coord3D vector = *getPosition();
+				  vector.sub( *TheAudio->getListenerPosition() );
+				  Real distSqr = vector.lengthSqr();
+				  if( distSqr < sqr( info->m_maxDistance ) )
+				  {
+					  m_ambientSound->m_event.setDrawableID(getID());
+					  m_ambientSound->m_event.setTimeOfDay(tod);
+					  m_ambientSound->m_event.setPlayingHandle(TheAudio->addAudioEvent( &m_ambientSound->m_event ));
+				  }
+			  }
+      }
 		}
 		else
 		{

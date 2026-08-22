@@ -30,8 +30,8 @@
 
 #pragma once
 
-#include "ww3d.h"
-#include "texturefilter.h"
+#include "WW3D2/ww3d.h"
+#include "WW3D2/texturefilter.h"
 
 #include "Common/UserPreferences.h"
 
@@ -69,8 +69,10 @@ public:
 	void setOnlineIPAddress(UnsignedInt IP);
 	Bool getArchiveReplaysEnabled() const;
 	Bool getAlternateMouseModeEnabled();
+	Bool getRightMouseScrollWithAlternateMouseEnabled() const;
 	Bool getRetaliationModeEnabled();
 	Bool getDoubleClickAttackMoveEnabled();
+	Int getJpegQuality() const;
 	Real getScrollFactor();
 	Bool getDrawScrollAnchor();
 	Bool getMoveScrollAnchor();
@@ -132,9 +134,10 @@ public:
 
 	Bool getShowMoneyPerMinute() const;
 
+	Real getGameWindowTransitionSpeedMultiplier() const;
+
     Int getObserverStatsFontSize(void);
     Int getObserverNotificationFontSize(void);
 	Bool getObserverNotificationSpecialPowerUsage(void);
 	Bool getObserverNotificationSpecialPowerPurchase(void);
-	Bool getObserverNotificationMilestone(void);
-};
+	Bool getObserverNotificationMilestone(void);};

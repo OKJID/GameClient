@@ -38,6 +38,8 @@
 #define SETTINGS_KEY_PLUGINS "plugins"
 #define SETTINGS_KEY_PLUGINS_ANTICHEAT "anticheat"
 
+#define SETTINGS_KEY_DATAPACKS "data_packs"
+#define SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH "use_community_data_patch"
 
 #define SETTINGS_FILENAME_LEGACY "GeneralsOnline_settings.json"
 #define SETTINGS_FILENAME "settings.json"
@@ -274,6 +276,16 @@ void GenOnlineSettings::Load(void)
 			{
 				DEBUG_EAC_MAC(("[SETTINGS] No 'plugins' section in config"));
 			}
+
+            if (jsonSettings.contains(SETTINGS_KEY_DATAPACKS))
+            {
+                auto datapackSettings = jsonSettings[SETTINGS_KEY_DATAPACKS];
+
+                if (datapackSettings.contains(SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH))
+                {
+                    m_DataPacks_UseCommunityPatch = datapackSettings[SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH];
+                }
+            }
 		}
 		
 	}
@@ -374,6 +386,13 @@ void GenOnlineSettings::Save()
                     {SETTINGS_KEY_PLUGINS_ANTICHEAT, m_Plugins_Anticheat}
                 }
         },
+
+        {
+            SETTINGS_KEY_DATAPACKS,
+                {
+                    {SETTINGS_KEY_DATAPACKS_COMMUNITY_PATCH, m_DataPacks_UseCommunityPatch}
+                }
+        }
     };
 	
 	std::string strData = root.dump(1);

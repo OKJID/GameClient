@@ -469,7 +469,7 @@ UpdateSleepTime TransportContain::update()
 {
 	const TransportContainModuleData *moduleData = getTransportContainModuleData();
 
-	if( m_payloadCreated == FALSE )
+	if (m_payloadCreated == FALSE)
 	{
 #if RETAIL_COMPATIBLE_CRC
 		createPayload();

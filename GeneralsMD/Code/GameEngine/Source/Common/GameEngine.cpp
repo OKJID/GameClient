@@ -112,10 +112,12 @@
 
 // GENERALS ONLINE
 #include "../OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/DiscordRichPresence.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
 #include "GameNetwork/GameSpyOverlay.h"
 #include <chrono>
 #include <stdlib.h>
-#include "ww3d.h"
+#include "WW3D2/ww3d.h"
 
 static UnsignedInt s_frameRateLimitOverride = 0;
 
@@ -159,6 +161,11 @@ void TearDownGeneralsOnline()
 			title = TheGameText->fetch("GUI:GSErrorTitle");
 			body = L"Your connection to the Generals Online servers was lost.";
 		}
+        else if (teardownReason == EGOTearDownReason::AUTH_FAILED)
+        {
+            title = TheGameText->fetch("GUI:GSErrorTitle");
+            body = L"Authentication with the Generals Online servers failed.";
+        }
 		else
 		{
 			title = TheGameText->fetch("GUI:GSErrorTitle");
@@ -318,6 +325,7 @@ GameEngine::GameEngine()
 	m_logicTimeAccumulator = 0.0f;
 	m_quitting = FALSE;
 	m_isActive = FALSE;
+	m_discordRichPresence = nullptr;
 
 #ifndef __APPLE__
 	_Module.Init(nullptr, ApplicationHInstance, nullptr);
@@ -327,6 +335,9 @@ GameEngine::GameEngine()
 //-------------------------------------------------------------------------------------------------
 GameEngine::~GameEngine()
 {
+	delete m_discordRichPresence;
+	m_discordRichPresence = nullptr;
+
 	//extern std::vector<std::string>	preloadTextureNamesGlobalHack;
 	//preloadTextureNamesGlobalHack.clear();
 
@@ -345,6 +356,12 @@ GameEngine::~GameEngine()
 	TheSubsystemList->shutdownAll();
 	delete TheSubsystemList;
 	TheSubsystemList = nullptr;
+
+	delete TheSkirmishGameInfo;
+	TheSkirmishGameInfo = nullptr;
+
+	delete TheChallengeGameInfo;
+	TheChallengeGameInfo = nullptr;
 
 	delete TheNetwork;
 	TheNetwork = nullptr;
@@ -510,6 +527,9 @@ void GameEngine::init()
 
 
 		initSubsystem(TheArchiveFileSystem, "TheArchiveFileSystem", createArchiveFileSystem(), nullptr); // this MUST come after TheLocalFileSystem creation
+
+		// NGMP_CHANGE: Init our settings before loadMods, which reads DataPacks_UseCommunityPatch. Needs TheGlobalData for the user data path.
+		NGMP_OnlineServicesManager::Settings.Initialize();
 
 		// Before any INI is parsed: GameData is read below, and a mod must be able to replace it.
 		// -mod is parsed in paramsForStartup, so m_modDir is already known here.
@@ -828,9 +848,6 @@ void GameEngine::init()
 			}
 		}
 
-		if (!TheGlobalData->m_playIntro)
-			TheWritableGlobalData->m_afterIntro = TRUE;
-
 	}
 	catch (ErrorCode ec)
 	{
@@ -861,15 +878,12 @@ void GameEngine::init()
 		RELEASE_CRASH(("Uncaught Exception during initialization."));
 	}
 
-	if (!TheGlobalData->m_playIntro)
-		TheWritableGlobalData->m_afterIntro = TRUE;
-
 	resetSubsystems();
 
 	HideControlBar();
 
-	// NGMP_CHANGE: Init our settings
-	NGMP_OnlineServicesManager::Settings.Initialize();
+	m_discordRichPresence = new GeneralsOnlineDiscordRPC();
+	m_discordRichPresence->Initialize();
 
 #if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
 	float camSpeed = NGMP_OnlineServicesManager::Settings.Camera_MoveSpeedRatio();
@@ -932,7 +946,7 @@ void GameEngine::resetSubsystems()
 /// -----------------------------------------------------------------------------------------------
 Bool GameEngine::canUpdateGameLogic(UnsignedInt logicTimeQueryFlags)
 {
-	// Must be first.
+	// This updates the paused game status of the game logic.
 	TheGameLogic->preUpdate();
 
 	TheFramePacer->setTimeFrozen(isTimeFrozen());
@@ -968,6 +982,12 @@ Bool GameEngine::canUpdateNetworkGameLogic()
 Bool GameEngine::canUpdateRegularGameLogic(UnsignedInt logicTimeQueryFlags)
 {
 	const Int logicTimeScaleFps = TheFramePacer->getActualLogicTimeScaleFps(logicTimeQueryFlags);
+
+	if (logicTimeScaleFps <= 0)
+	{
+		return false;
+	}
+
 	const Int maxRenderFps = TheFramePacer->getActualFramesPerSecondLimit();
 
 #if defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)
@@ -1070,22 +1090,23 @@ void GameEngine::update()
 			{
 				NGMP_OnlineServicesManager::GetInstance()->Tick();
 			}
+
+			if (m_discordRichPresence != nullptr)
+			{
+				m_discordRichPresence->Tick(
+					NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>());
+			}
 		}
 
-		const Bool canUpdate = canUpdateGameLogic(FramePacer::IgnoreFrozenTime | FramePacer::IgnoreHaltedGame);
-		const Bool canUpdateLogic = canUpdate && !TheFramePacer->isGameHalted() && !TheFramePacer->isTimeFrozen();
-		const Bool canUpdateScript = canUpdate && !TheFramePacer->isGameHalted();
-
-		if (canUpdateLogic)
+		// TheSuperHackers @info Ignores frozen time because the script engine needs updating in the logic update regardless.
+		if (canUpdateGameLogic(FramePacer::IgnoreFrozenTime))
 		{
-			TheGameClient->step();
 			TheGameLogic->UPDATE();
-		}
-		else if (canUpdateScript)
-		{
-			// TheSuperHackers @info Still update the Script Engine to allow
-			// for scripted camera movements while the time is frozen.
-			TheScriptEngine->UPDATE();
+
+			if (!TheFramePacer->isTimeFrozen())
+			{
+				TheGameClient->step();
+			}
 		}
 	}
 }

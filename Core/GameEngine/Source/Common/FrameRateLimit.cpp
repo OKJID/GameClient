@@ -128,6 +128,13 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 }
 #endif
 
+void FrameRateLimit::reset()
+{
+	LARGE_INTEGER tick;
+	QueryPerformanceCounter(&tick);
+	m_start = tick.QuadPart;
+}
+
 
 const UnsignedInt RenderFpsPreset::s_fpsValues[] = {
 #if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_HIGH_FPS_SERVER)

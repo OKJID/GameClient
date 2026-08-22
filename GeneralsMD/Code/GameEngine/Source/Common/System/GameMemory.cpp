@@ -220,7 +220,7 @@ DECLARE_PERF_TIMER(MemoryPoolInitFilling)
 		Int used, peak, waste, peakwaste;
 		UsedNPeak() : used(0), peak(0), waste(0), peakwaste(0) { }
 	};
-	typedef std::map< const char*, UsedNPeak, std::less<const char*> > UsedNPeakMap;
+	typedef std::map< const char*, UsedNPeak, std::less<const char*>/**/> UsedNPeakMap;
 	static UsedNPeakMap TheUsedNPeakMap;
 	static Int doingIntenseDMA = 0;
 #endif

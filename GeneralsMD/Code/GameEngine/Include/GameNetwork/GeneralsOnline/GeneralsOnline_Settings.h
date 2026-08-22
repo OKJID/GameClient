@@ -71,6 +71,8 @@ public:
 		Load();
 	}
 
+	bool DataPacks_UseCommunityPatch() const { return m_DataPacks_UseCommunityPatch; }
+
 	bool Network_UseAlternativeEndpoint() const { return m_Network_UseAlternativeEndpoint; }
 	EHTTPVersion Network_GetHTTPVersion() const { return m_Network_HTTPVersion; }
 	int Network_GetHTTPVersionForCurl() const
@@ -137,6 +139,8 @@ private:
 	bool m_Social_Notification_PlayerAcceptsRequest_Gameplay = true;
 	bool m_Social_Notification_PlayerSendsRequest_Menus = true;
 	bool m_Social_Notification_PlayerSendsRequest_Gameplay = true;
+
+	bool m_DataPacks_UseCommunityPatch = true;
 
 	std::string m_Plugins_Anticheat = std::string();
 

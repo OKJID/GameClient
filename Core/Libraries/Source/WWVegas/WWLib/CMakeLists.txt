@@ -75,6 +75,7 @@ set(WWLIB_SRC
     #md5.h
     mempool.h
     mmsys.h
+    mpsc_intrusive_queue.h
     multilist.cpp
     multilist.h
     mutex.cpp
@@ -179,17 +180,13 @@ set_target_properties(core_wwlib PROPERTIES OUTPUT_NAME wwlib)
 
 target_sources(core_wwlib PRIVATE ${WWLIB_SRC})
 
-target_include_directories(core_wwlib PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
-
 target_precompile_headers(core_wwlib PRIVATE
     [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
-    always.h
-    STLUtils.h
-    win.h
-    WWCommon.h
-    wwstring.h
+    [["WWLib/always.h"]]
+    [["WWLib/STLUtils.h"]]
+    [["WWLib/win.h"]]
+    [["WWLib/WWCommon.h"]]
+    [["WWLib/wwstring.h"]]
     <windows.h>
 )
 

@@ -38,15 +38,15 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include "seglinerenderer.h"
-#include "ww3d.h"
-#include "rinfo.h"
+#include "WW3D2/ww3d.h"
+#include "WW3D2/rinfo.h"
 #include "dx8wrapper.h"
 #include "sortingrenderer.h"
-#include "vp.h"
-#include "Vector3i.h"
-#include "RANDOM.h"
-#include "v3_rnd.h"
-#include "meshgeometry.h"
+#include "WWMath/vp.h"
+#include "WWMath/Vector3i.h"
+#include "WWLib/RANDOM.h"
+#include "WWMath/v3_rnd.h"
+#include "WW3D2/meshgeometry.h"
 #include <algorithm>
 
 
@@ -192,7 +192,7 @@ void SegLineRendererClass::Set_Texture_Tile_Factor(float factor)
 	///@todo: I raised this number and didn't see much difference on our min-spec. -MW
 	const static float MAX_LINE_TILING_FACTOR = 50.0f;
 	if (factor > MAX_LINE_TILING_FACTOR) {
-		WWDEBUG_SAY(("Texture (%s) Tile Factor (%.2f) too large in SegLineRendererClass!", Get_Texture()->Get_Texture_Name().str(), TextureTileFactor));
+		WWDEBUG_SAY(("Texture (%s) Tile Factor (%.2f) too large in SegLineRendererClass!", Peek_Texture()->Get_Texture_Name().str(), TextureTileFactor));
 		factor = MAX_LINE_TILING_FACTOR;
 	} else {
 		factor = MAX(factor, 0.0f);

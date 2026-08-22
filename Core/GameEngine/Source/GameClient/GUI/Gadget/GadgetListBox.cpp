@@ -2850,3 +2850,89 @@ Int GadgetListBoxGetColumnWidth( GameWindow *listbox, Int column )
 	return listboxData->columnWidth[column];
 }
 
+//=============================================================================
+// ListBox row entry animation
+// each listbox must opt in by calling SetListBoxRowAnimMode.
+//=============================================================================
+struct RowAnimState
+{
+	Real        currentIndex;   // where the row is drawn right now, catches up to targetIndex over time
+	Real        targetIndex;    // where the row actually belongs in the list
+	UnsignedInt lastUpdateTime; // last time this row was drawn
+	Bool        initialized;    // false until this row is seen for the first time
+
+	RowAnimState()
+	{
+		currentIndex = 0.f;
+		targetIndex = 0.f;
+		lastUpdateTime = 0;
+		initialized = FALSE;
+	}
+};
+
+static std::map<GameWindow*, ListRowAnimMode> theListAnimMode;
+static std::map<Int, RowAnimState> theRowAnimState;
+
+void SetListBoxRowAnimMode(GameWindow *window, ListRowAnimMode mode)
+{
+	if (!window)
+		return;
+	theListAnimMode[window] = mode;
+}
+
+void ApplyListBoxRowAnimation(GameWindow *window, Int rowIndex, Int rowHeight, Int &drawY)
+{
+	if (!window)
+		return;
+
+	// only animate listboxes that have explicitly opted in
+	std::map<GameWindow*, ListRowAnimMode>::iterator it = theListAnimMode.find(window);
+	if (it == theListAnimMode.end())
+		return;
+
+	Int animKey;
+	if (it->second == LIST_ROW_ANIM_ID)
+	{
+		Int itemID = (Int)GadgetListBoxGetItemData(window, rowIndex);
+		if (itemID <= 0)
+			return;
+
+		animKey = (window->winGetWindowId() << 16) + itemID;
+	}
+	else // LIST_ROW_ANIM_SLOT
+	{
+		animKey = (window->winGetWindowId() << 16) + rowIndex;
+	}
+
+	RowAnimState	&anim = theRowAnimState[animKey];
+	Real		   rowPos = (Real)rowIndex;
+	UnsignedInt		  now = timeGetTime();
+	Real		deltaTime = 0.f;
+
+	if (anim.lastUpdateTime != 0)
+	{
+		UnsignedInt elapsedMs = now - anim.lastUpdateTime;
+		if (elapsedMs < 100)
+			deltaTime = elapsedMs / (Real)MSEC_PER_SECOND;
+		else
+			anim.initialized = FALSE; // listbox was closed, re-animate on next open
+	}
+	anim.lastUpdateTime = now;
+
+	if (!anim.initialized)
+	{
+		// first time this row is drawn, start one row below and slides up into place
+		anim.currentIndex = rowPos + 1.f;
+		anim.targetIndex = rowPos;
+		anim.initialized = TRUE;
+	}
+	else
+	{
+		anim.targetIndex = rowPos;
+	}
+
+	const Real animSpeed = 15.f;
+	anim.currentIndex += (anim.targetIndex - anim.currentIndex) * animSpeed * deltaTime;
+
+	drawY += (Int)((anim.currentIndex - rowPos) * (Real)rowHeight);
+}

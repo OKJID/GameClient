@@ -43,7 +43,6 @@
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
 #include "Common/Xfer.h"
-#include "Common/GameLOD.h"
 #include "GameClient/Anim2D.h"
 #include "GameClient/CampaignManager.h"
 #include "GameClient/CommandXlat.h"
@@ -63,6 +62,7 @@
 #include "GameClient/HotKey.h"
 #include "GameClient/IMEManager.h"
 #include "GameClient/InGameUI.h"
+#include "GameClient/Intro.h"
 #include "GameClient/Keyboard.h"
 #include "GameClient/LanguageFilter.h"
 #include "GameClient/LookAtXlat.h"
@@ -77,7 +77,6 @@
 #include "GameClient/View.h"
 #include "GameClient/VideoPlayer.h"
 #include "GameClient/WindowXlat.h"
-#include "GameLogic/FPUControl.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GhostObject.h"
 #include "GameLogic/Object.h"
@@ -116,6 +115,8 @@ GameClient::GameClient()
 
 	m_nextDrawableID = (DrawableID)1;
 	TheDrawGroupInfo = new DrawGroupInfo;
+
+	m_intro = nullptr;
 }
 
 //std::vector<std::string>	preloadTextureNamesGlobalHack;
@@ -158,6 +159,10 @@ GameClient::~GameClient()
 		destroyDrawable( draw );
 	}
 	m_drawableList = nullptr;
+
+	// Should be destroyed before the Display String Manager
+	delete m_intro;
+	m_intro = nullptr;
 
 	// delete the ray effects
 	delete TheRayEffects;
@@ -422,6 +427,8 @@ void GameClient::init()
 
 	TheDisplayStringManager->postProcessLoad();
 
+	m_intro = NEW Intro;
+
 #ifdef PERF_TIMERS
 	TheGraphDraw = new GraphDraw;
 #endif
@@ -503,73 +510,19 @@ void GameClient::update()
 	// create the FRAME_TICK message
 	GameMessage *frameMsg = TheMessageStream->appendMessage( GameMessage::MSG_FRAME_TICK );
 	frameMsg->appendTimestampArgument( getFrame() );
-	static Bool playSizzle = FALSE;
-	// We need to show the movie first.
-	if(TheGlobalData->m_playIntro && !TheDisplay->isMoviePlaying())
+
+	// Update intro
+	if (m_intro != nullptr)
 	{
-		if(TheGameLODManager && TheGameLODManager->didMemPass())
-			TheDisplay->playLogoMovie("EALogoMovie", 5000, 3000);
-		else
-			TheDisplay->playLogoMovie("EALogoMovie640", 5000, 3000);
-		TheWritableGlobalData->m_playIntro = FALSE;
-		TheWritableGlobalData->m_afterIntro = TRUE;
-		playSizzle = TRUE;
-	}
+		m_intro->update();
 
-	//Initial Game Condition.  We must show the movie first and then we can display the shell
-	if(TheGlobalData->m_afterIntro && !TheDisplay->isMoviePlaying())
-	{
-		if( playSizzle && TheGlobalData->m_playSizzle )
+		if (m_intro->isDone())
 		{
-			TheWritableGlobalData->m_allowExitOutOfMovies = TRUE;
-			if(TheGameLODManager && TheGameLODManager->didMemPass())
-				TheDisplay->playMovie("Sizzle");
-			else
-				TheDisplay->playMovie("Sizzle640");
-			playSizzle = FALSE;
-		}
-		else
-		{
-			TheWritableGlobalData->m_breakTheMovie = TRUE;
-			TheWritableGlobalData->m_allowExitOutOfMovies = TRUE;
-
-			if(TheGameLODManager && !TheGameLODManager->didMemPass())
-			{
-				TheWritableGlobalData->m_breakTheMovie = FALSE;
-
-				WindowLayout *legal = TheWindowManager->winCreateLayout("Menus/LegalPage.wnd");
-				if(legal)
-				{
-					legal->hide(FALSE);
-					legal->bringForward();
-					Int beginTime = timeGetTime();
-					while(beginTime + 4000 > timeGetTime() )
-					{
-						if (GameClient::isMovieAbortRequested())
-						{
-							break;
-						}
-
-						TheWindowManager->update();
-						// redraw all views, update the GUI
-						TheDisplay->draw();
-						Sleep(100);
-					}
-					setFPMode();
-
-
-					legal->destroyWindows();
-					deleteInstance(legal);
-
-				}
-				TheWritableGlobalData->m_breakTheMovie = TRUE;
-
-
-			}
+			delete m_intro;
+			m_intro = nullptr;
 
 			TheShell->showShellMap(TRUE);
 			TheShell->showShell();
-			TheWritableGlobalData->m_afterIntro = FALSE;
 		}
 	}
 
@@ -595,7 +548,7 @@ void GameClient::update()
 
 	}
 
-	if(TheGlobalData->m_playIntro || TheGlobalData->m_afterIntro)
+	if (m_intro != nullptr)
 	{
 		// redraw all views, update the GUI
 		TheDisplay->UPDATE();
@@ -756,13 +709,26 @@ void GameClient::update()
 	}
 }
 
-void GameClient::updateHeadless()
+void GameClient::draw()
 {
-	// TheSuperHackers @info helmutbuhler 03/05/2025 bobtista 02/02/2026
-	// Update particles to prevent accumulation in headless mode. Particles are generated
-	// during GameLogic and only cleaned up during rendering. update() lets particles finish
-	// their lifecycle naturally instead of abruptly removing them with reset().
-	TheParticleSystemManager->update();
+	if (m_intro != nullptr)
+	{
+		m_intro->draw();
+	}
+}
+
+void GameClient::step()
+{
+	TheDisplay->step();
+}
+
+Bool GameClient::skipCurrentIntroStage()
+{
+	if (m_intro != nullptr)
+	{
+		return m_intro->skipCurrentIntroStage();
+	}
+	return false;
 }
 
 Bool GameClient::isMovieAbortRequested()
@@ -777,7 +743,7 @@ Bool GameClient::isMovieAbortRequested()
 	{
 		TheKeyboard->UPDATE();
 		KeyboardIO *io = TheKeyboard->findKey(KEY_ESC, KeyboardIO::STATUS_UNUSED);
-		if (io && BitIsSet(io->state, KEY_STATE_DOWN))
+		if (io && BitIsSet(io->state, KEY_STATE_UP))
 		{
 			io->setUsed();
 			return TRUE;

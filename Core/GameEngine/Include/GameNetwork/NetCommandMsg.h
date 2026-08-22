@@ -33,13 +33,14 @@
 #include "GameNetwork/NetPacketStructs.h"
 #include "Common/UnicodeString.h"
 
+class GameMessageArgument;
 class NetCommandRef;
 
 //-----------------------------------------------------------------------------
 class NetCommandDataChunk
 {
-	NetCommandDataChunk(const NetCommandDataChunk&) CPP_11(= delete);
-	void operator=(const NetCommandDataChunk&) CPP_11(= delete);
+	NetCommandDataChunk(const NetCommandDataChunk&) FUNCTION_DELETE;
+	void operator=(const NetCommandDataChunk&) FUNCTION_DELETE;
 
 public:
 	NetCommandDataChunk(Byte *data, UnsignedInt size)
@@ -179,10 +180,8 @@ public:
 	virtual Select getSmallNetPacketSelect() const override;
 
 protected:
-	Int m_numArgs;
-	Int m_argSize;
 	GameMessage::Type m_type;
-	GameMessageArgument *m_argList, *m_argTail;
+	std::vector<GameMessageArgument*> m_argList;
 };
 
 //-----------------------------------------------------------------------------

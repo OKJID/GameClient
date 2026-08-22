@@ -957,11 +957,23 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 				uStr.format(L"%d", numLosses);
 				GadgetStaticTextSetText(win, uStr);
 			}
+#if defined(GENERALS_ONLINE)
+			win = findWindow(parentWindow, parentWindowName, "StaticTextDisconnects");
+			if (win)
+			{
+				uStr.format(L"Monthly Elo:");
+				GadgetStaticTextSetText(win, uStr);
+			}
+#endif
 			win = findWindow(parentWindow, parentWindowName, "StaticTextDisconnectsValue");
 			if (win)
 			{
+#if defined(GENERALS_ONLINE)
+				uStr.format(L"%d", stats.monthly_elo_rating);
+#else
 				uStr.format(L"%d", numDiscons);
-				GadgetStaticTextSetText(win, uStr);
+#endif
+				GadgetStaticTextSetText(win, uStr);			
 			}
 
 			win = findWindow(parentWindow, parentWindowName, "StaticTextBestStreakValue");

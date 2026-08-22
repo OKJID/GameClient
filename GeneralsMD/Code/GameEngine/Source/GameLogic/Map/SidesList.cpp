@@ -543,7 +543,12 @@ void SidesList::prepareForMP_or_Skirmish()
 							break;
 						}
 					}
-					if (curSide == -1) continue;
+					if (curSide == -1)
+					{
+						deleteInstance(scripts[i]);
+						scripts[i] = nullptr;
+						continue;
+					}
 
 					ScriptList *pSL = getSkirmishSideInfo(curSide)->getScriptList();
 					getSkirmishSideInfo(curSide)->setScriptList(scripts[i]);

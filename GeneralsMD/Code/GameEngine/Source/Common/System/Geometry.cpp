@@ -377,7 +377,7 @@ Bool GeometryInfo::isPointInFootprint(const Coord3D& geomCenter, const Coord3D& 
 }
 
 //=============================================================================
-void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt) const
+void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt, const RandomValueClass& random) const
 {
 	switch(m_type)
 	{
@@ -391,14 +391,14 @@ void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt) const
 			Real distSqr;
 			do
 			{
-				pt.x = GameLogicRandomValueReal(-m_majorRadius, m_majorRadius);
-				pt.y = GameLogicRandomValueReal(-m_majorRadius, m_majorRadius);
+				pt.x = RandomValueReal(random, -m_majorRadius, m_majorRadius);
+				pt.y = RandomValueReal(random, -m_majorRadius, m_majorRadius);
 				pt.z = 0.0f;
 				distSqr = sqr(pt.x) + sqr(pt.y);
 			} while (distSqr > maxDistSqr);
 #else
-			Real radius = GameLogicRandomValueReal(0.0f, m_boundingCircleRadius);
-			Real angle = GameLogicRandomValueReal(-PI, PI);
+			Real radius = RandomValueReal(random, 0.0f, m_boundingCircleRadius);
+			Real angle = RandomValueReal(random, -PI, PI);
 			pt.x = radius * Cos(angle);
 			pt.y = radius * Sin(angle);
 			pt.z = 0.0f;
@@ -408,44 +408,8 @@ void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt) const
 
 		case GEOMETRY_BOX:
 		{
-			pt.x = GameLogicRandomValueReal(-m_majorRadius, m_majorRadius);
-			pt.y = GameLogicRandomValueReal(-m_minorRadius, m_minorRadius);
-			pt.z = 0.0f;
-			break;
-		}
-	};
-}
-
-//=============================================================================
-void GeometryInfo::makeRandomOffsetWithinFootprint(Coord3D& pt, Bool useClientRandom) const
-{
-	if (!useClientRandom)
-	{
-		makeRandomOffsetWithinFootprint(pt);
-		return;
-	}
-
-	switch(m_type)
-	{
-		case GEOMETRY_SPHERE:
-		case GEOMETRY_CYLINDER:
-		{
-			Real maxDistSqr = sqr(m_majorRadius);
-			Real distSqr;
-			do
-			{
-				pt.x = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
-				pt.y = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
-				pt.z = 0.0f;
-				distSqr = sqr(pt.x) + sqr(pt.y);
-			} while (distSqr > maxDistSqr);
-			break;
-		}
-
-		case GEOMETRY_BOX:
-		{
-			pt.x = GameClientRandomValueReal(-m_majorRadius, m_majorRadius);
-			pt.y = GameClientRandomValueReal(-m_minorRadius, m_minorRadius);
+			pt.x = RandomValueReal(random, -m_majorRadius, m_majorRadius);
+			pt.y = RandomValueReal(random, -m_minorRadius, m_minorRadius);
 			pt.z = 0.0f;
 			break;
 		}

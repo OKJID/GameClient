@@ -37,7 +37,7 @@
 #include "GameClient/TerrainVisual.h" // for TERRAIN_LOD_MIN definition
 #include "GameClient/GameText.h"
 #include "GameNetwork/NetworkDefs.h"
-#include "trim.h"
+#include "WWLib/trim.h"
 
 
 
@@ -316,7 +316,7 @@ Int parseLogObjectCRCs(char *args[], int argc)
 //=============================================================================
 Int parseNetCRCInterval(char *args[], int argc)
 {
-#ifdef DEBUG_CRC
+#if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
 	if (argc > 1)
 	{
 		NET_CRC_INTERVAL = atoi(args[1]);
@@ -414,7 +414,6 @@ Int parseHeadless(char *args[], int num)
 {
 	TheWritableGlobalData->m_headless = TRUE;
 	TheWritableGlobalData->m_playIntro = FALSE;
-	TheWritableGlobalData->m_afterIntro = TRUE;
 	TheWritableGlobalData->m_playSizzle = FALSE;
 
 	// TheSuperHackers @fix bobtista 03/02/2026 Set DX8Wrapper_IsWindowed to false in headless
@@ -455,7 +454,6 @@ Int parseReplay(char *args[], int num)
 		TheWritableGlobalData->m_simulateReplays.push_back(filename);
 
 		TheWritableGlobalData->m_playIntro = FALSE;
-		TheWritableGlobalData->m_afterIntro = TRUE;
 		TheWritableGlobalData->m_playSizzle = FALSE;
 		TheWritableGlobalData->m_shellMapOn = FALSE;
 
@@ -793,10 +791,6 @@ Int parseSync(char *args[], int)
 
 Int parseNoShellMap(char *args[], int)
 {
-#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
-	return 1;
-#endif
-
 	TheWritableGlobalData->m_shellMapOn = FALSE;
 
 	return 1;
@@ -809,23 +803,9 @@ Int parseNoShaders(char *args[], int)
 	return 1;
 }
 
-#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 Int parseNoLogo(char *args[], int)
 {
 	TheWritableGlobalData->m_playIntro = FALSE;
-	TheWritableGlobalData->m_afterIntro = TRUE;
-	TheWritableGlobalData->m_playSizzle = FALSE;
-
-	return 1;
-}
-#endif
-
-Int parseNoSizzle( char *args[], int )
-{
-#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
-	return 1;
-#endif
-
 	TheWritableGlobalData->m_playSizzle = FALSE;
 
 	return 1;
@@ -856,17 +836,7 @@ Int parseWinCursors(char *args[], int num)
 
 Int parseQuickStart( char *args[], int num )
 {
-#if defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
-	return 1;
-#endif
-
-#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
-  parseNoLogo( args, num );
-#else
-	//Kris: Patch 1.01 -- Allow release builds to skip the sizzle video, but still force the EA logo to show up.
-	//This is for legal reasons.
-	parseNoSizzle( args, num );
-#endif
+	parseNoLogo( args, num );
 	parseNoShellMap( args, num );
 	parseNoWindowAnimation( args, num );
 	return 1;
@@ -1173,6 +1143,13 @@ Int parseMod(char *args[], Int num)
 	return 2;
 }
 
+Int parseDisableCommunityDataPatch(char *args[], Int num)
+{
+	TheWritableGlobalData->m_commandLineData.disableCommunityDataPatch();
+
+	return 1;
+}
+
 #ifdef DEBUG_LOGGING
 Int parseSetDebugLevel(char *args[], int num)
 {
@@ -1247,9 +1224,7 @@ static CommandLineParam paramsForStartup[] =
 // These Params are parsed during Engine Init before INI data is loaded
 static CommandLineParam paramsForEngineInit[] =
 {
-#if defined(RTS_DEBUG) || !defined(GENERALS_ONLINE_DISABLE_QUICKSTART_FUNCTIONALITY)
 	{ "-nologo", parseNoLogo }, // TheSuperHackers @tweak Is now available in Release builds.
-#endif
 	{ "-noshellmap", parseNoShellMap },
 	{ "-noShellAnim", parseNoWindowAnimation }, // TheSuperHackers @tweak Is now available in Release builds.
 	{ "-xres", parseXRes },
@@ -1258,6 +1233,7 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-particleEdit", parseParticleEdit },
 	{ "-scriptDebug", parseScriptDebug },
 	{ "-playStats", parsePlayStats },
+	{ "-disableCommunityDataPatch", parseDisableCommunityDataPatch },
 	{ "-noshaders", parseNoShaders },
 	{ "-quickstart", parseQuickStart },
 	{ "-useWaveEditor", parseUseWaveEditor },

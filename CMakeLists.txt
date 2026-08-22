@@ -75,6 +75,7 @@ endif()
 include(cmake/lzhl.cmake)
 include(cmake/curl.cmake)
 include(cmake/gns.cmake)
+include(cmake/stb.cmake)
 
 if (IS_VS6_BUILD)
     # The original max sdk does not compile against a modern compiler.

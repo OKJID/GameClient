@@ -132,6 +132,7 @@ public:
 	inline Bool getHasPassword(void) const { return m_requiresPassword; }
 	inline void setAllowObservers(Bool val) { m_allowObservers = val; }
 	inline Bool getAllowObservers(void) const { return m_allowObservers; }
+	Bool canKickOnObserversDisabled();		///< Returns true when the local is defeated and observers are disabled for GO lobbies.
 
 	inline void setVersion(UnsignedInt val) { m_version = val; }
 	inline UnsignedInt getVersion(void) const { return m_version; }

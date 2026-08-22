@@ -197,8 +197,8 @@ void dumpBattlePlanBonuses(const BattlePlanBonusesData *b, AsciiString name, con
 		kindofMaskAsAsciiString(b->m_invalidKindOf).str()));
 }
 #else
-#define DUMPBATTLEPLANBONUSES(x,y,z) {}
-#define CRCDUMPBATTLEPLANBONUSES(x,y,z) {}
+#define DUMPBATTLEPLANBONUSES(x,y,z)
+#define CRCDUMPBATTLEPLANBONUSES(x,y,z)
 #endif // DEBUG_CRC
 
 // ------------------------------------------------------------------------------------------------
@@ -2540,7 +2540,7 @@ void Player::doBountyForKill(const Object* killer, const Object* victim)
 		moneyString.format( TheGameText->fetch( "GUI:AddCash" ), bounty );
 		Coord3D pos;
 		pos.zero();
-		pos.add( killer->getPosition() );
+		pos.add( *killer->getPosition() );
 		pos.z += 10.0f; //add a little z to make it show up above the unit.
 		TheInGameUI->addFloatingText( moneyString, &pos, GameMakeColor( 255, 255, 0, 255 ) );
 	}
@@ -3231,12 +3231,10 @@ void Player::removeUpgrade( const UpgradeTemplate *upgradeTemplate )
 		deleteInstance(upgrade);
 
 		if( ThePlayerList->getLocalPlayer() == this )
-	{
-		TheControlBar->markUIDirty();
+		{
+			TheControlBar->markUIDirty();
+		}
 	}
-
-	}
-
 }
 
 

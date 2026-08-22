@@ -129,7 +129,7 @@ set(GAMEENGINEDEVICE_SRC
 #    Source/W3DDevice/GameClient/GUI/Gadget/W3DTabControl.cpp
 #    Source/W3DDevice/GameClient/GUI/Gadget/W3DTextEntry.cpp
 #    Source/W3DDevice/GameClient/GUI/Gadget/W3DVerticalSlider.cpp
-    Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DControlBar.cpp
+#    Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DControlBar.cpp
     Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DMainMenu.cpp
     Source/W3DDevice/GameClient/GUI/GUICallbacks/W3DMOTD.cpp
     Source/W3DDevice/GameClient/GUI/W3DGameFont.cpp
@@ -157,7 +157,7 @@ set(GAMEENGINEDEVICE_SRC
     Source/W3DDevice/GameClient/W3DGameClient.cpp
     Source/W3DDevice/GameClient/W3DInGameUI.cpp
 #    Source/W3DDevice/GameClient/W3DMouse.cpp
-    Source/W3DDevice/GameClient/W3DParticleSys.cpp
+#    Source/W3DDevice/GameClient/W3DParticleSys.cpp
     Source/W3DDevice/GameClient/W3DPoly.cpp
 #    Source/W3DDevice/GameClient/W3DPropBuffer.cpp
     Source/W3DDevice/GameClient/W3DRoadBuffer.cpp
@@ -210,20 +210,20 @@ target_include_directories(z_gameenginedevice PUBLIC
 
 if(NOT APPLE)
     target_precompile_headers(z_gameenginedevice PRIVATE
-        [["Utility/CppMacros.h"]]
+        [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
         [["Common/STLTypedefs.h"]]
         [["Common/SubsystemInterface.h"]]
-        [["INI.h"]]
-        [["WWCommon.h"]]
+        [["WWLib/INI.h"]]
+        [["WWLib/WWCommon.h"]]
         <windows.h>
     )
 else()
     target_precompile_headers(z_gameenginedevice PRIVATE
-        [["Utility/CppMacros.h"]]
+        [["Utility/CppMacros.h"]] # Must be first, to be removed when abandoning VC6
         [["Common/STLTypedefs.h"]]
         [["Common/SubsystemInterface.h"]]
-        [["INI.h"]]
-        [["WWCommon.h"]]
+        [["WWLib/INI.h"]]
+        [["WWLib/WWCommon.h"]]
     )
 endif()
 
@@ -231,6 +231,7 @@ target_link_libraries(z_gameenginedevice PRIVATE
     corei_gameenginedevice_private
     zi_always
     zi_main
+    stb
 )
 
 target_link_libraries(z_gameenginedevice PUBLIC

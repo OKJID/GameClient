@@ -208,6 +208,18 @@ void HTTPRequest::Threaded_SetComplete(CURLcode result)
 	// if we got an error, set the response code to 0
 
 #if !_DEBUG
+	static const std::string strSeedKey = "\"RNGSeed\":";
+	for (size_t seedPos = strResponse.find(strSeedKey); seedPos != std::string::npos; seedPos = strResponse.find(strSeedKey, seedPos))
+	{
+		size_t valueStart = seedPos + strSeedKey.length();
+		size_t valueEnd = strResponse.find_first_of(",}", valueStart);
+		if (valueEnd == std::string::npos)
+			break;
+
+		strResponse.replace(valueStart, valueEnd - valueStart, "<redacted>");
+		seedPos = valueStart;
+	}
+
 	std::transform(strResponse.begin(), strResponse.end(), strResponse.begin(),
 		[](unsigned char c) { return std::tolower(c); });
 	if (strResponse.find("token") != std::string::npos)

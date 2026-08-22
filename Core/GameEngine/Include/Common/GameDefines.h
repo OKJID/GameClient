@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "WWLib/WWDefines.h"
+
 // Note: Retail compatibility must not be broken before this project officially does.
 // Use RETAIL_COMPATIBLE_CRC and RETAIL_COMPATIBLE_XFER_SAVE to guard breaking changes.
 
@@ -45,20 +47,38 @@
 #define PRESERVE_NO_XP_FROM_OCL_KILLS (1)
 #endif
 
-#ifndef PRESERVE_NO_XP_FROM_POISON_KILLS
-#define PRESERVE_NO_XP_FROM_POISON_KILLS (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES) // COMMUNITY PATCH CHANGE
+	#ifndef PRESERVE_NO_XP_FROM_POISON_KILLS
+	#define PRESERVE_NO_XP_FROM_POISON_KILLS (0)
+	#endif
+#else
+	#ifndef PRESERVE_NO_XP_FROM_POISON_KILLS
+	#define PRESERVE_NO_XP_FROM_POISON_KILLS (1)
+	#endif
 #endif
 
-#ifndef PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION
-#define PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES) // COMMUNITY PATCH CHANGE
+	#ifndef PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION
+	#define PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION (0)
+	#endif
+#else
+	#ifndef PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION
+	#define PRESERVE_OCCUPANT_DETECTION_VIA_DRAG_SELECTION (1)
+	#endif
 #endif
 
 #ifndef PRESERVE_PERPETUAL_HORDE_BONUS
 #define PRESERVE_PERPETUAL_HORDE_BONUS (1)
 #endif
 
-#ifndef PRESERVE_PREMATURE_BATTLE_BUS_DEATH
-#define PRESERVE_PREMATURE_BATTLE_BUS_DEATH (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES) // COMMUNITY PATCH CHANGE
+	#ifndef PRESERVE_PREMATURE_BATTLE_BUS_DEATH
+	#define PRESERVE_PREMATURE_BATTLE_BUS_DEATH (0)
+	#endif
+#else
+	#ifndef PRESERVE_PREMATURE_BATTLE_BUS_DEATH
+	#define PRESERVE_PREMATURE_BATTLE_BUS_DEATH (1)
+	#endif
 #endif
 
 #ifndef PRESERVE_RADAR_WARNING_SUPPRESSION

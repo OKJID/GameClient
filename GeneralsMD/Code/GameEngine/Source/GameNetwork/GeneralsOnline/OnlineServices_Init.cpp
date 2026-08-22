@@ -5,7 +5,7 @@
 #include "Common/FileSystem.h"
 #include "Common/file.h"
 #include "Common/System/NativeFileSystem.h"
-#include "realcrc.h"
+#include "WWLib/realcrc.h"
 #include "GameNetwork/DownloadManager.h"
 #include <ws2tcpip.h>
 #include "GameClient/DisplayStringManager.h"
@@ -13,8 +13,8 @@
 #include "Common/MultiplayerSettings.h"
 #include "GameNetwork/GameSpyOverlay.h"
 #include "GameClient/Display.h"
-#include "surfaceclass.h"
-#include "dx8wrapper.h"
+#include "WW3D2/surfaceclass.h"
+#include "WW3D2/dx8wrapper.h"
 #include <mutex>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -135,48 +135,6 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 			}
 		});
 }
-
-
-void NGMP_OnlineServicesManager::CaptureScreenshotToDisk()
-{
-	// create dirs
-	std::string strScreenshotsDir = std::format("{}\\GeneralsOnlineScreenshots\\", TheGlobalData->getPath_UserData().str());
-
-	if (!NativeFileSystem::exists(strScreenshotsDir))
-	{
-		NativeFileSystem::create_directory(strScreenshotsDir);
-	}
-
-	// calculate path
-	auto now = std::chrono::system_clock::now();
-	auto in_time_t = std::chrono::system_clock::to_time_t(now);
-	std::stringstream ss;
-	ss << std::put_time(std::localtime(&in_time_t), "GeneralsOnline_Screenshot_%Y-%m-%d-%H-%M-%S.jpg");
-
-	std::string strFilePath = std::format("{}\\{}", strScreenshotsDir.c_str(), ss.str().c_str());
-
-	// do UI output immediately on mainthread (if ingame)
-	if (TheInGameUI != nullptr)
-	{
-		UnicodeString ufileName;
-		ufileName.translate(AsciiString(strFilePath.c_str()));
-		TheInGameUI->message(TheGameText->fetch("GUI:ScreenCapture"), ufileName.str());
-	}
-
-	NGMP_OnlineServicesManager::CaptureScreenshot(false, [strFilePath](std::vector<unsigned char> vecBuffer)
-		{
-			if (!vecBuffer.empty())
-			{
-				// write to disk
-				FILE* pFile = NativeFileSystem::fopen(strFilePath, "wb");
-				if (pFile != nullptr) {
-					fwrite(vecBuffer.data(), sizeof(uint8_t), vecBuffer.size(), pFile);
-					fclose(pFile);
-				}
-			}
-		});
-}
-
 
 void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI)
 {
@@ -629,7 +587,7 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 			TheDownloadManager->OnStatusUpdate(DOWNLOADSTATUS_FINISHING);
 		}
 
-		std::scoped_lock<std::mutex> lock(m_updateCallbackMutex);
+		std::scoped_lock<std::recursive_mutex> lock(m_updateCallbackMutex);
 		if (m_updateCompleteCallback != nullptr)
 		{
 			m_updateCompleteCallback();
@@ -697,7 +655,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 								memcpy(pixelData.data(), pBits, height * pitch);
 
 								// process on thread - track the thread so we can join it during shutdown
-								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pixelData = std::move(pixelData), pDXsurf, pitch, bResizeForTransmit]()
+								std::thread* pNewThread = new std::thread([cbOnDataAvailable, width, height, pixelData = std::move(pixelData), pitch, bResizeForTransmit]()
 									{
 										CHECK_WORKER_THREAD;
 
@@ -759,11 +717,6 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
 										delete[] rgbData;
 										rgbData = nullptr;
 
-										if (pDXsurf != nullptr)
-										{
-											pDXsurf->Release();
-										}
-
 										// invoke cb
 										if (cbOnDataAvailable != nullptr)
 										{
@@ -820,12 +773,10 @@ void NGMP_OnlineServicesManager::CaptureScreenshot(bool bResizeForTransmit, std:
  		surfaceCopy = nullptr;
 	}
 
-	if (!bSucceeded) // if success, thread uses this and then destroys it
+	if (pDXsurf != nullptr)
 	{
-		if (pDXsurf != nullptr)
-		{
-			pDXsurf->Release();
-		}
+		pDXsurf->Release();
+		pDXsurf = nullptr;
 	}
 
 	// callback if failed
@@ -904,7 +855,7 @@ void NGMP_OnlineServicesManager::StartDownloadUpdate(std::function<void(void)> c
 	m_vecFilesSizes.emplace(m_patcher_size);
 	
 	{
-		std::scoped_lock<std::mutex> lock(m_updateCallbackMutex);
+		std::scoped_lock<std::recursive_mutex> lock(m_updateCallbackMutex);
 		m_updateCompleteCallback = cb;
 	}
 

@@ -676,6 +676,9 @@ void createGame()
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (!pLobbyInterface)
 	{
+		parentPopup = nullptr;
+		GameSpyCloseOverlay(GSOVERLAY_GAMEOPTIONS);
+		SetLobbyAttemptHostJoin(FALSE);
 		GSMessageBoxOk(UnicodeString(L"Error"), UnicodeString(L"Failed to get Online Services Lobby Interface!"));
 		return;
 	}

@@ -36,10 +36,9 @@
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 #include "GameNetwork/GameSpy/ThreadUtils.h"
 
+#include "WWLib/mutex.h"
+#include "WWLib/thread.h"
 #include "Common/StackDump.h"
-
-#include "mutex.h"
-#include "thread.h"
 
 
 //-------------------------------------------------------------------------

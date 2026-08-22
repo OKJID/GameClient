@@ -77,8 +77,7 @@
 #include "GameClient/Shadow.h"
 #include "GameClient/GameText.h"
 
-#include "ww3d.h"
-
+#include "WW3D2/ww3d.h"
 
 #define VERY_TRANSPARENT_HEATVISION (0.001f)
 #define HEATVISION_FADE_SCALAR (0.8f)
@@ -1596,8 +1595,8 @@ void Drawable::calcPhysicsXformTreads( const Locomotor *locomotor, PhysicsXformI
 				up.normalize();
 
 				Coord3D prp;
-				prp.crossProduct( &v, &up, &prp );
-				normal.crossProduct( &prp, &v, &normal );
+				prp.crossProduct( v, up, prp );
+				normal.crossProduct( prp, v, normal );
 
 				// compute unit normal
 				normal.normalize();
@@ -3901,7 +3900,7 @@ void Drawable::startAmbientSound(BodyDamageType dt, TimeOfDay tod)
 			{
 				//Check if it's close enough to try playing (optimization)
 				Coord3D vector = *getPosition();
-				vector.sub( TheAudio->getListenerPosition() );
+				vector.sub( *TheAudio->getListenerPosition() );
 				Real distSqr = vector.lengthSqr();
 				if( distSqr < sqr( info->m_maxDistance ) )
 				{

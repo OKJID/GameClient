@@ -2391,6 +2391,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	// if we're in a load game, don't fade yet
 	if (loadingSaveGame == FALSE && TheTransitionHandler != NULL && m_loadScreen)
 	{
+		TheFramePacer->reset();
 		TheTransitionHandler->setGroup("FadeWholeScreen");
 		while (!TheTransitionHandler->isFinished())
 		{
@@ -2399,7 +2400,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			{
 				TheDisplay->draw();
 				setFPMode();
-				Sleep(33);
+				TheFramePacer->update();
 			}
 
 		}
@@ -2823,15 +2824,33 @@ void GameLogic::processCommandList(CommandList* list)
 			}
 			else
 			{
-				//DEBUG_LOG(("Comparing %d CRCs on frame %d", m_cachedCRCs.size(), m_frame));
-				std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin();
-				Int validatorCRC = crcIt->second;
-				DEBUG_INFO_MAC(("[CRC_CHECK] validator player[%d] CRC=0x%08X (numCRCs=%zu numPlayers=%d)", crcIt->first, validatorCRC, m_cachedCRCs.size(), numPlayers));
-				while (++crcIt != m_cachedCRCs.end())
+				Bool hasReferenceCRC = FALSE;
+				UnsignedInt referenceCRC = 0;
+
+				for (CachedCRCMap::const_iterator it = m_cachedCRCs.begin(); it != m_cachedCRCs.end(); ++it)
 				{
-					Int validatedCRC = crcIt->second;
-					DEBUG_INFO_MAC(("[CRC_CHECK] player[%d] CRC=0x%08X vs validator=0x%08X %s", crcIt->first, validatedCRC, validatorCRC, (validatorCRC != validatedCRC) ? "MISMATCH!" : "ok"));
-					if (validatorCRC != validatedCRC)
+					// TheSuperHackers @bugfix Caball009 14/06/2026 Check if player is still connected,
+					// to avoid spurious mismatches at low CRC intervals, e.g. every frame.
+					const Int slotIndex = ThePlayerList->getSlotIndex(it->first);
+					if (slotIndex >= 0 && !TheNetwork->isPlayerConnected(slotIndex))
+					{
+						DEBUG_INFO_MAC(("[CRC_CHECK] player[%d] skipped: slot=%d disconnected", it->first, slotIndex));
+						continue;
+					}
+
+					const UnsignedInt crc = it->second;
+
+					if (!hasReferenceCRC)
+					{
+						hasReferenceCRC = TRUE;
+						referenceCRC = crc;
+						DEBUG_INFO_MAC(("[CRC_CHECK] validator player[%d] CRC=0x%08X (numCRCs=%zu numPlayers=%d)", it->first, referenceCRC, m_cachedCRCs.size(), numPlayers));
+						continue;
+					}
+
+					DEBUG_INFO_MAC(("[CRC_CHECK] player[%d] CRC=0x%08X vs validator=0x%08X %s", it->first, crc, referenceCRC, (referenceCRC != crc) ? "MISMATCH!" : "ok"));
+
+					if (referenceCRC != crc)
 					{
 						DEBUG_CRASH(("CRC mismatch!"));
 						sawCRCMismatch = TRUE;
@@ -2844,7 +2863,7 @@ void GameLogic::processCommandList(CommandList* list)
 		{
 #ifdef DEBUG_LOGGING
 			DEBUG_LOG(("CRC Mismatch - saw %d CRCs from %d players", m_cachedCRCs.size(), numPlayers));
-			for (std::map<Int, UnsignedInt>::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
+			for (CachedCRCMap::const_iterator crcIt = m_cachedCRCs.begin(); crcIt != m_cachedCRCs.end(); ++crcIt)
 			{
 				Player* player = ThePlayerList->getNthPlayer(crcIt->first);
 				DEBUG_LOG(("CRC from player %d (%ls) = %X", crcIt->first,
@@ -3996,6 +4015,12 @@ void GameLogic::update()
 		TheScriptEngine->UPDATE();
 	}
 
+	// TheSuperHackers @info Updates the frozen time status because it may have changed after the script engine update.
+	TheFramePacer->setTimeFrozen(TheGameEngine->isTimeFrozen());
+
+	if (TheFramePacer->isTimeFrozen())
+		return;
+
 	// Note - TerrainLogic update needs to happen after ScriptEngine update, but before object updates.  jba.
 	// This way changes in bridges are noted in the script engine before being cleared in TerrainLogic->update
 	{
@@ -4175,55 +4200,6 @@ void GameLogic::update()
 	TheLocomotorStore->UPDATE();
 	TheVictoryConditions->UPDATE();
 
-#if defined(GENERALS_ONLINE)
-	// When observers are disabled by host on GO, remove the non host player from game after they are defeated
-	bool hasAllyAlive = false;
-	Player* localPlayer = ThePlayerList->getLocalPlayer();
-	if (localPlayer)
-	{
-		Team* myTeam = localPlayer->getDefaultTeam();
-		if (myTeam)
-		{
-			for (int playerIndex = 0; playerIndex < ThePlayerList->getPlayerCount(); ++playerIndex)
-			{
-				Player* other = ThePlayerList->getNthPlayer(playerIndex);
-				if (!other || other == localPlayer) continue;
-
-				if (myTeam->getRelationship(other->getDefaultTeam()) == ALLIES && !TheVictoryConditions->hasSinglePlayerBeenDefeated(other))
-					hasAllyAlive = true;
-			}
-		}
-	}
-
-	static int observerKickCountdown = -1;
-	bool shouldKickObserver = TheNGMPGame && !TheNGMPGame->getAllowObservers() && TheGameLogic->getGameMode() == GAME_INTERNET &&
-							  localPlayer && !localPlayer->isPlayerObserver() && TheVictoryConditions->hasSinglePlayerBeenDefeated(localPlayer);
-
-	if (!shouldKickObserver)
-		observerKickCountdown = -1;
-	else
-	{
-		if (hasAllyAlive)
-			TheGameLogic->exitGame();
-
-		if (TheNGMPGame->amIHost())
-			observerKickCountdown = -1;
-		else
-		{
-			if (observerKickCountdown < 0)
-				observerKickCountdown = LOGICFRAMES_PER_SECOND * 10;
-
-			if (observerKickCountdown > 0)
-				observerKickCountdown--;
-			else
-			{
-				TheGameLogic->exitGame();
-				observerKickCountdown = -1;
-			}
-		}
-	}
-#endif
-
 	{
 		//Handle disabled statii (and re-enable objects once frame matches)
 		for (Object* obj = m_objList; obj; obj = obj->getNextObject())
@@ -4235,9 +4211,12 @@ void GameLogic::update()
 		}
 	}
 
-
-
-
+#if defined(GENERALS_ONLINE)
+	if (TheNGMPGame != nullptr && TheNGMPGame->canKickOnObserversDisabled())
+	{
+		TheGameLogic->exitGame();
+	}
+#endif
 
 	// increment world time
 	if (!m_startNewGame)

@@ -2073,7 +2073,7 @@ Bool AIPlayer::calcClosestConstructionZoneLocation( const ThingTemplate *constru
 	if( valid )
 	{
 		//We succeeded in calculating the best position.
-		location->set( &newPos );
+		location->set( newPos );
     success = TRUE;
 	}
 	else

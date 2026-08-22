@@ -14,7 +14,6 @@ endif()
 
 target_include_directories(z_wwcommon INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    WW3D2
 )
 
 if(NOT APPLE)
@@ -30,7 +29,6 @@ add_library(z_wwvegas INTERFACE)
 
 target_include_directories(z_wwvegas INTERFACE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    WW3D2
 )
 
 target_link_libraries(z_wwvegas INTERFACE

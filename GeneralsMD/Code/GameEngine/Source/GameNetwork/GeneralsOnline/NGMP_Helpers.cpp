@@ -235,6 +235,49 @@ std::vector<uint8_t> Base64Decode(const std::string& encodedData) {
 	return decodedData;
 }
 
+std::string getGameExeCRC()
+{
+    HMODULE hModule = GetModuleHandle(NULL);
+    if (!hModule) return "";
+
+    PIMAGE_DOS_HEADER dosHeader = (PIMAGE_DOS_HEADER)hModule;
+    PIMAGE_NT_HEADERS ntHeader = (PIMAGE_NT_HEADERS)((BYTE*)hModule + dosHeader->e_lfanew);
+
+    PIMAGE_SECTION_HEADER section = IMAGE_FIRST_SECTION(ntHeader);
+    for (int i = 0; i < ntHeader->FileHeader.NumberOfSections; i++, section++) {
+        if (strcmp((char*)section->Name, ".text") == 0) {
+            BYTE* codeBase = (BYTE*)hModule + section->VirtualAddress;
+            DWORD codeSize = section->Misc.VirtualSize;
+
+            HCRYPTPROV hProv;
+            HCRYPTHASH hHash;
+            BYTE hash[32]; // SHA-256
+            DWORD hashLen = sizeof(hash);
+
+            if (CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT) &&
+                CryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash) &&
+                CryptHashData(hHash, codeBase, codeSize, 0) &&
+                CryptGetHashParam(hHash, HP_HASHVAL, hash, &hashLen, 0)) {
+
+                std::ostringstream oss;
+                oss << std::hex << std::setfill('0');
+                for (DWORD j = 0; j < hashLen; j++) {
+                    oss << std::setw(2) << static_cast<int>(hash[j]);
+                }
+
+                CryptDestroyHash(hHash);
+                CryptReleaseContext(hProv, 0);
+
+                return oss.str(); // return as std::string
+            }
+
+            CryptDestroyHash(hHash);
+            CryptReleaseContext(hProv, 0);
+        }
+    }
+    return "";
+}
+
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval)
 {
 	if (frameInterval == 0)
@@ -255,4 +298,70 @@ int ConvertMSLatencyToFrames(int ms)
 int ConvertMSLatencyToGenToolFrames(int ms)
 {
 	return (int)ceil((float)ConvertMSLatencyToFrames(ms) / (float)GENERALS_ONLINE_HIGH_FPS_FRAME_MULTIPLIER);
+}
+
+#include <windows.h>
+#include <iphlpapi.h>
+#include <iostream>
+#include <string>
+
+#pragma comment(lib, "iphlpapi.lib")
+
+// Helper: read MachineGuid from registry
+std::string GetMachineGuid() {
+    HKEY hKey;
+    if (RegOpenKeyExA(HKEY_LOCAL_MACHINE,
+        "SOFTWARE\\Microsoft\\Cryptography",
+        0, KEY_READ | KEY_WOW64_64KEY, &hKey) != ERROR_SUCCESS) {
+        return "";
+    }
+
+    char buffer[256];
+    DWORD bufferSize = sizeof(buffer);
+    DWORD type = 0;
+    if (RegQueryValueExA(hKey, "MachineGuid", nullptr, &type,
+        reinterpret_cast<LPBYTE>(buffer), &bufferSize) == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return std::string(buffer, bufferSize - 1).append(std::string("YY")); // remove null terminator
+    }
+
+    RegCloseKey(hKey);
+    return "";
+}
+
+// Helper: get MAC address of first adapter
+std::string GetPrimaryMacAddress() {
+    PIP_ADAPTER_INFO adapterInfo;
+    DWORD bufLen = sizeof(IP_ADAPTER_INFO);
+    adapterInfo = (IP_ADAPTER_INFO*)malloc(bufLen);
+
+    if (GetAdaptersInfo(adapterInfo, &bufLen) == ERROR_BUFFER_OVERFLOW) {
+        free(adapterInfo);
+        adapterInfo = (IP_ADAPTER_INFO*)malloc(bufLen);
+    }
+
+    if (GetAdaptersInfo(adapterInfo, &bufLen) == NO_ERROR) {
+        char macAddr[32];
+        sprintf_s(macAddr, "%02X:%02X:%02X:%02X:%02X:%02XZZ",
+            adapterInfo->Address[0], adapterInfo->Address[1],
+            adapterInfo->Address[2], adapterInfo->Address[3],
+            adapterInfo->Address[4], adapterInfo->Address[5]);
+        free(adapterInfo);
+        return std::string(macAddr);
+    }
+
+    free(adapterInfo);
+    return "";
+}
+
+// Helper: get Volume Serial Number of C: drive
+std::string GetVolumeSerial() {
+    DWORD serialNumber = 0;
+    if (GetVolumeInformationA("C:\\", nullptr, 0, &serialNumber,
+        nullptr, nullptr, nullptr, 0)) {
+        char serialStr[32];
+        sprintf_s(serialStr, "%08XZZ", serialNumber);
+        return std::string(serialStr);
+    }
+    return "";
 }

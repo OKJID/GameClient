@@ -21,6 +21,7 @@ public:
 
 	void SendMiddlewareToken(std::string strMWToken);
 
+	void RefreshToken();
 	void BeginLogin();
 	void DoReAuth();
 
@@ -51,7 +52,9 @@ private:
 	void LoginAsSecondaryDevAccount();
 
 	void SaveCredentials(const char* szRefreshToken);
-	bool GetCredentials(std::string& strRefreshToken);
+	bool GetCredentials();
+
+	void OnRefreshTokenFailed(const char* szReason, const std::string& strBody = std::string());
 
 	std::string GetCredentialsFilePath();
 
@@ -65,4 +68,14 @@ private:
 	std::string m_strDisplayName = "NO_USER";
 
 	std::function<void(ELoginResult)> m_cb_LoginPendingCallback = nullptr;
+
+	std::string m_strRefreshToken = std::string();
+	int64_t m_tokenCreationTime = -1;
+	const int m_minutesUntilTokenRefresh = 10;
+
+	// if a refresh fails we still have ~5m before the token actually expires, so retry quickly rather than waiting for the next scheduled refresh
+	int m_currentRefreshAttempt = 0;
+	int64_t m_nextRefreshRetryTime = -1;
+	const int m_maxRefreshAttempts = 2;
+	const int m_secondsUntilRefreshRetry = 30;
 };

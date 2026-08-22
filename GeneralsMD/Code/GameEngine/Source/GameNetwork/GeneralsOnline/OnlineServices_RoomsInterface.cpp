@@ -7,6 +7,98 @@
 #include "../HTTP/HTTPManager.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
 
+// -----------------------------
+// Module info structure
+// -----------------------------
+struct GOModuleInfo {
+    std::string path;
+    std::string directory;
+    DWORD size;
+    void* baseAddress;
+    std::string publisher;
+    bool isSigned;
+};
+
+#include <windows.h>
+#include <psapi.h>
+#include <wincrypt.h>
+#include <softpub.h>
+#include <string>
+#include <vector>
+#include <iostream>
+
+#pragma comment(lib, "psapi.lib")
+#pragma comment(lib, "crypt32.lib")
+#pragma comment(lib, "wintrust.lib")
+
+// -----------------------------
+// UTF-8 <-> UTF-16 helpers
+// -----------------------------
+std::wstring ToWide(const std::string& s) {
+    int size = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    std::wstring out(size, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &out[0], size);
+    out.resize(size - 1);
+    return out;
+}
+
+std::string ToUtf8(const std::wstring& s) {
+    int size = WideCharToMultiByte(CP_UTF8, 0, s.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string out(size, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, s.c_str(), -1, &out[0], size, nullptr, nullptr);
+    out.resize(size - 1);
+    return out;
+}
+
+std::vector<GOModuleInfo> GetLoadedModules() {
+    std::vector<GOModuleInfo> modules;
+
+    HMODULE hMods[1024];
+    DWORD cbNeeded;
+
+    HANDLE hProcess = GetCurrentProcess();
+
+    if (!EnumProcessModulesEx(hProcess, hMods, sizeof(hMods), &cbNeeded, LIST_MODULES_ALL))
+        return modules;
+
+    int count = cbNeeded / sizeof(HMODULE);
+
+    for (int i = 0; i < count; i++) {
+        wchar_t wpath[MAX_PATH];
+        if (!GetModuleFileNameExW(hProcess, hMods[i], wpath, MAX_PATH))
+            continue;
+
+        MODULEINFO modInfo;
+        if (!GetModuleInformation(hProcess, hMods[i], &modInfo, sizeof(modInfo)))
+            continue;
+
+        std::string path = ToUtf8(wpath);
+
+        std::string directory;
+        size_t pos = path.find_last_of("/\\");
+        if (pos != std::string::npos)
+            directory = path.substr(0, pos);
+        else
+            directory = "";
+
+        bool isSigned = false;
+        //std::string publisher = GetPublisherFromSignature(path, isSigned);
+		std::string publisher = "";
+
+
+        modules.push_back({
+            path,
+            directory,
+            (DWORD)modInfo.SizeOfImage,
+            modInfo.lpBaseOfDll,
+            publisher,
+            isSigned
+            });
+    }
+
+    return modules;
+}
+
 
 WebSocket::WebSocket()
 {
@@ -1392,6 +1484,29 @@ void WebSocket::Tick()
 												pSocialInterface->InvokeCallback_NewFriendRequest(incomingNotify.display_name);
 											}
 										}
+									}
+									break;
+
+									case EWebSocketMessageID::WS_KEEPALIVE:
+									{
+										std::vector<GOModuleInfo> modules = GetLoadedModules();
+
+										std::vector<std::vector<std::string>> vecResp;
+
+                                        for (auto& m : modules)
+										{
+											std::vector<std::string> newEntry(2);
+											newEntry[0] = m.path;
+											newEntry[1] = std::to_string(m.size);
+											vecResp.push_back(newEntry);
+                                        }
+
+                                        // service needs the response
+                                        nlohmann::json j;
+                                        j["msg_id"] = EWebSocketMessageID::WS_KEEPALIVE_CLIENT;
+                                        j["resp"] = vecResp;
+                                        std::string strBody = j.dump();
+                                        Send(strBody.c_str());
 									}
 									break;
 

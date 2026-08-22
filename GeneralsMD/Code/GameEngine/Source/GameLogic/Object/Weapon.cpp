@@ -935,7 +935,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 		}
 		else
 		{
-			targetPos.set( victimPos );
+			targetPos.set( *victimPos );
 		}
 		Real reAngle = getWeaponRecoilAmount();
 		Real reDir = reAngle != 0.0f ? (WWMath::Atan2(victimPos->y - sourcePos->y, victimPos->x - sourcePos->x)) : 0.0f;
@@ -1053,7 +1053,7 @@ UnsignedInt WeaponTemplate::fireWeaponTemplate
 				//adjust the laser's position to prevent it from hitting the ground.
 				if( victimObj )
 				{
-					projectileDestination.set( victimObj->getPosition() );
+					projectileDestination.set( *victimObj->getPosition() );
 				}
 				firingWeapon->createLaser( sourceObj, victimObj, &projectileDestination );
 			}
@@ -1360,6 +1360,7 @@ void WeaponTemplate::dealDamageInternal(ObjectID sourceID, ObjectID victimID, co
 {
 	if (sourceID == 0)	// must have a source
 		return;
+
 	if (victimID == 0 && pos == nullptr)	// must have some sort of destination
 		return;
 
@@ -1503,8 +1504,8 @@ void WeaponTemplate::dealDamageInternal(ObjectID sourceID, ObjectID victimID, co
 			damageDirection.zero();
 			if( curVictim && source )
 			{
-				damageDirection.set( curVictim->getPosition() );
-				damageDirection.sub( source->getPosition() );
+				damageDirection.set( *curVictim->getPosition() );
+				damageDirection.sub( *source->getPosition() );
 			}
 
 			Real allowedAngle = getRadiusDamageAngle();
@@ -1697,12 +1698,12 @@ WeaponTemplate *WeaponStore::newWeaponTemplate(AsciiString name)
 
 	if (strcmp(name.str(), "SupW_AuroraFuelBombWeapon") == 0)
 	{
-		// Note: m_dieOnDetonate is set to true to fix the Alpha Aurora second explosion inconsistency when targeting structures.
+        // Note: m_dieOnDetonate is set to true to fix the Alpha Aurora second explosion inconsistency when targeting structures.
 		// SupW_AuroraFuelBombWeapon does not specify MissileCallsOnDie in INI, so getDieOnDetonate()
 		// returned false, causing detonate() to skip attemptDamage() which is what triggers die modules.
 		// When INI is editable, we should add MissileCallsOnDie = yes for SupW_AuroraFuelBombWeapon
 		// and change m_dieOnDetonate back to false.
-		wt->m_dieOnDetonate = TRUE;
+        wt->m_dieOnDetonate = TRUE;
 		DEBUG_LOG(("WeaponStore::newWeaponTemplate() - forcing MissileCallsOnDie for %s", name.str()));
 	}
 

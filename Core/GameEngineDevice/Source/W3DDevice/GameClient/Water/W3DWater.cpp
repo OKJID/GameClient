@@ -37,17 +37,17 @@
 #include "W3DDevice/GameClient/W3DShroud.h"
 #include "W3DDevice/GameClient/W3DWaterTracks.h"
 #include "W3DDevice/GameClient/W3DAssetManager.h"
-#include "texture.h"
-#include "assetmgr.h"
-#include "rinfo.h"
-#include "camera.h"
-#include "scene.h"
-#include "dx8wrapper.h"
-#include "light.h"
+#include "WW3D2/texture.h"
+#include "WW3D2/assetmgr.h"
+#include "WW3D2/rinfo.h"
+#include "WW3D2/camera.h"
+#include "WW3D2/scene.h"
+#include "WW3D2/dx8wrapper.h"
+#include "WW3D2/light.h"
 #include "d3dx8math.h"
-#include "simplevec.h"
-#include "mesh.h"
-#include "matinfo.h"
+#include "WWLib/simplevec.h"
+#include "WW3D2/mesh.h"
+#include "WW3D2/matinfo.h"
 
 #include "Common/FramePacer.h"
 #include "Common/GameState.h"
@@ -179,7 +179,7 @@ static Int getRiverVertexDiffuse(W3DShroud *shroud, Real x, Real y, Real shadeR,
 		(Int)(shadeR * shroudScale),
 		(Int)(shadeG * shroudScale),
 		(Int)(shadeB * shroudScale),
-		(diffuse >> 24) & 0xff);
+		((diffuse >> 24) & 0xff) * shroudScale);
 }
 
 void doSkyBoxSet(Bool startDraw)
@@ -926,9 +926,11 @@ void WaterRenderObjClass::ReAcquireResources()
 			tex t1	\n\
 			tex t2	\n\
 			tex t3\n\
-			mul r0,v0,t0 ; blend vertex color into t0. \n\
+			mul r0.rgb, v0, t0 ; blend vertex color into t0. \n\
+			mov r0.a, t0 ; keep vertex alpha from fading the base water. \n\
 			mul r1, t1, t2 ; mul\n\
-			add r0.rgb, r0, t3\n\
+			add r1.rgb, r1, t3\n\
+			mul r1.rgb, r1, v0.a\n\
 			+mul r0.a, r0, t3\n\
 			add r0.rgb, r0, r1\n";
 		hr = D3DXAssembleShader( shader, strlen(shader), 0, nullptr, &compiledShader, nullptr);

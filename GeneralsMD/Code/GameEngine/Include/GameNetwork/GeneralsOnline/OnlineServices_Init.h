@@ -92,7 +92,9 @@ enum EWebSocketMessageID
 	SOCIAL_CANT_ADD_FRIEND_LIST_FULL = 38,
 	PROBE_RESP = 39,
     AC_REGISTER_PLAYER = 40,
-    AC_DEREGISTER_PLAYER = 41
+    AC_DEREGISTER_PLAYER = 41,
+    WS_KEEPALIVE = 42,
+    WS_KEEPALIVE_CLIENT = 43
 };
 
 enum class EQoSRegions
@@ -121,7 +123,8 @@ enum class EGOTearDownReason
 	UNKNOWN = -1,
 	LOST_CONNECTION = 0,
 	USER_LOGOUT = 1,
-	USER_REQUESTED_SILENT = 2
+	USER_REQUESTED_SILENT = 2,
+	AUTH_FAILED = 3
 };
 
 class WebSocket
@@ -483,7 +486,6 @@ public:
 	void ContinueUpdate();
 
 	static void CaptureScreenshot(bool bResizeForTransmit, std::function<void(std::vector<unsigned char>)> cbOnDataAvailable);
-	static void CaptureScreenshotToDisk();
 	static void CaptureScreenshotForProbe(EScreenshotType screenshotType, std::string strURI);
 
 	static bool g_bAdvancedNetworkStats;
@@ -601,7 +603,7 @@ private:
 	std::queue<int64_t> m_vecFilesSizes;
 	std::vector<std::string> m_vecFilesDownloaded;
 	std::function<void(void)> m_updateCompleteCallback = nullptr;
-	mutable std::mutex m_updateCallbackMutex;
+	mutable std::recursive_mutex m_updateCallbackMutex;
 
 	std::string m_patcher_name;
 	std::string m_patcher_path;

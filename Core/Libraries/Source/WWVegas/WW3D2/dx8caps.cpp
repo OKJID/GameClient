@@ -38,7 +38,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #ifndef __APPLE__
-#include "always.h"
+#include "WWLib/always.h"
 #include "dx8caps.h"
 #include "dx8wrapper.h"
 #include "formconv.h"

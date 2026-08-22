@@ -600,7 +600,7 @@ protected:
 		}
 
 		const ParticleSystemTemplate *tmp = TheParticleSystemManager->findTemplate(m_name);
-		DEBUG_ASSERTCRASH(tmp, ("ParticleSystem %s not found",m_name.str()));
+		DEBUG_ASSERTCRASH(TheParticleSystemManager->isDummy() || tmp, ("ParticleSystem %s not found",m_name.str()));
 		if (tmp)
 		{
 			for (Int i = 0; i < m_count; i++ )
@@ -614,6 +614,7 @@ protected:
 
 					newPos.x = primary->x + offset.x + radius * cos(angle);
 					newPos.y = primary->y + offset.y + radius * sin(angle);
+					newPos.z = primary->z + offset.z;
 					if( m_createAtGroundHeight && TheTerrainLogic )
 					{
 						//old way:
@@ -624,7 +625,7 @@ protected:
 						newPos.z = TheTerrainLogic->getLayerHeight( newPos.x, newPos.y, layer );
 					}
 					else
-						newPos.z = primary->z + offset.z + m_height.getValue();
+						newPos.z += m_height.getValue();
 
 
 					if (m_orientToObject && mtx)

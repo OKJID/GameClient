@@ -44,7 +44,6 @@
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/GadgetComboBox.h"
 #include "GameClient/GadgetListBox.h"
-#include "GameClient/GadgetTextEntry.h"
 #include "GameClient/GameText.h"
 #include "GameClient/MapUtil.h"
 #include "GameClient/MessageBox.h"
@@ -96,38 +95,6 @@ enum {
 	COLUMN_PING,
 };
 #endif
-
-// ---------------------------------------------------------------------------
-// row entry animation
-// ---------------------------------------------------------------------------
-
-static std::map<int, GameRowAnim> g_gameListAnim;
-
-// initialize the smoothed index for this lobbyID
-static float UpdateAndGetGameRowIndex(int lobbyID, float logicalIndex)
-{
-    GameRowAnim& anim = g_gameListAnim[lobbyID];
-
-    if (!anim.alive)
-    {
-        // start slightly below, then glide into place
-        anim.currentIndex = logicalIndex + 2.f;
-        anim.targetIndex  = logicalIndex;
-        anim.alive        = true;
-    }
-    else
-    {
-        anim.targetIndex = logicalIndex;
-    }
-
-    // how fast to snap into place
-    const float t = 0.2f; 
-
-    float delta = anim.targetIndex - anim.currentIndex;
-    anim.currentIndex += delta * t;
-
-    return anim.currentIndex;
-}
 
 static NameKeyType buttonSortAlphaID = NAMEKEY_INVALID;
 static NameKeyType buttonSortPingID = NAMEKEY_INVALID;
@@ -568,6 +535,7 @@ void GrabWindowInfo()
 	listboxLobbyGamesLargeID = NAMEKEY( "WOLCustomLobby.wnd:ListboxGamesLarge" );
 	listboxLobbyGamesLarge = TheWindowManager->winGetWindowFromId(nullptr, listboxLobbyGamesLargeID);
 	listboxLobbyGamesLarge->winSetTooltipFunc(gameTooltip);
+	SetListBoxRowAnimMode(listboxLobbyGamesLarge, LIST_ROW_ANIM_ID);
 //
 //	listboxLobbyGameInfoID = NAMEKEY( "WOLCustomLobby.wnd:ListboxGameInfo" );
 //	listboxLobbyGameInfo = TheWindowManager->winGetWindowFromId(nullptr, listboxLobbyGameInfoID);
@@ -1439,13 +1407,6 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 				for (SortedGameList::iterator sglIt = sgl.begin(); sglIt != sgl.end(); ++sglIt)
 				{
 					LobbyEntry lobby = *sglIt;
-
-                    // Logical index for this entry in the new sorted list
-					float logicalIndex = (float)i;
-
-					// register/update animation index for this lobbyID
-					UpdateAndGetGameRowIndex(lobby.lobbyID, logicalIndex);
-
 					Int index = insertGame(win, lobby, showMap);
 					if (lobby.lobbyID == selectedID)
 					{
@@ -1584,52 +1545,7 @@ void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
 
 }
 
-// ---------------------------------------------------------------------------
-// compute pixel offset for a game list row
-// ---------------------------------------------------------------------------
-int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHeight)
-{
-	if (!window)
-		return 0;
-
-	// We rely on listbox item data storing lobbyID, like RefreshGameListBox uses
-	Int lobbyID = (Int)(size_t)GadgetListBoxGetItemData(window, rowIndex);
-	if (lobbyID == 0)
-		return 0;
-
-    GameWindow* mainGameList = GetGameListBox();
-
-    int animKey;
-    if (window == mainGameList)
-    {
-        // For the main game list: use lobbyID
-        animKey = lobbyID;
-    }
-    else
-    {
-        // For all other lists: keep per row key to avoid overlap
-        animKey = lobbyID * 1024 + rowIndex;
-    }
-
-
-	// Get smoothed "visual index" for this lobbyID
-	float visualIndex = UpdateAndGetGameRowIndex(animKey, (float)rowIndex);
-
-	// Offset = (visualIndex - logicalIndex) * rowHeight
-	float offsetRows = visualIndex - (float)rowIndex;
-	int pixelOffset = (int)(offsetRows * (float)rowHeight);
-
-	return pixelOffset;
-}
-
-
 #else
-// The legacy browser draws its rows without the sliding animation that the Generals
-// Online list uses, so every row sits at its natural position.
-int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHeight)
-{
-	return 0;
-}
 
 void RefreshGameListBox( GameWindow *win, Bool showMap )
 {
@@ -1799,7 +1715,6 @@ void RefreshGameInfoListBox( GameWindow *mainWin, GameWindow *win )
 }
 
 #endif
-
 void RefreshGameListBoxes( void )
 {
 	GameWindow *main = GetGameListBox();

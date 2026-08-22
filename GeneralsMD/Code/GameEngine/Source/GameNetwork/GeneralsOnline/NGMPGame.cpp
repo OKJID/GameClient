@@ -634,3 +634,28 @@ void NGMPGame::StartCountdown()
 	}
 }
 
+Bool NGMPGame::canKickOnObserversDisabled()
+{
+	if (getAllowObservers() || TheGameLogic->getGameMode() != GAME_INTERNET || TheGameLogic->getFrame() < 2)
+		return FALSE;
+
+	Player *localPlayer = ThePlayerList->getLocalPlayer();
+	if (!localPlayer || localPlayer->isPlayerObserver() || !TheVictoryConditions->hasSinglePlayerBeenDefeated(localPlayer))
+		return FALSE;
+
+	if (!amIHost())
+		return TRUE;
+
+	// Host is only kicked if an alive ally exists
+	for (Int i = 0; i < ThePlayerList->getPlayerCount(); ++i)
+	{
+		Player *otherPlayer = ThePlayerList->getNthPlayer(i);
+		if (!otherPlayer || otherPlayer == localPlayer)
+			continue;
+
+		if (otherPlayer->getRelationship(localPlayer->getDefaultTeam()) == ALLIES && !TheVictoryConditions->hasSinglePlayerBeenDefeated(otherPlayer))
+			return TRUE;
+	}
+
+	return FALSE;
+}

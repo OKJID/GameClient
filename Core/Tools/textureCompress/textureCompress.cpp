@@ -36,7 +36,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #include <sys/utime.h>
-#include <trim.h>
+#include <WWLib/trim.h>
 
 static const char *nodxtPrefix[] = {
 	"zhca",
@@ -94,7 +94,7 @@ static void debugLog(const char *fmt, ...)
 
 #else
 
-#define DEBUG_LOG(x) {}
+#define DEBUG_LOG(x)
 
 #endif // RTS_DEBUG
 

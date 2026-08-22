@@ -76,7 +76,7 @@ static LogClass s_perfLog("QMPerf.txt");
 static Bool s_inQM = FALSE;
 #define PERF_LOG(x) s_perfLog.log x
 #else // DEBUG_LOGGING
-#define PERF_LOG(x) {}
+#define PERF_LOG(x)
 #endif // DEBUG_LOGGING
 
 #if defined(GENERALS_ONLINE)
@@ -150,6 +150,9 @@ static bool isPopulatingLadderBox = false;
 static Int maxPingEntries = 0;
 static Int maxPoints= 100;
 static Int minPoints = 0;
+
+static Int matchFoundTimeoutStart = 0;
+static const Int lobbyTimeoutMs = 10000;
 
 static const LadderInfo * getLadderInfo();
 
@@ -945,6 +948,8 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 		mapListboxPreviewFunc = listboxMapSelect->winGetDrawFunc();
 		listboxMapSelect->winSetDrawFunc(updateMapHoverPreview);
 	}
+	SetListBoxRowAnimMode(quickmatchTextWindow, LIST_ROW_ANIM_SLOT);
+	SetListBoxRowAnimMode(listboxMapSelect, LIST_ROW_ANIM_SLOT);
 	//textEntryMaxDisconnects = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMaxDisconnectsID );
 	//textEntryMaxPoints = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMaxPointsID );
 	//textEntryMinPoints = TheWindowManager->winGetWindowFromId( parentWOLQuickMatch, textEntryMinPointsID );
@@ -1151,7 +1156,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 				if (bSuccess)
 				{
 					UnicodeString eloStr;
-					eloStr.format(L"Your current Elo rating is %d after %d match(es)", stats.elo_rating, stats.elo_num_matches);
+					eloStr.format(L"Your current Elo rating is %d (monthly: %d) after %d match(es)", stats.elo_rating, stats.monthly_elo_rating, stats.elo_num_matches);
 					GadgetListBoxAddEntryText(quickmatchTextWindow, eloStr, GameMakeColor(255, 194, 25, 255), -1, -1);
 				}
 			}, EStatsRequestPolicy::BYPASS_CACHE_FORCE_REQUEST);
@@ -1214,6 +1219,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 			{
 				buttonBack->winEnable(FALSE);
 				buttonStop->winEnable(FALSE);
+				matchFoundTimeoutStart = timeGetTime();
                 if (TheAudio)
 				{
 					AudioEventRTS evt("GUICommunicatorOpen");
@@ -1223,6 +1229,7 @@ void WOLQuickMatchMenuInit( WindowLayout *layout, void *userData )
 
 		pLobbyInterface->RegisterForMatchmakingStartGameCallback([]()
 			{
+				matchFoundTimeoutStart = 0;
 				NetworkLog(ELogVerbosity::LOG_DEBUG, "[QUICKMATCH] GOT START GAME EVENT");
 
 				// Check if TheNGMPGame is initialized before dereferencing it
@@ -1570,6 +1577,15 @@ void WOLQuickMatchMenuUpdate( WindowLayout * layout, void *userData)
 #if defined(GENERALS_ONLINE) // GO needs to tick this, so notifications disappear etc
 	HandleBuddyResponses();
 #endif
+
+	if (matchFoundTimeoutStart != 0 && timeGetTime() - matchFoundTimeoutStart >= lobbyTimeoutMs)
+	{
+		matchFoundTimeoutStart = 0;
+		buttonBack->winEnable(TRUE);
+		buttonStop->winEnable(TRUE);
+		Int index = GadgetListBoxAddEntryText(quickmatchTextWindow, UnicodeString(L"Match setup timed out. You may cancel or continue waiting."), GameMakeColor(255, 194, 25, 255), -1, -1);
+		GadgetListBoxSetItemData(quickmatchTextWindow, (void*)-1, index);
+	}
 
 	/// @todo: MDC handle disconnects in-game the same way as Custom Match!
 

@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include "always.h"
+#include "WWLib/always.h"
 #include <math.h>
 #include <float.h>
 #include <assert.h>
@@ -1026,7 +1026,7 @@ WWINLINE long WWMath::Float_To_Long(double f)
 	return retval;
 
 #else
-	return (long)f;
+	return (long) f;
 #endif
 }
 

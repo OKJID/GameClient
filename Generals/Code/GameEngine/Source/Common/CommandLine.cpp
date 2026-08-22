@@ -35,7 +35,7 @@
 #include "GameClient/TerrainVisual.h" // for TERRAIN_LOD_MIN definition
 #include "GameClient/GameText.h"
 #include "GameNetwork/NetworkDefs.h"
-#include "trim.h"
+#include "WWLib/trim.h"
 
 
 
@@ -314,7 +314,7 @@ Int parseLogObjectCRCs(char *args[], int argc)
 //=============================================================================
 Int parseNetCRCInterval(char *args[], int argc)
 {
-#ifdef DEBUG_CRC
+#if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
 	if (argc > 1)
 	{
 		NET_CRC_INTERVAL = atoi(args[1]);
@@ -412,7 +412,6 @@ Int parseHeadless(char *args[], int num)
 {
 	TheWritableGlobalData->m_headless = TRUE;
 	TheWritableGlobalData->m_playIntro = FALSE;
-	TheWritableGlobalData->m_afterIntro = TRUE;
 	TheWritableGlobalData->m_playSizzle = FALSE;
 
 	// TheSuperHackers @fix bobtista 03/02/2026 Set DX8Wrapper_IsWindowed to false in headless
@@ -437,7 +436,6 @@ Int parseReplay(char *args[], int num)
 		TheWritableGlobalData->m_simulateReplays.push_back(filename);
 
 		TheWritableGlobalData->m_playIntro = FALSE;
-		TheWritableGlobalData->m_afterIntro = TRUE;
 		TheWritableGlobalData->m_playSizzle = FALSE;
 		TheWritableGlobalData->m_shellMapOn = FALSE;
 
@@ -790,7 +788,6 @@ Int parseNoShaders(char *args[], int)
 Int parseNoLogo(char *args[], int)
 {
 	TheWritableGlobalData->m_playIntro = FALSE;
-	TheWritableGlobalData->m_afterIntro = TRUE;
 	TheWritableGlobalData->m_playSizzle = FALSE;
 
 	return 1;

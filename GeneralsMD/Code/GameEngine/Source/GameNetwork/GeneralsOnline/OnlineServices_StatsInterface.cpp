@@ -1,6 +1,7 @@
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
+#include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/RankPointValue.h"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
@@ -154,6 +155,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
                             // GO extra data
 							jsonObjectRoot["EloRating"].get_to(stats.elo_rating);
 							jsonObjectRoot["EloMatches"].get_to(stats.elo_num_matches);
+							jsonObjectRoot["MonthlyEloRating"].get_to(stats.monthly_elo_rating);
 
 							#define PROCESS_JSON_PER_GENERAL_RESULT(name) i = 0; for (const auto& iter : jsonObjectRoot[#name]) { iter.get_to(stats.name[i++]); }
 							PROCESS_JSON_PER_GENERAL_RESULT(wins);
@@ -294,6 +296,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByBatch(std::vector<int6
 							// GO extra data
 							statsUserIter["EloRating"].get_to(stats.elo_rating);
 							statsUserIter["EloMatches"].get_to(stats.elo_num_matches);
+							statsUserIter["MonthlyEloRating"].get_to(stats.monthly_elo_rating);
 
 							// now get stats
 							int i = 0;
@@ -460,6 +463,8 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 					resolvedSide = pLocalSlot->getPlayerTemplate();
 				}
             }
+		
+	    const bool desynced = TheNetwork->sawCRCMismatch();
 
 		nlohmann::json j;
 		j["buildings_built"] = buildingsBuilt;
@@ -472,6 +477,7 @@ void NGMP_OnlineServices_StatsInterface::CommitMyOutcome(ScoreKeeper* pScoreKeep
 		j["won"] = bWon;
 		j["match_id"] = currentMatchID;
 		j["side"] = resolvedSide;
+		j["desynced"] = desynced;
 
 		std::string strPostData = j.dump();
 	

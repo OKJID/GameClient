@@ -32,8 +32,8 @@
 // INCLUDES ///////////////////////////////////////////////////////////////////////////////////////
 #include "PreRTS.h"	// This must go first in EVERY cpp file in the GameEngine
 
-#include "ww3d.h"
-#include "texturefilter.h"
+#include "WW3D2/ww3d.h"
+#include "WW3D2/texturefilter.h"
 
 #include "Common/GlobalData.h"
 
@@ -59,6 +59,7 @@
 #include "GameLogic/Module/BodyModule.h"
 
 #include "GameClient/Color.h"
+#include "GameClient/Display.h"
 #include "GameClient/TerrainVisual.h"
 
 #include "GameNetwork/FirewallHelper.h"
@@ -661,6 +662,7 @@ GlobalData::GlobalData()
 	m_enableDynamicLOD = TRUE;
 	m_enableStaticLOD = TRUE;
 	m_rightMouseAlwaysScrolls = FALSE;
+	m_jpegQuality = DEFAULT_JPEG_QUALITY;
 	m_useWaterPlane = FALSE;
 	m_useCloudPlane = FALSE;
 	m_downwindAngle = ( -0.785f );//Northeast!
@@ -979,6 +981,8 @@ GlobalData::GlobalData()
 	m_showMoneyPerMinute = FALSE;
 	m_allowMoneyPerMinuteForPlayer = FALSE;
 
+	m_gameWindowTransitionSpeedMultiplier = 2.5f;
+
 	m_debugShowGraphicalFramerate = FALSE;
 
 	// By default, show all asserts.
@@ -1042,8 +1046,6 @@ GlobalData::GlobalData()
 #else
 	m_playSizzle = TRUE;
 #endif
-	m_afterIntro = FALSE;
-	m_allowExitOutOfMovies = FALSE;
 	m_loadScreenRender = FALSE;
 
 	m_keyboardDefaultScrollFactor = m_keyboardScrollFactor = 0.5f;
@@ -1111,7 +1113,15 @@ GlobalData::GlobalData()
 	//-allAdvice feature
 	//m_allAdvice = FALSE;
 
+	m_useAlternateMouse = FALSE;
+#if RTS_GENERALS
+	// disable mouse scrolling in alternate mouse mode, per Harvard 7/15/03
+	m_useRightMouseScrollWithAlternateMouse = FALSE;
+#else
+	m_useRightMouseScrollWithAlternateMouse = TRUE;
+#endif
 	m_clientRetaliationModeEnabled = TRUE; //On by default.
+	m_doubleClickAttackMove = FALSE;
 
 }
 
@@ -1256,8 +1266,10 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	MacDebugLogConfigure(optionPref.getVerboseEngineLogging(), TheWritableGlobalData->getPath_UserData().str());
 #endif
 	TheWritableGlobalData->m_useAlternateMouse = optionPref.getAlternateMouseModeEnabled();
+	TheWritableGlobalData->m_useRightMouseScrollWithAlternateMouse = optionPref.getRightMouseScrollWithAlternateMouseEnabled();
 	TheWritableGlobalData->m_clientRetaliationModeEnabled = optionPref.getRetaliationModeEnabled();
 	TheWritableGlobalData->m_doubleClickAttackMove = optionPref.getDoubleClickAttackMoveEnabled();
+	TheWritableGlobalData->m_jpegQuality = optionPref.getJpegQuality();
 	TheWritableGlobalData->m_keyboardScrollFactor = optionPref.getScrollFactor();
 	TheWritableGlobalData->m_defaultIP = optionPref.getLANIPAddress();
 	TheWritableGlobalData->m_firewallSendDelay = optionPref.getSendDelay();
@@ -1275,12 +1287,12 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_gameTimeFontSize = optionPref.getGameTimeFontSize();
 	TheWritableGlobalData->m_playerInfoListFontSize = optionPref.getPlayerInfoListFontSize();
 	TheWritableGlobalData->m_showMoneyPerMinute = optionPref.getShowMoneyPerMinute();
+	TheWritableGlobalData->m_gameWindowTransitionSpeedMultiplier = optionPref.getGameWindowTransitionSpeedMultiplier();
 	TheWritableGlobalData->m_observerStatsFontSize = optionPref.getObserverStatsFontSize();
 	TheWritableGlobalData->m_observerNotificationFontSize = optionPref.getObserverNotificationFontSize();
 	TheWritableGlobalData->m_observerNotificationSpecialPowerUsage = optionPref.getObserverNotificationSpecialPowerUsage();
 	TheWritableGlobalData->m_observerNotificationSpecialPowerPurchase = optionPref.getObserverNotificationSpecialPowerPurchase();
 	TheWritableGlobalData->m_observerNotificationMilestone = optionPref.getObserverNotificationMilestone();
-
 	TheWritableGlobalData->m_antiAliasLevel = optionPref.getAntiAliasing();
 
 #if !defined(GENERALS_ONLINE_DISABLE_TEXTURE_FILTERING_AND_AA)

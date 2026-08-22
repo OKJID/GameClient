@@ -79,7 +79,7 @@ void refreshPlayerList( Bool forceRefresh = FALSE );
 static LogClass s_perfLog("Perf.txt");
 #define PERF_LOG(x) s_perfLog.log x
 #else // DEBUG_LOGGING
-#define PERF_LOG(x) {}
+#define PERF_LOG(x)
 #endif // DEBUG_LOGGING
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
@@ -388,7 +388,9 @@ static void playerTooltip(GameWindow *window,
 
 							// ELO data
 							UnicodeString tmp;
-							tmp.format(L"\n\nElo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
+							tmp.format(L"\n\nOverall Elo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
+							tooltip.concat(tmp);
+							tmp.format(L"\nMonthly Elo Rating: %d", stats.monthly_elo_rating);
 							tooltip.concat(tmp);
 							Int rankPoints = CalculateRank(stats);
 							Int rank = 0;
@@ -1268,9 +1270,11 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	listboxLobbyPlayersID = TheNameKeyGenerator->nameToKey("WOLCustomLobby.wnd:ListboxPlayers");
 	listboxLobbyPlayers = TheWindowManager->winGetWindowFromId(parent, listboxLobbyPlayersID);
 	listboxLobbyPlayers->winSetTooltipFunc(playerTooltip);
+	SetListBoxRowAnimMode(listboxLobbyPlayers, LIST_ROW_ANIM_ID);
 
 	listboxLobbyChatID = TheNameKeyGenerator->nameToKey("WOLCustomLobby.wnd:ListboxChat");
 	listboxLobbyChat = TheWindowManager->winGetWindowFromId(parent, listboxLobbyChatID);
+	SetListBoxRowAnimMode(listboxLobbyChat, LIST_ROW_ANIM_SLOT);
 
 	comboLobbyGroupRoomsID = TheNameKeyGenerator->nameToKey("WOLCustomLobby.wnd:ComboBoxGroupRooms");
 	comboLobbyGroupRooms = TheWindowManager->winGetWindowFromId(parent, comboLobbyGroupRoomsID);

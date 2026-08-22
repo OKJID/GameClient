@@ -56,8 +56,6 @@
 
 // DEFINES ////////////////////////////////////////////////////////////////////
 
-int GetGameListRowPixelOffsetForRow(GameWindow* window, int rowIndex, int rowHeight);
-
 // PRIVATE TYPES //////////////////////////////////////////////////////////////
 
 // PRIVATE DATA ///////////////////////////////////////////////////////////////
@@ -197,13 +195,8 @@ static void drawListBoxText( GameWindow *window, WinInstanceData *instData,
 	IRegion2D clipRegion;
 	ICoord2D start, end;
 
-    Color debugBg = TheWindowManager->winMakeColor(3, 93, 166, 20);
-	TheWindowManager->winFillRect(
-		debugBg,
-		WIN_DRAW_LINE_WIDTH,
-		x, y,
-		x + width, y + height
-	);
+    Color WindowBg = TheWindowManager->winMakeColor(3, 93, 166, 20);
+	TheWindowManager->winFillRect(WindowBg, WIN_DRAW_LINE_WIDTH, x, y, x + width, y + height);
 
 	//
 	// save the clipping information region cause we're going to use it here
@@ -244,8 +237,7 @@ static void drawListBoxText( GameWindow *window, WinInstanceData *instData,
 		selected = FALSE;
 
 		int rowDrawY = drawY;
-
-		rowDrawY += GetGameListRowPixelOffsetForRow(window, i, listLineHeight);
+		ApplyListBoxRowAnimation(window, i, listLineHeight, rowDrawY);
 
 		if (list->multiSelect)
 		{
@@ -682,4 +674,3 @@ void W3DGadgetListBoxImageDraw( GameWindow *window, WinInstanceData *instData )
 
 
 }
-

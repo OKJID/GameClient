@@ -37,7 +37,7 @@
 #pragma once
 
 //#define ENABLE_TIME_AND_MEMORY_LOG
-#include "wwstring.h"
+#include "WWLib/wwstring.h"
 
 #if defined(_UNIX) && !defined(__APPLE__)
 typedef signed long long __int64;

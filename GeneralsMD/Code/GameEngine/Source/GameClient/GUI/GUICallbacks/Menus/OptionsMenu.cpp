@@ -74,8 +74,8 @@
 #include "WWDownload/Registry.h"
 #include "GameClient/MessageBox.h"
 
-#include "ww3d.h"
-#include "texturefilter.h"
+#include "WW3D2/ww3d.h"
+#include "WW3D2/texturefilter.h"
 
 #include "../OnlineServices_Init.h"
 
@@ -602,6 +602,13 @@ static void saveOptions()
 	TheWritableGlobalData->m_useAlternateMouse = GadgetCheckBoxIsChecked(checkAlternateMouse);
 	(*pref)["UseAlternateMouse"] = TheWritableGlobalData->m_useAlternateMouse ? "yes" : "no";
 
+	// TheSuperHackers @todo Add check box ?
+	{
+		Bool useRightMouseScrollWithAlternateMouse = pref->getRightMouseScrollWithAlternateMouseEnabled();
+		(*pref)["UseRightMouseScrollWithAlternateMouse"] = useRightMouseScrollWithAlternateMouse ? "yes" : "no";
+		TheWritableGlobalData->m_useRightMouseScrollWithAlternateMouse = useRightMouseScrollWithAlternateMouse;
+	}
+
 	TheWritableGlobalData->m_clientRetaliationModeEnabled = GadgetCheckBoxIsChecked(checkRetaliation);
 	(*pref)["Retaliation"] = TheWritableGlobalData->m_clientRetaliationModeEnabled? "yes" : "no";
 
@@ -842,7 +849,26 @@ static void saveOptions()
 	}
 
 	//-------------------------------------------------------------------------------------------------
-	// Set Observer Stats Font Size
+	// Set Game Window Transition Speed Multiplier
+	{
+		Real speed = pref->getGameWindowTransitionSpeedMultiplier();
+		AsciiString prefString;
+		prefString.format("%g", speed);
+		(*pref)["GameWindowTransitionSpeedMultiplier"] = prefString;
+		TheWritableGlobalData->m_gameWindowTransitionSpeedMultiplier = speed;
+	}
+
+	//-------------------------------------------------------------------------------------------------
+	// Set JPEG screenshot quality
+	{
+		Int quality = pref->getJpegQuality();
+		AsciiString prefString;
+		prefString.format("%d", quality);
+		(*pref)["JpegQuality"] = prefString;
+		TheWritableGlobalData->m_jpegQuality = quality;
+	}
+
+		// Set Observer Stats Font Size
 	val = pref->getObserverStatsFontSize();
 	if (val >= 0)
 	{
@@ -851,6 +877,8 @@ static void saveOptions()
 		(*pref)["ObserverStatsFontSize"] = prefString;
 		TheInGameUI->initObserverOverlay();
 	}
+
+	//-------------------------------------------------------------------------------------------------
 
 	//-------------------------------------------------------------------------------------------------
 	// Resolution

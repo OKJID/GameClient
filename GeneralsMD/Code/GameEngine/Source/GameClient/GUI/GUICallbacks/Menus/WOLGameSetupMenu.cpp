@@ -542,8 +542,8 @@ static void playerTooltip(GameWindow *window,
 	if (localPlayerID == slot->m_userID)
 	{
 		// local user wont have a connection
-		playerInfo.format(L"\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		playerInfo.format(L"\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 	else if (bIsConnected)
 	{
@@ -552,14 +552,14 @@ static void playerTooltip(GameWindow *window,
 		if (connectionLatency >= 0) latencyStr.format(L"%d ms", connectionLatency); else latencyStr = L"Unknown";
 		if (connectionJitter >= 0) jitterStr.format(L"%d ms", connectionJitter); else jitterStr = L"Unknown";
 		if (connectionQualityPct >= 0) qualityStr.format(L"%d%%", connectionQualityPct); else qualityStr = L"Unknown";
-		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
 			strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
-			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 	else
 	{
-		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nElo Rating: %d (in %d matches)\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
-			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
 	}
 #else
 			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
@@ -934,6 +934,22 @@ static void handleLimitSuperweaponsClick()
 #endif
 }
 
+static void WOLLockSettings()
+{
+	buttonBack->winEnable(false);
+	checkBoxLimitSuperweapons->winEnable(false);
+	comboBoxStartingCash->winEnable(false);
+
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+	{
+		comboBoxPlayer[i]->winEnable(false);
+		comboBoxColor[i]->winEnable(false);
+		comboBoxPlayerTemplate[i]->winEnable(false);
+		comboBoxTeam[i]->winEnable(false);
+		buttonMapStartPosition[i]->winEnable(false);
+	}
+}
+
 static void StartPressed()
 {
 	Bool isReady = TRUE;
@@ -1109,13 +1125,6 @@ static void StartPressed()
 		std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
 		if (pWS != nullptr)
 		{
-			// we've started, there's no going back
-						// i.e. disable the back button.
-			if (buttonBack != nullptr)
-			{
-				buttonBack->winEnable(FALSE);
-			}
-
 			if (buttonStart != nullptr)
 			{
 				buttonStart->winEnable(FALSE);
@@ -1129,7 +1138,10 @@ static void StartPressed()
 						GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameMakeColor(0, 255, 0, 255), -1, -1);
 
 						// reset autostart just incase
+#if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
 						pLobbyInterface->ClearAutoReadyCountdown();
+#endif
+
 						if (TheNGMPGame && TheNGMPGame->IsCountdownStarted())
 							TheNGMPGame->StopCountdown();
 
@@ -1159,6 +1171,7 @@ static void StartPressed()
 								pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
 
 								TheNGMPGame->StartCountdown();
+								buttonSelectMap->winEnable(FALSE);		
 							}
 						}
 #endif
@@ -1218,7 +1231,15 @@ static void StartPressed()
 	else if (allHaveMap)
 	{
 		// send HWS chat message
-		
+
+#if defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
+		// local msg
+		GadgetListBoxAddEntryText(listboxGameSetupChat, TheGameText->fetch("GUI:NotifiedStartIntent"), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+		// remote msg
+		UnicodeString strInform = TheGameText->fetch("GUI:HostWantsToStart");
+		pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, false);
+#else
 		if (!pLobbyInterface->HasAutoReadyCountdown())
 		{
 			// local msg
@@ -1241,8 +1262,8 @@ static void StartPressed()
 			UnicodeString strInform = UnicodeString(L"You have already informed players you want to start. A countdown has begun after which they will be marked as ready.");
 			GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 		}
+#endif
 	}
-
 }
 
 
@@ -1506,6 +1527,7 @@ void InitWOLGameGadgets()
 	textEntryChat = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, textEntryChatID );
 	textEntryMapDisplay = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, textEntryMapDisplayID );
 	windowMap = TheWindowManager->winGetWindowFromId( parentWOLGameSetup,windowMapID  );
+	SetListBoxRowAnimMode(listboxGameSetupChat, LIST_ROW_ANIM_SLOT);
   DEBUG_ASSERTCRASH(windowMap, ("Could not find the parentWOLGameSetup.wnd:MapWindow" ));
 
   checkBoxLimitSuperweapons = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, checkBoxLimitSuperweaponsID );
@@ -1886,9 +1908,6 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			// TODO_NGMP
 			//SendStatsToOtherPlayers(TheNGMPGame);
 
-			// we've started, there's no going back
-			// i.e. disable the back button.
-			buttonBack->winEnable(FALSE);
 			GameWindow* buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
 			if (buttonBuddy)
 				buttonBuddy->winEnable(FALSE);
@@ -2191,6 +2210,14 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
             GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"This lobby is open to the public. Use /friendsonly to make it only open to friends."), GameMakeColor(255, 194, 15, 255), -1, -1);
         }
     }
+    
+    if (TheNGMPGame != nullptr)
+	{
+		if (!TheNGMPGame->getAllowObservers())
+		{
+			GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"NOTE: The host has disabled observers in this lobby."), GameSpyColor[GSCOLOR_CHAT_NORMAL], -1, -1);
+		}
+	}
 #endif
 
 #if defined(GENERALS_ONLINE)
@@ -2496,16 +2523,23 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 				// remote msg
 				UnicodeString strInform;
 				if (secondsRemaining == 1)
+				{
+					// Lock all host controlled lobby settings last second of the match start countdown
+					// to prevent late local changes not propagating to remote clients in time
+					WOLLockSettings();
+
 					strInform.format(TheGameText->fetch("LAN:GameStartTimerSingular"), secondsRemaining);
+				}
 				else
+				{
 					strInform.format(TheGameText->fetch("LAN:GameStartTimerPlural"), secondsRemaining);
+				}
 
 				NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 				if (pLobbyInterface != nullptr)
 				{
 					pLobbyInterface->SendAnnouncementMessageToCurrentLobby(strInform, true);
 				}
-				
 
 				// are we done?
 				if (secondsRemaining <= 0)
@@ -2707,9 +2741,6 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 
 					SendStatsToOtherPlayers(TheNGMPGame);
 
-					// we've started, there's no going back
-					// i.e. disable the back button.
-					buttonBack->winEnable(FALSE);
 					GameWindow *buttonBuddy = TheWindowManager->winGetWindowFromId(NULL, NAMEKEY("GameSpyGameOptionsMenu.wnd:ButtonCommunicator"));
 					if (buttonBuddy)
 						buttonBuddy->winEnable(FALSE);

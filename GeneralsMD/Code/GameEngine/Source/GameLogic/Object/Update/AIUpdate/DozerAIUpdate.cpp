@@ -832,16 +832,30 @@ void DozerActionStateMachine::crc( Xfer *xfer )
 }
 
 // ------------------------------------------------------------------------------------------------
-/** Xfer Method */
+/** Xfer Method
+  * Version Info:
+  * 1: Initial version
+  * 2: TheSuperHackers @bugfix bobtista 19/07/2026 Serialize the base StateMachine state.
+  *    Without this the dozer reverts to its default state on load.
+  */
 // ------------------------------------------------------------------------------------------------
 void DozerActionStateMachine::xfer( Xfer *xfer )
 {
   // version
+#if RETAIL_COMPATIBLE_XFER_SAVE
   XferVersion currentVersion = 1;
+#else
+  XferVersion currentVersion = 2;
+#endif
   XferVersion version = currentVersion;
   xfer->xferVersion( &version, currentVersion );
 
 	xfer->xferUser(&m_task, sizeof(m_task));
+
+	if (version >= 2)
+	{
+		StateMachine::xfer(xfer);
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -849,6 +863,7 @@ void DozerActionStateMachine::xfer( Xfer *xfer )
 // ------------------------------------------------------------------------------------------------
 void DozerActionStateMachine::loadPostProcess()
 {
+	StateMachine::loadPostProcess();
 }
 
 
@@ -2016,7 +2031,7 @@ void DozerAIUpdate::newTask( DozerTask task, Object *target )
 		offset.set(position.x-target->getPosition()->x, position.y-target->getPosition()->y, 0);
 		offset.normalize();
 		offset.scale(5*PATHFIND_CELL_SIZE_F);
-		position.add(&offset); // move away from the dock point at the end of build.
+		position.add(offset); // move away from the dock point at the end of build.
 		m_dockPoint[ task ][ DOZER_DOCK_POINT_END ].valid				= TRUE;
 		m_dockPoint[ task ][ DOZER_DOCK_POINT_END ].location		= position;
 

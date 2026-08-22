@@ -39,7 +39,7 @@
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/udp.h"
 #include "GameNetwork/Transport.h"
-#include "strtok_r.h"
+#include "WWLib/strtok_r.h"
 #include "GameClient/Shell.h"
 #include "Common/CRCDebug.h"
 #include "GameLogic/GameLogic.h"
@@ -54,7 +54,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 
 
-#if defined(DEBUG_CRC)
+#if defined(DEBUG_CRC) && !RETAIL_COMPATIBLE_NETWORKING
 Int NET_CRC_INTERVAL = 1;
 #else
 Int NET_CRC_INTERVAL = 100;

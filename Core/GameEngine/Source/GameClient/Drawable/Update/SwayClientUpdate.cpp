@@ -45,7 +45,7 @@
 #include "GameLogic/GameLogic.h"
 
 #include "GameNetwork/GeneralsOnline/NextGenMP_defines.h"
-#include "ww3d.h"
+#include "WW3D2/ww3d.h"
 
 
 //-------------------------------------------------------------------------------------------------

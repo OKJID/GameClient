@@ -241,6 +241,9 @@ void OpenContain::addOrRemoveObjFromWorld(Object* obj, Bool add)
 	}
 	else
 	{
+		DEBUG_ASSERTCRASH(!getObject()->isEffectivelyDead() && !getObject()->isDestroyed(),
+			("object shouldn't become an occupant of a dead or destroyed container object"));
+
 		// remove object from its group (if any)
 		obj->leaveGroup();
 
