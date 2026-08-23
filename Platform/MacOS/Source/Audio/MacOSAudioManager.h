@@ -44,11 +44,14 @@ public:
   virtual void pauseAmbient(Bool shouldPause) override;
   virtual void killAudioEventImmediately(AudioHandle audioEvent) override;
 
-  virtual void nextMusicTrack() override;
-  virtual void prevMusicTrack() override;
+  virtual AsciiString nextMusicTrack() override;
+  virtual AsciiString prevMusicTrack() override;
   virtual Bool isMusicPlaying() const override;
   virtual Bool hasMusicTrackCompleted(const AsciiString &trackName, Int numberOfTimes) const override;
-  virtual AsciiString getMusicTrackName() const override;
+  AsciiString getMusicTrackName() const;
+
+  virtual UnsignedInt getNumAvailable2DSamples() const override;
+  virtual UnsignedInt getNumAvailable3DSamples() const override;
 
   virtual void openDevice() override;
   virtual void closeDevice() override;

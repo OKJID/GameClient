@@ -38,3 +38,21 @@ inline PVOID InterlockedCompareExchangePointer(PVOID volatile *Destination, PVOI
 }
 
 #endif
+
+#ifdef __APPLE__
+
+inline void *InterlockedExchangePointer(void *volatile *Target, void *Value)
+{
+	return __atomic_exchange_n(Target, Value, __ATOMIC_SEQ_CST);
+}
+
+// Returns the initial value of Destination, matching the Win32 contract. On failure the
+// builtin writes the observed value back into Comparand, on success it leaves it equal to
+// the expected value, so returning Comparand is correct in both cases.
+inline void *InterlockedCompareExchangePointer(void *volatile *Destination, void *Exchange, void *Comparand)
+{
+	__atomic_compare_exchange_n(Destination, &Comparand, Exchange, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+	return Comparand;
+}
+
+#endif

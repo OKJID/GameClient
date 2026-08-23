@@ -51,8 +51,10 @@
 #include "Common/AsciiString.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/PerfTimer.h"
-#include "../NGMP_include.h"
-#include "../OnlineServices_Init.h"
+#include "GameNetwork/GeneralsOnline/NGMP_include.h"
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES)
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 
 
 //----------------------------------------------------------------------------

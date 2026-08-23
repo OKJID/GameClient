@@ -20,9 +20,11 @@ struct GOModuleInfo {
 };
 
 #include <windows.h>
+#ifndef __APPLE__
 #include <psapi.h>
 #include <wincrypt.h>
 #include <softpub.h>
+#endif
 #include <string>
 #include <vector>
 #include <iostream>
@@ -52,6 +54,12 @@ std::string ToUtf8(const std::wstring& s) {
 
 std::vector<GOModuleInfo> GetLoadedModules() {
     std::vector<GOModuleInfo> modules;
+
+#ifdef __APPLE__
+    // TODO(PS_PATH): the loaded-module scan relies on WinVerifyTrust signature checks.
+    // On macOS this role is covered by the EAC plugin (Dependencies/eac_plugin).
+    return modules;
+#else
 
     HMODULE hMods[1024];
     DWORD cbNeeded;
@@ -97,6 +105,7 @@ std::vector<GOModuleInfo> GetLoadedModules() {
     }
 
     return modules;
+#endif
 }
 
 
@@ -1634,6 +1643,11 @@ void WebSocket::Tick()
 }
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()
+{
+
+}
+
+NGMP_OnlineServices_RoomsInterface::~NGMP_OnlineServices_RoomsInterface()
 {
 
 }

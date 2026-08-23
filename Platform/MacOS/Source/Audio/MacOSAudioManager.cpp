@@ -261,11 +261,6 @@ void MacOSAudioManager::notifySampleStart(PlayingAudio &pa) {
             return;
         }
     }
-    if (pa.is3D) {
-        m_sound->notifyOf3DSampleStart();
-    } else {
-        m_sound->notifyOf2DSampleStart();
-    }
     pa.counted = TRUE;
 }
 
@@ -273,12 +268,27 @@ void MacOSAudioManager::notifySampleCompletion(PlayingAudio &pa) {
     if (!m_sound || !pa.counted) {
         return;
     }
-    if (pa.is3D) {
-        m_sound->notifyOf3DSampleCompletion();
-    } else {
-        m_sound->notifyOf2DSampleCompletion();
-    }
     pa.counted = FALSE;
+}
+
+UnsignedInt MacOSAudioManager::getNumAvailable2DSamples() const {
+    int used = 0;
+    for (const PlayingAudio &pa : m_sources) {
+        if (pa.counted && !pa.is3D) {
+            ++used;
+        }
+    }
+    return (UnsignedInt)((m_num2DSamples > used) ? (m_num2DSamples - used) : 0);
+}
+
+UnsignedInt MacOSAudioManager::getNumAvailable3DSamples() const {
+    int used = 0;
+    for (const PlayingAudio &pa : m_sources) {
+        if (pa.counted && pa.is3D) {
+            ++used;
+        }
+    }
+    return (UnsignedInt)((m_num3DSamples > used) ? (m_num3DSamples - used) : 0);
 }
 
 void MacOSAudioManager::stopSourceAndFree(PlayingAudio &pa) {
@@ -836,19 +846,21 @@ void MacOSAudioManager::killAudioEventImmediately(AudioHandle audioEvent) {
 
 #pragma mark - Stubs
 
-void MacOSAudioManager::nextMusicTrack() {
+AsciiString MacOSAudioManager::nextMusicTrack() {
     AsciiString trackName = getMusicTrackName();
     TheAudio->removeAudioEvent(AHSV_StopTheMusic);
     trackName = TheAudio->nextTrackName(trackName);
     AudioEventRTS newTrack(trackName);
     TheAudio->addAudioEvent(&newTrack);
+    return trackName;
 }
-void MacOSAudioManager::prevMusicTrack() {
+AsciiString MacOSAudioManager::prevMusicTrack() {
     AsciiString trackName = getMusicTrackName();
     TheAudio->removeAudioEvent(AHSV_StopTheMusic);
     trackName = TheAudio->prevTrackName(trackName);
     AudioEventRTS newTrack(trackName);
     TheAudio->addAudioEvent(&newTrack);
+    return trackName;
 }
 Bool MacOSAudioManager::isMusicPlaying() const {
     for (auto &pa : m_sources) {

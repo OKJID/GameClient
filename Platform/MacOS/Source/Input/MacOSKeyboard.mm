@@ -1,6 +1,6 @@
 #include "MacOSKeyboard.h"
 #include "GameClient/KeyDefs.h"
-#include "always.h"
+#include "WWLib/always.h"
 
 // Simple mapping from macOS virtual key codes to DIK codes
 static unsigned char MacOSVirtualKeyToDIK(unsigned short keyCode) {

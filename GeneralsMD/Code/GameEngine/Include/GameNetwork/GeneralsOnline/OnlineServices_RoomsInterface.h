@@ -103,6 +103,7 @@ class NGMP_OnlineServices_RoomsInterface
 {
 public:
 	NGMP_OnlineServices_RoomsInterface();
+	~NGMP_OnlineServices_RoomsInterface();
 
 	void GetRoomList(std::function<void(void)> cb);
 

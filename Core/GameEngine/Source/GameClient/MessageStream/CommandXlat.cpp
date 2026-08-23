@@ -91,7 +91,9 @@
 #include "GameNetwork/GameSpy/BuddyThread.h"
 
 #include "WW3D2/ww3d.h"
-#include "../OnlineServices_Init.h"
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
+#include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
+#endif
 
 #if defined(RTS_DEBUG)
 /*non-static*/ Real TheSkateDistOverride = 0.0f;
@@ -217,6 +219,7 @@ static void writeObserverFontSizePref(const char* prefKey, Int fontSize)
 	optPref.write();
 }
 
+#if defined(RTS_ZEROHOUR)
 static bool changeObserverNotificationFontSize(ObserverFontSizeChange change)
 {
 	const Int fontSize = applyObserverFontSizeChange(TheWritableGlobalData->m_observerNotificationFontSize, change);
@@ -250,6 +253,7 @@ static bool changeObserverStatsFontSize(ObserverFontSizeChange change)
 
 	return true;
 }
+#endif // RTS_ZEROHOUR
 
 bool changeMaxRenderFps(FpsValueChange change)
 {
@@ -259,7 +263,7 @@ bool changeMaxRenderFps(FpsValueChange change)
 	TheFramePacer->setFramesPerSecondLimit(maxRenderFps);
 	TheWritableGlobalData->m_useFpsLimit = (maxRenderFps != RenderFpsPreset::UncappedFpsValue);
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
     // Save to GO settings, SH does not save it yet
     // TODO_NGMP: Remove this, SH saves it now
     NGMP_OnlineServicesManager::Settings.Graphics_SetFPS(maxRenderFps, TheWritableGlobalData->m_useFpsLimit);
@@ -3348,6 +3352,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			break;
 		}
 
+#if defined(RTS_ZEROHOUR)
 		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_INCREASE_OBSERVER_NOTIFICATION_FONT:
 		{
@@ -3387,6 +3392,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			}
 			break;
 		}
+#endif // RTS_ZEROHOUR
 
 		//-----------------------------------------------------------------------------------------
 		case GameMessage::MSG_META_INCREASE_LOGIC_TIME_SCALE:
@@ -3479,7 +3485,9 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 				}
 
 				ToggleControlBar();
+#if defined(RTS_ZEROHOUR)
 				TheInGameUI->toggleObserverStats();
+#endif
 			}
 			disp = DESTROY_MESSAGE;
 			break;
@@ -3902,7 +3910,7 @@ GameMessageDisposition CommandTranslator::translateGameMessage(const GameMessage
 			break;
 		}
 
-#if defined(GENERALS_ONLINE)
+#if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
         case GameMessage::MSG_RAW_KEY_UP:
         {
             int key = msg->getArgument(0)->integer;

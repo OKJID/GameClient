@@ -491,11 +491,12 @@ public:
 	virtual void resumeAudio(AudioAffect which) override {}
 	virtual void pauseAmbient(Bool shouldPause) override {}
 	virtual void killAudioEventImmediately(AudioHandle audioEvent) override {}
-	virtual void nextMusicTrack() override {}
-	virtual void prevMusicTrack() override {}
+	virtual AsciiString nextMusicTrack() override { return ""; }
+	virtual AsciiString prevMusicTrack() override { return ""; }
 	virtual Bool isMusicPlaying() const override { return FALSE; }
 	virtual Bool hasMusicTrackCompleted(const AsciiString& trackName, Int numberOfTimes) const override { return FALSE; }
-	virtual AsciiString getMusicTrackName() const override { return ""; }
+	virtual UnsignedInt getNumAvailable2DSamples() const override { return 0; }
+	virtual UnsignedInt getNumAvailable3DSamples() const override { return 0; }
 	virtual void notifyOfAudioCompletion(UnsignedInt audioCompleted, UnsignedInt flags) override {}
 	virtual UnsignedInt getProviderCount() const override { return 0; }
 	virtual AsciiString getProviderName(UnsignedInt providerNum) const override { return ""; }

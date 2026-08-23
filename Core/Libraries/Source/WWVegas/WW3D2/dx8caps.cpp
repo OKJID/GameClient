@@ -1172,7 +1172,7 @@ void DX8Caps::Vendor_Specific_Hacks(const D3DADAPTER_IDENTIFIER8& adapter_id)
 
 #else // __APPLE__
 
-#include "always.h"
+#include "WWLib/always.h"
 #include "dx8caps.h"
 #include "formconv.h"
 

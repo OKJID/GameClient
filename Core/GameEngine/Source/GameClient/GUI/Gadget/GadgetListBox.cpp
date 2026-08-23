@@ -2893,7 +2893,7 @@ void ApplyListBoxRowAnimation(GameWindow *window, Int rowIndex, Int rowHeight, I
 	Int animKey;
 	if (it->second == LIST_ROW_ANIM_ID)
 	{
-		Int itemID = (Int)GadgetListBoxGetItemData(window, rowIndex);
+		Int itemID = (Int)(size_t)GadgetListBoxGetItemData(window, rowIndex);
 		if (itemID <= 0)
 			return;
 

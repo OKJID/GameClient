@@ -24,6 +24,9 @@
 #include "WW3D2/surfaceclass.h"
 #include "WWLib/mpsc_intrusive_queue.h"
 #include <stb_image_write.h>
+#ifdef __APPLE__
+#include <thread>
+#endif
 
 struct ScreenshotThreadData
 {
@@ -224,6 +227,9 @@ void W3D_TakeCompressedScreenshot(ScreenshotFormat format, Int jpegQuality)
 	surfaceCopy->Release_Ref();
 	surfaceCopy = nullptr;
 
+#ifdef __APPLE__
+	std::thread(screenshotThreadFunc, threadData).detach();
+#else
 	const HANDLE hThread = CreateThread(nullptr, 0, screenshotThreadFunc, threadData, 0, nullptr);
 	if (hThread)
 	{
@@ -233,4 +239,5 @@ void W3D_TakeCompressedScreenshot(ScreenshotFormat format, Int jpegQuality)
 	{
 		delete threadData;
 	}
+#endif
 }

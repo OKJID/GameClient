@@ -1,8 +1,8 @@
 #import "MetalIndexBuffer8.h"
 #import "MetalVertexBuffer8.h"
-#include "dx8indexbuffer.h"
-#include "dx8vertexbuffer.h"
-#include "dx8wrapper.h"
+#include "WW3D2/dx8indexbuffer.h"
+#include "WW3D2/dx8vertexbuffer.h"
+#include "WW3D2/dx8wrapper.h"
 #import <Metal/Metal.h>
 #include <windows.h>  // macOS Win32 type shim
 #include <cstdio>

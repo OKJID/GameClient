@@ -6,7 +6,7 @@
 #include "GameClient/GameWindow.h"
 #include "GameClient/Image.h"
 #include "GameClient/InGameUI.h"
-#include "always.h"
+#include "WWLib/always.h"
 #include "W3DDevice/GameClient/W3DAssetManager.h"
 #include "W3DDevice/GameClient/W3DDisplay.h"
 #include "W3DDevice/GameClient/W3DScene.h"

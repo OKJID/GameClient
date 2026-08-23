@@ -237,6 +237,13 @@ std::vector<uint8_t> Base64Decode(const std::string& encodedData) {
 
 std::string getGameExeCRC()
 {
+#ifdef __APPLE__
+    // TODO(PS_PATH): there is no PE .text section on macOS. The executable CRC is
+    // already resolved through the VersionManifest endpoint in OnlineServices_Init.
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%u", TheGlobalData->m_exeCRC);
+    return std::string(buf);
+#else
     HMODULE hModule = GetModuleHandle(NULL);
     if (!hModule) return "";
 
@@ -276,6 +283,7 @@ std::string getGameExeCRC()
         }
     }
     return "";
+#endif
 }
 
 int RoundUpLatencyToFrameInterval(int latency, int frameInterval)
@@ -301,11 +309,77 @@ int ConvertMSLatencyToGenToolFrames(int ms)
 }
 
 #include <windows.h>
+#ifndef __APPLE__
 #include <iphlpapi.h>
+#endif
 #include <iostream>
 #include <string>
 
 #pragma comment(lib, "iphlpapi.lib")
+
+#ifdef __APPLE__
+
+#include <ifaddrs.h>
+#include <net/if_dl.h>
+#include <sys/param.h>
+#include <sys/mount.h>
+#include <unistd.h>
+#include <uuid/uuid.h>
+
+std::string GetMachineGuid() {
+	// TODO(PS_PATH): gethostuuid avoids pulling CoreFoundation in, whose MacTypes.h
+	// redefines the engine UInt8 typedef.
+	uuid_t hostID;
+	const struct timespec wait = { 5, 0 };
+	if (gethostuuid(hostID, &wait) != 0)
+		return "";
+
+	char text[37] = {};
+	uuid_unparse_lower(hostID, text);
+	return std::string(text);
+}
+
+std::string GetPrimaryMacAddress() {
+	struct ifaddrs *addrs = nullptr;
+	if (getifaddrs(&addrs) != 0)
+		return "";
+
+	std::string result;
+	for (struct ifaddrs *it = addrs; it != nullptr; it = it->ifa_next)
+	{
+		if (it->ifa_addr == nullptr || it->ifa_addr->sa_family != AF_LINK)
+			continue;
+
+		if (strncmp(it->ifa_name, "en", 2) != 0)
+			continue;
+
+		const struct sockaddr_dl *link = (const struct sockaddr_dl *)it->ifa_addr;
+		if (link->sdl_alen != 6)
+			continue;
+
+		const unsigned char *mac = (const unsigned char *)LLADDR(link);
+		char buf[32];
+		snprintf(buf, sizeof(buf), "%02X-%02X-%02X-%02X-%02X-%02X",
+			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		result = buf;
+		break;
+	}
+
+	freeifaddrs(addrs);
+	return result;
+}
+
+std::string GetVolumeSerial() {
+	struct statfs info;
+	if (statfs("/", &info) != 0)
+		return "";
+
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%08XZZ", (unsigned int)(info.f_fsid.val[0] ^ info.f_fsid.val[1]));
+	return std::string(buf);
+}
+
+#else
 
 // Helper: read MachineGuid from registry
 std::string GetMachineGuid() {
@@ -365,3 +439,5 @@ std::string GetVolumeSerial() {
     }
     return "";
 }
+
+#endif // __APPLE__

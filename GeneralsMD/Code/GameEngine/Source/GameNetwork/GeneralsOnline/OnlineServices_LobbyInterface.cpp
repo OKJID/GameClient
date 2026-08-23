@@ -533,6 +533,11 @@ NGMP_OnlineServices_LobbyInterface::NGMP_OnlineServices_LobbyInterface()
 
 }
 
+NGMP_OnlineServices_LobbyInterface::~NGMP_OnlineServices_LobbyInterface()
+{
+
+}
+
 void NGMP_OnlineServices_LobbyInterface::SearchForLobbies(std::function<void()> onStartCallback, std::function<void(std::vector<LobbyEntry>)> onCompleteCallback)
 {
 	if (m_bSearchInProgress)

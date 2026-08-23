@@ -130,9 +130,13 @@ Real FrameRateLimit::wait(UnsignedInt maxFps)
 
 void FrameRateLimit::reset()
 {
+#ifdef __APPLE__
+	m_start = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+#else
 	LARGE_INTEGER tick;
 	QueryPerformanceCounter(&tick);
 	m_start = tick.QuadPart;
+#endif
 }
 
 

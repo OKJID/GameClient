@@ -105,6 +105,14 @@ GeneralsOnlineDiscordRPC::~GeneralsOnlineDiscordRPC() { Shutdown(); }
 bool GeneralsOnlineDiscordRPC::Initialize() {
   Shutdown();
 
+#ifdef __APPLE__
+  // TODO(PS_PATH): discord-rpc is not shipped for macOS yet.
+  // See .agent/_tasks/merge_god_team_20260823/discord_rich_presence.md
+  NetworkLog(ELogVerbosity::LOG_RELEASE,
+             "[DiscordRPC] Not available on macOS");
+  return false;
+#else
+
   char executablePath[MAX_PATH] = {};
   const DWORD pathLength =
       GetModuleFileNameA(nullptr, executablePath, MAX_PATH);
@@ -156,6 +164,7 @@ bool GeneralsOnlineDiscordRPC::Initialize() {
   NetworkLog(ELogVerbosity::LOG_RELEASE,
              "[DiscordRPC] Rich Presence initialized");
   return true;
+#endif
 }
 
 void GeneralsOnlineDiscordRPC::Shutdown() {
