@@ -29,6 +29,10 @@
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/Image.h"
 
+#ifdef __APPLE__
+#include "MacOSBundleImage.h"
+#endif
+
 
 Intro::DisplayEntity::~DisplayEntity()
 {
@@ -144,8 +148,10 @@ struct DisplaySetting
 {
 	DisplaySetting()
 		: imageName(nullptr)
+		, image(nullptr)
 		, font("Arial")
 		, text(nullptr)
+		, centerOffsetX(0)
 		, centerOffsetY(0)
 		, sizeX(10)
 		, sizeY(10)
@@ -154,8 +160,10 @@ struct DisplaySetting
 	{}
 
 	const Char* imageName;
+	const Image* image;
 	const Char* font;
 	const WideChar* text;
+	Int centerOffsetX;
 	Int centerOffsetY;
 	Int sizeX;
 	Int sizeY;
@@ -241,11 +249,16 @@ void Intro::doGeneralsOnlineLogo()
             e.displayString->setWordWrap(screenWidth);
         }
 
-        if (s.imageName != nullptr)
+        if (s.image != nullptr)
+        {
+            e.image = s.image;
+        }
+        else if (s.imageName != nullptr)
         {
             e.image = TheMappedImageCollection->findImageByName(s.imageName);
         }
 
+        e.centerOffsetX = s.centerOffsetX;
         e.centerOffsetY = s.centerOffsetY;
     }
 
@@ -303,6 +316,20 @@ void Intro::doTheSuperHackers()
 		setting.centered = true;
 		settings.push_back(setting);
 	}
+#ifdef __APPLE__
+	const Image* portLogo = MacOSGetBundleImage("medallion_logo");
+	const Int hackerLogoWidth = (Int)(122 * 0.50f * resolutionScale);
+	const Int hackerLogoHeight = (Int)(98 * 0.50f * resolutionScale);
+	const Int portLogoSize = (Int)(122 * 0.50f * resolutionScale);
+	const Int logoGap = (Int)(14 * resolutionScale);
+	const Int logoRowWidth = portLogo != nullptr
+		? hackerLogoWidth + logoGap + portLogoSize
+		: hackerLogoWidth;
+	const Int logoRowHeight = portLogo != nullptr && portLogoSize > hackerLogoHeight
+		? portLogoSize
+		: hackerLogoHeight;
+#endif
+
 	{
 		// China Hacker image
 		DisplaySetting setting;
@@ -310,8 +337,39 @@ void Intro::doTheSuperHackers()
 		setting.centerOffsetY = centerOffsetY;
 		setting.sizeX = (Int)(122 * 0.50f);
 		setting.sizeY = (Int)(98 * 0.50f);
+#ifdef __APPLE__
+		setting.centerOffsetX = (hackerLogoWidth - logoRowWidth) / 2;
+		setting.centerOffsetY = centerOffsetY + (logoRowHeight - hackerLogoHeight) / 2;
+#endif
 		settings.push_back(setting);
 	}
+
+#ifdef __APPLE__
+	if (portLogo != nullptr)
+	{
+		// macOS port medallion
+		DisplaySetting setting;
+		setting.image = portLogo;
+		setting.centerOffsetX = (logoRowWidth - portLogoSize) / 2;
+		setting.centerOffsetY = centerOffsetY + (logoRowHeight - portLogoSize) / 2;
+		setting.sizeX = (Int)(122 * 0.50f);
+		setting.sizeY = (Int)(122 * 0.50f);
+		settings.push_back(setting);
+	}
+
+	centerOffsetY += logoRowHeight + (Int)(10 * resolutionScale);
+	{
+		// macOS port credit
+		DisplaySetting setting;
+		setting.font = "Consolas";
+		setting.text = L"macOS port by OKJI";
+		setting.sizeY = 14;
+		setting.centerOffsetY = centerOffsetY;
+		setting.bold = false;
+		setting.centered = true;
+		settings.push_back(setting);
+	}
+#endif
 
 	m_displayEntities.resize(settings.size());
 
@@ -330,11 +388,16 @@ void Intro::doTheSuperHackers()
 			e.displayString->setWordWrap(screenWidth);
 		}
 
-		if (s.imageName != nullptr)
+		if (s.image != nullptr)
+		{
+			e.image = s.image;
+		}
+		else if (s.imageName != nullptr)
 		{
 			e.image = TheMappedImageCollection->findImageByName(s.imageName);
 		}
 
+		e.centerOffsetX = s.centerOffsetX;
 		e.centerOffsetY = s.centerOffsetY;
 	}
 
@@ -376,7 +439,7 @@ void Intro::drawDisplayEntities()
 		{
 			ICoord2D pos;
 			e.displayString->getSize(&pos.x, &pos.y);
-			pos.x = (screenWidth / 2) - (pos.x / 2);
+			pos.x = (screenWidth / 2) + e.centerOffsetX - (pos.x / 2);
 			pos.y = (screenHeight / 2) + e.centerOffsetY;
 			e.displayString->draw(pos.x, pos.y, color, dropColor);
 		}
@@ -384,8 +447,8 @@ void Intro::drawDisplayEntities()
 		if (e.image != nullptr)
 		{
 			IRegion2D region;
-			region.lo.x = (screenWidth / 2) - (e.sizeX / 2);
-			region.hi.x = (screenWidth / 2) + (e.sizeX / 2);
+			region.lo.x = (screenWidth / 2) + e.centerOffsetX - (e.sizeX / 2);
+			region.hi.x = (screenWidth / 2) + e.centerOffsetX + (e.sizeX / 2);
 			region.lo.y = (screenHeight / 2) + e.centerOffsetY;
 			region.hi.y = region.lo.y + e.sizeY;
 			TheDisplay->drawImage(e.image, region.lo.x, region.lo.y, region.hi.x, region.hi.y, color);

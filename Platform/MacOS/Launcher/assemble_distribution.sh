@@ -139,6 +139,7 @@ cp assets/background.png "$RESOURCES_DIR/background.png" 2>/dev/null || true
 cp assets/background_mod.png "$RESOURCES_DIR/background_mod.png" 2>/dev/null || true
 cp assets/dir_image.png "$RESOURCES_DIR/dir_image.png" 2>/dev/null || true
 cp assets/author_logo.png "$RESOURCES_DIR/author_logo.png" 2>/dev/null || true
+cp assets/medallion_logo.png "$RESOURCES_DIR/medallion_logo.png" 2>/dev/null || true
 cp assets/Install_Final.bmp "$RESOURCES_DIR/Install_Final.bmp" 2>/dev/null || true
 cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
 

@@ -197,6 +197,13 @@ if [ -f "$SPLASH_SRC" ]; then
     cp -f "$SPLASH_SRC" "$GAME_BUNDLE/Contents/Resources/Install_Final.bmp"
 fi
 
+# Copy intro port credit medallion into app bundle
+MEDALLION_SRC="Platform/MacOS/Launcher/assets/medallion_logo.png"
+if [ -f "$MEDALLION_SRC" ]; then
+    mkdir -p "$GAME_BUNDLE/Contents/Resources"
+    cp -f "$MEDALLION_SRC" "$GAME_BUNDLE/Contents/Resources/medallion_logo.png"
+fi
+
 export GENERALS_FPS_LIMIT="$GAME_FPS_LIMIT"
 
 # Screenshot delay (default 12s)

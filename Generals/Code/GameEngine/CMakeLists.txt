@@ -1083,6 +1083,12 @@ target_include_directories(g_gameengine PRIVATE
     Include/Precompiled
 )
 
+if(APPLE)
+    target_include_directories(g_gameengine PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/Main
+    )
+endif()
+
 target_link_libraries(g_gameengine PRIVATE
     corei_gameengine_private
     gi_always

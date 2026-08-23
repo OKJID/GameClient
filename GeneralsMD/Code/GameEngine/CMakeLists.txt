@@ -1250,6 +1250,10 @@ if(APPLE)
     )
     target_compile_definitions(z_gameengine PRIVATE DEBUG_CRC)
 
+    target_include_directories(z_gameengine PRIVATE
+        ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/Main
+    )
+
     target_link_libraries(z_gameengine PUBLIC
         libcurl
         GameNetworkingSockets

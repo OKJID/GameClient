@@ -45,6 +45,7 @@ class Intro
 			, image(nullptr)
 			, sizeX(10)
 			, sizeY(10)
+			, centerOffsetX(0)
 			, centerOffsetY(0)
 		{}
 		~DisplayEntity();
@@ -53,6 +54,7 @@ class Intro
 		const Image* image;
 		Int sizeX;
 		Int sizeY;
+		Int centerOffsetX;
 		Int centerOffsetY;
 	};
 
