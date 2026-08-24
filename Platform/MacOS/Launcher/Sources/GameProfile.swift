@@ -185,9 +185,11 @@ struct GameProfile: Identifiable {
 
     func isPatchInstalled(at directory: URL) -> Bool {
         let fm = FileManager.default
-        return (patchMarkers + localeMarkers).allSatisfy { marker in
+        let filesPresent = (patchMarkers + localeMarkers).allSatisfy { marker in
             fm.fileExists(atPath: directory.appendingPathComponent(marker).path)
         }
+
+        return filesPresent && PatchVersions.isCurrent(at: directory)
     }
 
     func installedLanguages(at directory: URL) -> [String] {

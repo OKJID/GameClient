@@ -48,6 +48,8 @@ class AssetPatcher: ObservableObject {
 
     static let patchURL = "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip"
 
+    static let mapsDirName = "Maps"
+
     private static let conflictingEAFiles = [
         "PatchData.big",
         "PatchINI.big",
@@ -232,7 +234,14 @@ class AssetPatcher: ObservableObject {
                 continue
             }
 
-            try merge(from: sourceDir, to: target.directory, fm: fm, log: log)
+            let mapNames = (try? fm.contentsOfDirectory(atPath: sourceDir.appendingPathComponent(mapsDirName).path)) ?? []
+
+            let userMaps = target.profile.userDataDirURL.appendingPathComponent(mapsDirName)
+            try merge(from: sourceDir, to: target.directory, fm: fm, log: log, redirectMapsTo: userMaps)
+
+            dropInstalledMaps(named: mapNames, from: target.directory.appendingPathComponent(mapsDirName), fm: fm, log: log)
+            try PatchVersions.markCurrent(at: target.directory)
+
             log?("[✓] \(target.profile.displayName): assets applied\n")
             applied += 1
         }
@@ -240,7 +249,30 @@ class AssetPatcher: ObservableObject {
         return applied
     }
 
-    static func merge(from src: URL, to dst: URL, fm: FileManager, log: ((String) -> Void)?) throws {
+    static func dropInstalledMaps(named names: [String], from installMaps: URL, fm: FileManager, log: ((String) -> Void)?) {
+        guard fm.fileExists(atPath: installMaps.path) else { return }
+
+        var dropped = 0
+        for name in names {
+            let stale = installMaps.appendingPathComponent(name)
+            guard fm.fileExists(atPath: stale.path) else { continue }
+            guard (try? fm.removeItem(at: stale)) != nil else { continue }
+
+            dropped += 1
+        }
+
+        guard dropped > 0 else { return }
+
+        log?("[*] Removed \(dropped) map(s) left in \(installMaps.path)\n")
+    }
+
+    static func merge(
+        from src: URL,
+        to dst: URL,
+        fm: FileManager,
+        log: ((String) -> Void)?,
+        redirectMapsTo userMapsDir: URL? = nil
+    ) throws {
         if !fm.fileExists(atPath: dst.path) {
             try fm.createDirectory(at: dst, withIntermediateDirectories: true)
         }
@@ -253,6 +285,12 @@ class AssetPatcher: ObservableObject {
             fm.fileExists(atPath: srcItem.path, isDirectory: &isDir)
 
             if isDir.boolValue {
+                if let userMapsDir, item.compare(mapsDirName, options: .caseInsensitive) == .orderedSame {
+                    log?("[*] Maps → \(userMapsDir.path)\n")
+                    try merge(from: srcItem, to: userMapsDir, fm: fm, log: log)
+                    continue
+                }
+
                 try merge(from: srcItem, to: dstItem, fm: fm, log: log)
                 continue
             }

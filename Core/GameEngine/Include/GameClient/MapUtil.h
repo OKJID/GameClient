@@ -102,6 +102,9 @@ public:
 		: m_doCreateStandardMapCacheINI(TRUE)
 		, m_doLoadStandardMapCacheINI(TRUE)
 		, m_doLoadUserMapCacheINI(TRUE)
+#if defined(__APPLE__)
+		, m_doPromoteInstallMaps(TRUE)
+#endif
 	{}
 
 	void updateCache();
@@ -122,6 +125,12 @@ private:
 	Bool loadMapsFromDisk(const AsciiString &mapDir, Bool isOfficial, Bool filterByAllowedMaps = FALSE); // returns true if we needed to (re)parse a map
 	Bool addMap(const AsciiString &mapDir, const AsciiString &fname, const AsciiString &lowerFname, FileInfo &fileInfo, Bool isOfficial); ///< returns true if it had to (re)parse the map
 	void writeCacheINI(const AsciiString &mapDir);
+#if defined(__APPLE__)
+	void collectOfficialMapStems(MapNameSet &outStems) const;
+	void dropUserMapsMatchingOfficial(const AsciiString &userMapDir, const MapNameSet &officialStems);
+	void promoteUnofficialInstallMaps(const MapNameSet &officialStems);
+	void promoteInstallMapsOnce(const AsciiString &mapDir);
+#endif
 
 	static const char *const m_mapCacheName;
 
@@ -129,6 +138,10 @@ private:
 	Bool m_doCreateStandardMapCacheINI;
 	Bool m_doLoadStandardMapCacheINI;
 	Bool m_doLoadUserMapCacheINI;
+#if defined(__APPLE__)
+	Bool m_doPromoteInstallMaps;
+	MapNameSet m_officialMapStems;
+#endif
 };
 
 extern MapCache *TheMapCache;

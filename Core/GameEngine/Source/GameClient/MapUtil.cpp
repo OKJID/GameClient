@@ -44,6 +44,7 @@
 #include "Common/WellKnownKeys.h"
 #include "Common/INI.h"
 #include "Common/QuotedPrintable.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/SkirmishBattleHonors.h"
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
@@ -68,6 +69,29 @@
 //-------------------------------------------------------------------------------
 // PRIVATE DATA ///////////////////////////////////////////////////////////////////////////////////
 static const char *mapExtension = ".map";
+
+#if defined(__APPLE__)
+static AsciiString mapStemFromMapFilePath(const AsciiString &mapPath)
+{
+	AsciiString lower = mapPath;
+	lower.toLower();
+
+	const char *slash = lower.reverseFind('\\');
+	if (slash == nullptr)
+	{
+		return AsciiString::TheEmptyString;
+	}
+
+	AsciiString stem = slash + 1;
+	if (!stem.endsWithNoCase(mapExtension))
+	{
+		return AsciiString::TheEmptyString;
+	}
+
+	stem.truncateBy(strlen(mapExtension));
+	return stem;
+}
+#endif
 
 static Int m_width = 0;						///< Height map width.
 static Int m_height = 0;					///< Height map height (y size of array).
@@ -342,7 +366,7 @@ void MapCache::writeCacheINI( const AsciiString &mapDir )
 	TheFileSystem->createDirectory(mapDir);
 
 	filepath.concat(m_mapCacheName);
-	FILE *fp = fopen(filepath.str(), "w");
+	FILE *fp = NativeFileSystem::fopen(filepath, "w");
 	DEBUG_ASSERTCRASH(fp != nullptr, ("Failed to create %s", filepath.str()));
 	if (fp == nullptr) {
 		return;
@@ -444,16 +468,26 @@ void MapCache::updateCache()
 		m_doCreateStandardMapCacheINI = FALSE;
 	}
 
+#if defined(__APPLE__)
+	promoteInstallMapsOnce(mapDir);
+#endif
+
 	// Load user map cache first.
 	if (m_doLoadUserMapCacheINI)
 	{
 		loadMapsFromMapCacheINI(userMapDir);
+#if defined(__APPLE__)
+		dropUserMapsMatchingOfficial(userMapDir, m_officialMapStems);
+#endif
 		m_doLoadUserMapCacheINI = FALSE;
 	}
 
 	// Load user maps from disk and update any discrepancies from the map cache.
 	if (loadMapsFromDisk(userMapDir, FALSE))
 	{
+#if defined(__APPLE__)
+		dropUserMapsMatchingOfficial(userMapDir, m_officialMapStems);
+#endif
 		writeCacheINI(userMapDir);
 		m_doLoadStandardMapCacheINI = TRUE;
 	}
@@ -505,6 +539,134 @@ Bool MapCache::clearUnseenMaps( const AsciiString &mapDir )
 
 	return erasedSomething;
 }
+
+#if defined(__APPLE__)
+void MapCache::promoteInstallMapsOnce(const AsciiString &mapDir)
+{
+	if (!m_doPromoteInstallMaps)
+	{
+		return;
+	}
+
+	loadMapsFromMapCacheINI(mapDir);
+	collectOfficialMapStems(m_officialMapStems);
+	promoteUnofficialInstallMaps(m_officialMapStems);
+
+	m_doPromoteInstallMaps = FALSE;
+}
+
+void MapCache::collectOfficialMapStems(MapNameSet &outStems) const
+{
+	const AsciiString mapDir = getMapDir();
+
+	for (const_iterator it = begin(); it != end(); ++it)
+	{
+		if (!it->first.startsWithNoCase(mapDir.str()) && !it->second.m_isOfficial)
+		{
+			continue;
+		}
+
+		AsciiString stem = mapStemFromMapFilePath(it->first);
+		if (stem.isEmpty())
+		{
+			continue;
+		}
+
+		outStems.insert(stem);
+	}
+}
+
+void MapCache::dropUserMapsMatchingOfficial(const AsciiString &userMapDir, const MapNameSet &officialStems)
+{
+	iterator it = begin();
+	while (it != end())
+	{
+		iterator next = it;
+		++next;
+
+		if (!it->first.startsWithNoCase(userMapDir.str()))
+		{
+			it = next;
+			continue;
+		}
+
+		AsciiString stem = mapStemFromMapFilePath(it->first);
+		if (!stem.isEmpty() && officialStems.find(stem) != officialStems.end())
+		{
+			erase(it);
+		}
+
+		it = next;
+	}
+}
+
+void MapCache::promoteUnofficialInstallMaps(const MapNameSet &officialStems)
+{
+	if (TheLocalFileSystem == nullptr || TheFileSystem == nullptr)
+	{
+		return;
+	}
+
+	const AsciiString mapDir = getMapDir();
+	const AsciiString userMapDir = getUserMapDir();
+
+	FilenameList mapFiles;
+	AsciiString mapsRoot;
+	mapsRoot.format("%s\\", mapDir.str());
+	TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, mapsRoot, "*.map", mapFiles, TRUE);
+
+	for (FilenameListIter it = mapFiles.begin(); it != mapFiles.end(); ++it)
+	{
+		AsciiString filepathLower = *it;
+		filepathLower.toLower();
+
+		AsciiString stem = mapStemFromMapFilePath(filepathLower);
+		if (stem.isEmpty())
+		{
+			continue;
+		}
+
+		AsciiString endingStr;
+		endingStr.format("%s\\%s%s", stem.str(), stem.str(), mapExtension);
+		if (!filepathLower.endsWithNoCase(endingStr.str()))
+		{
+			continue;
+		}
+
+		if (officialStems.find(stem) != officialStems.end())
+		{
+			continue;
+		}
+
+		AsciiString destMap;
+		destMap.format("%s\\%s\\%s%s", userMapDir.str(), stem.str(), stem.str(), mapExtension);
+		if (TheLocalFileSystem->doesFileExist(destMap.str()))
+		{
+			continue;
+		}
+
+		AsciiString destDir;
+		destDir.format("%s\\%s", userMapDir.str(), stem.str());
+		TheFileSystem->createDirectory(destDir);
+
+		AsciiString srcDirSlash;
+		srcDirSlash.format("%s\\%s\\", mapDir.str(), stem.str());
+
+		FilenameList extras;
+		TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, srcDirSlash, "*", extras, FALSE);
+
+		for (FilenameListIter fileIt = extras.begin(); fileIt != extras.end(); ++fileIt)
+		{
+			const char *nameSlash = fileIt->reverseFind('\\');
+			const char *base = nameSlash ? nameSlash + 1 : fileIt->str();
+
+			AsciiString destFile;
+			destFile.format("%s\\%s", destDir.str(), base);
+			CopyFile(fileIt->str(), destFile.str(), TRUE);
+		}
+	}
+}
+#endif
 
 void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
 {
