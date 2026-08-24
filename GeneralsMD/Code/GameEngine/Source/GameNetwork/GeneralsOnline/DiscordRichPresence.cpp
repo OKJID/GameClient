@@ -6,6 +6,10 @@
 #include "GameNetwork/GeneralsOnline/NGMPGame.h"
 #include "GameNetwork/GeneralsOnline/OnlineServices_LobbyInterface.h"
 
+#ifdef __APPLE__
+#include "GameNetwork/GeneralsOnline/DiscordRichPresence_Apple.h"
+#endif
+
 #include <Windows.h>
 
 #include <algorithm>
@@ -106,11 +110,11 @@ bool GeneralsOnlineDiscordRPC::Initialize() {
   Shutdown();
 
 #ifdef __APPLE__
-  // TODO(PS_PATH): discord-rpc is not shipped for macOS yet.
-  // See .agent/_tasks/merge_god_team_20260823/discord_rich_presence.md
-  NetworkLog(ELogVerbosity::LOG_RELEASE,
-             "[DiscordRPC] Not available on macOS");
-  return false;
+  m_initialize = DiscordIpc::Initialize;
+  m_shutdown = DiscordIpc::Shutdown;
+  m_runCallbacks = DiscordIpc::RunCallbacks;
+  m_updatePresence = DiscordIpc::UpdatePresence;
+  m_clearPresence = DiscordIpc::ClearPresence;
 #else
 
   char executablePath[MAX_PATH] = {};
@@ -155,6 +159,7 @@ bool GeneralsOnlineDiscordRPC::Initialize() {
     ResetFunctions();
     return false;
   }
+#endif
 
   DiscordEventHandlers handlers = {};
   m_initialize(DISCORD_APPLICATION_ID, &handlers, 0, nullptr);
@@ -164,7 +169,6 @@ bool GeneralsOnlineDiscordRPC::Initialize() {
   NetworkLog(ELogVerbosity::LOG_RELEASE,
              "[DiscordRPC] Rich Presence initialized");
   return true;
-#endif
 }
 
 void GeneralsOnlineDiscordRPC::Shutdown() {

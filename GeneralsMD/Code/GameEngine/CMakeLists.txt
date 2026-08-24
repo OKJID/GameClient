@@ -1247,6 +1247,8 @@ target_link_libraries(z_gameengine PUBLIC
 if(APPLE)
     target_sources(z_gameengine PRIVATE
         ../../../Core/GameEngine/Source/Common/CRCDebug.cpp
+        Include/GameNetwork/GeneralsOnline/DiscordRichPresence_Apple.h
+        Source/GameNetwork/GeneralsOnline/DiscordRichPresence_Apple.cpp
     )
     target_compile_definitions(z_gameengine PRIVATE DEBUG_CRC)
 
