@@ -34,6 +34,7 @@ FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
 ZIP_NAME="Generals_Online_Mac_Alpha.zip"
 DMG_NAME="Generals_Online_Mac_Alpha.dmg"
 INSTRUCTIONS_NAME="Instructions.html"
+INSTRUCTIONS_BUILDER="../../../Dependencies/general_online_zh/build.sh"
 
 echo "=========================================="
 echo "📦 Assembling Final Distribution Package"
@@ -170,7 +171,15 @@ echo "🔏 [5/7] Signing the finished bundle..."
 # both invalidate an earlier seal.
 codesign --force --deep -s - "$FINAL_APP_DIR"
 
-echo "📝 [6/7] Copying HTML instructions..."
+echo "📝 [6/7] Building HTML instructions..."
+# The generator lives in the site repository, which is an optional dependency
+# here. Without it the checked-in www/instructions.html ships as it is.
+if [ -f "$INSTRUCTIONS_BUILDER" ]; then
+    sh "$INSTRUCTIONS_BUILDER"
+else
+    echo "⚠️ Warning: $INSTRUCTIONS_BUILDER not found, shipping www/instructions.html as is."
+fi
+
 if [ -f "www/instructions.html" ]; then
     cp "www/instructions.html" "$OUTPUTS_DIR/$INSTRUCTIONS_NAME"
 else
@@ -178,12 +187,12 @@ else
 fi
 
 echo "🗜️ [7/7] Creating final deployment ZIP..."
-# Идем в dist, чтобы в архиве корневым элементом была сама app, без папок build/dist
+# Enter dist so the archive carries the app itself at its root, without build/dist
 cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"
 cd ../..
 
-# Идем в outputs и добавляем инструкции внутрь готового зипа
+# Enter outputs and add the instructions inside the finished ZIP
 cd "$OUTPUTS_DIR" || exit
 if [ -f "$INSTRUCTIONS_NAME" ]; then
     zip -rq "$ZIP_NAME" "$INSTRUCTIONS_NAME"
@@ -196,5 +205,5 @@ cd ..
 echo "✅ Distribution package successfully created in: $OUTPUTS_DIR"
 ls -lah "$OUTPUTS_DIR"
 
-# Удаляем build_launcher.sh раз мы все объединили
+# Drop build_launcher.sh now that everything is assembled here
 rm -f build_launcher.sh 2>/dev/null || true
