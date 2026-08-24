@@ -103,7 +103,7 @@ public:
 		, m_doLoadStandardMapCacheINI(TRUE)
 		, m_doLoadUserMapCacheINI(TRUE)
 #if defined(__APPLE__)
-		, m_doPromoteInstallMaps(TRUE)
+		, m_doCollectOfficialMapStems(TRUE)
 #endif
 	{}
 
@@ -127,9 +127,8 @@ private:
 	void writeCacheINI(const AsciiString &mapDir);
 #if defined(__APPLE__)
 	void collectOfficialMapStems(MapNameSet &outStems) const;
+	void collectOfficialMapStemsOnce(const AsciiString &mapDir);
 	void dropUserMapsMatchingOfficial(const AsciiString &userMapDir, const MapNameSet &officialStems);
-	void promoteUnofficialInstallMaps(const MapNameSet &officialStems);
-	void promoteInstallMapsOnce(const AsciiString &mapDir);
 #endif
 
 	static const char *const m_mapCacheName;
@@ -139,7 +138,7 @@ private:
 	Bool m_doLoadStandardMapCacheINI;
 	Bool m_doLoadUserMapCacheINI;
 #if defined(__APPLE__)
-	Bool m_doPromoteInstallMaps;
+	Bool m_doCollectOfficialMapStems;
 	MapNameSet m_officialMapStems;
 #endif
 };

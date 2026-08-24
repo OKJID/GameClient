@@ -469,7 +469,7 @@ void MapCache::updateCache()
 	}
 
 #if defined(__APPLE__)
-	promoteInstallMapsOnce(mapDir);
+	collectOfficialMapStemsOnce(mapDir);
 #endif
 
 	// Load user map cache first.
@@ -541,18 +541,17 @@ Bool MapCache::clearUnseenMaps( const AsciiString &mapDir )
 }
 
 #if defined(__APPLE__)
-void MapCache::promoteInstallMapsOnce(const AsciiString &mapDir)
+void MapCache::collectOfficialMapStemsOnce(const AsciiString &mapDir)
 {
-	if (!m_doPromoteInstallMaps)
+	if (!m_doCollectOfficialMapStems)
 	{
 		return;
 	}
 
 	loadMapsFromMapCacheINI(mapDir);
 	collectOfficialMapStems(m_officialMapStems);
-	promoteUnofficialInstallMaps(m_officialMapStems);
 
-	m_doPromoteInstallMaps = FALSE;
+	m_doCollectOfficialMapStems = FALSE;
 }
 
 void MapCache::collectOfficialMapStems(MapNameSet &outStems) const
@@ -600,72 +599,6 @@ void MapCache::dropUserMapsMatchingOfficial(const AsciiString &userMapDir, const
 	}
 }
 
-void MapCache::promoteUnofficialInstallMaps(const MapNameSet &officialStems)
-{
-	if (TheLocalFileSystem == nullptr || TheFileSystem == nullptr)
-	{
-		return;
-	}
-
-	const AsciiString mapDir = getMapDir();
-	const AsciiString userMapDir = getUserMapDir();
-
-	FilenameList mapFiles;
-	AsciiString mapsRoot;
-	mapsRoot.format("%s\\", mapDir.str());
-	TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, mapsRoot, "*.map", mapFiles, TRUE);
-
-	for (FilenameListIter it = mapFiles.begin(); it != mapFiles.end(); ++it)
-	{
-		AsciiString filepathLower = *it;
-		filepathLower.toLower();
-
-		AsciiString stem = mapStemFromMapFilePath(filepathLower);
-		if (stem.isEmpty())
-		{
-			continue;
-		}
-
-		AsciiString endingStr;
-		endingStr.format("%s\\%s%s", stem.str(), stem.str(), mapExtension);
-		if (!filepathLower.endsWithNoCase(endingStr.str()))
-		{
-			continue;
-		}
-
-		if (officialStems.find(stem) != officialStems.end())
-		{
-			continue;
-		}
-
-		AsciiString destMap;
-		destMap.format("%s\\%s\\%s%s", userMapDir.str(), stem.str(), stem.str(), mapExtension);
-		if (TheLocalFileSystem->doesFileExist(destMap.str()))
-		{
-			continue;
-		}
-
-		AsciiString destDir;
-		destDir.format("%s\\%s", userMapDir.str(), stem.str());
-		TheFileSystem->createDirectory(destDir);
-
-		AsciiString srcDirSlash;
-		srcDirSlash.format("%s\\%s\\", mapDir.str(), stem.str());
-
-		FilenameList extras;
-		TheLocalFileSystem->getFileListInDirectory(AsciiString::TheEmptyString, srcDirSlash, "*", extras, FALSE);
-
-		for (FilenameListIter fileIt = extras.begin(); fileIt != extras.end(); ++fileIt)
-		{
-			const char *nameSlash = fileIt->reverseFind('\\');
-			const char *base = nameSlash ? nameSlash + 1 : fileIt->str();
-
-			AsciiString destFile;
-			destFile.format("%s\\%s", destDir.str(), base);
-			CopyFile(fileIt->str(), destFile.str(), TRUE);
-		}
-	}
-}
 #endif
 
 void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
