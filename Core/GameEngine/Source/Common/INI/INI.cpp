@@ -372,6 +372,13 @@ UnsignedInt INI::load( AsciiString filename, INILoadType loadType, Xfer *pXfer )
 	s_xfer = pXfer;
 	prepFile(filename, loadType);
 
+#ifdef __APPLE__
+	if (pXfer != nullptr)
+	{
+		DEBUG_INFO_MAC(("INI_CRC_IN: %s", filename.str()));
+	}
+#endif
+
 	try
 	{
 

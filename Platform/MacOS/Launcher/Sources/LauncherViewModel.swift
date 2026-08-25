@@ -142,6 +142,7 @@ class LauncherViewModel: ObservableObject {
     private var baseReadyCache: [GameID: Bool] = [:]
     private var modStatusCache: [GameID: ModStatus] = [:]
     private var pathValidCache: Bool?
+    private var steamAssetsValidCache: Bool?
 
     init() {
         steamCMD.objectWillChange.sink { [weak self] _ in
@@ -327,6 +328,15 @@ class LauncherViewModel: ObservableObject {
         return account == steamUsername
     }
 
+    var areSteamAssetsValid: Bool {
+        syncValidationCache()
+        if let cached = steamAssetsValidCache { return cached }
+
+        let valid = steamCMD.areAssetsValid
+        steamAssetsValidCache = valid
+        return valid
+    }
+
     var isPathValid: Bool {
         syncValidationCache()
         if let cached = pathValidCache { return cached }
@@ -351,6 +361,7 @@ class LauncherViewModel: ObservableObject {
         baseReadyCache.removeAll()
         modStatusCache.removeAll()
         pathValidCache = nil
+        steamAssetsValidCache = nil
     }
 
     var selectedProfile: GameProfile {
@@ -504,7 +515,7 @@ class LauncherViewModel: ObservableObject {
     var needsPatching: Bool {
         switch activeTab {
         case .steam:
-            return steamCMD.areAssetsValid && !isPatchReady
+            return areSteamAssetsValid && !isPatchReady
                 && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
         case .local:
             return isPathValid && !isPatchReady && !assetPatcher.state.isRunning
@@ -519,7 +530,7 @@ class LauncherViewModel: ObservableObject {
         }
 
         switch activeTab {
-        case .steam: return steamCMD.areAssetsValid && isPatchReady
+        case .steam: return areSteamAssetsValid && isPatchReady
             && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
         case .local: return isPathValid && isPatchReady && !assetPatcher.state.isRunning
         }
