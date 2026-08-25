@@ -1,7 +1,7 @@
 import Foundation
 
 struct PatchVersions {
-    static let current = "1"
+    static let current = "3"
     static let markerFileName = "MacPatch.version"
 
     static func isCurrent(at directory: URL) -> Bool {

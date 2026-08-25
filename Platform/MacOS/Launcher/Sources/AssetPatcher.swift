@@ -49,6 +49,7 @@ class AssetPatcher: ObservableObject {
     static let patchURL = "https://github.com/Okladnoj/GeneralsOnline-MacPatch/releases/latest/download/GO_Mac_Patch.zip"
 
     static let mapsDirName = "Maps"
+    static let onlineDataDirName = "GeneralsOnlineGameData"
 
     private static let conflictingEAFiles = [
         "PatchData.big",
@@ -56,6 +57,8 @@ class AssetPatcher: ObservableObject {
         "PatchWindow.big",
         "PatchZH.big"
     ]
+
+    static let retiredPatchFiles: [String] = []
 
     // MARK: - Public API
 
@@ -236,10 +239,15 @@ class AssetPatcher: ObservableObject {
 
             let mapNames = (try? fm.contentsOfDirectory(atPath: sourceDir.appendingPathComponent(mapsDirName).path)) ?? []
 
-            let userMaps = target.profile.userDataDirURL.appendingPathComponent(mapsDirName)
-            try merge(from: sourceDir, to: target.directory, fm: fm, log: log, redirectMapsTo: userMaps)
+            let userDataDir = target.profile.userDataDirURL
+            let redirects = [
+                mapsDirName: userDataDir.appendingPathComponent(mapsDirName),
+                onlineDataDirName: userDataDir.appendingPathComponent(onlineDataDirName)
+            ]
+            try merge(from: sourceDir, to: target.directory, fm: fm, log: log, redirects: redirects)
 
             dropInstalledMaps(named: mapNames, from: target.directory.appendingPathComponent(mapsDirName), fm: fm, log: log)
+            dropRetiredPatchFiles(from: target.directory, fm: fm, log: log)
             try PatchVersions.markCurrent(at: target.directory)
 
             log?("[✓] \(target.profile.displayName): assets applied\n")
@@ -247,6 +255,16 @@ class AssetPatcher: ObservableObject {
         }
 
         return applied
+    }
+
+    static func dropRetiredPatchFiles(from installDir: URL, fm: FileManager, log: ((String) -> Void)?) {
+        for name in retiredPatchFiles {
+            let stale = installDir.appendingPathComponent(name)
+            guard fm.fileExists(atPath: stale.path) else { continue }
+            guard (try? fm.removeItem(at: stale)) != nil else { continue }
+
+            log?("[*] Removed retired patch file: \(name)\n")
+        }
     }
 
     static func dropInstalledMaps(named names: [String], from installMaps: URL, fm: FileManager, log: ((String) -> Void)?) {
@@ -271,7 +289,7 @@ class AssetPatcher: ObservableObject {
         to dst: URL,
         fm: FileManager,
         log: ((String) -> Void)?,
-        redirectMapsTo userMapsDir: URL? = nil
+        redirects: [String: URL] = [:]
     ) throws {
         if !fm.fileExists(atPath: dst.path) {
             try fm.createDirectory(at: dst, withIntermediateDirectories: true)
@@ -285,9 +303,9 @@ class AssetPatcher: ObservableObject {
             fm.fileExists(atPath: srcItem.path, isDirectory: &isDir)
 
             if isDir.boolValue {
-                if let userMapsDir, item.compare(mapsDirName, options: .caseInsensitive) == .orderedSame {
-                    log?("[*] Maps → \(userMapsDir.path)\n")
-                    try merge(from: srcItem, to: userMapsDir, fm: fm, log: log)
+                if let redirected = redirects.first(where: { $0.key.compare(item, options: .caseInsensitive) == .orderedSame })?.value {
+                    log?("[*] \(item) → \(redirected.path)\n")
+                    try merge(from: srcItem, to: redirected, fm: fm, log: log)
                     continue
                 }
 
