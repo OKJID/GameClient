@@ -66,4 +66,11 @@ enum LobbyGameModeFilter CPP_11(: Int)
     LOBBY_FILTER_TEAM,
     LOBBY_FILTER_FFA,
     LOBBY_FILTER_AOD,
+#ifdef __APPLE__
+    LOBBY_FILTER_MACOS,
+#endif
 };
+
+#ifdef __APPLE__
+const char* GetLobbyFilterName(LobbyGameModeFilter filter);
+#endif

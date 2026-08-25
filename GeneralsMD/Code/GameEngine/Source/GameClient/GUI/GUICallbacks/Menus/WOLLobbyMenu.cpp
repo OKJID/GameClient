@@ -606,6 +606,11 @@ static void PopulateLobbyFilterComboBox(GameWindow* comboBox)
 		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_FFA);
 	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: AOD"),
 		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_AOD);
+#ifdef __APPLE__
+	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: macOS"),
+		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_MACOS);
+	DEBUG_INFO_MAC(("LOBBY_FILTER: combo populated, preselecting %s (pos %d)", GetLobbyFilterName(theLobbyFilter), (Int)theLobbyFilter));
+#endif
 
 	GadgetComboBoxSetSelectedPos(comboBox, (Int)theLobbyFilter);
 }
@@ -2661,6 +2666,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					GadgetComboBoxGetSelectedPos(comboLobbyGroupRooms, &pos);
 					if (pos >= 0)
 						theLobbyFilter = (LobbyGameModeFilter)(Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
+					DEBUG_INFO_MAC(("LOBBY_FILTER: user selected pos %d -> %s", pos, GetLobbyFilterName(theLobbyFilter)));
 					RefreshGameListBoxes();
 				}
 			}

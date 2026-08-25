@@ -157,7 +157,36 @@ static void showSortIcons()
 	}
 }
 
+#ifdef __APPLE__
+LobbyGameModeFilter theLobbyFilter = LOBBY_FILTER_MACOS;
+
+const char* GetLobbyFilterName(LobbyGameModeFilter filter)
+{
+	switch (filter)
+	{
+		case LOBBY_FILTER_ALL: return "ALL";
+		case LOBBY_FILTER_1V1: return "1V1";
+		case LOBBY_FILTER_TEAM: return "TEAM";
+		case LOBBY_FILTER_FFA: return "FFA";
+		case LOBBY_FILTER_AOD: return "AOD";
+		case LOBBY_FILTER_MACOS: return "MACOS";
+	}
+
+	return "UNKNOWN";
+}
+
+static bool isMacLobbyName(const std::string& name)
+{
+	std::string loweredName = name;
+	std::transform(loweredName.begin(), loweredName.end(), loweredName.begin(), tolower);
+
+	return loweredName.find("[mac]") != std::string::npos
+		|| loweredName.find("[macos]") != std::string::npos;
+}
+#else
 LobbyGameModeFilter theLobbyFilter = LOBBY_FILTER_ALL;
+#endif
+
 static LobbyGameModeFilter detectGameMode(const std::string& name)
 {
 	std::string modeName = name;
@@ -189,6 +218,19 @@ static LobbyGameModeFilter detectGameMode(const std::string& name)
 		return LOBBY_FILTER_TEAM;
 
 	return LOBBY_FILTER_ALL;
+}
+
+static bool lobbyMatchesFilter(const std::string& lobbyName)
+{
+	if (theLobbyFilter == LOBBY_FILTER_ALL)
+		return true;
+
+#ifdef __APPLE__
+	if (theLobbyFilter == LOBBY_FILTER_MACOS)
+		return isMacLobbyName(lobbyName);
+#endif
+
+	return detectGameMode(lobbyName) == theLobbyFilter;
 }
 
 void setSortMode(GameSortType sortType) { theGameSortType = sortType; showSortIcons(); RefreshGameListBoxes(); }
@@ -1366,21 +1408,31 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 			{
 				win->winEnable(false);
 				GadgetListBoxAddEntryText(win, UnicodeString(L"No lobbies were found"), GameMakeColor(255, 194, 15, 255), -1, -1);
-
+				DEBUG_INFO_MAC(("LOBBY_FILTER: service returned no lobbies at all (filter not involved)"));
 			}
 			else
 			{
 				win->winEnable(true);
 
 				// filter lobbies by game mode
+#ifdef __APPLE__
+				DEBUG_INFO_MAC(("LOBBY_FILTER: active=%s, received=%d", GetLobbyFilterName(theLobbyFilter), (Int)numResults));
+#endif
 				if (theLobbyFilter != LOBBY_FILTER_ALL)
 				{
 					std::vector<LobbyEntry> filtered;
 					for (Int i = 0; i < (Int)vecLobbies.size(); ++i)
 					{
-						if (detectGameMode(vecLobbies[i].name) == theLobbyFilter)
+						if (lobbyMatchesFilter(vecLobbies[i].name))
 							filtered.push_back(vecLobbies[i]);
 					}
+#ifdef __APPLE__
+					DEBUG_INFO_MAC(("LOBBY_FILTER: matched=%d of %d", (Int)filtered.size(), (Int)vecLobbies.size()));
+					for (LobbyEntry& matchedLobby : filtered)
+					{
+						DEBUG_INFO_MAC(("LOBBY_FILTER: kept id=%lld, name='%s'", (long long)matchedLobby.lobbyID, matchedLobby.name.c_str()));
+					}
+#endif
 					vecLobbies = filtered;
 					if (vecLobbies.empty())
 					{

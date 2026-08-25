@@ -4,6 +4,10 @@
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
 #include "GameClient/MapUtil.h"
 #include "GameLogic/GameLogic.h"
+#ifdef __APPLE__
+#include <algorithm>
+#include <cctype>
+#endif
 
 extern void OnKickedFromLobby();
 
@@ -877,6 +881,9 @@ void NGMP_OnlineServices_LobbyInterface::UpdateRoomDataCache(std::function<void(
 						lobbyEntryIter["LobbyType"].get_to(lobbyEntry.lobby_type);
 						lobbyEntryIter["Region"].get_to(lobbyEntry.region);
 
+						DEBUG_INFO_MAC(("LOBBY_SYNC: server name='%s' (local was '%s'), owner=%lld",
+							lobbyEntry.name.c_str(), m_CurrentLobby.name.c_str(), (long long)lobbyEntry.owner));
+
 						if (lobbyEntry.lobby_type == ELobbyType::QuickMatch)
 						{
 							TheNGMPGame->markGameAsQM();
@@ -1361,6 +1368,25 @@ struct CreateLobbyResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(CreateLobbyResponse, result, lobby_id, turn_username, turn_token)
 };
 
+#ifdef __APPLE__
+static bool HasMacLobbyMarker(const std::string& strLobbyName)
+{
+	std::string loweredName = strLobbyName;
+	std::transform(loweredName.begin(), loweredName.end(), loweredName.begin(), tolower);
+
+	return loweredName.find("[mac]") != std::string::npos
+		|| loweredName.find("[macos]") != std::string::npos;
+}
+
+static std::string ApplyMacLobbyMarker(const std::string& strLobbyName)
+{
+	if (HasMacLobbyMarker(strLobbyName))
+		return strLobbyName;
+
+	return std::string("[MAC] ") + strLobbyName;
+}
+#endif
+
 void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName, UnicodeString strInitialMapName, AsciiString strInitialMapPath, bool bIsOfficial, int initialMaxSize, bool bVanillaTeamsOnly, bool bTrackStats, uint32_t startingCash, bool bPassworded, std::string strPassword, bool bAllowObservers)
 {
 	AnticheatPlugInterface::EndSession();
@@ -1384,7 +1410,15 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			}
 
 			nlohmann::json j;
+#ifdef __APPLE__
+			std::string strRequestedName = to_utf8(strLobbyName.str());
+			std::string strMarkedName = ApplyMacLobbyMarker(strRequestedName);
+			j["name"] = strMarkedName;
+			DEBUG_INFO_MAC(("LOBBY_CREATE: requested='%s' -> sent='%s' (marker already present: %s)",
+				strRequestedName.c_str(), strMarkedName.c_str(), HasMacLobbyMarker(strRequestedName) ? "yes" : "no"));
+#else
 			j["name"] = to_utf8(strLobbyName.str());
+#endif
 			j["map_name"] = strMapName;
 			j["map_path"] = sanitizedMapPath.str();
 			j["map_official"] = bIsOfficial;
@@ -1459,6 +1493,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 							AsciiString strName = AsciiString();
 
 							m_CurrentLobby.name = to_utf8(strLobbyName.str());
+							DEBUG_INFO_MAC(("LOBBY_CREATE: local cache name='%s' (server copy arrives with the first full GET)", m_CurrentLobby.name.c_str()));
 							m_CurrentLobby.map_name = std::string(strMapName);
 							m_CurrentLobby.map_path = std::string(sanitizedMapPath.str());
 							m_CurrentLobby.current_players = 1;
