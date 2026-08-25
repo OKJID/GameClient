@@ -5,6 +5,9 @@
 #   sh build_mac.sh --launcher            # build release version with launcher
 #   sh build_mac.sh --launcher --clean    # clean + build release version with launcher
 
+#!!! OnlineServices_Init.cpp (MAC_PARITY_SHIFT_ADD_BASE)
+#!!! python3 Platform/MacOS/Tools/exe_parity_crc.py 
+
 # build_mac.sh - Release Build Script for macOS
 # This script performs a clean release build of the macOS port.
 

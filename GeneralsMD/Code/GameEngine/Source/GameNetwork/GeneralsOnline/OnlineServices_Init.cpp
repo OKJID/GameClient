@@ -30,10 +30,10 @@
 
 // Generals.exe (Vanilla): 287639043
 // GeneralsOnlineZH.exe (30 FPS build): 3196037691
-// GeneralsOnlineZH_60.exe (60 FPS build): 1431066825
+// GeneralsOnlineZH_60.exe (60 FPS build): 1127346962
 namespace {
-	constexpr long MAC_PARITY_FALLBACK_EXE_CRC = 1431066825;    // GeneralsOnlineZH_60.exe (IEEE CRC32)
-	constexpr long MAC_PARITY_SHIFT_ADD_BASE   = 3966796141;    // GeneralsOnlineZH_60.exe (Shift-Add CRC)
+	constexpr long MAC_PARITY_FALLBACK_EXE_CRC = 1127346962;    // GeneralsOnlineZH_60.exe (IEEE CRC32)
+	constexpr long MAC_PARITY_SHIFT_ADD_BASE   = 687789704;    // GeneralsOnlineZH_60.exe (Shift-Add CRC)
 
 	std::string GetExecutableDirectory()
 	{
