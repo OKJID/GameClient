@@ -371,10 +371,18 @@ struct MainView: View {
                 .foregroundColor(.white)
                 .shadow(color: accent, radius: 15)
 
-            Text(L10n.app.subtitle)
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
-                .shadow(color: .black, radius: 2, x: 0, y: 2)
+            HStack(spacing: 8) {
+                Text(L10n.app.subtitle)
+                    .font(.system(size: 14, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+
+                if !UpdateChecker.currentVersionLabel.isEmpty {
+                    Text(UpdateChecker.currentVersionLabel)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.45))
+                }
+            }
+            .shadow(color: .black, radius: 2, x: 0, y: 2)
         }
     }
 

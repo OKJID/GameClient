@@ -17,6 +17,13 @@ class UpdateChecker: ObservableObject {
     static var currentBuild: Int {
         Int(Bundle.main.infoDictionary?["GOLauncherBuild"] as? String ?? "0") ?? 0
     }
+    // Empty outside an assembled bundle: assemble_distribution.sh is what stamps the keys,
+    // and a dev run showing "v0.0.0 (0)" reads as a shipped version.
+    static var currentVersionLabel: String {
+        guard let version = Bundle.main.infoDictionary?["GOLauncherVersion"] as? String else { return "" }
+
+        return "v\(version) (\(currentBuild))"
+    }
 
     private static let updateURL = URL(string: "https://general-online-zh.web.app/api/update.json")!
     private static let checkInterval: TimeInterval = 5 * 60

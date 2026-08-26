@@ -54,6 +54,12 @@ struct AboutView: View {
             Text(String(format: L10n.about.version, version))
                 .font(.system(size: 12, design: .monospaced))
                 .foregroundColor(.white.opacity(0.5))
+
+            if !UpdateChecker.currentVersionLabel.isEmpty {
+                Text(String(format: L10n.about.launcherVersion, UpdateChecker.currentVersionLabel))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.35))
+            }
         }
     }
 

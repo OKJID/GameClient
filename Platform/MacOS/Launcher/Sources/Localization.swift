@@ -247,6 +247,7 @@ enum L10n {
         var website: String { resolve("about.website") }
         var legal: String { resolve("about.legal") }
         var version: String { resolve("about.version") }
+        var launcherVersion: String { resolve("about.launcherVersion") }
     }
 
     static let translations: [String: [String: String]] = [
@@ -373,6 +374,7 @@ enum L10n {
         "alert.launchFailed": "Failed to launch game: %@",
         "sidebar.reset": "RESET",
         "about.version": "Version %@",
+        "about.launcherVersion": "Launcher %@",
         "mod.confirmReinstallTitle": "Reinstall %@?",
         "mod.confirmReinstallMsg": "The installed files will be deleted first and downloaded again (%@).",
         "mod.confirmRemoveTitle": "Remove %@?",
@@ -507,6 +509,7 @@ enum L10n {
         "alert.launchFailed": "Не удалось запустить игру: %@",
         "sidebar.reset": "СБРОС",
         "about.version": "Версия %@",
+        "about.launcherVersion": "Лаунчер %@",
         "mod.confirmReinstallTitle": "Переустановить %@?",
         "mod.confirmReinstallMsg": "Установленные файлы сначала будут удалены и загружены заново (%@).",
         "mod.confirmRemoveTitle": "Удалить %@?",
@@ -641,6 +644,7 @@ enum L10n {
         "alert.launchFailed": "Не вдалося запустити гру: %@",
         "sidebar.reset": "СКИДАННЯ",
         "about.version": "Версія %@",
+        "about.launcherVersion": "Лаунчер %@",
         "mod.confirmReinstallTitle": "Перевстановити %@?",
         "mod.confirmReinstallMsg": "Встановлені файли спочатку буде видалено та завантажено знову (%@).",
         "mod.confirmRemoveTitle": "Видалити %@?",
@@ -775,6 +779,7 @@ enum L10n {
         "alert.launchFailed": "गेम लॉन्च नहीं हो सका: %@",
         "sidebar.reset": "रीसेट",
         "about.version": "संस्करण %@",
+        "about.launcherVersion": "लॉन्चर %@",
         "mod.confirmReinstallTitle": "%@ फिर से इंस्टॉल करें?",
         "mod.confirmReinstallMsg": "इंस्टॉल फ़ाइलें पहले हटाई जाएंगी और फिर से डाउनलोड होंगी (%@)।",
         "mod.confirmRemoveTitle": "%@ हटाएं?",
@@ -909,6 +914,7 @@ enum L10n {
         "alert.launchFailed": "启动游戏失败：%@",
         "sidebar.reset": "重置",
         "about.version": "版本 %@",
+        "about.launcherVersion": "启动器 %@",
         "mod.confirmReinstallTitle": "重新安装 %@？",
         "mod.confirmReinstallMsg": "已安装的文件将先被删除，然后重新下载（%@）。",
         "mod.confirmRemoveTitle": "移除 %@？",
@@ -1043,6 +1049,7 @@ enum L10n {
         "alert.launchFailed": "تعذّر تشغيل اللعبة: %@",
         "sidebar.reset": "إعادة تعيين",
         "about.version": "الإصدار %@",
+        "about.launcherVersion": "المشغّل %@",
         "mod.confirmReinstallTitle": "إعادة تثبيت %@؟",
         "mod.confirmReinstallMsg": "سيتم حذف الملفات المثبتة أولاً ثم تنزيلها من جديد (%@).",
         "mod.confirmRemoveTitle": "إزالة %@؟",
@@ -1177,6 +1184,7 @@ enum L10n {
         "alert.launchFailed": "Ойынды іске қосу мүмкін болмады: %@",
         "sidebar.reset": "ЫСЫРУ",
         "about.version": "Нұсқа %@",
+        "about.launcherVersion": "Іске қосқыш %@",
         "mod.confirmReinstallTitle": "%@ қайта орнатылсын ба?",
         "mod.confirmReinstallMsg": "Орнатылған файлдар алдымен жойылып, қайта жүктеледі (%@).",
         "mod.confirmRemoveTitle": "%@ жойылсын ба?",
@@ -1311,6 +1319,7 @@ enum L10n {
         "alert.launchFailed": "Không thể khởi chạy game: %@",
         "sidebar.reset": "ĐẶT LẠI",
         "about.version": "Phiên bản %@",
+        "about.launcherVersion": "Trình khởi chạy %@",
         "mod.confirmReinstallTitle": "Cài lại %@?",
         "mod.confirmReinstallMsg": "Các tệp đã cài sẽ bị xoá trước rồi tải lại (%@).",
         "mod.confirmRemoveTitle": "Gỡ %@?",
@@ -1445,6 +1454,7 @@ enum L10n {
         "alert.launchFailed": "Nie udało się uruchomić gry: %@",
         "sidebar.reset": "RESET",
         "about.version": "Wersja %@",
+        "about.launcherVersion": "Launcher %@",
         "mod.confirmReinstallTitle": "Zainstalować %@ ponownie?",
         "mod.confirmReinstallMsg": "Zainstalowane pliki zostaną najpierw usunięte i pobrane ponownie (%@).",
         "mod.confirmRemoveTitle": "Usunąć %@?",
@@ -1579,6 +1589,7 @@ enum L10n {
         "alert.launchFailed": "Spiel konnte nicht gestartet werden: %@",
         "sidebar.reset": "ZURÜCKSETZEN",
         "about.version": "Version %@",
+        "about.launcherVersion": "Launcher %@",
         "mod.confirmReinstallTitle": "%@ neu installieren?",
         "mod.confirmReinstallMsg": "Die installierten Dateien werden zuerst gelöscht und erneut heruntergeladen (%@).",
         "mod.confirmRemoveTitle": "%@ entfernen?",
@@ -1713,6 +1724,7 @@ enum L10n {
         "alert.launchFailed": "No se pudo iniciar el juego: %@",
         "sidebar.reset": "RESTABLECER",
         "about.version": "Versión %@",
+        "about.launcherVersion": "Lanzador %@",
         "mod.confirmReinstallTitle": "¿Reinstalar %@?",
         "mod.confirmReinstallMsg": "Los archivos instalados se eliminarán primero y se descargarán de nuevo (%@).",
         "mod.confirmRemoveTitle": "¿Eliminar %@?",
@@ -1847,6 +1859,7 @@ enum L10n {
         "alert.launchFailed": "Oyun başlatılamadı: %@",
         "sidebar.reset": "SIFIRLA",
         "about.version": "Sürüm %@",
+        "about.launcherVersion": "Başlatıcı %@",
         "mod.confirmReinstallTitle": "%@ yeniden kurulsun mu?",
         "mod.confirmReinstallMsg": "Kurulu dosyalar önce silinecek ve yeniden indirilecek (%@).",
         "mod.confirmRemoveTitle": "%@ kaldırılsın mı?",
