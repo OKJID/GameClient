@@ -235,43 +235,21 @@ void ArchiveFileSystem::loadIntoDirectoryTree(ArchiveFile *archiveFile, Bool ove
 	}
 }
 
-void ArchiveFileSystem::loadMods()
+void ArchiveFileSystem::loadModPackages()
 {
-#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES)
-    // load community data patch BIG
-	if (NGMP_OnlineServicesManager::Settings.DataPacks_UseCommunityPatch()
-		&& !TheGlobalData->m_commandLineData.isCommunityDataPatchDisabled())
-    {
-        std::string strBigPath = std::format("{}GeneralsOnlineGameData/500_900_CommunityPatch_CoreINI.big", TheGlobalData->getPath_UserData().str());
-        bool bLoaded = false;
-        if (TheLocalFileSystem->doesFileExist(strBigPath.c_str()))
-        {
-            ArchiveFile* archiveFile = openArchiveFile(strBigPath.c_str());
-            if (archiveFile != nullptr)
-            {
-                // Sorted by filename so the patch respects the addon number order of BIGs in the game folder.
-                loadIntoDirectoryTree(archiveFile, FALSE, TRUE);
-                m_archiveFileMap[AsciiString(strBigPath.c_str())] = archiveFile;
-                bLoaded = true;
-            }
-        }
-        NetworkLog(ELogVerbosity::LOG_RELEASE, "Loaded community patch (%s): %d", strBigPath.c_str(), bLoaded);
-    }
-#endif
-
 	if (TheGlobalData->m_modBIG.isNotEmpty())
 	{
 		ArchiveFile *archiveFile = openArchiveFile(TheGlobalData->m_modBIG.str());
 
 		if (archiveFile != nullptr) {
-			DEBUG_LOG(("ArchiveFileSystem::loadMods - loading %s into the directory tree.", TheGlobalData->m_modBIG.str()));
+			DEBUG_LOG(("ArchiveFileSystem::loadModPackages - loading %s into the directory tree.", TheGlobalData->m_modBIG.str()));
 			loadIntoDirectoryTree(archiveFile, TRUE);
 			m_archiveFileMap[TheGlobalData->m_modBIG] = archiveFile;
-			DEBUG_LOG(("ArchiveFileSystem::loadMods - %s inserted into the archive file map.", TheGlobalData->m_modBIG.str()));
+			DEBUG_LOG(("ArchiveFileSystem::loadModPackages - %s inserted into the archive file map.", TheGlobalData->m_modBIG.str()));
 		}
 		else
 		{
-			DEBUG_LOG(("ArchiveFileSystem::loadMods - could not openArchiveFile(%s)", TheGlobalData->m_modBIG.str()));
+			DEBUG_LOG(("ArchiveFileSystem::loadModPackages - could not openArchiveFile(%s)", TheGlobalData->m_modBIG.str()));
 		}
 	}
 
@@ -281,6 +259,40 @@ void ArchiveFileSystem::loadMods()
 		(void)ret;
 		DEBUG_ASSERTLOG(ret, ("loadBigFilesFromDirectory(%s) returned FALSE!", TheGlobalData->m_modDir.str()));
 	}
+}
+
+void ArchiveFileSystem::loadCommunityPatch()
+{
+#if defined(GENERALS_ONLINE) && defined(GENERALS_ONLINE_COMMUNITY_PATCH_CHANGES)
+	if (!NGMP_OnlineServicesManager::Settings.DataPacks_UseCommunityPatch())
+		return;
+
+	if (TheGlobalData->m_commandLineData.isCommunityDataPatchDisabled())
+		return;
+
+	// A mod owns its own INI. Mounted here it would sit ahead of the mod by addon number and
+	// overrule it, so under a mod the patch stays out.
+	if (TheGlobalData->m_modBIG.isNotEmpty() || TheGlobalData->m_modDir.isNotEmpty())
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Skipped community patch: a mod is active");
+		return;
+	}
+
+	std::string strBigPath = std::format("{}GeneralsOnlineGameData/500_900_CommunityPatch_CoreINI.big", TheGlobalData->getPath_UserData().str());
+	bool bLoaded = false;
+	if (TheLocalFileSystem->doesFileExist(strBigPath.c_str()))
+	{
+		ArchiveFile* archiveFile = openArchiveFile(strBigPath.c_str());
+		if (archiveFile != nullptr)
+		{
+			// Sorted by filename so the patch respects the addon number order of BIGs in the game folder.
+			loadIntoDirectoryTree(archiveFile, FALSE, TRUE);
+			m_archiveFileMap[AsciiString(strBigPath.c_str())] = archiveFile;
+			bLoaded = true;
+		}
+	}
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "Loaded community patch (%s): %d", strBigPath.c_str(), bLoaded);
+#endif
 }
 
 Bool ArchiveFileSystem::doesFileExist(const Char *filename, FileInstance instance) const

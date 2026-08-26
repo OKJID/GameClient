@@ -415,7 +415,8 @@ void GameEngine::init()
 		// special-case: parse command-line parameters after loading global data
 		CommandLine::parseCommandLineForEngineInit();
 
-		TheArchiveFileSystem->loadMods();
+		TheArchiveFileSystem->loadModPackages();
+		TheArchiveFileSystem->loadCommunityPatch();
 
 		// doesn't require resets so just create a single instance here.
 		TheGameLODManager = MSGNEW("GameEngineSubsystem") GameLODManager;

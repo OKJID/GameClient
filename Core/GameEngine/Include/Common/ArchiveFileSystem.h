@@ -146,7 +146,8 @@ public:
 	// Unprotected this for copy-protection routines
 	ArchiveFile* getArchiveFile(const AsciiString& filename, FileInstance instance = 0) const;
 
-	void loadMods();
+	void loadModPackages(); ///< mount the active mod, before any INI is parsed so a mod can replace GameData
+	void loadCommunityPatch(); ///< mount the community data patch, after GameData is read so it stays out of the ini_crc, as on Windows
 
 	ArchivedDirectoryInfo* friend_getArchivedDirectoryInfo(const Char* directory);
 

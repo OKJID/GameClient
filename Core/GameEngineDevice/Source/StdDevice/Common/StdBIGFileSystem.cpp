@@ -68,7 +68,7 @@ static std::vector<const AsciiString *> archivesInLoadOrder(const FilenameList &
 
 // Community Patch drops overlays as NNN_Name.big into the ZH root. Under a curated mod they
 // fight the mod's UI (ControlBarPro/HD). Mod packages use the same NNN_ prefix, but they are
-// loaded later via loadMods(overwrite=TRUE) and are not affected by this filter.
+// loaded later via loadModPackages(overwrite=TRUE) and are not affected by this filter.
 static Bool isCommunityPatchOverlayBig(const AsciiString& path)
 {
 	const char* base = path.str();
