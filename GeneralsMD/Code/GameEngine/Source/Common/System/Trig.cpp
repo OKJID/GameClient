@@ -44,6 +44,7 @@ Real ACos(Real x) { return WWMath::Acosf(x); }
 Real ASin(Real x) { return WWMath::Asinf(x); }
 Real Sqrt(Real x)
 {
+	++GameMathCallCounts[GM_CALL_sqrtf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
 #else

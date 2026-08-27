@@ -46,6 +46,8 @@
 #include "gmath.h"
 #endif
 
+#include "gamemath_callcount.h"
+
 /*
 ** Some global constants.
 */
@@ -222,6 +224,7 @@ static WWINLINE double Div_Safe(double dividend, double divisor, double fallback
 
 WWINLINE double WWMath::Pow(double x, double y)
 {
+	++GameMathCallCounts[GM_CALL_powf];
 #if USE_DETERMINISTIC_MATH
 	return (double)gm_powf((float)x, (float)y); // gm_pow diverges on x87, gm_powf is bit-identical
 #else
@@ -231,6 +234,7 @@ WWINLINE double WWMath::Pow(double x, double y)
 
 WWINLINE float WWMath::Powf(float x, float y)
 {
+	++GameMathCallCounts[GM_CALL_powf];
 #if USE_DETERMINISTIC_MATH
 	return gm_powf(x, y);
 #else
@@ -240,6 +244,7 @@ WWINLINE float WWMath::Powf(float x, float y)
 
 WWINLINE double WWMath::Sqrt(double x)
 {
+	++GameMathCallCounts[GM_CALL_sqrt];
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrt(x);
 #else
@@ -249,6 +254,7 @@ WWINLINE double WWMath::Sqrt(double x)
 
 WWINLINE float WWMath::Sqrtf(float x)
 {
+	++GameMathCallCounts[GM_CALL_sqrtf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
 #else
@@ -258,6 +264,7 @@ WWINLINE float WWMath::Sqrtf(float x)
 
 WWINLINE float WWMath::Inv_Sqrt_Legacy(float a)
 {
+	++GameMathCallCounts[GM_CALL_sqrtf];
 #if USE_DETERMINISTIC_MATH
 	return 1.0f / gm_sqrtf(a);
 
@@ -376,6 +383,7 @@ WWINLINE float WWMath::Fast_Asin(float val)
 
 WWINLINE double WWMath::Acos(double x)
 {
+	++GameMathCallCounts[GM_CALL_acos];
 #if USE_DETERMINISTIC_MATH
 	return gm_acos(x);
 #else
@@ -385,6 +393,7 @@ WWINLINE double WWMath::Acos(double x)
 
 WWINLINE float WWMath::Acosf(float x)
 {
+	++GameMathCallCounts[GM_CALL_acosf];
 #if USE_DETERMINISTIC_MATH
 	return gm_acosf(x);
 #else
@@ -394,6 +403,7 @@ WWINLINE float WWMath::Acosf(float x)
 
 WWINLINE double WWMath::Asin(double x)
 {
+	++GameMathCallCounts[GM_CALL_asin];
 #if USE_DETERMINISTIC_MATH
 	return gm_asin(x);
 #else
@@ -402,6 +412,7 @@ WWINLINE double WWMath::Asin(double x)
 }
 WWINLINE float WWMath::Asinf(float x)
 {
+	++GameMathCallCounts[GM_CALL_asinf];
 #if USE_DETERMINISTIC_MATH
 	return gm_asinf(x);
 #else
@@ -411,6 +422,7 @@ WWINLINE float WWMath::Asinf(float x)
 
 WWINLINE double WWMath::Atan(double x)
 {
+	++GameMathCallCounts[GM_CALL_atanf];
 #if USE_DETERMINISTIC_MATH
 	return (double) gm_atanf((float)x);
 #else
@@ -420,6 +432,7 @@ WWINLINE double WWMath::Atan(double x)
 
 WWINLINE float WWMath::Atanf(float x)
 {
+	++GameMathCallCounts[GM_CALL_atanf];
 #if USE_DETERMINISTIC_MATH
 	return gm_atanf(x);
 #else
@@ -429,6 +442,7 @@ WWINLINE float WWMath::Atanf(float x)
 
 WWINLINE double WWMath::Atan2(double x, double y)
 {
+	++GameMathCallCounts[GM_CALL_atan2f];
 #if USE_DETERMINISTIC_MATH
 	return (double) gm_atan2f((float)x, (float)y);
 #else
@@ -438,6 +452,7 @@ WWINLINE double WWMath::Atan2(double x, double y)
 
 WWINLINE float WWMath::Atan2f(float x, float y)
 {
+	++GameMathCallCounts[GM_CALL_atan2f];
 #if USE_DETERMINISTIC_MATH
 	return gm_atan2f(x, y);
 #else
@@ -450,6 +465,7 @@ WWINLINE float WWMath::Atan2f(float x, float y)
 
 WWINLINE float WWMath::Sin(float val)
 {
+	++GameMathCallCounts[GM_CALL_sinf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sinf(val);
 #else
@@ -459,6 +475,7 @@ WWINLINE float WWMath::Sin(float val)
 
 WWINLINE float WWMath::Cos(float val)
 {
+	++GameMathCallCounts[GM_CALL_cosf];
 #if USE_DETERMINISTIC_MATH
 	return gm_cosf(val);
 #else
@@ -468,6 +485,7 @@ WWINLINE float WWMath::Cos(float val)
 
 WWINLINE float WWMath::Tan(float x)
 {
+	++GameMathCallCounts[GM_CALL_tanf];
 #if USE_DETERMINISTIC_MATH
 	return gm_tanf(x);
 #else
@@ -477,6 +495,7 @@ WWINLINE float WWMath::Tan(float x)
 
 WWINLINE float WWMath::Atan(float x)
 {
+	++GameMathCallCounts[GM_CALL_atanf];
 #if USE_DETERMINISTIC_MATH
 	return gm_atanf(x);
 #else
@@ -486,6 +505,7 @@ WWINLINE float WWMath::Atan(float x)
 
 WWINLINE float WWMath::Atan2(float x, float y)
 {
+	++GameMathCallCounts[GM_CALL_atan2f];
 #if USE_DETERMINISTIC_MATH
 	return gm_atan2f(x, y);
 #else
@@ -495,6 +515,7 @@ WWINLINE float WWMath::Atan2(float x, float y)
 
 WWINLINE float WWMath::Asin(float x)
 {
+	++GameMathCallCounts[GM_CALL_asinf];
 #if USE_DETERMINISTIC_MATH
 	return gm_asinf(x);
 #else
@@ -504,6 +525,7 @@ WWINLINE float WWMath::Asin(float x)
 
 WWINLINE float WWMath::Acos(float x)
 {
+	++GameMathCallCounts[GM_CALL_acosf];
 #if USE_DETERMINISTIC_MATH
 	return gm_acosf(x);
 #else
@@ -513,6 +535,7 @@ WWINLINE float WWMath::Acos(float x)
 
 WWINLINE float WWMath::Sqrt(float x)
 {
+	++GameMathCallCounts[GM_CALL_sqrtf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sqrtf(x);
 #else
@@ -522,6 +545,7 @@ WWINLINE float WWMath::Sqrt(float x)
 
 WWINLINE float WWMath::Fabs(float x)
 {
+	++GameMathCallCounts[GM_CALL_fabsf];
 #if USE_DETERMINISTIC_MATH
 	return gm_fabsf(x);
 #else
@@ -608,6 +632,7 @@ WWINLINE float WWMath::Fast_Inv_Sin(float val)
 
 WWINLINE double WWMath::Cos(double val)
 {
+	++GameMathCallCounts[GM_CALL_cos];
 #if USE_DETERMINISTIC_MATH
 	return gm_cos(val);
 #else
@@ -617,6 +642,7 @@ WWINLINE double WWMath::Cos(double val)
 
 WWINLINE float WWMath::Cosf(float val)
 {
+	++GameMathCallCounts[GM_CALL_cosf];
 #if USE_DETERMINISTIC_MATH
 	return gm_cosf(val);
 #else
@@ -626,6 +652,7 @@ WWINLINE float WWMath::Cosf(float val)
 
 WWINLINE float WWMath::Cosf_Legacy(float val)
 {
+	++GameMathCallCounts[GM_CALL_cosf];
 #if USE_DETERMINISTIC_MATH
 	return gm_cosf(val);
 
@@ -645,6 +672,7 @@ WWINLINE float WWMath::Cosf_Legacy(float val)
 
 WWINLINE double WWMath::Sin(double val)
 {
+	++GameMathCallCounts[GM_CALL_sin];
 #if USE_DETERMINISTIC_MATH
 	return gm_sin(val);
 #else
@@ -654,6 +682,7 @@ WWINLINE double WWMath::Sin(double val)
 
 WWINLINE float WWMath::Sinf(float val)
 {
+	++GameMathCallCounts[GM_CALL_sinf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sinf(val);
 #else
@@ -663,6 +692,7 @@ WWINLINE float WWMath::Sinf(float val)
 
 WWINLINE float WWMath::Sinf_Legacy(float val)
 {
+	++GameMathCallCounts[GM_CALL_sinf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sinf(val);
 
@@ -682,6 +712,7 @@ WWINLINE float WWMath::Sinf_Legacy(float val)
 
 WWINLINE double WWMath::Tan(double x)
 {
+	++GameMathCallCounts[GM_CALL_tan];
 #if USE_DETERMINISTIC_MATH
 	return gm_tan(x);
 #else
@@ -691,6 +722,7 @@ WWINLINE double WWMath::Tan(double x)
 
 WWINLINE float WWMath::Tanf(float x)
 {
+	++GameMathCallCounts[GM_CALL_tanf];
 #if USE_DETERMINISTIC_MATH
 	return gm_tanf(x);
 #else
@@ -700,6 +732,7 @@ WWINLINE float WWMath::Tanf(float x)
 
 WWINLINE double WWMath::Cosh(double x)
 {
+	++GameMathCallCounts[GM_CALL_cosh];
 #if USE_DETERMINISTIC_MATH
 	return gm_cosh(x);
 #else
@@ -709,6 +742,7 @@ WWINLINE double WWMath::Cosh(double x)
 
 WWINLINE float WWMath::Coshf(float x)
 {
+	++GameMathCallCounts[GM_CALL_coshf];
 #if USE_DETERMINISTIC_MATH
 	return gm_coshf(x);
 #else
@@ -718,6 +752,7 @@ WWINLINE float WWMath::Coshf(float x)
 
 WWINLINE double WWMath::Sinh(double x)
 {
+	++GameMathCallCounts[GM_CALL_sinh];
 #if USE_DETERMINISTIC_MATH
 	return gm_sinh(x);
 #else
@@ -727,6 +762,7 @@ WWINLINE double WWMath::Sinh(double x)
 
 WWINLINE float WWMath::Sinhf(float x)
 {
+	++GameMathCallCounts[GM_CALL_sinhf];
 #if USE_DETERMINISTIC_MATH
 	return gm_sinhf(x);
 #else
@@ -736,6 +772,7 @@ WWINLINE float WWMath::Sinhf(float x)
 
 WWINLINE double WWMath::Tanh(double x)
 {
+	++GameMathCallCounts[GM_CALL_tanh];
 #if USE_DETERMINISTIC_MATH
 	return gm_tanh(x);
 #else
@@ -745,6 +782,7 @@ WWINLINE double WWMath::Tanh(double x)
 
 WWINLINE float WWMath::Tanhf(float x)
 {
+	++GameMathCallCounts[GM_CALL_tanhf];
 #if USE_DETERMINISTIC_MATH
 	return gm_tanhf(x);
 #else
@@ -754,6 +792,7 @@ WWINLINE float WWMath::Tanhf(float x)
 
 WWINLINE double WWMath::Fabs(double x)
 {
+	++GameMathCallCounts[GM_CALL_fabs];
 #if USE_DETERMINISTIC_MATH
 	return gm_fabs(x);
 #else
@@ -763,6 +802,7 @@ WWINLINE double WWMath::Fabs(double x)
 
 WWINLINE float WWMath::Fabsf(float x)
 {
+	++GameMathCallCounts[GM_CALL_fabsf];
 #if USE_DETERMINISTIC_MATH
 	return gm_fabsf(x);
 #else
@@ -772,6 +812,7 @@ WWINLINE float WWMath::Fabsf(float x)
 
 WWINLINE float WWMath::Fabsf_Legacy(float val)
 {
+	++GameMathCallCounts[GM_CALL_fabsf];
 #if USE_DETERMINISTIC_MATH
 	return gm_fabsf(val);
 
@@ -787,6 +828,7 @@ WWINLINE float WWMath::Fabsf_Legacy(float val)
 
 WWINLINE double WWMath::Ceil(double x)
 {
+	++GameMathCallCounts[GM_CALL_ceil];
 #if USE_DETERMINISTIC_MATH
 	return gm_ceil(x);
 #else
@@ -796,6 +838,7 @@ WWINLINE double WWMath::Ceil(double x)
 
 WWINLINE float WWMath::Ceilf(float x)
 {
+	++GameMathCallCounts[GM_CALL_ceilf];
 #if USE_DETERMINISTIC_MATH
 	return gm_ceilf(x);
 #else
@@ -805,6 +848,7 @@ WWINLINE float WWMath::Ceilf(float x)
 
 WWINLINE double WWMath::Floor(double x)
 {
+	++GameMathCallCounts[GM_CALL_floor];
 #if USE_DETERMINISTIC_MATH
 	return gm_floor(x);
 #else
@@ -814,6 +858,7 @@ WWINLINE double WWMath::Floor(double x)
 
 WWINLINE float WWMath::Floorf(float x)
 {
+	++GameMathCallCounts[GM_CALL_floorf];
 #if USE_DETERMINISTIC_MATH
 	return gm_floorf(x);
 #else
@@ -823,6 +868,7 @@ WWINLINE float WWMath::Floorf(float x)
 
 WWINLINE double WWMath::Exp(double x)
 {
+	++GameMathCallCounts[GM_CALL_exp];
 #if USE_DETERMINISTIC_MATH
 	return gm_exp(x);
 #else
@@ -832,6 +878,7 @@ WWINLINE double WWMath::Exp(double x)
 
 WWINLINE float WWMath::Expf(float x)
 {
+	++GameMathCallCounts[GM_CALL_expf];
 #if USE_DETERMINISTIC_MATH
 	return gm_expf(x);
 #else
@@ -841,6 +888,7 @@ WWINLINE float WWMath::Expf(float x)
 
 WWINLINE double WWMath::Log10(double x)
 {
+	++GameMathCallCounts[GM_CALL_log10];
 #if USE_DETERMINISTIC_MATH
 	return gm_log10(x);
 #else
@@ -850,6 +898,7 @@ WWINLINE double WWMath::Log10(double x)
 
 WWINLINE float WWMath::Log10f(float x)
 {
+	++GameMathCallCounts[GM_CALL_log10f];
 #if USE_DETERMINISTIC_MATH
 	return gm_log10f(x);
 #else
@@ -859,6 +908,7 @@ WWINLINE float WWMath::Log10f(float x)
 
 WWINLINE double WWMath::Log(double x)
 {
+	++GameMathCallCounts[GM_CALL_log];
 #if USE_DETERMINISTIC_MATH
 	return gm_log(x);
 #else
@@ -868,6 +918,7 @@ WWINLINE double WWMath::Log(double x)
 
 WWINLINE float WWMath::Logf(float x)
 {
+	++GameMathCallCounts[GM_CALL_logf];
 #if USE_DETERMINISTIC_MATH
 	return gm_logf(x);
 #else
@@ -998,6 +1049,7 @@ WWINLINE bool WWMath::Is_Valid_Double(double x)
 
 WWINLINE long WWMath::Float_To_Long(float f)
 {
+	++GameMathCallCounts[GM_CALL_lrintf];
 #if USE_DETERMINISTIC_MATH
 	return gm_lrintf(f);
 
@@ -1016,6 +1068,7 @@ WWINLINE long WWMath::Float_To_Long(float f)
 
 WWINLINE long WWMath::Float_To_Long(double f)
 {
+	++GameMathCallCounts[GM_CALL_lrint];
 #if USE_DETERMINISTIC_MATH
 	return gm_lrint(f);
 

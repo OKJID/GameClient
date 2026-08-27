@@ -77,6 +77,8 @@ set(WWMATH_SRC
     vp.h
     wwmath.cpp
     wwmath.h
+    gamemath_callcount.cpp
+    gamemath_callcount.h
     wwmathids.h
 )
 

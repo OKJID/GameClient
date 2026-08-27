@@ -113,6 +113,8 @@
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 
+#include "WWMath/wwmath.h"
+
 #include <rts/profile.h>
 
 struct QuitGameException {};
@@ -4036,6 +4038,19 @@ void GameLogic::update()
 		s_benchmarkRun = true;
 	}
 #endif
+
+	// Counts are reported per interval and then reset, so each block covers the
+	// frames since the previous one rather than the whole run. The shell map
+	// keeps its own frame numbering and is not part of the measurement.
+	if (getGameMode() == GAME_SHELL)
+	{
+		GameMathResetCallCounts();
+	}
+	else if (m_frame > 0 && (m_frame % WWMATH_COUNT_DUMP_INTERVAL) == 0)
+	{
+		GameMathDumpCallCounts((int)m_frame);
+	}
+
 
 	// force CRC calculation, so we can keep a cache of the last N CRCs.  We do this right where the recorder
 	// would be getting the CRC anyway, so replays can get the CRCs from the exact instant in time as the original.
