@@ -46,6 +46,12 @@ public:
 	void LogoutOfMyAccount();
 
 private:
+	// Fetch a server-issued (and server-registered) login code via GET /LoginCode,
+	// then open the browser and start polling. The services backend only accepts
+	// codes it issued itself; a locally generated code is never registered, so
+	// CheckLogin always reports it FAILED. Shared by BeginLogin and DoReAuth.
+	void BeginInteractiveLogin();
+
 	void LoginAsSecondaryDevAccount();
 
 	void SaveCredentials(const char* szRefreshToken);

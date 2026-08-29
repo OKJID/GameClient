@@ -48,6 +48,14 @@ struct AuthResponse
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(AuthResponse, result, session_token, refresh_token, user_id, display_name, ws_uri)
 };
 
+struct GetLoginCodeResponse
+{
+	bool success = false;
+	std::string login_code = "";
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(GetLoginCodeResponse, success, login_code)
+};
+
 struct MOTDResponse
 {
 	std::string MOTD;
@@ -144,6 +152,96 @@ void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
 		});
 }
 
+void NGMP_OnlineServices_AuthInterface::BeginInteractiveLogin()
+{
+	// The services backend issues AND registers the login code (GET /LoginCode ->
+	// PendingLoginManager.AddPendingLogin). The browser step and CheckLogin polling
+	// MUST use that server-issued code: a locally generated one is never in the
+	// server's pending-login table, so the web callback's UpdatePendingLogin no-ops
+	// (404) and CheckLogin returns FAILED on every poll -> login can never succeed.
+	std::string strGetLoginCodeURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginCode");
+	std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strGetLoginCodeURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			auto fnGetLoginCodeFailed = [this]()
+				{
+					m_bWaitingLogin = false;
+					m_strCode = std::string();
+					m_lastCheckCode = -1;
+
+					ClearGSMessageBoxes();
+					GSMessageBoxOk(UnicodeString(L"Login Failed"), UnicodeString(L"Failed to retrieve login code"), []()
+						{
+							TheShell->pop();
+						});
+				};
+
+			if (!bSuccess || (statusCode >= 400 && statusCode < 500))
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Failed to retrieve login code (status %d)", statusCode);
+				fnGetLoginCodeFailed();
+				return;
+			}
+
+			try
+			{
+				nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+				GetLoginCodeResponse codeResp = jsonObject.get<GetLoginCodeResponse>();
+
+				if (!codeResp.success || codeResp.login_code.empty())
+				{
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Server did not issue a login code");
+					fnGetLoginCodeFailed();
+					return;
+				}
+
+				// server-issued, server-registered code
+				m_strCode = codeResp.login_code;
+				m_bWaitingLogin = true;
+				m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Got login code, opening browser");
+
+#if defined(USE_TEST_ENV)
+				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+#else
+				std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+#endif
+
+				ClearGSMessageBoxes();
+				GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
+					{
+						if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+						{
+							NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
+						}
+
+						NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+						if (pAuthInterface != nullptr)
+						{
+							pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled, "");
+						}
+					});
+
+#if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
+#ifdef __APPLE__
+				{
+					std::string openCmd = std::format("open '{}'", strURI.c_str());
+					system(openCmd.c_str());
+				}
+#else
+				ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+#endif
+#endif
+			}
+			catch (...)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Failed to parse login code response");
+				fnGetLoginCodeFailed();
+			}
+		}, nullptr);
+}
+
 void NGMP_OnlineServices_AuthInterface::BeginLogin()
 {
 	std::string strLoginURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginWithToken");
@@ -229,87 +327,21 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 	}
 	else
 	{
-		m_bWaitingLogin = true;
-		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-		m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
-#else
-		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-#endif
-
-		ClearGSMessageBoxes();
-		GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
-			{
-                if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-                {
-                    NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
-                }
-
-				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-				if (pAuthInterface != nullptr)
-				{
-					pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled, "");
-				}
-			});
-
-#if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
-#ifdef __APPLE__
-		{
-			std::string openCmd = std::format("open '{}'", strURI.c_str());
-			system(openCmd.c_str());
-		}
-#else
-		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#endif
-#endif
-			
-
-			
+		// no cached refresh token - do the full interactive (browser) login.
+		// The login code is fetched from the server so it is registered before
+		// the browser step and CheckLogin polling reference it.
+		BeginInteractiveLogin();
 	}
 }
 
 void NGMP_OnlineServices_AuthInterface::DoReAuth()
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: DoReAuth");
-	ClearGSMessageBoxes();
-    GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
-        {
-            if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-            {
-                NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
-            }
 
-            NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-            if (pAuthInterface != nullptr)
-            {
-				pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled , "");
-            }
-        });
-
-	// do normal login flow, token is bad or expired etc
-	m_bWaitingLogin = true;
-	m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
-#else
-	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-#endif
-
-#if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
-#ifdef __APPLE__
-	{
-		std::string openCmd = std::format("open '{}'", strURI.c_str());
-		system(openCmd.c_str());
-	}
-#else
-	ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#endif
-#endif
+	// token is bad or expired - run the full interactive login again. The login
+	// code must be server-issued (BeginInteractiveLogin), otherwise CheckLogin
+	// never sees a registered code and always returns FAILED.
+	BeginInteractiveLogin();
 }
 
 void NGMP_OnlineServices_AuthInterface::Tick()
