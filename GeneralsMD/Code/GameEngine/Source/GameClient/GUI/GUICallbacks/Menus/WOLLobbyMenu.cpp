@@ -916,7 +916,7 @@ void PopulateLobbyPlayerListbox()
 				GadgetListBoxGetSelected(listboxLobbyPlayers, &selectedIndex);
 				const Bool hadSelection = selectedIndex >= 0;
 				const Int selectedUserID = hadSelection
-					? (Int)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndex, 0)
+					? (Int)(uintptr_t)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndex, 0)
 					: 0;
 
                 // save off old top entry
@@ -2427,7 +2427,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				if ( controlID == GetGameListBoxID() )
 				{
 					int rowSelected = mData2;
-					Int lobbyID = rowSelected >= 0 ? (Int)GadgetListBoxGetItemData(control, rowSelected, 0) : 0;
+					Int lobbyID = rowSelected >= 0 ? (Int)(uintptr_t)GadgetListBoxGetItemData(control, rowSelected, 0) : 0;
 					if( lobbyID >= 0 )
 					{
 						buttonJoin->winEnable(TRUE);
@@ -2698,7 +2698,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 					GadgetComboBoxGetSelectedPos(comboLobbyGroupRooms, &pos);
 					if (pos >= 0)
 					{
-						Int itemData = (Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
+						Int itemData = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
 						if (itemData == LOBBY_COMBO_SEPARATOR_ITEM_DATA)
 						{
 							PopulateLobbyFilterComboBox(comboLobbyGroupRooms);

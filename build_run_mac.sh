@@ -13,8 +13,11 @@
 #   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic
 
 export PATH="/opt/homebrew/bin:$PATH"
-export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+# REPLAY_NAME="00000000"
+# REPLAY_NAME="my_side_00000000"
+REPLAY_NAME="opponent_side_00000000"
 
 # ── Game Selection ──
 # Which game to launch. Both are always built; this picks the one that runs.
@@ -171,13 +174,18 @@ killall -9 lldb 2>/dev/null
 
 sleep 1
 
+EXTRACT_FOLDER="temp_mac_logs"
+if [ "$REPLAY_NAME" != "00000000" ]; then
+    EXTRACT_FOLDER="${EXTRACT_FOLDER}_${REPLAY_NAME}"
+fi
+
 if [ "$DO_CRC_LOGS" = true ]; then
     echo "Clearing old CRC logs..."
-    mkdir -p "$PWD/.agent/temp_mac_logs"
-    rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"/* 2>/dev/null
-    rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs2"/* 2>/dev/null
-    mkdir -p "$PWD/.agent/temp_mac_logs/CRCLogs"
-    mkdir -p "$PWD/.agent/temp_mac_logs/CRCLogs2"
+    mkdir -p "$PWD/.agent/$EXTRACT_FOLDER"
+    rm -rf "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs"/* 2>/dev/null
+    rm -rf "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs2"/* 2>/dev/null
+    mkdir -p "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs"
+    mkdir -p "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs2"
 fi
 
 
@@ -219,8 +227,8 @@ GAME_ARGS=()
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS+=(-win)
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS+=(-xRes "$GAME_FLAG_XRES")
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS+=(-yRes "$GAME_FLAG_YRES")
-[ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay 00000000.rep)
-[ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/temp_mac_logs/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
+[ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay "${REPLAY_NAME}.rep")
+[ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
 
 if [ -n "$MOD_PATH" ]; then
     case "$MOD_PATH" in
@@ -292,22 +300,22 @@ else
 fi
 
 if [ "$DO_CRC_LOGS" = true ]; then
-    echo "Gathering diagnostic logs from $GENERALS_INSTALL_PATH to .agent/temp_mac_logs/..."
-    mkdir -p "$PWD/.agent/temp_mac_logs"
+    echo "Gathering diagnostic logs from $GENERALS_INSTALL_PATH to .agent/$EXTRACT_FOLDER/..."
+    mkdir -p "$PWD/.agent/$EXTRACT_FOLDER"
     # Copy (not move) so the logs remain in the game dir for later inspection;
     # the purge step before the next run clears them so nothing accumulates.
-    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) -exec cp {} "$PWD/.agent/temp_mac_logs/" \; 2>/dev/null
+    find "$GENERALS_INSTALL_PATH" -maxdepth 2 -type f \( -name "*Diag*.txt" -o -name "*Log*.txt" -o -name "*Debug*.txt" \) -exec cp {} "$PWD/.agent/$EXTRACT_FOLDER/" \; 2>/dev/null
     
     if [ -d "$PWD/CRCLogs" ]; then
-        rm -rf "$PWD/.agent/temp_mac_logs/CRCLogs"
-        mv "$PWD/CRCLogs" "$PWD/.agent/temp_mac_logs/"
+        rm -rf "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs"
+        mv "$PWD/CRCLogs" "$PWD/.agent/$EXTRACT_FOLDER/"
     fi
 
-    REPLAY_FILE="$GAME_DATA_DIR/Replays/00000000.rep"
+    REPLAY_FILE="$GAME_DATA_DIR/Replays/${REPLAY_NAME}.rep"
     if [ -f "$REPLAY_FILE" ]; then
-        cp -f "$REPLAY_FILE" "$PWD/.agent/temp_mac_logs/00000000.rep"
-        echo "Copied last replay: 00000000.rep"
+        cp -f "$REPLAY_FILE" "$PWD/.agent/$EXTRACT_FOLDER/${REPLAY_NAME}.rep"
+        echo "Copied last replay: ${REPLAY_NAME}.rep"
     fi
     
-    echo "Logs successfully collected into .agent/temp_mac_logs/"
+    echo "Logs successfully collected into .agent/$EXTRACT_FOLDER/"
 fi
