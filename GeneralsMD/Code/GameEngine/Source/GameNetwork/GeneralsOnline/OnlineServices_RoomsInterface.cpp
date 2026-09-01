@@ -2,6 +2,7 @@
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
 #include "GameNetwork/GeneralsOnline/NetworkBitstream.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Moderation.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
@@ -343,11 +344,15 @@ void WebSocket::SendData_MarkReady(bool bReady)
 }
 
 
-void WebSocket::SendData_JoinNetworkRoom(int roomID)
+void WebSocket::SendData_JoinNetworkRoom(int roomID, uint64_t requestID)
 {
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::NETWORK_ROOM_CHANGE_ROOM;
 	j["room"] = roomID;
+	if (requestID != 0)
+	{
+		j["request_id"] = requestID;
+	}
 	std::string strBody = j.dump();
 
 	Send(strBody.c_str());
@@ -423,6 +428,33 @@ public:
 	EWebSocketMessageID msg_id;
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(WebSocketMessageBase, msg_id)
+};
+
+class WebSocketMessage_ModerationNotice : public WebSocketMessageBase
+{
+public:
+	std::string action_type;
+	std::string reason;
+	std::string scope_type;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(WebSocketMessage_ModerationNotice, msg_id, action_type, reason, scope_type)
+};
+
+class WebSocketMessage_ModerationCommandResult : public WebSocketMessageBase
+{
+public:
+	uint64_t request_id = 0;
+	bool success = false;
+	std::string error_code;
+	std::string message;
+
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(
+		WebSocketMessage_ModerationCommandResult,
+		msg_id,
+		request_id,
+		success,
+		error_code,
+		message)
 };
 
 class WebSocketMessage_NetworkStartSignalling : public WebSocketMessageBase
@@ -923,6 +955,33 @@ void WebSocket::Tick()
 
 									switch (msgID)
 									{
+									case EWebSocketMessageID::MODERATION_NOTICE:
+									{
+										WebSocketMessage_ModerationNotice moderationNotice;
+										if (JSONGetAsObject(jsonObject, &moderationNotice))
+										{
+											HandleModerationNotice(
+												moderationNotice.action_type,
+												moderationNotice.reason,
+												moderationNotice.scope_type);
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MODERATION_COMMAND_RESULT:
+									{
+										WebSocketMessage_ModerationCommandResult commandResult;
+										if (JSONGetAsObject(jsonObject, &commandResult))
+										{
+											NetworkLog(
+												ELogVerbosity::LOG_RELEASE,
+												"Moderation command %llu %s: %s",
+												static_cast<unsigned long long>(commandResult.request_id),
+												commandResult.success ? "succeeded" : "failed",
+												commandResult.message.c_str());
+										}
+									}
+									break;
 
 									case EWebSocketMessageID::PONG:
 									{
@@ -1090,6 +1149,17 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::FULL_MESH_CONNECTIVITY_CHECK_RESPONSE:
 									{
+										int64_t meshCheckID = 0;
+										int meshCheckAttempt = 0;
+										if (jsonObject.contains("mesh_check_id") && jsonObject["mesh_check_id"].is_number_integer())
+										{
+											meshCheckID = jsonObject["mesh_check_id"].get<int64_t>();
+										}
+										if (jsonObject.contains("attempt") && jsonObject["attempt"].is_number_integer())
+										{
+											meshCheckAttempt = jsonObject["attempt"].get<int>();
+										}
+
 										// respond with our state
 										std::vector<int64_t> connectivityMap;
 										NetworkMesh* pMesh = nullptr;
@@ -1120,6 +1190,8 @@ void WebSocket::Tick()
 										// send response
 										nlohmann::json j;
 										j["msg_id"] = EWebSocketMessageID::FULL_MESH_CONNECTIVITY_CHECK_RESPONSE;
+										j["mesh_check_id"] = meshCheckID;
+										j["attempt"] = meshCheckAttempt;
 										j["connectivity_map"] = connectivityMap;
 										std::string strBody = j.dump();
 
@@ -1327,8 +1399,12 @@ void WebSocket::Tick()
 													}
 												}
 
-												// no admin chat in lobby
-												Color color = DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, false, false, lobbySlot);
+												// Match local setup notice colors.
+												// System announcements stay neutral even when they come from the host;
+												// player chat keeps its per-slot color.
+												Color color = chatData.announcement
+													? DetermineSystemNoticeColor(false, false)
+													: DetermineColorForChatMessage(EChatMessageType::CHAT_MESSAGE_TYPE_LOBBY, true, chatData.action, false, false, lobbySlot);
 
 												if (pLobbyInterface->m_OnChatCallback != nullptr)
 												{
@@ -1354,10 +1430,32 @@ void WebSocket::Tick()
 											mapMembers.emplace(newMember.user_id, newMember);
 										}
 
+										RoomSelectionResult selectionResult;
+										if (jsonObject.contains("selected_room_id") && jsonObject["selected_room_id"].is_number_integer())
+										{
+											selectionResult.selectedRoomID = jsonObject["selected_room_id"].get<int>();
+										}
+										if (jsonObject.contains("effective_room_id") && jsonObject["effective_room_id"].is_number_integer())
+										{
+											selectionResult.effectiveRoomID = jsonObject["effective_room_id"].get<int>();
+										}
+										if (jsonObject.contains("rejected_room_id") && jsonObject["rejected_room_id"].is_number_integer())
+										{
+											selectionResult.rejectedRoomID = jsonObject["rejected_room_id"].get<int>();
+										}
+										if (jsonObject.contains("room_selection_error") && jsonObject["room_selection_error"].is_string())
+										{
+											jsonObject["room_selection_error"].get_to(selectionResult.error);
+										}
+										if (jsonObject.contains("request_id") && jsonObject["request_id"].is_number_unsigned())
+										{
+											selectionResult.requestID = jsonObject["request_id"].get<uint64_t>();
+										}
+
                                         NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
                                         if (pRoomsInterface != nullptr)
                                         {
-                                            pRoomsInterface->OnRosterUpdated(mapMembers);
+											pRoomsInterface->OnRosterUpdated(std::move(mapMembers), selectionResult);
                                         }
 									}
 									break;
@@ -1460,6 +1558,33 @@ void WebSocket::Tick()
 										if (pLobbyInterface != nullptr)
 										{
 											pLobbyInterface->InvokeMatchmakingStartGameCallback();
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MATCHMAKING_ACTION_REQUEUE:
+									{
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr)
+										{
+											pLobbyInterface->ResetForMatchmakingRequeue();
+											pLobbyInterface->InvokeMatchmakingRequeueCallback();
+										}
+									}
+									break;
+
+									case EWebSocketMessageID::MATCHMAKING_ACTION_SETUP_PROGRESS:
+									{
+										int timeoutMs = 0;
+										if (jsonObject.contains("timeout_ms") && jsonObject["timeout_ms"].is_number_integer())
+										{
+											timeoutMs = jsonObject["timeout_ms"].get<int>();
+										}
+
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										if (pLobbyInterface != nullptr && timeoutMs > 0)
+										{
+											pLobbyInterface->InvokeMatchmakingSetupProgressCallback(timeoutMs);
 										}
 									}
 									break;
@@ -1652,10 +1777,16 @@ NGMP_OnlineServices_RoomsInterface::~NGMP_OnlineServices_RoomsInterface()
 
 }
 
-void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> cb)
+void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(bool)> cb)
 {
 	m_vecRooms.clear();
-    	// Cache our buddies on lobby list
+	m_CurrentRoomIndex = -1;
+	m_EffectiveRoomID.reset();
+	m_PendingRoomChange.reset();
+	m_bRoomSelectionResultsSupported = false;
+	m_bSupportsModerationCommands = false;
+
+	// Cache our buddies on lobby list
 	NGMP_OnlineServices_SocialInterface* pSocialInterface =
 		NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
 	if (pSocialInterface != nullptr)
@@ -1668,77 +1799,86 @@ void NGMP_OnlineServices_RoomsInterface::GetRoomList(std::function<void(void)> c
 
 	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 		{
+			if (!bSuccess || statusCode != 200)
+			{
+				cb(false);
+				return;
+			}
+
 			try
 			{
+				std::vector<NetworkRoom> rooms;
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
+				const bool roomSelectionResultsSupported = jsonObject.value("supports_room_selection_results", false);
+				const bool supportsModerationCommands = jsonObject.value("supports_moderation_commands", false);
 
 				for (const auto& roomEntryIter : jsonObject["rooms"])
 				{
 					int id = 0;
 					std::string strName;
-					ERoomFlags flags;
-
+					ERoomFlags flags = ERoomFlags::ROOM_FLAGS_DEFAULT;
+					int parentRoomID = -1;
 
 					roomEntryIter["id"].get_to(id);
 					roomEntryIter["name"].get_to(strName);
-					roomEntryIter["flags"].get_to(flags);
-					NetworkRoom roomEntry(id, strName, flags);
-
-					m_vecRooms.push_back(roomEntry);
+					if (roomEntryIter.contains("flags") && !roomEntryIter["flags"].is_null())
+					{
+						roomEntryIter["flags"].get_to(flags);
+					}
+					if (roomEntryIter.contains("parent_id") && !roomEntryIter["parent_id"].is_null())
+					{
+						roomEntryIter["parent_id"].get_to(parentRoomID);
+					}
+					rooms.emplace_back(id, strName, flags, parentRoomID);
 				}
 
-				cb();
+				m_vecRooms = std::move(rooms);
+				m_bRoomSelectionResultsSupported = roomSelectionResultsSupported;
+				m_bSupportsModerationCommands = supportsModerationCommands;
+
+				cb(true);
 				return;
 			}
-			catch (...)
+			catch (const std::exception& exception)
 			{
-
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to parse room list: %s", exception.what());
 			}
 
-			// TODO_NGMP: Error handling
-			cb();
+			cb(false);
 			return;
 		});
 }
 
-void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex, std::function<void()> onStartCallback, std::function<void()> onCompleteCallback)
+void NGMP_OnlineServices_RoomsInterface::JoinRoom(int roomIndex)
 {
-	// TODO_NGMP: Safety - NOW FIXED with null checks
-
-	// TODO_NGMP: Remove this, its no longer a call really, or make a call
-	if (onStartCallback != nullptr)
+	const std::vector<NetworkRoom>& rooms = GetGroupRooms();
+	if (roomIndex < 0 || roomIndex >= (int)rooms.size())
 	{
-		onStartCallback();
-	}
-	m_CurrentRoomID = roomIndex;
-
-	// TODO_NGMP: What if there are zero rooms? e.g. the service request failed
-	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-	if (pRoomsInterface != nullptr)
-	{
-		if (!pRoomsInterface->GetGroupRooms().empty())
-		{
-			// if the room doesnt exist, try the first room
-			if (roomIndex < 0 || roomIndex >= pRoomsInterface->GetGroupRooms().size())
-			{
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Invalid room index %d, using first room", roomIndex);
-				roomIndex = 0;
-			}
-
-			NetworkRoom targetNetworkRoom = pRoomsInterface->GetGroupRooms().at(roomIndex);
-
-			std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();;
-			if (pWS != nullptr)
-			{
-				pWS->SendData_JoinNetworkRoom(targetNetworkRoom.GetRoomID());
-			}
-		}
+		ReportRoomJoinFailure(std::format("Invalid room index {}.", roomIndex));
+		return;
 	}
 
-	if (onCompleteCallback != nullptr)
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS == nullptr)
 	{
-		onCompleteCallback();
+		ReportRoomJoinFailure("The room service is not connected.");
+		return;
 	}
+
+	if (m_PendingRoomChange.has_value())
+	{
+		ReportRoomJoinFailure("Another room change is already in progress.");
+		return;
+	}
+
+	const uint64_t requestID = m_NextRoomChangeRequestID++;
+	m_PendingRoomChange = PendingRoomChange{
+		roomIndex,
+		rooms[roomIndex].GetRoomID(),
+		requestID,
+		std::chrono::steady_clock::now() + std::chrono::seconds(10)
+	};
+	pWS->SendData_JoinNetworkRoom(rooms[roomIndex].GetRoomID(), requestID);
 }
 
 std::unordered_map<uint64_t, NetworkRoomMember>& NGMP_OnlineServices_RoomsInterface::GetMembersListForCurrentRoom()
@@ -1756,14 +1896,81 @@ void NGMP_OnlineServices_RoomsInterface::SendChatMessageToCurrentRoom(UnicodeStr
 	}
 }
 
-void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::unordered_map<uint64_t, NetworkRoomMember> mapMembers)
+void NGMP_OnlineServices_RoomsInterface::OnRosterUpdated(std::unordered_map<uint64_t, NetworkRoomMember> mapMembers,
+	const RoomSelectionResult& selectionResult)
 {
-	m_mapMembers = mapMembers;
+	m_mapMembers = std::move(mapMembers);
+
+	int changedRoomIndex = -1;
+	bool effectiveRoomChanged = true;
+	bool refreshRoster = true;
+	std::string roomJoinFailure;
+	if (m_PendingRoomChange.has_value())
+	{
+		const PendingRoomChange& pendingRoomChange = *m_PendingRoomChange;
+		const bool requestMatches = !selectionResult.requestID.has_value()
+			|| pendingRoomChange.requestID == *selectionResult.requestID;
+		if (requestMatches && selectionResult.rejectedRoomID == pendingRoomChange.roomID)
+		{
+			roomJoinFailure = selectionResult.error.empty() ? "The room selection was rejected." : selectionResult.error;
+			m_PendingRoomChange.reset();
+		}
+		else
+		{
+			const bool selectionMatches = requestMatches
+				&& (selectionResult.selectedRoomID.has_value()
+					? pendingRoomChange.roomID == *selectionResult.selectedRoomID
+					: !m_bRoomSelectionResultsSupported);
+			if (selectionMatches)
+			{
+				if (selectionResult.effectiveRoomID.has_value())
+				{
+					effectiveRoomChanged = !m_EffectiveRoomID.has_value()
+						|| *m_EffectiveRoomID != *selectionResult.effectiveRoomID;
+					m_EffectiveRoomID = selectionResult.effectiveRoomID;
+					refreshRoster = effectiveRoomChanged;
+				}
+				m_CurrentRoomIndex = pendingRoomChange.roomIndex;
+				changedRoomIndex = m_CurrentRoomIndex;
+				m_PendingRoomChange.reset();
+			}
+		}
+	}
+
+	if (changedRoomIndex >= 0 && m_RoomChangedCallback != nullptr)
+	{
+		m_RoomChangedCallback(changedRoomIndex, effectiveRoomChanged);
+	}
+	if (!roomJoinFailure.empty())
+	{
+		ReportRoomJoinFailure(roomJoinFailure);
+	}
 
 	std::scoped_lock<std::mutex> lock(m_rosterCallbackMutex);
-	if (m_RosterNeedsRefreshCallback != nullptr)
+	if (refreshRoster && m_RosterNeedsRefreshCallback != nullptr)
 	{
 		m_RosterNeedsRefreshCallback();
+	}
+}
+
+void NGMP_OnlineServices_RoomsInterface::Tick()
+{
+	if (m_PendingRoomChange.has_value()
+		&& std::chrono::steady_clock::now() >= m_PendingRoomChange->deadline)
+	{
+		m_PendingRoomChange.reset();
+		ReportRoomJoinFailure("The room change timed out. Please try again.");
+	}
+}
+
+void NGMP_OnlineServices_RoomsInterface::ReportRoomJoinFailure(const std::string& error)
+{
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Room change failed: %s", error.c_str());
+	if (m_OnChatCallback != nullptr)
+	{
+		UnicodeString message;
+		message = L"Couldn't join that room. Please try again.";
+		m_OnChatCallback(message, GameMakeColor(255, 0, 0, 255));
 	}
 }
 

@@ -1430,7 +1430,16 @@ void ParticleSystem::rotateLocalTransformZ( Real z )
 void ParticleSystem::attachToDrawable( const Drawable *draw )
 {
 	if (draw)
+	{
 		m_attachedToDrawableID = draw->getID();
+
+#if defined(GENERALS_ONLINE_HIGH_FPS_RENDER)
+		// Info: One-frame attached systems can otherwise lose their only burst when the drawable is created and destroyed
+		// between legacy particle updates at 60Hz.
+		if (m_systemLifetimeLeft == 1 && m_delayLeft == 0 && getParticleCount() == 0)
+			update(0);
+#endif
+	}
 	else
 		m_attachedToDrawableID = INVALID_DRAWABLE_ID;
 }

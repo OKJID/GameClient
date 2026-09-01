@@ -95,7 +95,7 @@ public:
 		m_cbOnChatMessage = cbOnChatMessage;
 	}
 
-	std::unordered_map<int64_t, FriendsEntry> GetRecentlyPlayedWithList()
+	const std::unordered_map<int64_t, FriendsEntry>& GetRecentlyPlayedWithList()
     {
 		// is it stale? clear it out
 		const int64_t recentPlayersListLifespan = 600000; // 10 minutes
@@ -110,11 +110,13 @@ public:
 
 	std::unordered_map<int64_t, FriendsEntry> GetCachedFriendsList()
 	{
+		std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
 		return m_mapFriends;
 	}
 
     std::unordered_map<int64_t, FriendsEntry> GetCachedRequestsList()
     {
+        std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
         return m_mapPendingRequests;
     }
 
@@ -177,6 +179,8 @@ private:
 	std::function<void(int64_t source_user_id, int64_t target_user_id, UnicodeString unicodeStr)> m_cbOnChatMessage = nullptr;
 
 	// Cached, may be out of date if friends UI isnt active, optimized for lookup
+	// Rebuilt on the HTTP thread and read from the main thread, so all access goes through m_friendsMapMutex.
+	mutable std::mutex m_friendsMapMutex;
 	std::unordered_map<int64_t, FriendsEntry> m_mapFriends;
 	std::unordered_map<int64_t, FriendsEntry> m_mapPendingRequests;
 	std::unordered_map<int64_t, FriendsEntry> m_mapBlocked;

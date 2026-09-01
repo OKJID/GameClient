@@ -16,6 +16,7 @@
 #include "WW3D2/surfaceclass.h"
 #include "WW3D2/dx8wrapper.h"
 #include <mutex>
+#include <utility>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_RESIZE_IMPLEMENTATION
@@ -150,7 +151,8 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 			if (pLobbyInterface != nullptr)
 			{
-				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI, screenshotType](std::vector<uint8_t> vecData)
+				const uint64_t matchID = pLobbyInterface->GetCurrentMatchID();
+				NGMP_OnlineServicesManager::GetInstance()->CaptureScreenshot(true, [strURI = std::move(strURI), screenshotType, matchID](std::vector<uint8_t> vecData)
 					{
 						CHECK_WORKER_THREAD;
 
@@ -167,7 +169,7 @@ void NGMP_OnlineServicesManager::CaptureScreenshotForProbe(EScreenshotType scree
 						}
                         else if (screenshotType == EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN)
                         {
-                            NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_EndMatch(vecData);
+							NGMP_OnlineServicesManager::GetInstance()->CacheScreenshotBytes_EndMatch(matchID, std::move(vecData));
                         }
 						else
 						{
@@ -289,6 +291,13 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 
 		if (serviceConf.do_replay_upload)
 		{
+			NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+			const uint64_t matchID = pLobbyInterface == nullptr ? 0 : pLobbyInterface->GetCurrentMatchID();
+			if (matchID == 0)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[MediaUpload] Cannot cache replay: match ID is unavailable");
+				return;
+			}
 			FILE* pFile = NativeFileSystem::fopen(absoluteReplayPath, "rb");
 
 			std::vector<unsigned char> replayData;
@@ -306,9 +315,53 @@ void NGMP_OnlineServicesManager::CommitReplay(AsciiString absoluteReplayPath)
 			}
 
 			// cache the data until we get an S3 URL from server
-			NGMP_OnlineServicesManager::GetInstance()->CacheReplayBytes(replayData);
+			NGMP_OnlineServicesManager::GetInstance()->CacheReplayBytes(matchID, std::move(replayData));
 		}
 	}
+}
+
+void NGMP_OnlineServicesManager::CacheMatchUploadBytes(CachedMatchUpload& upload, uint64_t matchID, std::vector<uint8_t> data)
+{
+	if (matchID == 0)
+	{
+		return;
+	}
+
+	std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+	upload.dataMatchID = matchID;
+	upload.bytes = std::move(data);
+}
+
+void NGMP_OnlineServicesManager::CacheMatchUploadURI(CachedMatchUpload& upload, uint64_t matchID, std::string uri)
+{
+	if (matchID == 0)
+	{
+		return;
+	}
+
+	std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
+	upload.uriMatchID = matchID;
+	upload.signedURI = std::move(uri);
+}
+
+void NGMP_OnlineServicesManager::CacheScreenshotBytes_EndMatch(uint64_t matchID, std::vector<uint8_t> data)
+{
+	CacheMatchUploadBytes(m_cachedMatchEndUpload, matchID, std::move(data));
+}
+
+void NGMP_OnlineServicesManager::CacheReplayBytes(uint64_t matchID, std::vector<uint8_t> data)
+{
+	CacheMatchUploadBytes(m_cachedReplayUpload, matchID, std::move(data));
+}
+
+void NGMP_OnlineServicesManager::SetScreenshotS3URI_EndMatch(uint64_t matchID, std::string uri)
+{
+	CacheMatchUploadURI(m_cachedMatchEndUpload, matchID, std::move(uri));
+}
+
+void NGMP_OnlineServicesManager::SetScreenshotS3URI_Replay(uint64_t matchID, std::string uri)
+{
+	CacheMatchUploadURI(m_cachedReplayUpload, matchID, std::move(uri));
 }
 
 void NGMP_OnlineServicesManager::WaitForScreenshotThreads()
@@ -1032,31 +1085,30 @@ void NGMP_OnlineServicesManager::Tick()
 			}
 		}
 
-        if (!m_vecCachedScreenshotBytes_MatchEnd.empty()) // we have data waiting
+        if (!m_cachedMatchEndUpload.bytes.empty()) // we have data waiting
         {
-            if (!m_strCachedScreenshot_MatchEnd_S3URI.empty()) // and we have a URL
+            if (m_cachedMatchEndUpload.dataMatchID == m_cachedMatchEndUpload.uriMatchID && !m_cachedMatchEndUpload.signedURI.empty()) // and we have a matching URL
             {
                 // queue it
                 S3ScreenshotEntry newEntry;
                 newEntry.screenshotType = EScreenshotType::SCREENSHOT_TYPE_SCORESCREEN;
-                newEntry.vecBytes = m_vecCachedScreenshotBytes_MatchEnd;
-                newEntry.strSignedURI = m_strCachedScreenshot_MatchEnd_S3URI;
-				m_vecGuardedSSData.push_back(newEntry);
+                newEntry.vecBytes = std::move(m_cachedMatchEndUpload.bytes);
+                newEntry.strSignedURI = std::move(m_cachedMatchEndUpload.signedURI);
+                m_vecGuardedSSData.push_back(std::move(newEntry));
 
                 // clear data
-                m_vecCachedScreenshotBytes_MatchEnd = std::vector<uint8_t>();
-                m_strCachedScreenshot_MatchEnd_S3URI = std::string();
+                m_cachedMatchEndUpload = {};
             }
         }
 
-        if (!m_vecCachedReplayBytes.empty()) // we have data waiting
+        if (!m_cachedReplayUpload.bytes.empty()) // we have data waiting
         {
-            if (!m_strCacheReplay_S3URI.empty()) // and we have a URL
+            if (m_cachedReplayUpload.dataMatchID == m_cachedReplayUpload.uriMatchID && !m_cachedReplayUpload.signedURI.empty()) // and we have a matching URL
             {
 				// do the upload
                 std::map<std::string, std::string> mapHeaders;
                 mapHeaders["Content-Type"] = "application/octet-stream";
-                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(m_strCacheReplay_S3URI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, m_vecCachedReplayBytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+                NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendS3PUTRequest(m_cachedReplayUpload.signedURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, m_cachedReplayUpload.bytes, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
                     {
 #if _DEBUG
                         if (statusCode != 200)
@@ -1069,8 +1121,7 @@ void NGMP_OnlineServicesManager::Tick()
                     }, nullptr, HTTP_UPLOAD_TIMEOUT);
 
                 // clear data
-                NGMP_OnlineServicesManager::GetInstance()->m_vecCachedReplayBytes.clear();
-                NGMP_OnlineServicesManager::GetInstance()->m_strCacheReplay_S3URI = std::string();
+                m_cachedReplayUpload = {};
             }
         }
 	}

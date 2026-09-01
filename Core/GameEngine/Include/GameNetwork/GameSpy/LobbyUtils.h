@@ -66,6 +66,7 @@ enum LobbyGameModeFilter CPP_11(: Int)
     LOBBY_FILTER_TEAM,
     LOBBY_FILTER_FFA,
     LOBBY_FILTER_AOD,
+    LOBBY_FILTER_BUDDIES,
 #ifdef __APPLE__
     LOBBY_FILTER_MACOS,
 #endif

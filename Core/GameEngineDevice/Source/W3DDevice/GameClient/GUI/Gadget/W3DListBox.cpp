@@ -195,9 +195,6 @@ static void drawListBoxText( GameWindow *window, WinInstanceData *instData,
 	IRegion2D clipRegion;
 	ICoord2D start, end;
 
-    Color WindowBg = TheWindowManager->winMakeColor(3, 93, 166, 20);
-	TheWindowManager->winFillRect(WindowBg, WIN_DRAW_LINE_WIDTH, x, y, x + width, y + height);
-
 	//
 	// save the clipping information region cause we're going to use it here
 	// in drawing the text

@@ -147,7 +147,7 @@ void TearDownGeneralsOnline()
 
 	EGOTearDownReason teardownReason = NGMP_OnlineServicesManager::GetInstance()->GetTeardownReason();
 
-	if (teardownReason != EGOTearDownReason::USER_REQUESTED_SILENT)
+	if (teardownReason != EGOTearDownReason::USER_REQUESTED_SILENT && !IsModerationTeardownReason(teardownReason))
 	{
 		UnicodeString title, body;
 

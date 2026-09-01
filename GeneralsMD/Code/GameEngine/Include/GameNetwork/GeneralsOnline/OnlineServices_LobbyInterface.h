@@ -8,6 +8,7 @@
 #include "Common/Player.h"
 #include "GameClient/InGameUI.h"
 #include "GameLogic/VictoryConditions.h"
+#include <atomic>
 
 extern NGMPGame* TheNGMPGame;
 
@@ -167,6 +168,44 @@ public:
 			m_fnCallbackMatchmakingMatchFound();
 		}
 	}
+
+	std::function<void()> m_fnCallbackMatchmakingRequeue = nullptr;
+	void RegisterForMatchmakingRequeueCallback(std::function<void()> cb)
+	{
+		m_fnCallbackMatchmakingRequeue = cb;
+	}
+
+	void DeregisterForMatchmakingRequeueCallback()
+	{
+		m_fnCallbackMatchmakingRequeue = nullptr;
+	}
+
+	void InvokeMatchmakingRequeueCallback()
+	{
+		if (m_fnCallbackMatchmakingRequeue != nullptr)
+		{
+			m_fnCallbackMatchmakingRequeue();
+		}
+	}
+
+	std::function<void(int)> m_fnCallbackMatchmakingSetupProgress = nullptr;
+	void RegisterForMatchmakingSetupProgressCallback(std::function<void(int)> cb)
+	{
+		m_fnCallbackMatchmakingSetupProgress = cb;
+	}
+
+	void DeregisterForMatchmakingSetupProgressCallback()
+	{
+		m_fnCallbackMatchmakingSetupProgress = nullptr;
+	}
+
+	void InvokeMatchmakingSetupProgressCallback(int timeoutMs)
+	{
+		if (m_fnCallbackMatchmakingSetupProgress != nullptr)
+		{
+			m_fnCallbackMatchmakingSetupProgress(timeoutMs);
+		}
+	}
 	
 
 	// updates
@@ -198,17 +237,17 @@ public:
 
 	void SetLobbyListDirty()
 	{
-		m_bLobbyListDirty = true;
+		m_bLobbyListDirty.store(true);
 	}
 
 	void ConsumeLobbyListDirtyFlag()
 	{
-		m_bLobbyListDirty = false;
+		m_bLobbyListDirty.store(false);
 	}
 
-	bool IsLobbyListDirty()
+	bool IsLobbyListDirty() const
 	{
-		return m_bLobbyListDirty;
+		return m_bLobbyListDirty.load();
 	}
 
 	UnicodeString m_PendingCreation_LobbyName;
@@ -398,6 +437,7 @@ public:
 	void JoinLobby(LobbyEntry lobby, std::string strPassword);
 
 	void LeaveCurrentLobby();
+	void ResetForMatchmakingRequeue();
 
 	void ResetHostMigrationFlags()
 	{
@@ -465,7 +505,7 @@ private:
 	// TODO_NGMP: cleanup
 	NetworkMesh* m_pLobbyMesh = nullptr;
 
-	bool m_bLobbyListDirty = false;
+	std::atomic_bool m_bLobbyListDirty = false;
 
 
 #if !defined(GENERALS_ONLINE_DISABLE_AUTO_ACCEPT)
@@ -473,9 +513,11 @@ private:
 #endif
 
 	bool m_bAttemptingToJoinLobby = false;
+	// Invalidates asynchronous callbacks left behind by an abandoned lobby join.
+	std::atomic<uint64_t> m_LobbyJoinGeneration = 0;
 	LobbyEntry m_LobbyTryingToJoin;
 
-	bool m_bSearchInProgress = false;
+	std::atomic_bool m_bSearchInProgress = false;
 
 	bool m_bMarkedGameAsFinished = false;
 

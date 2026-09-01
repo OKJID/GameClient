@@ -70,6 +70,9 @@
 #include "GameNetwork/GameSpy/LobbyUtils.h"
 #include "GameNetwork/RankPointValue.h"
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Moderation.h"
+
+#include <deque>
 
 void refreshGameList( Bool forceRefresh = FALSE );
 void refreshPlayerList( Bool forceRefresh = FALSE );
@@ -87,11 +90,11 @@ static Bool isShuttingDown = false;
 static Bool buttonPushed = false;
 static const char *nextScreen = nullptr;
 static Bool raiseMessageBoxes = false;
+static UnsignedInt s_lobbyMenuGeneration = 0;
 static time_t gameListRefreshTime = 0;
 static const time_t gameListRefreshInterval = 4000;
 static time_t playerListRefreshTime = 0;
-static const time_t playerListRefreshInterval = 6000;
-static bool isFirstRosterUpdate = false;
+static const time_t playerListRefreshInterval = 4000;
 
 void setUnignoreText( WindowLayout *layout, AsciiString nick, GPProfile id);
 static void doSliderTrack(GameWindow *control, Int val);
@@ -130,38 +133,29 @@ static Int groupRoomToJoin = 0;
 static Int	initialGadgetDelay = 2;
 static Bool justEntered = FALSE;
 
-static int64_t s_lobbyLastChatTimeMs = 0;
-static const int64_t S_LOBBY_CHAT_INTERVAL_MS = 3000; // how long to wait before we allow sending the next message
+// Preserve rejected messages while the server enforces the limit.
+static std::deque<std::chrono::steady_clock::time_point> s_lobbyChatMessageTimes;
 
-static bool LobbyChatSlowmodeAllowsSend()
+static bool LobbyChatRateLimitAllowsSend()
 {
 	using namespace std::chrono;
 
-	int64_t nowMs =
-		duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-
-	if (nowMs < s_lobbyLastChatTimeMs)
+	const auto now = steady_clock::now();
+	const auto window = seconds(9);
+	while (!s_lobbyChatMessageTimes.empty() && now - s_lobbyChatMessageTimes.front() >= window)
 	{
-		s_lobbyLastChatTimeMs = 0;
+		s_lobbyChatMessageTimes.pop_front();
 	}
 
-	int64_t delta = nowMs - s_lobbyLastChatTimeMs;
-	if (delta < S_LOBBY_CHAT_INTERVAL_MS)
+	if (s_lobbyChatMessageTimes.size() >= 3)
 	{
-		if (listboxLobbyChat)
-		{
-			GadgetListBoxAddEntryText(
-				listboxLobbyChat,
-				UnicodeString(L"You are sending messages too quickly. Please wait a moment."),
-				GameMakeColor(255, 0, 0, 255),
-				-1,
-				-1
-			);
-		}
+		ShowChatRateLimitNotice(
+			"Rate limit: Please wait before sending another message.",
+			"room");
 		return false;
 	}
 
-	s_lobbyLastChatTimeMs = nowMs;
+	s_lobbyChatMessageTimes.push_back(now);
 	return true;
 }
 
@@ -178,8 +172,11 @@ int getQR2HostingStatus();
 }
 extern int isThreadHosting;
 
-Bool handleLobbySlashCommands(UnicodeString uText)
+Bool handleLobbySlashCommands(UnicodeString uText, Bool *wasRateLimited)
 {
+	if (wasRateLimited != nullptr)
+		*wasRateLimited = FALSE;
+
 	AsciiString message;
 	message.translate(uText);
 
@@ -205,6 +202,13 @@ Bool handleLobbySlashCommands(UnicodeString uText)
 	}
 	else if (token == "me" && uText.getLength()>4)
 	{
+		if (!LobbyChatRateLimitAllowsSend())
+		{
+			if (wasRateLimited != nullptr)
+				*wasRateLimited = TRUE;
+			return TRUE;
+		}
+
 		UnicodeString msg = UnicodeString(uText.str() + 4); // skip the /me
 		NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 		if (pRoomsInterface != nullptr)
@@ -390,7 +394,7 @@ static void playerTooltip(GameWindow *window,
 							UnicodeString tmp;
 							tmp.format(L"\n\nOverall Elo Rating: %d (in %d matches)", stats.elo_rating, stats.elo_num_matches);
 							tooltip.concat(tmp);
-							tmp.format(L"\nMonthly Elo Rating: %d", stats.monthly_elo_rating);
+							tmp.format(L"\nWS Elo Rating: %d", stats.monthly_elo_rating);
 							tooltip.concat(tmp);
 							Int rankPoints = CalculateRank(stats);
 							Int rank = 0;
@@ -587,32 +591,171 @@ static void playerTooltip(GameWindow *window,
 	*/
 }
 
+// Set while repopulating the combo box, because setting the selection re-sends GCM_SELECTED as if the user had picked it.
+static Bool s_populatingLobbyCombo = FALSE;
+static const Int LOBBY_COMBO_SEPARATOR_ITEM_DATA = -1;
+
+static Int FindRoomIndexByID(const std::vector<NetworkRoom>& rooms, Int roomID)
+{
+	for (Int roomIndex = 0; roomIndex < (Int)rooms.size(); ++roomIndex)
+	{
+		if (rooms[roomIndex].GetRoomID() == roomID)
+		{
+			return roomIndex;
+		}
+	}
+
+	return -1;
+}
+
+static Bool RoomHasLaterSibling(const std::vector<NetworkRoom>& rooms, Int roomIndex)
+{
+	const Int parentRoomID = rooms[roomIndex].GetParentRoomID();
+	for (Int siblingIndex = roomIndex + 1; siblingIndex < (Int)rooms.size(); ++siblingIndex)
+	{
+		if (rooms[siblingIndex].GetParentRoomID() == parentRoomID)
+		{
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+static UnicodeString FormatRoomLabel(const std::vector<NetworkRoom>& rooms, Int roomIndex)
+{
+	UnicodeString label;
+	const NetworkRoom& room = rooms[roomIndex];
+	std::vector<Int> ancestors;
+	Int parentRoomID = room.GetParentRoomID();
+
+	while (parentRoomID >= 0 && ancestors.size() < rooms.size())
+	{
+		const Int parentIndex = FindRoomIndexByID(rooms, parentRoomID);
+		if (parentIndex < 0)
+		{
+			break;
+		}
+
+		ancestors.push_back(parentIndex);
+		parentRoomID = rooms[parentIndex].GetParentRoomID();
+	}
+
+	std::reverse(ancestors.begin(), ancestors.end());
+	for (size_t ancestorIndex = 1; ancestorIndex < ancestors.size(); ++ancestorIndex)
+	{
+		label.concat(RoomHasLaterSibling(rooms, ancestors[ancestorIndex]) ? L"\u2502  " : L"   ");
+	}
+
+	if (!ancestors.empty())
+	{
+		label.concat(RoomHasLaterSibling(rooms, roomIndex) ? L"\u251C\u2500 " : L"\u2514\u2500 ");
+	}
+	label.concat(room.GetRoomDisplayName());
+	return label;
+}
+
 static void PopulateLobbyFilterComboBox(GameWindow* comboBox)
 {
 	if (comboBox == nullptr)
 		return;
 
 	extern LobbyGameModeFilter theLobbyFilter;
+	s_populatingLobbyCombo = TRUE;
 	GadgetComboBoxReset(comboBox);
 
-	Int idx;
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: All"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_ALL);
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: 1v1"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_1V1);
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: Team Games"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_TEAM);
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: FFA"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_FFA);
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: AOD"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_AOD);
+	static const struct
+	{
+		const wchar_t* label;
+		LobbyGameModeFilter filter;
+	} filterEntries[] =
+	{
+		{ L"Filter: All",			LOBBY_FILTER_ALL },
+		{ L"Filter: 1v1",			LOBBY_FILTER_1V1 },
+		{ L"Filter: Team Games",	LOBBY_FILTER_TEAM },
+		{ L"Filter: FFA",			LOBBY_FILTER_FFA },
+		{ L"Filter: AOD",			LOBBY_FILTER_AOD },
+		{ L"Filter: Buddies",		LOBBY_FILTER_BUDDIES },
 #ifdef __APPLE__
-	idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L"Filter: macOS"),
-		GameSpyColor[GSCOLOR_DEFAULT]); GadgetComboBoxSetItemData(comboBox, idx, (void*)LOBBY_FILTER_MACOS);
+		{ L"Filter: macOS",			LOBBY_FILTER_MACOS },
+#endif
+	};
+
+	Int idx;
+	Int selectedRoomIdx = -1;
+	UnicodeString selectedRoomName;
+
+	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (pRoomsInterface != nullptr)
+	{
+		const std::vector<NetworkRoom> rooms = pRoomsInterface->GetGroupRooms();
+		const Int currentRoomIndex = pRoomsInterface->GetCurrentRoomIndex();
+		const Int numRooms = (Int)rooms.size();
+		for (Int i = 0; i < numRooms; ++i)
+		{
+			const UnicodeString roomLabel = FormatRoomLabel(rooms, i);
+			idx = GadgetComboBoxAddEntry(comboBox, roomLabel,
+				GameSpyColor[i == currentRoomIndex ? GSCOLOR_CURRENTROOM : GSCOLOR_ROOM]);
+			// Room entries use values below the negative separator value.
+			GadgetComboBoxSetItemData(comboBox, idx, (void*)(intptr_t)(-(i + 2)));
+
+			if (i == currentRoomIndex)
+			{
+				selectedRoomIdx = idx;
+				selectedRoomName = rooms[i].GetRoomDisplayName();
+			}
+		}
+
+		if (numRooms > 0)
+		{
+			idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(L" "), GameSpyColor[GSCOLOR_ROOM]);
+			GadgetComboBoxSetItemData(comboBox, idx, (void*)(intptr_t)LOBBY_COMBO_SEPARATOR_ITEM_DATA);
+		}
+	}
+
+	for (const auto& filterEntry : filterEntries)
+	{
+		const Bool isActiveFilter = (filterEntry.filter == theLobbyFilter);
+		idx = GadgetComboBoxAddEntry(comboBox, UnicodeString(filterEntry.label),
+			GameSpyColor[isActiveFilter ? GSCOLOR_CURRENTROOM : GSCOLOR_DEFAULT]);
+		GadgetComboBoxSetItemData(comboBox, idx, (void*)filterEntry.filter);
+	}
+
+#ifdef __APPLE__
 	DEBUG_INFO_MAC(("LOBBY_FILTER: combo populated, preselecting %s (pos %d)", GetLobbyFilterName(theLobbyFilter), (Int)theLobbyFilter));
 #endif
 
-	GadgetComboBoxSetSelectedPos(comboBox, (Int)theLobbyFilter);
+	// The collapsed combo always identifies the room. The active filter is indicated by its color only when expanded.
+	GadgetComboBoxSetSelectedPos(comboBox, selectedRoomIdx);
+	if (selectedRoomIdx >= 0)
+	{
+		GadgetComboBoxSetText(comboBox, selectedRoomName);
+	}
+	s_populatingLobbyCombo = FALSE;
+}
+
+static void HandleNetworkRoomChanged(int roomIndex, bool effectiveRoomChanged)
+{
+	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (pRoomsInterface == nullptr)
+		return;
+
+	const std::vector<NetworkRoom>& rooms = pRoomsInterface->GetGroupRooms();
+	if (roomIndex < 0 || roomIndex >= (int)rooms.size())
+		return;
+
+	if (effectiveRoomChanged)
+	{
+		GadgetListBoxReset(listboxLobbyChat);
+		refreshPlayerList(TRUE);
+	}
+
+	UnicodeString msg;
+	msg.format(TheGameText->fetch("GUI:LobbyJoined"), rooms[roomIndex].GetRoomDisplayName().str());
+	GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+
+	refreshGameList(TRUE);
+	PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
 }
 
 static const char *const rankNames[] = {
@@ -759,7 +902,7 @@ void PopulateLobbyPlayerListbox()
         {
             NetworkRoomMember& netRoomMember = kvPair.second;
 
-			if (!pStatsInterface->ArePlayerStatsCached(netRoomMember.user_id))
+			if (!pStatsInterface->HasFreshPlayerStats(netRoomMember.user_id))
 			{
 				vecUserStatsToRequest.push_back(netRoomMember.user_id);
 			}
@@ -769,23 +912,12 @@ void PopulateLobbyPlayerListbox()
 		pStatsInterface->findPlayerStatsByBatch(vecUserStatsToRequest, [=](bool bSuccess)
 			{
 				// NOTE: We dont clear until we get a response, so there's no period where the box is empty
-                // save off old selection
-                Int maxSelectedItems = GadgetListBoxGetNumEntries(listboxLobbyPlayers);
-                Int* selectedIndices;
-                GadgetListBoxGetSelected(listboxLobbyPlayers, (Int*)(&selectedIndices));
-                std::set<int> selectedUserIDs;
-                Int numSelected = 0;
-                for (Int i = 0; i < maxSelectedItems; ++i)
-                {
-                    if (selectedIndices[i] < 0)
-                    {
-                        break;
-                    }
-                    ++numSelected;
-
-                    int profileID = (int)(uintptr_t)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndices[i], 0);
-                    selectedUserIDs.insert(profileID);
-                }
+				Int selectedIndex = -1;
+				GadgetListBoxGetSelected(listboxLobbyPlayers, &selectedIndex);
+				const Bool hadSelection = selectedIndex >= 0;
+				const Int selectedUserID = hadSelection
+					? (Int)GadgetListBoxGetItemData(listboxLobbyPlayers, selectedIndex, 0)
+					: 0;
 
                 // save off old top entry
                 Int previousTopIndex = GadgetListBoxGetTopVisibleEntry(listboxLobbyPlayers);
@@ -794,7 +926,7 @@ void PopulateLobbyPlayerListbox()
                 m_vecUsersProcessed.clear();
                 GadgetListBoxReset(listboxLobbyPlayers);
 
-				std::set<Int> indicesToSelect;
+				Int indexToSelect = -1;
 
 				// by this point, all stats should be cached - they were either already cached, or we just got them back from the service
 				// sort
@@ -974,35 +1106,20 @@ void PopulateLobbyPlayerListbox()
 					Int index = insertPlayerInListbox(pi, colorToUse);
 
 					// TODO_NGMP: Use int for user ID like gamespy did, or move everything to uint64
-					std::set<int>::const_iterator selIt = selectedUserIDs.find(netRoomMember.user_id);
-					if (selIt != selectedUserIDs.end())
+					if (hadSelection && netRoomMember.user_id == selectedUserID)
 					{
-						indicesToSelect.insert(index);
+						indexToSelect = index;
 					}
 				}
 
-                // restore selection
-                if (indicesToSelect.size())
-                {
-                    std::set<Int>::const_iterator indexIt = indicesToSelect.begin();
-                    const size_t count = indicesToSelect.size();
-                    size_t index = 0;
-                    Int* newIndices = NEW Int[count];
-                    while (index < count)
-                    {
-                        newIndices[index] = *indexIt;
-                        DEBUG_LOG(("Queueing up index %d to re-select", *indexIt));
-                        ++index;
-                        ++indexIt;
-                    }
-                    GadgetListBoxSetSelected(listboxLobbyPlayers, newIndices, count);
-                    delete[] newIndices;
-                }
-
-                if (indicesToSelect.size() != numSelected)
-                {
-                    TheWindowManager->winSetLoneWindow(NULL);
-                }
+				if (indexToSelect >= 0)
+				{
+					GadgetListBoxSetSelected(listboxLobbyPlayers, indexToSelect);
+				}
+				else if (hadSelection)
+				{
+					TheWindowManager->winSetLoneWindow(NULL);
+				}
 			});
 
 		/*
@@ -1230,6 +1347,8 @@ void NGMP_WOLLobbyMenu_JoinLobbyCallback(EJoinLobbyResult result)
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 {
+	const UnsignedInt lobbyMenuGeneration = ++s_lobbyMenuGeneration;
+
 	// for safety (and sanity)
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface != nullptr)
@@ -1240,7 +1359,6 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	nextScreen = nullptr;
 	buttonPushed = false;
 	isShuttingDown = false;
-	isFirstRosterUpdate = true;
 
 	SetLobbyAttemptHostJoin(FALSE); // not trying to host or join
 
@@ -1274,6 +1392,7 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 
 	listboxLobbyPlayersID = TheNameKeyGenerator->nameToKey("WOLCustomLobby.wnd:ListboxPlayers");
 	listboxLobbyPlayers = TheWindowManager->winGetWindowFromId(parent, listboxLobbyPlayersID);
+	GadgetListBoxRemoveMultiSelect(listboxLobbyPlayers);
 	listboxLobbyPlayers->winSetTooltipFunc(playerTooltip);
 	SetListBoxRowAnimMode(listboxLobbyPlayers, LIST_ROW_ANIM_ID);
 
@@ -1339,17 +1458,11 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 
 		// register for roster events
 		pRoomsInterface->RegisterForRosterNeedsRefreshCallback([]()
-			{
-				if (isFirstRosterUpdate)
-				{
-					refreshPlayerList(true);
-					isFirstRosterUpdate = false;
-				}
-				else
 				{
 					refreshPlayerList(false);
-				}
 			});
+
+		pRoomsInterface->RegisterForRoomChangedCallback(HandleNetworkRoomChanged);
 	}
 
 	GrabWindowInfo();
@@ -1413,50 +1526,21 @@ void WOLLobbyMenuInit( WindowLayout *layout, void *userData )
 	NGMP_OnlineServices_RoomsInterface* pRoomsInterfaceOuter = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 	if (pRoomsInterfaceOuter != nullptr)
 	{
-		pRoomsInterfaceOuter->GetRoomList([=]()
+		pRoomsInterfaceOuter->GetRoomList([=](bool success)
 			{
-				// attempt to join the first room
-				pRoomsInterfaceOuter->JoinRoom(0, []()
-					{
-						//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
-					},
-					[]()
-					{
-						GadgetListBoxReset(listboxLobbyChat);
+				if (lobbyMenuGeneration != s_lobbyMenuGeneration || buttonPushed || isShuttingDown || listboxLobbyChat == nullptr)
+				{
+					return;
+				}
 
-						NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-						if (pRoomsInterface != nullptr)
-						{
-							// TODO_NGMP: What can we do if empty? kick them out back to the front end?
-							if (!pRoomsInterface->GetGroupRooms().empty())
-							{
-								UnicodeString msg;
-								msg.format(TheGameText->fetch("GUI:LobbyJoined"), pRoomsInterface->GetGroupRooms().at(0).GetRoomDisplayName().str());
-								GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+				const std::vector<NetworkRoom>& rooms = pRoomsInterfaceOuter->GetGroupRooms();
+				if (!success || rooms.empty())
+				{
+					GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t ERROR: No rooms are available. Try logging in again."), GameMakeColor(255, 0, 0, 255), -1, -1);
+					return;
+				}
 
-								// process flag related info messages
-								ERoomFlags flags = pRoomsInterface->GetGroupRooms().at(0).GetRoomFlags();
-								if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
-								{
-									//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
-									//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
-								}
-							}
-							else
-							{
-								GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t ERROR: No rooms are available. Try logging in again."), GameMakeColor(255, 0, 0, 255), -1, -1);
-							}
-						}
-
-
-						// refresh on join
-						refreshPlayerList(TRUE);
-
-						refreshGameList(TRUE);
-						RefreshGameListBoxes();
-
-						PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
-					});
+				pRoomsInterfaceOuter->JoinRoom(0);
 			});
 	}
 
@@ -1522,13 +1606,21 @@ static void shutdownComplete( WindowLayout *layout )
 //-------------------------------------------------------------------------------------------------
 void WOLLobbyMenuShutdown( WindowLayout *layout, void *userData )
 {
+	++s_lobbyMenuGeneration;
+
+	NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (pRoomsInterface != nullptr)
+	{
+		pRoomsInterface->DeregisterForChatCallback();
+		pRoomsInterface->DeregisterForRosterNeedsRefreshCallback();
+		pRoomsInterface->DeregisterForRoomChangedCallback();
+	}
+
 	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 	if (pLobbyInterface != nullptr)
 	{
 		pLobbyInterface->DeregisterForCreateLobbyCallback();
 		pLobbyInterface->DeregisterForJoinLobbyCallback();
-		pLobbyInterface->DeregisterForChatCallback();
-		pLobbyInterface->DeregisterForRosterNeedsRefreshCallback();
 		pLobbyInterface->DeregisterForSearchForLobbiesCallback();
 	}
 
@@ -1658,6 +1750,11 @@ void refreshGameList( Bool forceRefresh )
 	{
 #if defined(GENERALS_ONLINE)
 		RefreshGameListBoxes();
+		NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+		if (pLobbyInterface != nullptr)
+		{
+			pLobbyInterface->ConsumeLobbyListDirtyFlag();
+		}
 		gameListRefreshTime = timeGetTime();
 #else
 		if (TheGameSpyInfo->hasStagingRoomListChanged())
@@ -1772,8 +1869,6 @@ void WOLLobbyMenuUpdate( WindowLayout * layout, void *userData)
 	if (pLobbyInterface != nullptr && pLobbyInterface->IsLobbyListDirty() && !isShuttingDown && !buttonPushed && !pLobbyInterface->IsInLobby() && pLobbyInterface->GetLobbyTryingToJoin().lobbyID == -1)
 	{
 		const bool bShouldAutoRefresh = true;
-
-		pLobbyInterface->ConsumeLobbyListDirtyFlag();
 
 		if (bShouldAutoRefresh)
 		{
@@ -2332,7 +2427,8 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				if ( controlID == GetGameListBoxID() )
 				{
 					int rowSelected = mData2;
-					if( rowSelected >= 0 )
+					Int lobbyID = rowSelected >= 0 ? (Int)GadgetListBoxGetItemData(control, rowSelected, 0) : 0;
+					if( lobbyID >= 0 )
 					{
 						buttonJoin->winEnable(TRUE);
 						static UnsignedInt lastFrame = 0;
@@ -2341,7 +2437,7 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 
 						PeerRequest req;
 						req.peerRequestType = PeerRequest::PEERREQUEST_GETEXTENDEDSTAGINGROOMINFO;
-						req.stagingRoom.id = (Int)(uintptr_t)GadgetListBoxGetItemData(control, rowSelected, 0);
+						req.stagingRoom.id = lobbyID;
 
 						if (lastID != req.stagingRoom.id || now > lastFrame + 60)
 						{
@@ -2559,23 +2655,26 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				}
 				else if ( controlID == buttonEmoteID )
 				{
-				// read the user's input and clear the entry box
+					// read the user's input
 					UnicodeString txtInput;
 					txtInput.set(GadgetTextEntryGetText( textEntryChat ));
-					GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 					txtInput.trim();
-					if (!txtInput.isEmpty())
+					if (txtInput.isEmpty())
 					{
-                        if (!LobbyChatSlowmodeAllowsSend())
-						{
-							break;
-						}
-						// Send the message
-						NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-						if (pRoomsInterface != nullptr)
-						{
-							pRoomsInterface->SendChatMessageToCurrentRoom(txtInput, false);
-						}
+						GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
+						break;
+					}
+
+					if (!LobbyChatRateLimitAllowsSend())
+					{
+						break;
+					}
+
+					GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
+					NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+					if (pRoomsInterface != nullptr)
+					{
+						pRoomsInterface->SendChatMessageToCurrentRoom(txtInput, false);
 					}
 				}
 
@@ -2585,89 +2684,48 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 		//---------------------------------------------------------------------------------------------
 		case GCM_SELECTED:
 			{
-				if (s_tryingToHostOrJoin)
+				if (s_tryingToHostOrJoin || s_populatingLobbyCombo)
 					break;
 
-				//NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
-				//if (pRoomsInterface == nullptr)
-				//{
-				//	break;
-				//}
+				NGMP_OnlineServices_RoomsInterface* pRoomsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
 
 				extern LobbyGameModeFilter theLobbyFilter;
 				GameWindow *control = (GameWindow *)mData1;
 				Int controlID = control->winGetWindowId();
 				if( controlID == comboLobbyGroupRoomsID )
 				{
-					/*
-					int rowSelected = -1;
-					GadgetComboBoxGetSelectedPos(control, &rowSelected);
-
-					DEBUG_LOG(("Row selected = %d", rowSelected));
-					if (rowSelected >= 0)
-					{
-						Int groupID;
-						groupID = (Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, rowSelected);
-						//DEBUG_LOG(("ItemData was %d, current Group Room is %d", groupID, TheGameSpyInfo->getCurrentGroupRoom()));
-// did it change?
-						if (groupID != pRoomsInterface->GetCurrentRoomID())
-						{
-							// join
-							pRoomsInterface->JoinRoom(groupID, [=]()
-								{
-									//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"Attempting to join room"), GameMakeColor(255, 194, 15, 255), -1, -1);
-								},
-								[=]()
-								{
-									// TODO_NGMP: There are two cb lamdas for this, flatten them
-									GadgetListBoxReset(listboxLobbyChat);
-
-									UnicodeString msg;
-									msg.format(TheGameText->fetch("GUI:LobbyJoined"), pRoomsInterface->GetGroupRooms().at(groupID).GetRoomDisplayName().str());
-									GadgetListBoxAddEntryText(listboxLobbyChat, msg, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
-
-
-									// process flag related info messages
-									ERoomFlags flags = pRoomsInterface->GetGroupRooms().at(groupID).GetRoomFlags();
-									if (flags == ERoomFlags::ROOM_FLAGS_SHOW_ALL_MATCHES)
-									{
-										//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: This is a special room where the lobby list shows lobbies from ALL rooms, not just the current room, to make it easier to find a match without room hopping."), GameMakeColor(255, 194, 15, 255), -1, -1);
-										//GadgetListBoxAddEntryText(listboxLobbyChat, UnicodeString(L"\t INFO: Lobbies created here will only show in here. The members list & chat will also only show players in this room."), GameMakeColor(255, 194, 15, 255), -1, -1);
-									}
-
-									// refresh on join
-									refreshPlayerList(TRUE);
-
-									RefreshGameListBoxes();
-
-									populateGroupRoomListbox(comboLobbyGroupRooms);
-								});
-						}
-
-						// TODO_NGMP: What does TheGameSpyConfig->restrictGamesToLobby() do?
-						/*						if (groupID && groupID != TheGameSpyInfo->getCurrentGroupRoom())
-						{
-							TheGameSpyInfo->leaveGroupRoom();
-							TheGameSpyInfo->joinGroupRoom(groupID);
-							if (TheGameSpyConfig->restrictGamesToLobby())
-							{
-								TheGameSpyInfo->clearStagingRoomList();
-								RefreshGameListBoxes();
-								PeerRequest req;
-								req.peerRequestType = PeerRequest::PEERREQUEST_STARTGAMELIST;
-								req.gameList.restrictGameList = TRUE;
-								TheGameSpyPeerMessageQueue->addRequest(req);
-							}
-						}
-
-					}
-				*/
 					Int pos = -1;
 					GadgetComboBoxGetSelectedPos(comboLobbyGroupRooms, &pos);
 					if (pos >= 0)
-						theLobbyFilter = (LobbyGameModeFilter)(Int)(uintptr_t)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
-					DEBUG_INFO_MAC(("LOBBY_FILTER: user selected pos %d -> %s", pos, GetLobbyFilterName(theLobbyFilter)));
-					RefreshGameListBoxes();
+					{
+						Int itemData = (Int)GadgetComboBoxGetItemData(comboLobbyGroupRooms, pos);
+						if (itemData == LOBBY_COMBO_SEPARATOR_ITEM_DATA)
+						{
+							PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
+						}
+						else if (itemData < 0)
+						{
+							if (pRoomsInterface != nullptr)
+							{
+								const Int roomIndex = -itemData - 2;
+								const std::vector<NetworkRoom>& rooms = pRoomsInterface->GetGroupRooms();
+								if (roomIndex >= 0 && roomIndex < (Int)rooms.size()
+									&& roomIndex != pRoomsInterface->GetCurrentRoomIndex())
+								{
+									theLobbyFilter = LOBBY_FILTER_ALL;
+									pRoomsInterface->JoinRoom(roomIndex);
+								}
+							}
+							PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
+						}
+						else
+						{
+							theLobbyFilter = (LobbyGameModeFilter)itemData;
+							DEBUG_INFO_MAC(("LOBBY_FILTER: user selected pos %d -> %s", pos, GetLobbyFilterName(theLobbyFilter)));
+							refreshGameList(TRUE);
+							PopulateLobbyFilterComboBox(comboLobbyGroupRooms);
+						}
+					}
 				}
 			}
 			break;
@@ -2957,28 +3015,37 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 				if (buttonPushed)
 					break;
 
-				// read the user's input and clear the entry box
+				// read the user's input
 				UnicodeString txtInput;
 				txtInput.set(GadgetTextEntryGetText( textEntryChat ));
-				GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
 				txtInput.trim();
-				if (!txtInput.isEmpty())
+				if (txtInput.isEmpty())
 				{
-					// Send the message
-					if (!handleLobbySlashCommands(txtInput))
+					GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
+					break;
+				}
+
+				Bool wasRateLimited = FALSE;
+				if (handleLobbySlashCommands(txtInput, &wasRateLimited))
+				{
+					if (!wasRateLimited)
+						GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
+				}
+				else
+				{
+					if (!LobbyChatRateLimitAllowsSend())
 					{
-                        if (!LobbyChatSlowmodeAllowsSend())
-						{
-							break;
-						}
-						std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
-						if (pWS != nullptr)
-						{
-							pWS->SendData_RoomChatMessage(txtInput, false);
-						}
-						// TODO_NGMP: Support private message again
-						//TheGameSpyInfo->sendChat( txtInput, false, listboxLobbyPlayers );
+						break;
 					}
+
+					GadgetTextEntrySetText(textEntryChat, UnicodeString::TheEmptyString);
+					std::shared_ptr<WebSocket>  pWS = NGMP_OnlineServicesManager::GetWebSocket();
+					if (pWS != nullptr)
+					{
+						pWS->SendData_RoomChatMessage(txtInput, false);
+					}
+					// TODO_NGMP: Support private message again
+					//TheGameSpyInfo->sendChat( txtInput, false, listboxLobbyPlayers );
 				}
 				break;
 			}

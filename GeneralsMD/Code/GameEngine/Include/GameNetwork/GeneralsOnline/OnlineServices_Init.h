@@ -91,10 +91,15 @@ enum EWebSocketMessageID
 	SOCIAL_FRIENDS_LIST_DIRTY = 37,
 	SOCIAL_CANT_ADD_FRIEND_LIST_FULL = 38,
 	PROBE_RESP = 39,
-    AC_REGISTER_PLAYER = 40,
-    AC_DEREGISTER_PLAYER = 41,
-    WS_KEEPALIVE = 42,
-    WS_KEEPALIVE_CLIENT = 43
+	AC_REGISTER_PLAYER = 40,
+	AC_DEREGISTER_PLAYER = 41,
+	WS_KEEPALIVE = 42,
+	WS_KEEPALIVE_CLIENT = 43,
+	MATCHMAKING_ACTION_REQUEUE = 44,
+	MATCHMAKING_ACTION_SETUP_PROGRESS = 45,
+	MODERATION_NOTICE = 46,
+	MODERATION_COMMAND = 47,
+	MODERATION_COMMAND_RESULT = 48
 };
 
 enum class EQoSRegions
@@ -124,8 +129,15 @@ enum class EGOTearDownReason
 	LOST_CONNECTION = 0,
 	USER_LOGOUT = 1,
 	USER_REQUESTED_SILENT = 2,
-	AUTH_FAILED = 3
+	AUTH_FAILED = 3,
+	MODERATION_BAN = 4,
+	MODERATION_KICK = 5
 };
+
+constexpr bool IsModerationTeardownReason(EGOTearDownReason reason) noexcept
+{
+	return reason == EGOTearDownReason::MODERATION_BAN || reason == EGOTearDownReason::MODERATION_KICK;
+}
 
 class WebSocket
 {
@@ -152,7 +164,7 @@ public:
 	void SendData_RoomChatMessage(UnicodeString& msg, bool bIsAction);
 	void SendData_FriendMessage(UnicodeString& msg, int64_t target_user_id);
 	void SendData_LobbyChatMessage(UnicodeString& msg, bool bIsAction, bool bIsAnnouncement, bool bShowAnnouncementToHost);
-	void SendData_JoinNetworkRoom(int roomID);
+	void SendData_JoinNetworkRoom(int roomID, uint64_t requestID = 0);
 	void SendData_LeaveNetworkRoom();
 	void SendData_MarkReady(bool bReady);
 
@@ -234,11 +246,12 @@ enum class ERoomFlags : int
 class NetworkRoom
 {
 public:
-	NetworkRoom(int roomID, std::string strRoomName, ERoomFlags roomFlags)
+	NetworkRoom(int roomID, std::string strRoomName, ERoomFlags roomFlags, int parentRoomID = -1)
 	{
 		m_RoomID = roomID;
 		m_strRoomDisplayName.translate(AsciiString(strRoomName.c_str()));
 		m_RoomFlags = roomFlags;
+		m_ParentRoomID = parentRoomID;
 	}
 
 	~NetworkRoom()
@@ -247,13 +260,15 @@ public:
 	}
 
 	int GetRoomID() const { return m_RoomID; }
-	UnicodeString GetRoomDisplayName() const { return m_strRoomDisplayName; }
+	const UnicodeString& GetRoomDisplayName() const { return m_strRoomDisplayName; }
 	ERoomFlags GetRoomFlags() const { return m_RoomFlags; }
+	int GetParentRoomID() const { return m_ParentRoomID; }
 
 private:
 	int m_RoomID;
 	UnicodeString m_strRoomDisplayName;
 	ERoomFlags m_RoomFlags = ERoomFlags::ROOM_FLAGS_DEFAULT;
+	int m_ParentRoomID = -1;
 };
 
 struct RegionResponse
@@ -505,7 +520,16 @@ public:
 
 	std::string& GetMOTD() { return m_strMOTD; }
 
-	void SetPendingFullTeardown(EGOTearDownReason reason) { m_bPendingFullTeardown = true; m_teardownReason = reason; }
+	void SetPendingFullTeardown(EGOTearDownReason reason)
+	{
+		if (IsModerationTeardownReason(m_teardownReason) && !IsModerationTeardownReason(reason))
+		{
+			return;
+		}
+
+		m_bPendingFullTeardown = true;
+		m_teardownReason = reason;
+	}
 	bool IsPendingFullTeardown() const { return m_bPendingFullTeardown; }
 	EGOTearDownReason GetTeardownReason() const { return m_teardownReason; }
 	void ConsumePendingFullTeardown() { m_bPendingFullTeardown = false; }
@@ -537,46 +561,39 @@ public:
         m_vecCachedScreenshotBytes_MatchStart = vecData;
 	}
 
-    void CacheScreenshotBytes_EndMatch(std::vector<uint8_t>& vecData)
-    {
-        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-        m_vecCachedScreenshotBytes_MatchEnd = vecData;
-    }
-
-    void CacheReplayBytes(std::vector<uint8_t>& vecData)
-    {
-        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-		m_vecCachedReplayBytes = vecData;
-    }
-
+	void CacheScreenshotBytes_EndMatch(uint64_t matchID, std::vector<uint8_t> data);
+	void CacheReplayBytes(uint64_t matchID, std::vector<uint8_t> data);
     void SetScreenshotS3URI_StartMatch(const char* szURI)
     {
         std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
 		m_strCachedScreenshot_MatchStart_S3URI = std::string(szURI);
     }
 
-    void SetScreenshotS3URI_EndMatch(const char* szURI)
-    {
-        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-        m_strCachedScreenshot_MatchEnd_S3URI = std::string(szURI);
-    }
-
-    void SetScreenshotS3URI_Replay(const char* szURI)
-    {
-        std::scoped_lock<std::mutex> ssLock(m_ScreenshotMutex);
-		m_strCacheReplay_S3URI = std::string(szURI);
-    }
+	void SetScreenshotS3URI_EndMatch(uint64_t matchID, std::string uri);
+	void SetScreenshotS3URI_Replay(uint64_t matchID, std::string uri);
 
 private:
 	// NOTE: Accessed from multiple threads, dont access directly, use helpers above to lock
     std::string m_strCachedScreenshot_MatchStart_S3URI;
-    std::string m_strCachedScreenshot_MatchEnd_S3URI;
-    std::string m_strCacheReplay_S3URI;
 
     // screenshots / replays that require caching
     std::vector<uint8_t> m_vecCachedScreenshotBytes_MatchStart;
-    std::vector<uint8_t> m_vecCachedScreenshotBytes_MatchEnd;
-    std::vector<uint8_t> m_vecCachedReplayBytes;
+
+	struct CachedMatchUpload
+	{
+		uint64_t dataMatchID = 0;
+		uint64_t uriMatchID = 0;
+		std::vector<uint8_t> bytes;
+		std::string signedURI;
+	};
+
+	void CacheMatchUploadBytes(CachedMatchUpload& upload, uint64_t matchID, std::vector<uint8_t> data);
+	void CacheMatchUploadURI(CachedMatchUpload& upload, uint64_t matchID, std::string uri);
+
+	// Data and URLs may arrive independently. Keeping their shared match ID here
+	// prevents a late response from being paired with media from another match.
+	CachedMatchUpload m_cachedMatchEndUpload;
+	CachedMatchUpload m_cachedReplayUpload;
 
 	// main thread SS Upload
 	static std::mutex m_ScreenshotMutex;

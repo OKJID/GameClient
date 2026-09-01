@@ -103,11 +103,10 @@ void GameWindowManager::processDestroyList()
 		if (m_keyboardFocus == doDestroy)
 			winSetFocus(NULL);
 
-		if ((m_modalHead != NULL) && (doDestroy == m_modalHead->window))
-			winUnsetModal(m_modalHead->window);
+		removeWindowFromModalStack(doDestroy);
 
-		if (m_currMouseRgn == doDestroy)
-			m_currMouseRgn = NULL;
+		if( m_currMouseRgn == doDestroy )
+			m_currMouseRgn = nullptr;
 
 		if (m_grabWindow == doDestroy)
 			m_grabWindow = NULL;
@@ -1423,8 +1422,7 @@ Int GameWindowManager::winDestroy(GameWindow* window)
 	if (m_keyboardFocus == window)
 		winSetFocus(NULL);
 
-	if ((m_modalHead != NULL) && (window == m_modalHead->window))
-		winUnsetModal(m_modalHead->window);
+	removeWindowFromModalStack( window );
 
 	if (m_currMouseRgn == window)
 		m_currMouseRgn = NULL;
@@ -1554,6 +1552,26 @@ Int GameWindowManager::winUnsetModal(GameWindow* window)
 
 	return WIN_ERR_OK;
 
+}
+
+// TheSuperHackers @bugfix arcticdolphin 27/08/2026 Remove destroyed windows from the entire modal stack.
+void GameWindowManager::removeWindowFromModalStack( GameWindow *window )
+{
+	ModalWindow **link = &m_modalHead;
+
+	while( *link )
+	{
+		ModalWindow *modal = *link;
+
+		if( modal->window != window )
+		{
+			link = &modal->next;
+			continue;
+		}
+
+		*link = modal->next;
+		deleteInstance(modal);
+	}
 }
 
 //-------------------------------------------------------------------------------------------------

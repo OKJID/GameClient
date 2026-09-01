@@ -2,6 +2,7 @@
 
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPRequest.h"
+#include "GameNetwork/GeneralsOnline/OnlineServices_Moderation.h"
 #include "GameNetwork/GeneralsOnline/json.hpp"
 #include <shellapi.h>
 #include <algorithm>
@@ -36,6 +37,14 @@ enum class EAuthResponseResult : int
 	FAILED = 2
 };
 
+struct GetLoginCodeResponse
+{
+	bool success = false;
+    std::string login_code = "";
+    
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(GetLoginCodeResponse, success, login_code)
+};
+
 struct AuthResponse
 {
 	EAuthResponseResult result = EAuthResponseResult::FAILED;
@@ -48,6 +57,24 @@ struct AuthResponse
 	// NOTE: _WITH_DEFAULT so endpoints that only return a subset of these fields (e.g. refresh, which doesn't resend profile data) don't throw during parsing
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE_WITH_DEFAULT(AuthResponse, result, session_token, refresh_token, user_id, display_name, ws_uri)
 };
+
+namespace
+{
+	std::string GetBanReason(const std::string& responseBody)
+	{
+		nlohmann::json jsonObject = nlohmann::json::parse(responseBody, nullptr, false, true);
+		if (jsonObject.is_object())
+		{
+			const auto banReason = jsonObject.find("ban_reason");
+			if (banReason != jsonObject.end() && banReason->is_string())
+			{
+				return banReason->get_ref<const std::string&>();
+			}
+		}
+
+		return std::string();
+	}
+}
 
 struct MOTDResponse
 {
@@ -107,27 +134,6 @@ static void LogIssuedSession(const char* szSource, const std::string& strSession
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: %s issued session for user id %lld, display name '%s'", szSource, userID, strDisplayName.c_str());
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Session token bound to address %s, expires %s", GetTokenClaim(strSessionToken, "address").c_str(), GetTokenClaim(strSessionToken, "exp").c_str());
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Refresh token bound to address %s", GetTokenClaim(strRefreshToken, "address").c_str());
-}
-
-std::string GenerateGamecode()
-{
-#if defined(_DEBUG) && !defined(USE_TEST_ENV) && !defined(USE_DEBUG_ON_LIVE_SERVER)
-	return "ILOVECODE";
-#else
-	std::string result;
-	const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-	const size_t max_index = sizeof(charset) - 1;
-
-	auto seed = std::chrono::system_clock::now().time_since_epoch().count();
-	std::mt19937 generator(seed);
-	std::uniform_int_distribution<> distribution(0, max_index - 1);
-
-	for (int i = 0; i < 32; ++i) {
-		result += charset[distribution(generator)];
-	}
-
-	return result;
-#endif
 }
 
 void NGMP_OnlineServices_AuthInterface::GoToDetermineNetworkCaps()
@@ -288,6 +294,16 @@ void NGMP_OnlineServices_AuthInterface::RefreshToken()
             {
                 if (statusCode >= 400 && statusCode < 500)
                 {
+					if (statusCode == 423)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "[AUTH]: Account ban detected during token refresh, tearing down");
+						m_tokenCreationTime = -1;
+						m_nextRefreshRetryTime = -1;
+						m_currentRefreshAttempt = 0;
+						HandleModerationDisconnect(EOnlineModerationAction::BAN, GetBanReason(strBody));
+						return;
+					}
+
 					OnRefreshTokenFailed(std::format("HTTP {}", statusCode).c_str(), strBody);
                 }
                 else
@@ -357,47 +373,8 @@ void NGMP_OnlineServices_AuthInterface::RefreshToken()
     }
     else
     {
-        // nothing to refresh with, we're going through the full login flow instead
-        m_currentRefreshAttempt = 0;
-
-        m_bWaitingLogin = true;
-        m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(
-#ifdef __APPLE__
-            std::chrono::system_clock::now().time_since_epoch()
-#else
-            std::chrono::utc_clock::now().time_since_epoch()
-#endif
-        ).count();
-
-        m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-        std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
-#else
-        std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-#endif
-
-        ClearGSMessageBoxes();
-        GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
-            {
-                if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-                {
-                    NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
-                }
-
-                NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-                if (pAuthInterface != nullptr)
-                {
-                    pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled, "");
-                }
-            });
-
-#if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
-        ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#endif
-
-
-
+		// nothing to refresh with, we're going through the full login flow instead
+		DoFullLoginFlow();
     }
 }
 
@@ -446,17 +423,13 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 				{
 					if (statusCode == 423)
 					{
-						ClearGSMessageBoxes();
-						GSMessageBoxOk(UnicodeString(L"Account Banned"), UnicodeString(L"You are banned. You can file an appeal in Discord."), []()
-							{
-								TheShell->pop();
-							});
+						ShowLoginBanDialog(GetBanReason(strBody));
 						return;
 					}
 					else
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed with code %d, cached refresh token was rejected, trying to re-auth", statusCode);
-						DoReAuth();
+						DoFullLoginFlow();
 					}
 				}
 				else
@@ -488,13 +461,13 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 						else if (authResp.result == EAuthResponseResult::FAILED)
 						{
 							NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Login failed, trying to re-auth");
-							DoReAuth();
+							DoFullLoginFlow();
 						}
 					}
 					catch (...)
 					{
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: Resp parse failed, trying to re-auth");
-						DoReAuth();
+						DoFullLoginFlow();
 					}
 				}
 
@@ -502,87 +475,108 @@ void NGMP_OnlineServices_AuthInterface::BeginLogin()
 	}
 	else
 	{
-		m_bWaitingLogin = true;
-		m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-		m_strCode = GenerateGamecode();
-
-#if defined(USE_TEST_ENV)
-		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
-#else
-		std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
-#endif
-
-		ClearGSMessageBoxes();
-		GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
-			{
-                if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-                {
-                    NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
-                }
-
-				NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-				if (pAuthInterface != nullptr)
-				{
-					pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled, "");
-				}
-			});
-
-#if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
-#ifdef __APPLE__
-		{
-			std::string openCmd = std::format("open '{}'", strURI.c_str());
-			system(openCmd.c_str());
-		}
-#else
-		ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
-#endif
-#endif
-			
-
-			
+		DoFullLoginFlow();
 	}
 }
 
-void NGMP_OnlineServices_AuthInterface::DoReAuth()
+void NGMP_OnlineServices_AuthInterface::DoFullLoginFlow()
 {
-	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: DoReAuth");
-	ClearGSMessageBoxes();
-    GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
-        {
-            if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
-            {
-                NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
-            }
+	NetworkLog(ELogVerbosity::LOG_RELEASE, "LOGIN: DoFullLoginFlow");
 
-            NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
-            if (pAuthInterface != nullptr)
-            {
-				pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled , "");
-            }
-        });
+    // get a game login code from server
+    std::string strGetLoginCodeURI = NGMP_OnlineServicesManager::GetAPIEndpoint("LoginCode");
+    std::map<std::string, std::string> mapHeaders;
+	NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendGETRequest(strGetLoginCodeURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
+		{
+			std::function<void(void)> fnGetLoginCodeFailed = [this]()
+				{
+					// stop checking
+					m_bWaitingLogin = false;
+					m_strCode = std::string();
+					m_lastCheckCode = -1;
 
-	// do normal login flow, token is bad or expired etc
-	m_bWaitingLogin = true;
-	m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	m_strCode = GenerateGamecode();
+
+					ClearGSMessageBoxes();
+					GSMessageBoxOk(UnicodeString(L"Login Failed"), UnicodeString(L"Failed to retrieve login code"), []()
+						{
+							TheShell->pop();
+						});
+				};
+
+			if (!bSuccess || (statusCode >= 400 && statusCode < 500))
+			{
+				fnGetLoginCodeFailed();
+			}
+			else
+			{
+				try
+				{
+					nlohmann::json jsonObject = nlohmann::json::parse(strBody, nullptr, false, true);
+					GetLoginCodeResponse authResp = jsonObject.get<GetLoginCodeResponse>();
+
+					if (authResp.success)
+					{
+						m_currentRefreshAttempt = 0;
+
+						m_bWaitingLogin = true;
+						m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(
+#ifdef __APPLE__
+							std::chrono::system_clock::now().time_since_epoch()
+#else
+							std::chrono::utc_clock::now().time_since_epoch()
+#endif
+						).count();
+
+						m_strCode = authResp.login_code;
+						NetworkLog(ELogVerbosity::LOG_DEBUG, "Login Code is %s", m_strCode.c_str());
 
 #if defined(USE_TEST_ENV)
-	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
+                        std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
 #else
-	std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
+                        std::string strURI = std::format("http://www.playgenerals.online/login/?gamecode={}", m_strCode.c_str());
 #endif
+
+                        ClearGSMessageBoxes();
+                        GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
+                            {
+                                if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
+                                {
+                                    NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
+                                }
+
+                                NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+                                if (pAuthInterface != nullptr)
+                                {
+                                    pAuthInterface->OnLoginComplete(ELoginResult::UserCancelled, "");
+                                }
+                            });
 
 #if !defined(_DEBUG) || defined(USE_TEST_ENV) || defined(USE_DEBUG_ON_LIVE_SERVER)
 #ifdef __APPLE__
-	{
-		std::string openCmd = std::format("open '{}'", strURI.c_str());
-		system(openCmd.c_str());
-	}
+                        {
+                            std::string openCmd = std::format("open '{}'", strURI.c_str());
+                            system(openCmd.c_str());
+                        }
 #else
-	ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
+                        ShellExecuteA(NULL, "open", strURI.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #endif
 #endif
+                    }
+                    else
+                    {
+						fnGetLoginCodeFailed();
+                    }
+                }
+                catch (const std::exception& /*e*/)
+                {
+					fnGetLoginCodeFailed();
+                }
+                catch (...)
+                {
+					fnGetLoginCodeFailed();
+                }
+            }
+        });
 }
 
 void NGMP_OnlineServices_AuthInterface::Tick()
@@ -618,11 +612,23 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 	if (m_bWaitingLogin)
 	{
 		const int64_t timeBetweenChecks = 1000;
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(
+#ifdef __APPLE__
+			std::chrono::system_clock::now().time_since_epoch()
+#else
+			std::chrono::utc_clock::now().time_since_epoch()
+#endif
+		).count();
 
 		if (currTime - m_lastCheckCode >= timeBetweenChecks)
 		{
-			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			m_lastCheckCode = std::chrono::duration_cast<std::chrono::milliseconds>(
+#ifdef __APPLE__
+				std::chrono::system_clock::now().time_since_epoch()
+#else
+				std::chrono::utc_clock::now().time_since_epoch()
+#endif
+			).count();
 
 			// check again
 			std::string strURI = NGMP_OnlineServicesManager::GetAPIEndpoint("CheckLogin");
@@ -648,11 +654,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 						if (statusCode == 423)
 						{
 							m_bWaitingLogin = false;
-							ClearGSMessageBoxes();
-							GSMessageBoxOk(UnicodeString(L"Account Banned"), UnicodeString(L"You are banned. You can file an appeal in Discord."), []()
-								{
-									TheShell->pop();
-								});
+							ShowLoginBanDialog(GetBanReason(strBody));
 							return;
 						}
 

@@ -5,6 +5,10 @@
 #include "GameNetwork/RankPointValue.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
 
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+
 class PSPlayerStats;
 
 struct GlobalStats
@@ -468,21 +472,37 @@ public:
 
 	void findPlayerStatsByID(int64_t userID, std::function<void(bool, PSPlayerStats)> cb, EStatsRequestPolicy requestPolicy);
 	void findPlayerStatsByBatch(std::vector<int64_t> vecUserIDs, std::function<void(bool)> cb);
+	// Returns the last-known cached values, even when stale. Use
+	// HasFreshPlayerStats() to decide whether a refresh is required.
 	bool getPlayerStatsFromCache(int64_t userID, PSPlayerStats* outStats);
-	bool ArePlayerStatsCached(int64_t userID)
-	{
-		return m_mapCachedStats.contains(userID);
-	}
+	bool HasFreshPlayerStats(int64_t userID);
 
-	void UpdateMyStats(PSPlayerStats stats);
+	void UpdateMyStats(const PSPlayerStats& stats);
 
 	void CommitMyOutcome(ScoreKeeper* pScoreKeeper, bool bWon);
 
 private:
-	std::string JSONSerialize(PSPlayerStats stats);
+	struct PlayerStatsCacheEntry
+	{
+		PSPlayerStats stats;
+		std::chrono::steady_clock::time_point lastRefreshAt{};
+		std::chrono::steady_clock::time_point lastAccessAt{};
+		uint64_t cacheRevision = 0;
+		uint64_t updateRevision = 0;
+		bool hasStats = false;
+	};
+
+	std::string JSONSerialize(const PSPlayerStats& stats) const;
+	PlayerStatsCacheEntry& GetOrCreatePlayerStatsCacheEntry(int64_t userID);
+	uint64_t AdvancePlayerStatsCacheRevision(int64_t userID);
+	uint64_t AdvancePlayerStatsUpdateRevision(int64_t userID);
+	bool TryCachePlayerStats(const PSPlayerStats& stats, uint64_t expectedRevision);
+	void MarkPlayerStatsCacheStale(int64_t userID);
 
 private:
-	std::unordered_map<int64_t, int64_t> m_mapStatsLastRefresh;
-	std::unordered_map<int64_t, PSPlayerStats> m_mapCachedStats;
-	const static int64_t m_cacheTTL = 600000; // 10 minutes
+	std::unordered_map<int64_t, PlayerStatsCacheEntry> m_playerStatsCache;
+	uint64_t m_nextStatsCacheRevision = 0;
+	uint64_t m_nextStatsUpdateRevision = 0;
+	static constexpr std::chrono::minutes STATS_CACHE_TTL{ 10 };
+	static constexpr std::size_t MAX_PLAYER_STATS_CACHE_ENTRIES = 128;
 };

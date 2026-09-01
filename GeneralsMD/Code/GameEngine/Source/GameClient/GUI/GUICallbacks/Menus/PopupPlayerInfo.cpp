@@ -961,7 +961,7 @@ void PopulatePlayerInfoWindows( AsciiString parentWindowName )
 			win = findWindow(parentWindow, parentWindowName, "StaticTextDisconnects");
 			if (win)
 			{
-				uStr.format(L"Monthly Elo:");
+				uStr.format(L"World Series Elo:");
 				GadgetStaticTextSetText(win, uStr);
 			}
 #endif

@@ -44,15 +44,12 @@ void NGMP_OnlineServices_SocialInterface::GetFriendsList(bool bUseCache, std::fu
 
 			try
 			{
-				// Note: m_mapFriends and m_mapPendingRequests access happens in HTTP thread context
-				// This is a design issue but adding lock would be too invasive at this point
-				// The callback execution uses localCallback which is safe
 				NGMP_OnlineServices_SocialInterface* pThis = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
 				if (pThis == nullptr)
 					return;
 
-				pThis->m_mapFriends.clear();
-				pThis->m_mapPendingRequests.clear();
+				std::unordered_map<int64_t, FriendsEntry> mapFriends{};
+				std::unordered_map<int64_t, FriendsEntry> mapPendingRequests{};
 
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 
@@ -70,7 +67,7 @@ void NGMP_OnlineServices_SocialInterface::GetFriendsList(bool bUseCache, std::fu
 					friendsResult.vecFriends.push_back(newFriend);
 
 					// cache
-					pThis->m_mapFriends[newFriend.user_id] = newFriend;
+					mapFriends.insert_or_assign(newFriend.user_id, newFriend);
 				}
 
 				// pending requests
@@ -85,8 +82,12 @@ void NGMP_OnlineServices_SocialInterface::GetFriendsList(bool bUseCache, std::fu
 					friendsResult.vecPendingRequests.push_back(newEntry);
 
 					// cache
-					pThis->m_mapPendingRequests[newEntry.user_id] = newEntry;
+					mapPendingRequests.insert_or_assign(newEntry.user_id, newEntry);
 				}
+
+				std::scoped_lock<std::mutex> lock(pThis->m_friendsMapMutex);
+				pThis->m_mapFriends.swap(mapFriends);
+				pThis->m_mapPendingRequests.swap(mapPendingRequests);
 			}
 			catch (...)
 			{
@@ -112,10 +113,9 @@ void NGMP_OnlineServices_SocialInterface::GetBlockList(std::function<void(Blocke
 		{
 			BlockedResult blockedResult;
 
-			m_mapBlocked.clear();
-
 			try
 			{
+				std::unordered_map<int64_t, FriendsEntry> mapBlocked{};
 				nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 
 				for (const auto& blockedEntryIter : jsonObject["blocked"])
@@ -129,8 +129,11 @@ void NGMP_OnlineServices_SocialInterface::GetBlockList(std::function<void(Blocke
 					blockedResult.vecBlocked.push_back(newEntry);
 
 					// cache
-					m_mapBlocked[newEntry.user_id] = newEntry;
+					mapBlocked.insert_or_assign(newEntry.user_id, newEntry);
 				}
+
+				std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
+				m_mapBlocked.swap(mapBlocked);
 			}
 			catch (...)
 			{
@@ -285,7 +288,6 @@ void NGMP_OnlineServices_SocialInterface::OnChatMessage(int64_t source_user_id, 
             }
         }
         m_mapCachedMessages[user_id_to_store].push_back(unicodeStr);
-        
         if (m_cbOnChatMessage != nullptr)
         {
             m_cbOnChatMessage(source_user_id, target_user_id, unicodeStr);
@@ -346,16 +348,17 @@ void NGMP_OnlineServices_SocialInterface::OnFriendRequestAccepted(std::string st
 
 bool NGMP_OnlineServices_SocialInterface::IsUserIgnored(int64_t target_user_id)
 {
+	const std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
 	return m_mapBlocked.contains(target_user_id);
 }
-
 bool NGMP_OnlineServices_SocialInterface::IsUserFriend(int64_t target_user_id)
 {
+	const std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
 	return m_mapFriends.contains(target_user_id);
 }
-
 bool NGMP_OnlineServices_SocialInterface::IsUserPendingRequest(int64_t target_user_id)
 {
+	std::scoped_lock<std::mutex> lock(m_friendsMapMutex);
     return m_mapPendingRequests.contains(target_user_id);
 }
 
