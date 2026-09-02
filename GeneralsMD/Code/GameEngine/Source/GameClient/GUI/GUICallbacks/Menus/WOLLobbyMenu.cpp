@@ -2522,24 +2522,30 @@ WindowMsgHandledType WOLLobbyMenuSystem( GameWindow *window, UnsignedInt msg,
 							}
 
 							// CRC Check
-#ifndef __APPLE__
-							if (Lobby.exe_crc != TheGlobalData->m_exeCRC || Lobby.ini_crc != TheGlobalData->m_iniCRC)
+							DEBUG_LOG(("WOLLobbyMenuSystem - lobby join CRC check. My CRC's - EXE:0x%08X INI:0x%08X  Their CRC's - EXE:0x%08X INI:0x%08X  Vanilla INI:0x%08X", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, Lobby.exe_crc, Lobby.ini_crc, VANILLA_INI_CRC));
+							DEBUG_INFO_MAC(("WOLLobbyMenuSystem - lobby join CRC check. My CRC's - EXE:0x%08X INI:0x%08X  Their CRC's - EXE:0x%08X INI:0x%08X  Vanilla INI:0x%08X", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, Lobby.exe_crc, Lobby.ini_crc, VANILLA_INI_CRC));
+
+							if (Lobby.exe_crc != TheGlobalData->m_exeCRC)
 							{
-								if (TheGlobalData->m_iniCRC != VANILLA_INI_CRC)
-								{
-									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), UnicodeString(L"You have modified INI files or a modification."));
-								}
-								else if (Lobby.ini_crc != VANILLA_INI_CRC)
-								{
-									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), UnicodeString(L"The host has modified INI files or a modification."));
-								}
-								else
-								{
-									GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"), TheGameText->fetch("GUI:JoinFailedCRCMismatch"));
-								}
+								DEBUG_LOG(("WOLLobbyMenuSystem - join denied, EXE CRC mismatch with the lobby I'm trying to join"));
+								DEBUG_INFO_MAC(("WOLLobbyMenuSystem - join denied, EXE CRC mismatch with the lobby I'm trying to join"));
+
+								GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"),
+									TheGameText->fetchOrSubstitute("GUI:JoinFailedExeMismatchDetails",
+										L"Your game version differs from the host's. One of you is running an older build - make sure both you and the host have updated to the latest launcher version."));
 								break;
 							}
-#endif
+
+							if (Lobby.ini_crc != TheGlobalData->m_iniCRC)
+							{
+								DEBUG_LOG(("WOLLobbyMenuSystem - join denied, INI CRC mismatch with the lobby I'm trying to join"));
+								DEBUG_INFO_MAC(("WOLLobbyMenuSystem - join denied, INI CRC mismatch with the lobby I'm trying to join"));
+
+								GSMessageBoxOk(TheGameText->fetch("GUI:JoinFailedDefault"),
+									TheGameText->fetchOrSubstitute("GUI:JoinFailedCRCMismatchDetails",
+										L"Your set of game resource files differs from the host's. In the launcher turn on Verbose Engine Logging, run the game once, then use Share Logs to send them to the developer."));
+								break;
+							}
 
 							// TODO_NGMP: Enforce this on the host too, vanilla game did not...
 
