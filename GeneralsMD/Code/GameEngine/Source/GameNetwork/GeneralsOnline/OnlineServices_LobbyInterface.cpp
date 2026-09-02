@@ -1161,6 +1161,7 @@ void NGMP_OnlineServices_LobbyInterface::JoinLobby(LobbyEntry lobbyInfo, std::st
 			std::map<std::string, std::string> mapHeaders;
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with id %d", lobbyInfo.lobbyID);
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Joining lobby with our EXE:0x%08X INI:0x%08X, host EXE:0x%08X INI:0x%08X (vanilla INI:0x%08X)", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, lobbyInfo.exe_crc, lobbyInfo.ini_crc, VANILLA_INI_CRC);
 
 			bool bHasMap = TheMapCache->findMap(AsciiString(lobbyInfo.map_path.c_str()));
 
@@ -1503,6 +1504,7 @@ void NGMP_OnlineServices_LobbyInterface::CreateLobby(UnicodeString strLobbyName,
 			j["allow_observers"] = bAllowObservers;
 			j["exe_crc"] = TheGlobalData->m_exeCRC;
 			j["ini_crc"] = TheGlobalData->m_iniCRC;
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Hosting lobby with EXE:0x%08X INI:0x%08X (vanilla INI:0x%08X)", TheGlobalData->m_exeCRC, TheGlobalData->m_iniCRC, VANILLA_INI_CRC);
 			j["max_cam_height"] = NGMP_OnlineServicesManager::Settings.Camera_GetMaxHeight_WhenLobbyHost();
 			j["anticheat_id"] = AnticheatPlugInterface::GetAnticheatIdentifier();
 			DEBUG_EAC_MAC(("[CREATE] Creating lobby with anticheat_id=%d", AnticheatPlugInterface::GetAnticheatIdentifier()));
