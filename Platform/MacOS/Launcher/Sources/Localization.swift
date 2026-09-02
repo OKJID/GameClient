@@ -59,6 +59,7 @@ enum L10n {
     static let mod = Mod()
     static let portal = Portal()
     static let sidebar = Sidebar()
+    static let donate = Donate()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -201,6 +202,14 @@ enum L10n {
         var prompt: String { resolve("folder.prompt") }
     }
 
+    struct Donate {
+        var button: String { resolve("donate.button") }
+        var title: String { resolve("donate.title") }
+        var subtitle: String { resolve("donate.subtitle") }
+        var cardDesc: String { resolve("donate.cardDesc") }
+        var paypalDesc: String { resolve("donate.paypalDesc") }
+    }
+
     struct Settings {
         var title: String { resolve("settings.title") }
         var windowedEdgeScroll: String { resolve("settings.windowedEdgeScroll") }
@@ -257,6 +266,11 @@ enum L10n {
     ]
 
     static let en: [String: String] = [
+        "donate.button": "SUPPORT",
+        "donate.title": "We will live in prosperity",
+        "donate.subtitle": "Pick a way to supply the port.",
+        "donate.cardDesc": "Card or PayPal, no account needed",
+        "donate.paypalDesc": "One-time or recurring donation",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "COMMUNITY MAC PORT",
         "tab.steam": "STEAM (RECOMMENDED)",
@@ -392,6 +406,11 @@ enum L10n {
     ]
 
     static let ru: [String: String] = [
+        "donate.button": "ПОДДЕРЖАТЬ",
+        "donate.title": "Мы будем жить в роскоши!",
+        "donate.subtitle": "Выберите способ снабдить порт.",
+        "donate.cardDesc": "Картой или через PayPal, без регистрации",
+        "donate.paypalDesc": "Разовое или регулярное пожертвование",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "MAC ПОРТ ОТ СООБЩЕСТВА",
         "tab.steam": "STEAM (РЕКОМЕНДУЕТСЯ)",
@@ -527,6 +546,11 @@ enum L10n {
     ]
 
     static let uk: [String: String] = [
+        "donate.button": "ПІДТРИМАТИ",
+        "donate.title": "Ми житимемо в достатку!",
+        "donate.subtitle": "Оберіть спосіб постачання порту.",
+        "donate.cardDesc": "Карткою або через PayPal, без реєстрації",
+        "donate.paypalDesc": "Разова або регулярна пожертва",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "MAC ПОРТ ВІД СПІЛЬНОТИ",
         "tab.steam": "STEAM (РЕКОМЕНДОВАНО)",
@@ -662,6 +686,11 @@ enum L10n {
     ]
 
     static let hi: [String: String] = [
+        "donate.button": "सहयोग करें",
+        "donate.title": "हम समृद्धि में जिएंगे!",
+        "donate.subtitle": "पोर्ट की आपूर्ति का तरीका चुनें।",
+        "donate.cardDesc": "कार्ड या PayPal, खाता ज़रूरी नहीं",
+        "donate.paypalDesc": "एक बार या नियमित दान",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "कम्युनिटी MAC पोर्ट",
         "tab.steam": "STEAM (अनुशंसित)",
@@ -797,6 +826,11 @@ enum L10n {
     ]
 
     static let zh: [String: String] = [
+        "donate.button": "支持",
+        "donate.title": "我们将生活在繁荣之中！",
+        "donate.subtitle": "选择一种支援移植版的方式。",
+        "donate.cardDesc": "银行卡或 PayPal，无需注册",
+        "donate.paypalDesc": "一次性或定期捐助",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "社区 MAC 移植版",
         "tab.steam": "STEAM（推荐）",
@@ -932,6 +966,11 @@ enum L10n {
     ]
 
     static let ar: [String: String] = [
+        "donate.button": "ادعم",
+        "donate.title": "سوف نعيش في رخاء!",
+        "donate.subtitle": "اختر طريقة لدعم المشروع.",
+        "donate.cardDesc": "بطاقة أو PayPal، دون حساب",
+        "donate.paypalDesc": "تبرع لمرة واحدة أو متكرر",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "نسخة MAC من المجتمع",
         "tab.steam": "STEAM (موصى به)",
@@ -1067,6 +1106,11 @@ enum L10n {
     ]
 
     static let kk: [String: String] = [
+        "donate.button": "ҚОЛДАУ",
+        "donate.title": "Біз молшылықта өмір сүреміз!",
+        "donate.subtitle": "Портты қолдау тәсілін таңдаңыз.",
+        "donate.cardDesc": "Картамен немесе PayPal арқылы, тіркелусіз",
+        "donate.paypalDesc": "Бір реттік немесе тұрақты қайырымдылық",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "ҚАУЫМДАСТЫҚ MAC ПОРТЫ",
         "tab.steam": "STEAM (ҰСЫНЫЛАДЫ)",
@@ -1202,6 +1246,11 @@ enum L10n {
     ]
 
     static let vi: [String: String] = [
+        "donate.button": "ỦNG HỘ",
+        "donate.title": "Chúng ta sẽ sống trong thịnh vượng!",
+        "donate.subtitle": "Chọn một cách tiếp tế cho bản port.",
+        "donate.cardDesc": "Thẻ hoặc PayPal, không cần tài khoản",
+        "donate.paypalDesc": "Quyên góp một lần hoặc định kỳ",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PHIÊN BẢN MAC CỘNG ĐỒNG",
         "tab.steam": "STEAM (KHUYẾN NGHỊ)",
@@ -1337,6 +1386,11 @@ enum L10n {
     ]
 
     static let pl: [String: String] = [
+        "donate.button": "WSPARCIE",
+        "donate.title": "Będziemy żyć w dostatku!",
+        "donate.subtitle": "Wybierz sposób zaopatrzenia portu.",
+        "donate.cardDesc": "Karta lub PayPal, bez zakładania konta",
+        "donate.paypalDesc": "Jednorazowa lub cykliczna wpłata",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PORT MAC OD SPOŁECZNOŚCI",
         "tab.steam": "STEAM (ZALECANE)",
@@ -1472,6 +1526,11 @@ enum L10n {
     ]
 
     static let de: [String: String] = [
+        "donate.button": "UNTERSTÜTZEN",
+        "donate.title": "Wir werden in Wohlstand leben!",
+        "donate.subtitle": "Wähle einen Weg, den Port zu versorgen.",
+        "donate.cardDesc": "Karte oder PayPal, kein Konto nötig",
+        "donate.paypalDesc": "Einmalige oder wiederkehrende Spende",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "COMMUNITY MAC PORT",
         "tab.steam": "STEAM (EMPFOHLEN)",
@@ -1607,6 +1666,11 @@ enum L10n {
     ]
 
     static let es: [String: String] = [
+        "donate.button": "APOYAR",
+        "donate.title": "¡Viviremos en prosperidad!",
+        "donate.subtitle": "Elige cómo abastecer el port.",
+        "donate.cardDesc": "Tarjeta o PayPal, sin registrarse",
+        "donate.paypalDesc": "Donación única o recurrente",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PORT MAC DE LA COMUNIDAD",
         "tab.steam": "STEAM (RECOMENDADO)",
@@ -1742,6 +1806,11 @@ enum L10n {
     ]
 
     static let tr: [String: String] = [
+        "donate.button": "DESTEK OL",
+        "donate.title": "Refah içinde yaşayacağız!",
+        "donate.subtitle": "Porta ikmal sağlamak için bir yol seç.",
+        "donate.cardDesc": "Kart veya PayPal, hesap gerekmez",
+        "donate.paypalDesc": "Tek seferlik veya düzenli bağış",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "TOPLULUK MAC PORTU",
         "tab.steam": "STEAM (ÖNERİLEN)",

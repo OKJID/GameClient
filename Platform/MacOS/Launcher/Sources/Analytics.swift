@@ -222,6 +222,10 @@ enum Analytics {
         log("link_opened", ["link_target": target, "link_location": location])
     }
 
+    static func logDonateOpened() {
+        log("donate_panel_opened")
+    }
+
     static func logFolderChosen(isValid: Bool) {
         log("folder_chosen", ["is_valid": isValid.gaFlag])
     }

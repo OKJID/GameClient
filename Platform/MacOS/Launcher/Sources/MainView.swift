@@ -44,6 +44,7 @@ struct ChevronMark: Shape {
 
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
+    @State private var isDonatePanelOpen = false
 
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
@@ -96,6 +97,11 @@ struct MainView: View {
                         Spacer()
 
                         _buildBottomAction()
+                            .frame(maxWidth: .infinity)
+                            .overlay(
+                                _buildDonateButton().padding(.trailing, 40),
+                                alignment: .bottomTrailing
+                            )
                             .padding(.bottom, 8)
                         AnnouncementPortalView(items: viewModel.announcements.items, accent: accent)
                             .padding(.horizontal, 40)
@@ -1129,6 +1135,94 @@ struct MainView: View {
             Spacer()
         }
         .padding(.horizontal, 8)
+    }
+
+    // MARK: - Donate
+
+    private func _buildDonateButton() -> some View {
+        Button(action: {
+            Analytics.logDonateOpened()
+            isDonatePanelOpen.toggle()
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "cup.and.saucer.fill")
+                Text(L10n.donate.button)
+            }
+            .font(.system(size: 11, weight: .bold, design: .monospaced))
+            .foregroundColor(accent)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Color.black.opacity(0.35))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent.opacity(0.5), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .popover(isPresented: $isDonatePanelOpen, arrowEdge: .bottom) {
+            _buildDonatePanel()
+        }
+    }
+
+    private func _buildDonatePanel() -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(L10n.donate.title)
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+
+            Text(L10n.donate.subtitle)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            ForEach(Donations.methods) { method in
+                _buildDonateRow(method)
+            }
+        }
+        .padding(16)
+        .frame(width: 300)
+    }
+
+    private func _buildDonateRow(_ method: DonationMethod) -> some View {
+        Button(action: { _openDonateLink(method) }) {
+            HStack(spacing: 10) {
+                Image(systemName: method.icon)
+                    .frame(width: 18)
+                    .foregroundColor(accent)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(method.title)
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+
+                    Text(method.subtitle())
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+    }
+
+    private func _openDonateLink(_ method: DonationMethod) {
+        Analytics.logLinkOpened(target: method.id, location: "donate")
+        isDonatePanelOpen = false
+
+        guard let link = URL(string: method.url) else { return }
+        NSWorkspace.shared.open(link)
     }
 
     private func _buildFooterLink(title: String, url: String) -> some View {
