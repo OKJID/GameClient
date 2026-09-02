@@ -189,7 +189,11 @@ struct GameProfile: Identifiable {
             fm.fileExists(atPath: directory.appendingPathComponent(marker).path)
         }
 
-        return filesPresent && PatchVersions.isCurrent(at: directory)
+        guard filesPresent, PatchVersions.isCurrent(at: directory) else {
+            return false
+        }
+
+        return PatchManifest.foreignArchives(at: directory).isEmpty
     }
 
     func installedLanguages(at directory: URL) -> [String] {

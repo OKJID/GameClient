@@ -248,6 +248,7 @@ class AssetPatcher: ObservableObject {
 
             dropInstalledMaps(named: mapNames, from: target.directory.appendingPathComponent(mapsDirName), fm: fm, log: log)
             dropRetiredPatchFiles(from: target.directory, fm: fm, log: log)
+            quarantineForeignArchives(from: target.directory, fm: fm, log: log)
             try PatchVersions.markCurrent(at: target.directory)
 
             log?("[✓] \(target.profile.displayName): assets applied\n")
@@ -255,6 +256,21 @@ class AssetPatcher: ObservableObject {
         }
 
         return applied
+    }
+
+    static func quarantineForeignArchives(from installDir: URL, fm: FileManager, log: ((String) -> Void)?) {
+        guard let allowed = PatchManifest.allowedArchives(at: installDir) else {
+            log?("[*] No \(PatchManifest.fileName) delivered, skipping archive cleanup\n")
+            return
+        }
+
+        let foreign = PatchManifest.foreignArchives(at: installDir, allowed: allowed)
+        guard !foreign.isEmpty else {
+            log?("[*] No foreign archives found\n")
+            return
+        }
+
+        PatchManifest.quarantine(foreign, in: installDir, fm: fm, log: log)
     }
 
     static func dropRetiredPatchFiles(from installDir: URL, fm: FileManager, log: ((String) -> Void)?) {
