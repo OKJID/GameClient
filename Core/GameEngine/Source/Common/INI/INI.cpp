@@ -438,6 +438,13 @@ UnsignedInt INI::load( AsciiString filename, INILoadType loadType, Xfer *pXfer )
 
 	unPrepFile();
 
+#ifdef __APPLE__
+	if (pXfer != nullptr)
+	{
+		DEBUG_INFO_MAC(("INI_CRC_AT: 0x%8.8X after %s", ((XferCRC *)pXfer)->getCRC(), filename.str()));
+	}
+#endif
+
 	return 1;
 }
 
