@@ -13,8 +13,8 @@
 #   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic
 
 export PATH="/opt/homebrew/bin:$PATH"
-# export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
-export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
+export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
+# export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
 # REPLAY_NAME="00000000"
 # REPLAY_NAME="my_side_00000000"
 REPLAY_NAME="opponent_side_00000000"
