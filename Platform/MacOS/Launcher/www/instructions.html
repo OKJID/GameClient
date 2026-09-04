@@ -562,6 +562,134 @@
     .footer p:last-child {
         margin-bottom: 0;
     }
+    /* styles/80-faq.css */
+    .faq {
+        margin-top: 32px;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .faq-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 16px;
+    }
+
+    .faq-item {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        scroll-margin-top: 24px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .faq-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .faq-item[open] {
+        border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .faq-item:target {
+        border-color: var(--accent);
+        box-shadow: 0 0 24px rgba(16, 185, 129, 0.25);
+    }
+
+    .faq-item summary {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.5;
+        list-style: none;
+    }
+
+    .faq-item summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .faq-marker {
+        flex: 0 0 auto;
+        width: 14px;
+        color: var(--accent);
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .faq-marker::before {
+        content: '+';
+    }
+
+    .faq-item[open] .faq-marker::before {
+        content: '−';
+    }
+
+    .faq-question {
+        flex: 1;
+    }
+
+    .faq-anchor {
+        flex: 0 0 auto;
+        padding: 2px 8px;
+        background: none;
+        border: none;
+        border-radius: 4px;
+        color: rgba(255, 255, 255, 0.25);
+        font-family: var(--font-family);
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .faq-anchor:hover {
+        color: var(--accent);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .faq-anchor.is-copied {
+        color: #000;
+        background: var(--accent);
+    }
+
+    .faq-answer {
+        padding: 0 14px 14px 38px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .faq-answer .steps-list {
+        margin-top: 8px;
+    }
+
+    .faq-answer .steps-list ul {
+        margin: 8px 0 0 0;
+        padding-left: 18px;
+        list-style: circle;
+    }
+
+    .faq-answer .steps-list ul li {
+        margin-bottom: 6px;
+    }
+
+    .faq-answer .steps-list ul li:last-child {
+        margin-bottom: 0;
+    }
+
+    .faq-answer code {
+        padding: 2px 6px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+        color: var(--accent);
+        font-size: 13px;
+    }
     /* styles/90-rtl.css */
     [dir="rtl"] .step p {
         margin: 0 40px 0 0;
@@ -599,6 +727,15 @@
     [dir="rtl"] .mod-parts {
         margin-left: 0;
         margin-right: 8px;
+    }
+
+    [dir="rtl"] .faq-answer {
+        padding: 0 38px 14px 14px;
+    }
+
+    [dir="rtl"] .faq-answer .steps-list ul {
+        padding-left: 0;
+        padding-right: 18px;
     }
     </style>
 </head>
@@ -766,6 +903,108 @@
             <a href="https://discord.gg/vzUbZP5Cj" target="_blank">Discord</a>
         </div>
     </div>
+    <div class="faq">
+        <div class="faq-title" data-i18n="faqTitle">Frequently asked questions</div>
+
+        <details class="faq-item" id="faq-short">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqShortQ">In short: what do I need to play?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-short" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqShortA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-steam">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqSteamQ">Which way is safer — Steam or my own copy?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-steam" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqSteamA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-archive">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqArchiveQ">I downloaded your archive — is the game inside it?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-archive" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqArchiveA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-files">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqFilesQ">Where do I get the game files?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-files" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqFilesA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-buy">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqBuyQ">Do I have to buy the game on Steam?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-buy" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqBuyA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-windows">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqWindowsQ">The Steam page says "Windows only" — is buying it pointless on a Mac?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-windows" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqWindowsA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-no-pc">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqNoPcQ">I have no Windows PC. How do I get the files onto my Mac?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-no-pc" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqNoPcA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-folder">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqFolderQ">Which folder do I select with LOCATE?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-folder" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqFolderA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-old-copy">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqOldCopyQ">My copy is ancient — a disc install from 2005. Will it work?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-old-copy" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqOldCopyA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-send">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqSendQ">Can you just send me the game files?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-send" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqSendA"></div>
+        </details>
+
+        <details class="faq-item" id="faq-crossplay">
+            <summary>
+                <span class="faq-marker"></span>
+                <span class="faq-question" data-i18n="faqCrossplayQ">Can I play against Windows players?</span>
+                <button class="faq-anchor" type="button" data-faq-link="faq-crossplay" title="Copy link to this answer">#</button>
+            </summary>
+            <div class="faq-answer" data-i18n="faqCrossplayA"></div>
+        </details>
+    </div>
     <div class="footer">
         <p data-i18n="footerAbout"></p>
         <p data-i18n="footerBuilt"></p>
@@ -827,6 +1066,29 @@ I18N.ar = {
     cacheMods: "التعديلات المثبتة",
     onlineTitle: "اللعب عبر الإنترنت يعمل بين macOS و macOS",
     onlineDesc: "اللعب المشترك مع نسخة Windows غير متاح بعد. ابحث عن منافسين في محادثات المجتمع:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port هو عميل أصلي تم تطويره من قبل المجتمع للعبة Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "إنه مبني على البنية التحتية لـ Generals Online ومحرك SuperHackers المعدل (الأصل من Electronic Arts)، مزود بتصحيحات محركنا الخاصة، ومعظمها تم إجراؤه حصريًا في إطار إصدار Mac.",
     footerLegal: "هذا المنفذ (Port) لم يتم إنشاؤه أو دعمه أو ارتباطه بـ Electronic Arts أو Command & Conquer."
@@ -880,6 +1142,29 @@ I18N.de = {
     cacheMods: "installierte Mods",
     onlineTitle: "Online-Spiel funktioniert zwischen macOS und macOS",
     onlineDesc: "Crossplay mit der Windows-Version gibt es noch nicht. Gegner findest du in den Community-Chats:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port ist ein nativer, von der Community entwickelter Client für Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Es basiert auf der Generals Online-Infrastruktur und dem SuperHackers-Engine-Fork (Original von Electronic Arts), erweitert um unsere eigenen Patches, von denen der Großteil exklusiv für den Mac-Port entwickelt wurde.",
     footerLegal: "Dieser Port wurde nicht von Electronic Arts oder Command & Conquer erstellt, genehmigt oder ist mit diesen verbunden."
@@ -933,6 +1218,29 @@ I18N.en = {
     cacheMods: "installed mods",
     onlineTitle: "Online play works between macOS and macOS",
     onlineDesc: "Cross-play with the Windows build is not available yet. Find opponents in the community chats:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port is a native community-driven client for Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "It is built upon the infrastructure of Generals Online and the SuperHackers engine fork, originally created by Electronic Arts, enriched with our own custom engine patches, the majority of which were made exclusively for the Mac port.",
     footerLegal: "This port is not created by, endorsed by, or affiliated with Electronic Arts or Command & Conquer."
@@ -986,6 +1294,29 @@ I18N.es = {
     cacheMods: "mods instalados",
     onlineTitle: "El juego en línea funciona entre macOS y macOS",
     onlineDesc: "El juego cruzado con la versión de Windows aún no está disponible. Busca rivales en los chats de la comunidad:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port es un cliente nativo creado por la comunidad para Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Está construida sobre la infraestructura de Generals Online y el fork del motor SuperHackers (original de Electronic Arts), enriquecido con nuestros propios parches, la mayoría de los cuales se hicieron exclusivamente para el puerto de Mac.",
     footerLegal: "Este puerto no fue creado, respaldado ni está afiliado a Electronic Arts ni a Command & Conquer."
@@ -1039,6 +1370,29 @@ I18N.hi = {
     cacheMods: "इंस्टॉल किए गए मॉड",
     onlineTitle: "ऑनलाइन खेल macOS और macOS के बीच चलता है",
     onlineDesc: "Windows बिल्ड के साथ क्रॉस-प्ले अभी उपलब्ध नहीं है। प्रतिद्वंद्वी कम्युनिटी चैट में खोजें:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port, Command & Conquer: Generals - Zero Hour के लिए एक नेटिव कम्युनिटी-ड्रिवन क्लाइंट है।",
     footerBuilt: "यह Generals Online इन्फ्रास्ट्रक्चर और SuperHackers इंजन फ़ोर्क पर बनाया गया है, जो मूल रूप से Electronic Arts द्वारा बनाया गया था, और हमारे कस्टम इंजन पैच से समृद्ध है, जिनमें से अधिकांश विशेष रूप से Mac पोर्ट के लिए बनाए गए थे।",
     footerLegal: "यह पोर्ट Electronic Arts या Command & Conquer द्वारा बनाया, समर्थित या संबद्ध नहीं है।"
@@ -1092,6 +1446,29 @@ I18N.kk = {
     cacheMods: "орнатылған модтар",
     onlineTitle: "Онлайн ойын macOS пен macOS арасында жұмыс істейді",
     onlineDesc: "Windows нұсқасымен кросс-плей әзірге жоқ. Қарсыластарды қауымдастық чаттарынан іздеңіз:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port — бұл Command & Conquer: Generals - Zero Hour ойыны үшін қауымдастықпен жасалған нативті клиент.",
     footerBuilt: "Ол Generals Online инфрақұрылымы мен SuperHackers қозғалтқыш форкіне (түпнұсқасы Electronic Arts) негізделген және біздің өз патчтарымызбен толықтырылған, олардың басым бөлігі тек осы Мак-порт аясында жасалған.",
     footerLegal: "Бұл порт Electronic Arts немесе Command & Conquer тарапынан жасалмаған, мақұлданбаған және олармен ешқандай байланысы жоқ."
@@ -1145,6 +1522,29 @@ I18N.pl = {
     cacheMods: "zainstalowane mody",
     onlineTitle: "Gra online działa między macOS a macOS",
     onlineDesc: "Cross-play z wersją Windows nie jest jeszcze dostępny. Przeciwników szukaj na czatach społeczności:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port to natywny klient stworzony przez społeczność dla Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Jest oparty na infrastrukturze Generals Online oraz forku silnika SuperHackers (oryginał od Electronic Arts), wzbogacony o nasze własne łatki, z których większość została stworzona wyłącznie na potrzeby portu na Maca.",
     footerLegal: "Ten port nie został stworzony, zatwierdzony ani nie jest powiązany z Electronic Arts lub Command & Conquer."
@@ -1198,6 +1598,29 @@ I18N.ru = {
     cacheMods: "установленные моды",
     onlineTitle: "Онлайн работает между macOS и macOS",
     onlineDesc: "Кросс-плей с Windows-сборкой пока недоступен. Соперников ищите в чатах сообщества:",
+    faqTitle: "Частые вопросы",
+    faqShortQ: "Коротко: что нужно, чтобы играть?",
+    faqShortA: '<ul class="steps-list"><li>В лаунчере две вкладки:<ul><li><b>STEAM</b> — игра на вашем аккаунте Steam, лаунчер сам скачает данные.</li><li><b>LOCAL ARCHIVE</b> — файлы у вас уже есть, вы просто показываете, где они лежат.</li></ul></li><li>Игра всегда идёт комплектом из двух папок, лежащих рядом: <code>Command and Conquer Generals</code> и <code>Command and Conquer Generals Zero Hour</code> (в них <code>INI.big</code> / <code>INIZH.big</code>). В <b>LOCATE</b> выбирается папка, внутри которой лежат обе, — перекладывать ничего не нужно.</li><li>В <b>LOCATE</b> нельзя указывать папку, скачанную у нас: <code>Generals_Online_Mac_Alpha</code> — это сам порт, игры внутри нет.</li><li>Файлы подойдут от любой копии, которой вы владеете: старая установка на Windows-ПК, оригинальный CD/DVD, копия на флешке. Если копии нет совсем — покупайте в Steam, это рекомендуемый путь.</li><li>Надпись «Windows only» в Steam ничего не меняет: данные ваши, а наш порт — это версия <code>.exe</code> под macOS.</li></ul>',
+    faqSteamQ: "Какой способ надёжнее — Steam или своя копия?",
+    faqSteamA: "Рекомендую Steam. Ассеты у всех получаются одинаковые, этот путь я лично проверял не раз, и лаунчер делает всю работу сам: вход в аккаунт, загрузка оригинальных файлов, патч. Нажимаете одну кнопку и гарантированно получаете играбельное окружение. Своя копия тоже работает, но она у каждого своя, и с нестандартной можно потанцевать с бубном.",
+    faqArchiveQ: "Я скачал ваш архив — игра внутри него?",
+    faqArchiveA: "Нет. <b>Generals Online.app</b> — это только клиент, замена Windows-овому <code>.exe</code> под macOS. Данных игры внутри нет вообще: ни графики, ни звуков, ни видео, ни карт. Поэтому в <b>LOCATE</b> нельзя указывать папку, скачанную у нас, — указывать надо саму игру.",
+    faqFilesQ: "Где взять файлы игры?",
+    faqFilesA: 'Файлы везде одинаковые — лаунчер их читает и накладывает сверху community-патч. Подойдёт любая копия, которой вы владеете:<ul class="steps-list"><li>старая установка на Windows-ПК — хоть с 2005 года;</li><li>оригинальный CD/DVD;</li><li>копия на флешке или внешнем диске;</li><li>покупка в Steam или EA App.</li></ul>',
+    faqBuyQ: "Обязательно покупать игру в Steam?",
+    faqBuyA: "Только если копии нет совсем — лаунчер примет любую вашу копию через вкладку <b>Local Archive</b>. Но если хочется без возни и с гарантией, что всё заведётся, покупка в Steam — рекомендуемый путь (первый вопрос выше).",
+    faqWindowsQ: "В Steam написано «Windows only» — покупка для Mac бессмысленна?",
+    faqWindowsA: "Нет. Вы покупаете данные игры. Windows-овый исполняемый файл — ровно та часть, которую мы заменили нативной сборкой под macOS.",
+    faqNoPcQ: "У меня нет Windows-ПК. Как перенести файлы на Mac?",
+    faqNoPcA: "Он и не нужен. Купите игру в Steam и используйте вкладку <b>Steam</b>: лаунчер авторизуется под вашим аккаунтом и скачает оригинальные файлы напрямую с серверов Valve в <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Какую папку выбирать в LOCATE?",
+    faqFolderA: 'Выбирать надо папку, <b>внутри которой лежат обе папки игры</b>, — обычно это «Command and Conquer - Generals». Она у вас уже есть: ничего перекладывать, переименовывать и перепаковывать не нужно. Игра всегда идёт комплектом из двух папок, лежащих рядом:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — в ней <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — в ней <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "У меня совсем старая копия — установка с диска 2005 года. Подойдёт?",
+    faqOldCopyA: "Да. Лаунчер сам ставит community-патч в вашу копию и удаляет конфликтующие файлы патчей EA, так что GenPatcher не нужен. Учтите: патч перезаписывает и удаляет файлы внутри выбранной папки — держите запасную копию, если она у вас единственная.",
+    faqSendQ: "Можете просто прислать мне файлы игры?",
+    faqSendA: "Нет. EA открыла исходники движка — их мы вправе собирать и распространять, лаунчер как раз из них. Данные игры никто не открывал, передавать их — пиратство. Мы этим не занимаемся и ссылок не даём.",
+    faqCrossplayQ: "Можно играть против игроков на Windows?",
+    faqCrossplayA: "Пока нет — онлайн работает между macOS и macOS. Ещё одно условие: у всех в матче должен стоять один и тот же мод одной версии.",
     footerAbout: "Generals Online macOS Port — это нативный клиент, созданный сообществом для Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Он построен на инфраструктуре Generals Online и форке движка SuperHackers (оригинал от Electronic Arts), дополненных нашими собственными патчами, большая часть которых сделана исключительно в рамках мак-порта.",
     footerLegal: "Этот порт не был создан, не одобрен и не связан с Electronic Arts или Command & Conquer."
@@ -1251,6 +1674,29 @@ I18N.tr = {
     cacheMods: "kurulu modlar",
     onlineTitle: "Çevrimiçi oyun macOS ile macOS arasında çalışır",
     onlineDesc: "Windows sürümüyle çapraz oyun henüz yok. Rakipleri topluluk sohbetlerinde bulun:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port, Command & Conquer: Generals - Zero Hour için topluluk tarafından oluşturulmuş yerel bir istemcidir.",
     footerBuilt: "Generals Online altyapısı ve SuperHackers motor çatalı (orijinali Electronic Arts tarafından yapılmıştır) üzerine inşa edilmiş olup, kendi özel yamalarımızla zenginleştirilmiştir ve bunların büyük bir kısmı yalnızca Mac portu için özel olarak yapılmıştır.",
     footerLegal: "Bu bağlantı noktası Electronic Arts veya Command & Conquer tarafından oluşturulmamış, onaylanmamış veya bunlarla bağlantılı değildir."
@@ -1304,6 +1750,29 @@ I18N.uk = {
     cacheMods: "встановлені моди",
     onlineTitle: "Онлайн працює між macOS і macOS",
     onlineDesc: "Крос-плей з Windows-збіркою поки недоступний. Суперників шукайте в чатах спільноти:",
+    faqTitle: "Часті запитання",
+    faqShortQ: "Коротко: що потрібно, щоб грати?",
+    faqShortA: '<ul class="steps-list"><li>У лаунчері дві вкладки:<ul><li><b>STEAM</b> — гра на вашому акаунті Steam, лаунчер сам завантажить дані.</li><li><b>LOCAL ARCHIVE</b> — файли у вас уже є, ви просто показуєте, де вони лежать.</li></ul></li><li>Гра завжди йде комплектом із двох папок, що лежать поруч: <code>Command and Conquer Generals</code> та <code>Command and Conquer Generals Zero Hour</code> (у них <code>INI.big</code> / <code>INIZH.big</code>). У <b>LOCATE</b> обирається папка, усередині якої лежать обидві, — перекладати нічого не потрібно.</li><li>У <b>LOCATE</b> не можна вказувати папку, завантажену в нас: <code>Generals_Online_Mac_Alpha</code> — це сам порт, гри всередині немає.</li><li>Файли підійдуть від будь-якої копії, якою ви володієте: стара установка на Windows-ПК, оригінальний CD/DVD, копія на флешці. Якщо копії немає зовсім — купуйте у Steam, це рекомендований шлях.</li><li>Напис «Windows only» у Steam нічого не змінює: дані ваші, а наш порт — це версія <code>.exe</code> під macOS.</li></ul>',
+    faqSteamQ: "Який спосіб надійніший — Steam чи власна копія?",
+    faqSteamA: "Раджу Steam. Асети у всіх виходять однакові, цей шлях я особисто перевіряв не раз, і лаунчер робить усю роботу сам: вхід в акаунт, завантаження оригінальних файлів, патч. Натискаєте одну кнопку і гарантовано отримуєте робоче ігрове середовище. Власна копія теж працює, але вона в кожного своя, і з нестандартною можна добряче поморочитись.",
+    faqArchiveQ: "Я завантажив ваш архів — гра всередині нього?",
+    faqArchiveA: "Ні. <b>Generals Online.app</b> — це лише клієнт, заміна Windows-овому <code>.exe</code> під macOS. Даних гри всередині немає взагалі: ні графіки, ні звуків, ні відео, ні карт. Тому в <b>LOCATE</b> не можна вказувати папку, завантажену в нас, — вказувати треба саму гру.",
+    faqFilesQ: "Де взяти файли гри?",
+    faqFilesA: 'Файли скрізь однакові — лаунчер їх читає і накладає зверху community-патч. Підійде будь-яка копія, якою ви володієте:<ul class="steps-list"><li>стара установка на Windows-ПК — хоч із 2005 року;</li><li>оригінальний CD/DVD;</li><li>копія на флешці чи зовнішньому диску;</li><li>покупка в Steam або EA App.</li></ul>',
+    faqBuyQ: "Обов'язково купувати гру в Steam?",
+    faqBuyA: "Тільки якщо копії немає зовсім — лаунчер прийме будь-яку вашу копію через вкладку <b>Local Archive</b>. Але якщо хочеться без мороки та з гарантією, що все запуститься, покупка в Steam — рекомендований шлях (перше запитання вище).",
+    faqWindowsQ: "У Steam написано «Windows only» — покупка для Mac безглузда?",
+    faqWindowsA: "Ні. Ви купуєте дані гри. Windows-овий виконуваний файл — саме та частина, яку ми замінили нативною збіркою під macOS.",
+    faqNoPcQ: "У мене немає Windows-ПК. Як перенести файли на Mac?",
+    faqNoPcA: "Він і не потрібен. Купіть гру в Steam і скористайтесь вкладкою <b>Steam</b>: лаунчер авторизується під вашим акаунтом і завантажить оригінальні файли напряму з серверів Valve у <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Яку папку обирати в LOCATE?",
+    faqFolderA: 'Обирати треба папку, <b>усередині якої лежать обидві папки гри</b>, — зазвичай це «Command and Conquer - Generals». Вона у вас уже є: нічого перекладати, перейменовувати та перепаковувати не потрібно. Гра завжди йде комплектом із двох папок, що лежать поруч:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — у ній <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — у ній <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "У мене зовсім стара копія — установка з диска 2005 року. Підійде?",
+    faqOldCopyA: "Так. Лаунчер сам ставить community-патч у вашу копію та видаляє конфліктні файли патчів EA, тож GenPatcher не потрібен. Врахуйте: патч перезаписує та видаляє файли всередині обраної папки — тримайте запасну копію, якщо вона у вас єдина.",
+    faqSendQ: "Можете просто надіслати мені файли гри?",
+    faqSendA: "Ні. EA відкрила вихідний код рушія — його ми маємо право збирати та поширювати, лаунчер саме з нього. Дані гри ніхто не відкривав, передавати їх — піратство. Ми цим не займаємось і посилань не даємо.",
+    faqCrossplayQ: "Чи можна грати проти гравців на Windows?",
+    faqCrossplayA: "Поки ні — онлайн працює між macOS і macOS. Ще одна умова: у всіх у матчі має стояти один і той самий мод однієї версії.",
     footerAbout: "Generals Online macOS Port — це нативний клієнт, створений спільнотою для Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Він побудований на інфраструктурі Generals Online та форку рушія SuperHackers (оригінал від Electronic Arts), доповнених нашими власними патчами, більшість яких зроблена виключно в рамках Mac-порту.",
     footerLegal: "Цей порт не був створений, не схвалений та не пов'язаний з Electronic Arts або Command & Conquer."
@@ -1357,6 +1826,29 @@ I18N.vi = {
     cacheMods: "mod đã cài",
     onlineTitle: "Chơi mạng hoạt động giữa macOS và macOS",
     onlineDesc: "Chơi chéo với bản Windows chưa khả dụng. Hãy tìm đối thủ trong các nhóm chat cộng đồng:",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port là một bản gốc do cộng đồng phát triển cho Command & Conquer: Generals - Zero Hour.",
     footerBuilt: "Nó được xây dựng dựa trên cơ sở hạ tầng của Generals Online và nhánh công cụ SuperHackers (bản gốc của Electronic Arts), được bổ sung bằng các bản vá công cụ tùy chỉnh của chúng tôi, phần lớn trong số đó được thực hiện dành riêng cho bản port Mac.",
     footerLegal: "Bản port này không được tạo ra, chứng thực hoặc liên kết với Electronic Arts hay Command & Conquer."
@@ -1410,6 +1902,29 @@ I18N.zh = {
     cacheMods: "已安装的模组",
     onlineTitle: "联机对战在 macOS 与 macOS 之间进行",
     onlineDesc: "暂不支持与 Windows 版本互通。请在社区聊天中寻找对手：",
+    faqTitle: "Frequently asked questions",
+    faqShortQ: "In short: what do I need to play?",
+    faqShortA: '<ul class="steps-list"><li>The launcher has two tabs:<ul><li><b>STEAM</b> — the game is on your Steam account and the launcher downloads the data itself.</li><li><b>LOCAL ARCHIVE</b> — you already have the files and only show the launcher where they are.</li></ul></li><li>The game always comes as two folders standing next to each other: <code>Command and Conquer Generals</code> and <code>Command and Conquer Generals Zero Hour</code> (they hold <code>INI.big</code> / <code>INIZH.big</code>). In <b>LOCATE</b> you select the folder that contains both — nothing has to be moved.</li><li>Never point <b>LOCATE</b> at the folder you downloaded from us: <code>Generals_Online_Mac_Alpha</code> is the port itself, there is no game inside it.</li><li>The files may come from any copy you legally own: an old install on a Windows PC, the original CD/DVD, a backup on a flash drive. If you own no copy at all, buy it on Steam — that is the path I recommend.</li><li>"Windows only" on the Steam page changes nothing: you own the data, and our port is the macOS version of the <code>.exe</code>.</li></ul>',
+    faqSteamQ: "Which way is safer — Steam or my own copy?",
+    faqSteamA: "Steam is the way I recommend. Everyone ends up with identical assets, I have tested this path myself many times, and the launcher does the whole job on its own: signs in, downloads the original files, applies the patch. You press one button and get a playable game, guaranteed. Your own copy works too, but every such copy is different, and an unusual one can cost you an evening of tinkering.",
+    faqArchiveQ: "I downloaded your archive — is the game inside it?",
+    faqArchiveA: "No. <b>Generals Online.app</b> is only the client: the macOS replacement for the Windows <code>.exe</code>. It carries no game data at all — no art, no sounds, no videos, no maps. So never point <b>LOCATE</b> at the folder you downloaded from us; point it at the game itself.",
+    faqFilesQ: "Where do I get the game files?",
+    faqFilesA: 'The files are the same everywhere — the launcher reads them and applies the community patch on top. Any copy you legally own will do:<ul class="steps-list"><li>an old install still sitting on a Windows PC — even one from 2005;</li><li>the original CD/DVD;</li><li>a backup on a flash drive or an external disk;</li><li>a purchase on Steam / EA App.</li></ul>',
+    faqBuyQ: "Do I have to buy the game on Steam?",
+    faqBuyA: "Only if you have no copy at all — the launcher takes any copy of yours through the <b>Local Archive</b> tab. But if you want it to simply work, with no tinkering, buying it on Steam is the recommended path (see the first question above).",
+    faqWindowsQ: "The Steam page says \"Windows only\" — is buying it pointless on a Mac?",
+    faqWindowsA: "No. You are buying the game data. The Windows executable is exactly the part we replaced with a native macOS build.",
+    faqNoPcQ: "I have no Windows PC. How do I get the files onto my Mac?",
+    faqNoPcA: "You don't need one. Buy the game on Steam and use the <b>Steam</b> tab: the launcher signs in with your account and pulls the original files straight from Valve's servers into <code>~/Documents/Generals Online/</code>.",
+    faqFolderQ: "Which folder do I select with LOCATE?",
+    faqFolderA: 'Select the folder that <b>contains both game folders</b> — usually "Command and Conquer - Generals". It already exists: nothing has to be moved, renamed or repacked. The game always comes as a pair standing next to each other:<ul class="steps-list"><li><code>Command and Conquer Generals</code> — holds <code>INI.big</code>;</li><li><code>Command and Conquer Generals Zero Hour</code> — holds <code>INIZH.big</code>.</li></ul>',
+    faqOldCopyQ: "My copy is ancient — a disc install from 2005. Will it work?",
+    faqOldCopyA: "Yes. The launcher installs the community patch into your copy itself and removes the conflicting EA patch files, so GenPatcher is not needed. Keep in mind that patching rewrites and deletes files inside the folder you picked — keep a spare copy if it is your only one.",
+    faqSendQ: "Can you just send me the game files?",
+    faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
+    faqCrossplayQ: "Can I play against Windows players?",
+    faqCrossplayA: "Not yet — online play works between macOS and macOS. One more condition: everyone in a match must run the same mod of the same version.",
     footerAbout: "Generals Online macOS Port 是社区为《命令与征服：绝命时刻》创建的本地客户端。",
     footerBuilt: "它基于 Generals Online 基础设施和 SuperHackers 引擎分支（原版由 Electronic Arts 创建），并通过我们自定义引擎补丁进行了丰富，其中大部分是专为Mac移植版制作的。",
     footerLegal: "该移植版本不是由 Electronic Arts 或 Command & Conquer 制作、认可的，也与它们没有任何关联。"
@@ -1575,7 +2090,78 @@ window.addEventListener('DOMContentLoaded', function () {
     initTabs();
     initCopyButton();
     initVersionLabel();
+    initFaq();
 });
+
+// js/60-faq.js
+var FAQ_SITE_URL = 'https://general-online-zh.web.app/';
+
+function faqItemById(identifier) {
+    var item = identifier ? document.getElementById(identifier) : null;
+
+    if (!item || !item.classList.contains('faq-item')) {
+        return null;
+    }
+
+    return item;
+}
+
+function openFaqItem(identifier) {
+    var item = faqItemById(identifier);
+
+    if (!item) {
+        return;
+    }
+
+    item.open = true;
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function showLinkCopied(button) {
+    button.classList.add('is-copied');
+    button.textContent = '✓';
+
+    setTimeout(function () {
+        button.classList.remove('is-copied');
+        button.textContent = '#';
+    }, 2000);
+}
+
+function copyFaqLink(button, identifier) {
+    var link = FAQ_SITE_URL + '#' + identifier;
+
+    if (!navigator.clipboard) {
+        if (copyWithSelection(link)) {
+            showLinkCopied(button);
+        }
+
+        return;
+    }
+
+    navigator.clipboard.writeText(link).then(function () {
+        showLinkCopied(button);
+    }).catch(function () {
+        if (copyWithSelection(link)) {
+            showLinkCopied(button);
+        }
+    });
+}
+
+function initFaq() {
+    document.querySelectorAll('[data-faq-link]').forEach(function (button) {
+        button.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            copyFaqLink(button, button.getAttribute('data-faq-link'));
+        });
+    });
+
+    window.addEventListener('hashchange', function () {
+        openFaqItem(window.location.hash.slice(1));
+    });
+
+    openFaqItem(window.location.hash.slice(1));
+}
 })();
 </script>
 
