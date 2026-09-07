@@ -501,6 +501,10 @@ StateReturnType AITNGuardOuterState::onEnter()
 //--------------------------------------------------------------------------------------
 StateReturnType AITNGuardOuterState::update()
 {
+	if (m_attackState == nullptr) {
+		return STATE_SUCCESS;
+	}
+
 	Object *owner = getMachineOwner();
 	Object* goalObj = m_attackState->getMachineGoalObject();
 	if (goalObj)
