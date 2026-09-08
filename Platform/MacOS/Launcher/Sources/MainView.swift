@@ -1140,25 +1140,9 @@ struct MainView: View {
     // MARK: - Donate
 
     private func _buildDonateButton() -> some View {
-        Button(action: {
+        SupportButton(theme: theme, label: L10n.donate.button) {
             Analytics.logDonateOpened()
             isDonatePanelOpen.toggle()
-        }) {
-            HStack(spacing: 6) {
-                Image(systemName: "cup.and.saucer.fill")
-                Text(L10n.donate.button)
-            }
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
-            .foregroundColor(accent)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background(Color.black.opacity(0.35))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(accent.opacity(0.5), lineWidth: 1))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { inside in
-            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
         .popover(isPresented: $isDonatePanelOpen, arrowEdge: .bottom) {
             _buildDonatePanel()
