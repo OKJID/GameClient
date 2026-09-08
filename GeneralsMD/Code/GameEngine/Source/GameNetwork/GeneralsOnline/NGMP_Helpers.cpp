@@ -156,7 +156,10 @@ void NetworkLog(ELogVerbosity logVerbosity, const char* fmt, ...)
 	buffer[8192 - 1] = 0;
 	va_end(args);
 
-	std::string strLogBuffer = std::format("[{}] {}", timebuf, buffer);
+	const char* szTimestamp = timebuf;
+	const char* szMessage = buffer;
+
+	std::string strLogBuffer = std::format("[{}] {}", szTimestamp, szMessage);
 
 	// TODO_NGMP: Keep open and flush regularly
 	FILE* logFile = NativeFileSystem::fopen(m_strNetworkLogFileName, "ab");

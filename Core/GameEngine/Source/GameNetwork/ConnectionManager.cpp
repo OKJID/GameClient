@@ -824,8 +824,8 @@ void ConnectionManager::processFile(NetFileCommandMsg *msg)
 		// in other words is bogus and points outside of the approved target directory, avoid an arbitrary file overwrite vulnerability
 		// by simply returning and let the transfer time out.
 		DEBUG_LOG(("Got a file name transferred that failed to normalize: '%s'!", msg->getPortableFilename().str()));
-		return;
 		DEBUG_INFO_MAC(("[XFER_RECV] REJECTED: normalize failed, portable='%s'", msg->getPortableFilename().str()));
+		return;
 	}
 
 	// TheSuperHackers @security bobtista 06/11/2025 Validate file extension to prevent arbitrary file types

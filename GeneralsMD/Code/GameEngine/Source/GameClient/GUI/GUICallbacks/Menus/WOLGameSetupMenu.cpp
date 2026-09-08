@@ -1210,6 +1210,14 @@ static void StartPressed()
 							}
 						}
 
+#ifdef __APPLE__
+						// TODO(PS_PATH): GNS exposes no API for ICE candidate types, so a missing TURN relay
+						// cannot be detected. Measured on 08 Sep 2026: a VPN halves the relay candidates
+						// (2.1 vs 4.3 per connection) and every attempt with 0-1 of them failed.
+						// The hint is unconditional - dropping a VPN also helps with a strict NAT.
+						GadgetListBoxAddEntryText(listboxGameSetupChat, UnicodeString(L"Connections: If you are using a VPN, try disabling it - it can block the relay server."), GameMakeColor(255, 194, 15, 255), -1, -1);
+#endif
+
 						// restore state
 						if (buttonBack != nullptr)
 						{
