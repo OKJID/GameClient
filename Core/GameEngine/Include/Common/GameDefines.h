@@ -105,6 +105,14 @@
 #define PRESERVE_RETAIL_SCRIPTED_CAMERA (1) // Retain scripted camera behavior present in retail Generals 1.08 and Zero Hour 1.04
 #endif
 
+#ifndef PRESERVE_RETAIL_NUKE_MISSILE_OUTER_RADIUS_SEARCH
+#define PRESERVE_RETAIL_NUKE_MISSILE_OUTER_RADIUS_SEARCH (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
+#endif
+
+#ifndef PRESERVE_RETAIL_NUKE_MISSILE_OUTER_RADIUS_DAMAGE
+#define PRESERVE_RETAIL_NUKE_MISSILE_OUTER_RADIUS_DAMAGE (0) // The fix for this unfavorable behavior was approved by the Game Design Committee.
+#endif
+
 // RETAIL_COMPATIBLE_CRC is default defined in BaseDefines.h
 
 #ifndef RETAIL_COMPATIBLE_XFER_SAVE
