@@ -48,7 +48,7 @@ struct MainView: View {
 
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
-    private let switcherButtonWidth: CGFloat = 114
+    private let switcherButtonWidth: CGFloat = 144
     private let switcherContentGap: CGFloat = 12
     private let contentInset: CGFloat = 60
 
