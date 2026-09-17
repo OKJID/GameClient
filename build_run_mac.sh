@@ -15,9 +15,9 @@
 export PATH="/opt/homebrew/bin:$PATH"
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
 # export GENERALS_INSTALL_PATH="/Users/okji/Documents/Generals Online"
-# REPLAY_NAME="00000000"
+REPLAY_NAME="00000000"
 # REPLAY_NAME="my_side_00000000"
-REPLAY_NAME="opponent_side_00000000"
+# REPLAY_NAME="opponent_side_00000000"
 
 # ── Game Selection ──
 # Which game to launch. Both are always built; this picks the one that runs.
