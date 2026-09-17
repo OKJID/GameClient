@@ -803,7 +803,7 @@ ParticleSystemInfo::ParticleSystemInfo()
 	m_windMotionEndAngleMax = TWO_PI;
 	m_windMotionEndAngle = m_windMotionEndAngleMin;
 	m_windMotionMovingToEndAngle = TRUE;
-	m_volumeParticleDepth = DEFAULT_VOLUME_PARTICLE_DEPTH;
+	m_volumeParticleDepth = INVALID_VOLUME_PARTICLE_DEPTH;
 
 }
 
@@ -1122,7 +1122,7 @@ ParticleSystem::ParticleSystem( const ParticleSystemTemplate *sysTemplate,
 
 
 	///@todo: further formalize this parameter with an UnsignedInt field in the editor
-	m_volumeParticleDepth = DEFAULT_VOLUME_PARTICLE_DEPTH;
+	m_volumeParticleDepth = sysTemplate->m_volumeParticleDepth;
 
 
 	m_driftVelocity = sysTemplate->m_driftVelocity;
@@ -2741,6 +2741,9 @@ const FieldParse ParticleSystemTemplate::m_fieldParseTable[] =
 	{ "SizeRate",								INI::parseGameClientRandomVariable,	nullptr,		offsetof( ParticleSystemTemplate, m_sizeRate ) },
 	{ "SizeRateDamping",				INI::parseGameClientRandomVariable,	nullptr,		offsetof( ParticleSystemTemplate, m_sizeRateDamping ) },
 
+	// TheSuperHackers @feature Volume particle depth is now exposed for configuration
+	{ "VolParticleDepth",				INI::parseUnsignedInt,							nullptr,		offsetof(ParticleSystemTemplate, m_volumeParticleDepth) },
+
 	{ "Alpha1",									ParticleSystemTemplate::parseRandomKeyframe,	nullptr,		offsetof( ParticleSystemTemplate, m_alphaKey[0] ) },
 	{ "Alpha2",									ParticleSystemTemplate::parseRandomKeyframe,	nullptr,		offsetof( ParticleSystemTemplate, m_alphaKey[1] ) },
 	{ "Alpha3",									ParticleSystemTemplate::parseRandomKeyframe,	nullptr,		offsetof( ParticleSystemTemplate, m_alphaKey[2] ) },
@@ -2907,6 +2910,22 @@ ParticleSystemTemplate::ParticleSystemTemplate( const AsciiString &name ) :
 ParticleSystemTemplate::~ParticleSystemTemplate()
 {
 
+}
+
+// ------------------------------------------------------------------------------------------------
+void ParticleSystemTemplate::validate()
+{
+	// TheSuperHackers @info Initialise all volume particles that lack ini configuration to the optimum depth of 6
+	// In retail, volume particle depth was not configurable through ini and was hard coded to a particle depth of 6
+	if (m_particleType == ParticleSystemInfo::VOLUME_PARTICLE)
+	{
+		if (m_volumeParticleDepth == INVALID_VOLUME_PARTICLE_DEPTH)
+			m_volumeParticleDepth = OPTIMUM_VOLUME_PARTICLE_DEPTH;
+	}
+	else
+	{
+		m_volumeParticleDepth = DEFAULT_VOLUME_PARTICLE_DEPTH;
+	}
 }
 
 // ------------------------------------------------------------------------------------------------
