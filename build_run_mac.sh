@@ -10,7 +10,7 @@
 #   sh build_run_mac.sh --release             # configure/build game with debug logging/crashing
 #   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
 #   sh build_run_mac.sh --rep_def             # build + ran replay
-#   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic
+#   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic | ShockWave | RotR
 
 export PATH="/opt/homebrew/bin:$PATH"
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
