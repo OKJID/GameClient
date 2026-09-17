@@ -469,7 +469,6 @@ void FlatHeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 		W3DShaderManager::updateCloud();
 	}
 
-	Matrix3D tm(Transform);
 	// If there are trees, tell them to draw at the transparent time to draw.
 	if (m_treeBuffer) {
 		m_treeBuffer->setIsTerrain();
@@ -495,8 +494,7 @@ void FlatHeightMapRenderObjClass::Render(RenderInfoClass & rinfo)
 	DX8Wrapper::Set_Texture(1,nullptr);
 	ShaderClass::Invalidate();
 
-	//	tm.Scale(ObjSpaceExtent);
-	DX8Wrapper::Set_Transform(D3DTS_WORLD,tm);
+	DX8Wrapper::Set_Transform(D3DTS_WORLD,Transform);
 
 
 	DX8Wrapper::Set_Material(m_vertexMaterialClass);
