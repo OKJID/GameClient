@@ -154,6 +154,14 @@ struct FallbackStringTable
 	Int						count;
 };
 
+struct LoadedStringTable
+{
+	TextSourceSpec	spec;
+	StringInfo			*info;
+	StringLookUp		*lut;
+	Int							count;
+};
+
 //===============================
 // GameTextManager
 //===============================
@@ -349,6 +357,110 @@ static StringLookUp *buildLookUpTable( StringInfo *stringInfo, Int textCount )
 	return lookUpTable;
 }
 
+static const StringInfo *findString( const LoadedStringTable &table, AsciiString label )
+{
+	StringLookUp key;
+	key.info = nullptr;
+	key.label = &label;
+
+	const StringLookUp *lookUp = (StringLookUp *) bsearch( &key, table.lut, table.count, sizeof(StringLookUp), compareLUT );
+	return lookUp ? lookUp->info : nullptr;
+}
+
+static Bool isLocalizedTable( const LoadedStringTable &table, const AsciiString &localizedCsfFile )
+{
+	return table.spec.filename.compareNoCase( localizedCsfFile ) == 0;
+}
+
+static const StringInfo *findEnglishString( const std::vector<LoadedStringTable> &tables, TextFileSource source,
+	const AsciiString &localizedCsfFile, const AsciiString &label )
+{
+	for ( size_t i = 0; i < tables.size(); ++i )
+	{
+		const LoadedStringTable &table = tables[i];
+		if ( table.spec.source != source || isLocalizedTable( table, localizedCsfFile ) )
+			continue;
+
+		const StringInfo *info = findString( table, label );
+		if ( info != nullptr )
+			return info;
+	}
+
+	return nullptr;
+}
+
+static Bool isWordingSeparator( WideChar c )
+{
+	return c == L' ' || c == L'\t' || c == L'\n' || c == L'\r' || c == L'&';
+}
+
+static Bool haveSameWording( const UnicodeString &lhs, const UnicodeString &rhs )
+{
+	const WideChar *left = lhs.str();
+	const WideChar *right = rhs.str();
+
+	while ( TRUE )
+	{
+		while ( *left && isWordingSeparator( *left ) )
+			++left;
+
+		while ( *right && isWordingSeparator( *right ) )
+			++right;
+
+		if ( *left != *right )
+			return FALSE;
+
+		if ( *left == 0 )
+			return TRUE;
+
+		++left;
+		++right;
+	}
+}
+
+static Int adoptModWordingInto( const LoadedStringTable &installLocalized, const std::vector<LoadedStringTable> &tables,
+	const AsciiString &localizedCsfFile )
+{
+	Int adopted = 0;
+
+	for ( Int i = 0; i < installLocalized.count; ++i )
+	{
+		StringInfo &localized = installLocalized.info[i];
+
+		const StringInfo *modEnglish = findEnglishString( tables, TEXT_FILE_MOD, localizedCsfFile, localized.label );
+		if ( modEnglish == nullptr )
+			continue;
+
+		const StringInfo *installEnglish = findEnglishString( tables, TEXT_FILE_INSTALL, localizedCsfFile, localized.label );
+		if ( installEnglish != nullptr && haveSameWording( modEnglish->text, installEnglish->text ) )
+			continue;
+
+		localized.text = modEnglish->text;
+		++adopted;
+	}
+
+	return adopted;
+}
+
+static void adoptModWording( const AsciiString &localizedCsfFile, const std::vector<LoadedStringTable> &tables )
+{
+	AsciiString englishCsfFile;
+	englishCsfFile.format( g_csfFile, CSF_FALLBACK_LANGUAGE );
+
+	if ( localizedCsfFile.compareNoCase( englishCsfFile ) == 0 )
+		return;
+
+	for ( size_t i = 0; i < tables.size(); ++i )
+	{
+		const LoadedStringTable &table = tables[i];
+		if ( table.spec.source != TEXT_FILE_INSTALL || !isLocalizedTable( table, localizedCsfFile ) )
+			continue;
+
+		const Int adopted = adoptModWordingInto( table, tables, localizedCsfFile );
+		DEBUG_LOG(("GameTextManager - %d of %d strings in %s take the mod's English wording", adopted, table.count, table.spec.filename.str()));
+	}
+}
+
 void GameTextManager::init()
 {
 	if ( m_initialized )
@@ -391,10 +503,19 @@ void GameTextManager::init()
 
 	m_stringLUT = buildLookUpTable( m_stringInfo, m_textCount );
 
+	std::vector<LoadedStringTable> tables;
+	tables.push_back( { chain[primaryIndex], m_stringInfo, m_stringLUT, m_textCount } );
+
 	for ( size_t i = primaryIndex + 1; i < chain.size(); ++i )
 	{
-		appendFallbackTable( chain[i] );
+		if ( !appendFallbackTable( chain[i] ) )
+			continue;
+
+		const FallbackStringTable &fallback = m_fallbackTables.back();
+		tables.push_back( { chain[i], fallback.info, fallback.lut, fallback.count } );
 	}
+
+	adoptModWording( csfFile, tables );
 }
 
 //============================================================================
