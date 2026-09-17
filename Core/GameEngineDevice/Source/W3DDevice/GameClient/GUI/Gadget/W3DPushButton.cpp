@@ -146,6 +146,14 @@ static void drawButtonText( GameWindow *window, WinInstanceData *instData )
 
 		TheDisplay->drawFillRect( badgeOrigin.x, badgeOrigin.y, badgeSize, badgeSize, GameMakeColor( 0, 0, 0, 160 ) );
 
+		UnsignedByte red, green, blue, alpha;
+		GameGetColorComponents( textColor, &red, &green, &blue, &alpha );
+		if( alpha == 0 )
+		{
+			textColor = GameMakeColor( 254, 254, 254, 255 );
+			dropColor = GameMakeColor( 0, 0, 0, 255 );
+		}
+
 		ICoord2D letterPos;
 		letterPos.x = badgeOrigin.x + ( badgeSize - width ) / 2;
 		letterPos.y = badgeOrigin.y + ( badgeSize - height ) / 2;
