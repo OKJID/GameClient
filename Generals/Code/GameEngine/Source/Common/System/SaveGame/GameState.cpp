@@ -831,8 +831,7 @@ void GameState::loadQueuedSaveGame()
 	// getSaveGameInfoFromFile throws on a malformed file instead of returning a SaveCode
 	try
 	{
-		AsciiString filepath = getFilePathInSaveDirectory( gameInfo.filename );
-		getSaveGameInfoFromFile( filepath, &gameInfo.saveGameInfo );
+		getSaveGameInfoFromFile( gameInfo.filename, &gameInfo.saveGameInfo );
 	}
 	catch( ... )
 	{
