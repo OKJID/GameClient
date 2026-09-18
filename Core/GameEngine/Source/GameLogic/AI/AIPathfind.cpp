@@ -2705,12 +2705,7 @@ void PathfindZoneManager::calculateZones( PathfindCell **map, PathfindLayer laye
 			bounds.lo.y = globalBounds.lo.y + yBlock*ZONE_BLOCK_SIZE;
 			bounds.hi.x = bounds.lo.x + ZONE_BLOCK_SIZE - 1; // bounds are inclusive.
 			bounds.hi.y = bounds.lo.y + ZONE_BLOCK_SIZE - 1; // bounds are inclusive.
-			if (bounds.hi.x > globalBounds.hi.x) {
-				bounds.hi.x = globalBounds.hi.x;
-			}
-			if (bounds.hi.y > globalBounds.hi.y) {
-				bounds.hi.y = globalBounds.hi.y;
-			}
+			bounds.hi.updateMin(globalBounds.hi);
 #if RTS_GENERALS && RETAIL_COMPATIBLE_PATHFINDING
 			if (bounds.lo.x>bounds.hi.x || bounds.lo.y>bounds.hi.y) {
 				DEBUG_CRASH(("Incorrect bounds calculation. Logic error, fix me. jba."));
@@ -2807,11 +2802,7 @@ void PathfindZoneManager::calculateZones( PathfindCell **map, PathfindLayer laye
 			bounds.hi.x = bounds.lo.x + ZONE_BLOCK_SIZE - 1; // bounds are inclusive.
 			bounds.hi.y = bounds.lo.y + ZONE_BLOCK_SIZE - 1; // bounds are inclusive.
 
-			if (bounds.hi.x > globalBounds.hi.x)
-				bounds.hi.x = globalBounds.hi.x;
-
-			if (bounds.hi.y > globalBounds.hi.y)
-				bounds.hi.y = globalBounds.hi.y;
+			bounds.hi.updateMin(globalBounds.hi);
 #if RTS_GENERALS && RETAIL_COMPATIBLE_PATHFINDING
 			if (bounds.lo.x>bounds.hi.x || bounds.lo.y>bounds.hi.y) {
 				DEBUG_CRASH(("Incorrect bounds calculation. Logic error, fix me. jba."));
@@ -3030,12 +3021,7 @@ void PathfindZoneManager::updateZonesForModify(PathfindCell **map, PathfindLayer
 	IRegion2D bounds = structureBounds;
 	bounds.hi.x++;
 	bounds.hi.y++;
-	if (bounds.hi.x > globalBounds.hi.x) {
-		bounds.hi.x = globalBounds.hi.x;
-	}
-	if (bounds.hi.y > globalBounds.hi.y) {
-		bounds.hi.y = globalBounds.hi.y;
-	}
+	bounds.hi.updateMin(globalBounds.hi);
 
 	Int xBlock, yBlock;
 	for (xBlock = 0; xBlock<m_zoneBlockExtent.x; xBlock++) {
@@ -3045,18 +3031,7 @@ void PathfindZoneManager::updateZonesForModify(PathfindCell **map, PathfindLayer
 			blockBounds.lo.y = globalBounds.lo.y + yBlock*ZONE_BLOCK_SIZE;
 			blockBounds.hi.x = blockBounds.lo.x + ZONE_BLOCK_SIZE - 1; // blockBounds are inclusive.
 			blockBounds.hi.y = blockBounds.lo.y + ZONE_BLOCK_SIZE - 1; // blockBounds are inclusive.
-			if (blockBounds.hi.x > bounds.hi.x) {
-				blockBounds.hi.x = bounds.hi.x;
-			}
-			if (blockBounds.hi.y > bounds.hi.y) {
-				blockBounds.hi.y = bounds.hi.y;
-			}
-			if (blockBounds.lo.x < bounds.lo.x) {
-				blockBounds.lo.x = bounds.lo.x;
-			}
-			if (blockBounds.lo.y < bounds.lo.y) {
-				blockBounds.lo.y = bounds.lo.y;
-			}
+			blockBounds.intersectWith(bounds);
 			if (blockBounds.lo.x>blockBounds.hi.x || blockBounds.lo.y>blockBounds.hi.y) {
 				continue;
 			}
@@ -3595,10 +3570,7 @@ void PathfindLayer::allocateCellsForWallLayer(const IRegion2D *extent, ObjectID 
 			bridgeBounds = objBounds;
 			first = false;
 		} else {
-			if (bridgeBounds.lo.x>objBounds.lo.x) bridgeBounds.lo.x = objBounds.lo.x;
-			if (bridgeBounds.lo.y>objBounds.lo.y) bridgeBounds.lo.y = objBounds.lo.y;
-			if (bridgeBounds.hi.x<objBounds.hi.x) bridgeBounds.hi.x = objBounds.hi.x;
-			if (bridgeBounds.hi.y<objBounds.hi.y) bridgeBounds.hi.y = objBounds.hi.y;
+			bridgeBounds.uniteWith(objBounds);
 		}
 	}
 
@@ -3888,10 +3860,8 @@ void PathfindLayer::classifyLayerMapCell( Int i, Int j , PathfindCell *cell, Bri
 		// check against the end lines.
 
 		Region2D cellBounds;
-		cellBounds.lo.x = topLeftCorner.x;
-		cellBounds.lo.y = topLeftCorner.y;
-		cellBounds.hi.x = bottomRightCorner.x;
-		cellBounds.hi.y = bottomRightCorner.y;
+		cellBounds.lo = topLeftCorner.asCoord2D();
+		cellBounds.hi = bottomRightCorner.asCoord2D();
 
 #if RTS_GENERALS && RETAIL_COMPATIBLE_PATHFINDING
 		if (m_bridge->isCellOnEnd(&cellBounds)) {
@@ -4587,21 +4557,7 @@ void Pathfinder::internal_classifyObjectFootprint( Object *obj, Bool insert )
 
 	Int i, j;
 
-	if (cellBounds.lo.x < m_extent.lo.x) {
-		cellBounds.lo.x = m_extent.lo.x;
-	}
-	if (cellBounds.lo.y < m_extent.lo.y) {
-		cellBounds.lo.y = m_extent.lo.y;
-	}
-	if (cellBounds.lo.y < m_extent.lo.y) {
-		cellBounds.lo.y = m_extent.lo.y;
-	}
-	if (cellBounds.hi.x > m_extent.hi.x) {
-		cellBounds.hi.x = m_extent.hi.x;
-	}
-	if (cellBounds.hi.y > m_extent.hi.y) {
-		cellBounds.hi.y = m_extent.hi.y;
-	}
+	cellBounds.intersectWith(m_extent);
 
 	if (!insert) {
 		for( j=cellBounds.lo.y; j<=cellBounds.hi.y; j++ )
@@ -10472,10 +10428,8 @@ Path *Pathfinder::getMoveAwayFromPath(Object* obj, Object *otherObj,
 
 		for( node = pathToAvoid->getFirstNode(); node && node->getNextOptimized(); node = node->getNextOptimized() )	{
 			Coord2D start, end;
-			start.x = node->getPosition()->x;
-			start.y = node->getPosition()->y;
-			end.x = node->getNextOptimized()->getPosition()->x;
-			end.y = node->getNextOptimized()->getPosition()->y;
+			start = node->getPosition()->asCoord2D();
+			end = node->getNextOptimized()->getPosition()->asCoord2D();
 			if (LineInRegion(&start, &end, &bounds)) {
 				overlap = true;
 				break;
@@ -10485,10 +10439,8 @@ Path *Pathfinder::getMoveAwayFromPath(Object* obj, Object *otherObj,
 		if (!overlap && pathToAvoid2) {
 			for( node = pathToAvoid2->getFirstNode(); node && node->getNextOptimized(); node = node->getNextOptimized() )	{
 				Coord2D start, end;
-				start.x = node->getPosition()->x;
-				start.y = node->getPosition()->y;
-				end.x = node->getNextOptimized()->getPosition()->x;
-				end.y = node->getNextOptimized()->getPosition()->y;
+				start = node->getPosition()->asCoord2D();
+				end = node->getNextOptimized()->getPosition()->asCoord2D();
 				if (LineInRegion(&start, &end, &bounds)) {
 					overlap = true;
 					break;

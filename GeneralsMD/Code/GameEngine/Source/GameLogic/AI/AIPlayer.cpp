@@ -3844,10 +3844,7 @@ void AIPlayer::getPlayerStructureBounds( Region2D *bounds, Int playerNdx, Bool c
 					}
 					else
 					{
-						if (objBounds.lo.x>pos.x) objBounds.lo.x = pos.x;
-						if (objBounds.lo.y>pos.y) objBounds.lo.y = pos.y;
-						if (objBounds.hi.x<pos.x) objBounds.hi.x = pos.x;
-						if (objBounds.hi.y<pos.y) objBounds.hi.y = pos.y;
+						objBounds.uniteWith(pos.asCoord2D());
 					}
 					if (firstStructure)
 					{
@@ -3857,10 +3854,7 @@ void AIPlayer::getPlayerStructureBounds( Region2D *bounds, Int playerNdx, Bool c
 					}
 					else
 					{
-						if (bounds->lo.x>pos.x) bounds->lo.x = pos.x;
-						if (bounds->lo.y>pos.y) bounds->lo.y = pos.y;
-						if (bounds->hi.x<pos.x) bounds->hi.x = pos.x;
-						if (bounds->hi.y<pos.y) bounds->hi.y = pos.y;
+						bounds->uniteWith(pos.asCoord2D());
 					}
 				}
 			}
