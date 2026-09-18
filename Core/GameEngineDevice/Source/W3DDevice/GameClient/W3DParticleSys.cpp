@@ -216,7 +216,7 @@ void W3DParticleSystemManager::doParticles(RenderInfoClass &rinfo)
 			if (WWMath::Fabsf_Legacy(pos->z - bcZ) > (beZ + psize))
 				continue;
 
-			m_fieldParticleCount += ( sys->getPriority() == AREA_EFFECT && sys->m_isGroundAligned != FALSE );
+			m_fieldParticleCount += ( sys->getPriority() == AREA_EFFECT && !sys->shouldBillboard() );
 
 			//@todo lorenzen sez: use pointer arithmetic for these arrays
 			personalities[count] = p->getPersonality();
