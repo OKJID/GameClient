@@ -7636,6 +7636,40 @@ void ScriptEngine::adjustToppleDirection(Object* object, Coord3D* direction)
 }
 
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump every evaluated script condition inside a frame window, for cross
+// platform comparison of when and why scripts fire.
+//-------------------------------------------------------------------------------------------------
+#define CONDITION_DIAG_FIRST_FRAME 5380
+#define CONDITION_DIAG_LAST_FRAME  5410
+
+static void dumpScriptCondition(const Script *script, Int conditionType, Bool result)
+{
+	if (TheGameLogic == NULL)
+		return;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (frame < CONDITION_DIAG_FIRST_FRAME || frame > CONDITION_DIAG_LAST_FRAME)
+		return;
+
+	static FILE *s_conditionFile = NULL;
+	static Bool s_conditionTried = FALSE;
+
+	if (!s_conditionTried)
+	{
+		s_conditionTried = TRUE;
+		s_conditionFile = fopen("ConditionDiag.txt", "w");
+	}
+
+	if (!s_conditionFile)
+		return;
+
+	fprintf(s_conditionFile, "COND f%d type=%d result=%d script=%s\n",
+		(Int)frame, conditionType, result ? 1 : 0,
+		script ? script->getName().str() : "none");
+	fflush(s_conditionFile);
+}
+
+//-------------------------------------------------------------------------------------------------
 /** Evaluates a list of conditions */
 //-------------------------------------------------------------------------------------------------
 Bool ScriptEngine::evaluateConditions(Script* pScript, Team* thisTeam, Player* player)
@@ -7663,7 +7697,10 @@ Bool ScriptEngine::evaluateConditions(Script* pScript, Team* thisTeam, Player* p
 		if (!pCondition) continue; // No conditions, so go to the next or.
 		Bool andTerm = true;
 		while (pCondition && andTerm) {
-			if (!evaluateCondition(pCondition)) {
+			const Bool conditionResult = evaluateCondition(pCondition);
+			dumpScriptCondition( pScript, (Int)pCondition->getConditionType(), conditionResult );
+
+			if (!conditionResult) {
 				andTerm = false;
 				break; // Short circuit the and evauation - after the first false, we can quit.
 			}

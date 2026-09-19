@@ -273,6 +273,35 @@ UnsignedInt INI::loadDirectory( AsciiString dirName, INILoadType loadType, Xfer 
 
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump every INI file in load order with its size and content hash,
+// for cross platform comparison. Template IDs depend on this order, so it must match exactly.
+//-------------------------------------------------------------------------------------------------
+static void dumpIniFile(const AsciiString& filename, Int size, const char* buffer)
+{
+	static FILE* s_iniFile = NULL;
+	static Bool s_iniTried = FALSE;
+
+	if (!s_iniTried)
+	{
+		s_iniTried = TRUE;
+		s_iniFile = fopen("IniDiag.txt", "w");
+	}
+
+	if (!s_iniFile)
+		return;
+
+	UnsignedInt hash = 2166136261u;
+	for (Int i = 0; i < size; ++i)
+	{
+		hash ^= (UnsignedInt)(unsigned char)buffer[i];
+		hash *= 16777619u;
+	}
+
+	fprintf(s_iniFile, "INI size=%d hash=%08X file=%s\n", size, hash, filename.str());
+	fflush(s_iniFile);
+}
+
+//-------------------------------------------------------------------------------------------------
 void INI::prepFile( AsciiString filename, INILoadType loadType )
 {
 	// if we have a file open already -- we can't do another one
@@ -297,6 +326,8 @@ void INI::prepFile( AsciiString filename, INILoadType loadType )
 	m_readBufferNext = 0;
 	m_readBufferUsed = file->size();
 	m_readBuffer = file->readEntireAndClose();
+
+	dumpIniFile( filename, m_readBufferUsed, m_readBuffer );
 
 	// save our filename
 	m_filename = filename;

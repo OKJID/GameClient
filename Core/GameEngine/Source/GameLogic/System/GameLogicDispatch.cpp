@@ -350,6 +350,85 @@ void GameLogic::prepareNewGame( GameMode gameMode, GameDifficulty diff, Int rank
 }
 
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump every dispatched logic message and every construct command,
+// for cross platform comparison.
+//-------------------------------------------------------------------------------------------------
+static void dumpThingTemplateTable()
+{
+	FILE *file = fopen("TplDiag.txt", "w");
+	if (!file)
+		return;
+
+	for (const ThingTemplate *tmpl = TheThingFactory->firstTemplate(); tmpl; tmpl = tmpl->friend_getNextTemplate())
+		fprintf(file, "TPL id=%d name=%s\n", (Int)tmpl->getTemplateID(), tmpl->getName().str());
+
+	fclose(file);
+}
+
+static FILE *getMsgDiagFile()
+{
+	static FILE *s_msgFile = NULL;
+	static Bool s_msgTried = FALSE;
+
+	if (!s_msgTried && TheGameLogic->getGameMode() != GAME_SHELL)
+	{
+		s_msgTried = TRUE;
+		s_msgFile = fopen("MsgDiag.txt", "w");
+		dumpThingTemplateTable();
+	}
+
+	return s_msgFile;
+}
+
+static UnsignedInt asHex(Real value)
+{
+	UnsignedInt bits;
+	memcpy(&bits, &value, sizeof(bits));
+	return bits;
+}
+
+static void dumpLogicMessage(UnsignedInt frame, const char *command, Int playerIndex, const AIGroup *selection)
+{
+	FILE *file = getMsgDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "MSG f%d type=%s player=%d sel=", (Int)frame, command, playerIndex);
+
+	if (selection == NULL)
+	{
+		fprintf(file, "none\n");
+	}
+	else
+	{
+		const VecObjectID &ids = selection->getAllIDs();
+		fprintf(file, "%d[", (Int)ids.size());
+		for (VecObjectID::const_iterator it = ids.begin(); it != ids.end(); ++it)
+			fprintf(file, "%d,", (Int)*it);
+		fprintf(file, "]\n");
+	}
+
+	fflush(file);
+}
+
+static void dumpDozerConstruct(UnsignedInt frame, Int templateID, const Object *constructor, const ThingTemplate *what,
+															 const Coord3D *loc, Real angle, const Object *building)
+{
+	FILE *file = getMsgDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "DOZER f%d tplid=%d ctor=%d tpl=%s loc=%08X,%08X,%08X ang=%08X bldg=%d\n",
+		(Int)frame, templateID,
+		constructor ? (Int)constructor->getID() : -1,
+		what ? what->getName().str() : "none",
+		asHex(loc->x), asHex(loc->y), asHex(loc->z), asHex(angle),
+		building ? (Int)building->getID() : -1);
+
+	fflush(file);
+}
+
+//-------------------------------------------------------------------------------------------------
 /** This message handles dispatches object command messages to the
   * appropriate objects.
 	* @todo Rename this to "CommandProcessor", or similar. */
@@ -425,6 +504,12 @@ void GameLogic::logicMessageDispatcher( GameMessage *msg, void *userData )
 	}
 #endif
 #endif // DEBUG_LOGGING
+
+#if RETAIL_COMPATIBLE_AIGROUP
+	dumpLogicMessage(getFrame(), msg->getCommandAsString(), msg->getPlayerIndex(), currentlySelectedGroup);
+#else
+	dumpLogicMessage(getFrame(), msg->getCommandAsString(), msg->getPlayerIndex(), currentlySelectedGroup.Peek());
+#endif
 
 	// process the message
 	GameMessage::Type msgType = msg->getType();
@@ -1887,12 +1972,16 @@ bool GameLogic::onDozerConstruct(MAYBE_UNUSED GameMessage *msg, AIGroupPtr &curr
 	angle = msg->getArgument( 2 )->real;
 
 	if( place == nullptr || constructorObject == nullptr )
+	{
+		dumpDozerConstruct( getFrame(), msg->getArgument( 0 )->integer, constructorObject, place, &loc, angle, nullptr );
 		return false;  //These are not crashes, as the object may have died before this message came in
+	}
 
 	if( msg->getType() == GameMessage::MSG_DOZER_CONSTRUCT )
 	{
-		TheBuildAssistant->buildObjectNow( constructorObject, place, &loc, angle,
+		Object *newBuilding = TheBuildAssistant->buildObjectNow( constructorObject, place, &loc, angle,
 																				constructorObject->getControllingPlayer() );
+		dumpDozerConstruct( getFrame(), msg->getArgument( 0 )->integer, constructorObject, place, &loc, angle, newBuilding );
 	}
 	else
 	{

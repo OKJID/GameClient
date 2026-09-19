@@ -1892,8 +1892,61 @@ Bool ScriptConditions::evaluatePlayerHasComparisonValueExcessPower(Parameter *pP
 //-------------------------------------------------------------------------------------------------
 /** evaluateSkirmishSpecialPowerIsReady - does any unit have this special power ready to use? */
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump every input of the skirmish special power condition inside a frame
+// window. The disabled mask and the cached retry frame are not covered by any CRC.
+#define POWER_DIAG_FIRST_FRAME 5380
+#define POWER_DIAG_LAST_FRAME  5410
+
+static FILE *getPowerDiagFile()
+{
+	if (TheGameLogic == NULL)
+		return NULL;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (frame < POWER_DIAG_FIRST_FRAME || frame > POWER_DIAG_LAST_FRAME)
+		return NULL;
+
+	static FILE *s_powerFile = NULL;
+	static Bool s_powerTried = FALSE;
+
+	if (!s_powerTried)
+	{
+		s_powerTried = TRUE;
+		s_powerFile = fopen("PowerDiag.txt", "w");
+	}
+
+	return s_powerFile;
+}
+
+static void dumpPowerCondition(const char *powerName, Int cachedFrame)
+{
+	FILE *file = getPowerDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "PWRCOND f%d power=%s cached=%d\n",
+		(Int)TheGameLogic->getFrame(), powerName ? powerName : "none", cachedFrame);
+	fflush(file);
+}
+
+static void dumpPowerCandidate(const Object *obj, Bool underConstruction, Bool disabled, const char *disabledMask,
+															 Bool canUse, Bool ready, UnsignedInt readyFrame)
+{
+	FILE *file = getPowerDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "PWROBJ f%d obj=%d built=%d disabled=%d mask=%s canUse=%d ready=%d readyFrame=%d\n",
+		(Int)TheGameLogic->getFrame(), obj ? (Int)obj->getID() : -1,
+		underConstruction ? 0 : 1, disabled ? 1 : 0, disabledMask,
+		canUse ? 1 : 0, ready ? 1 : 0, (Int)readyFrame);
+	fflush(file);
+}
+
 Bool ScriptConditions::evaluateSkirmishSpecialPowerIsReady(Parameter *pSkirmishPlayerParm, Parameter *pPower)
 {
+	dumpPowerCondition( pPower ? pPower->getString().str() : NULL, pPower ? pPower->getInt() : 0 );
+
 	if (pPower->getInt() == -1) return false;
 	if (pPower->getInt()>0 && pPower->getInt()>TheGameLogic->getFrame()) {
 		return false;
@@ -1919,11 +1972,18 @@ Bool ScriptConditions::evaluateSkirmishSpecialPowerIsReady(Parameter *pSkirmishP
 				if (!pObj) continue;
 				if( pObj->getStatusBits().test( OBJECT_STATUS_UNDER_CONSTRUCTION ) || pObj->isDisabled() )
 				{
+					if (pObj->getSpecialPowerModule(power))
+						dumpPowerCandidate( pObj, TRUE, pObj->isDisabled(), pObj->getDisabledFlags().toHexString().str(),
+																FALSE, FALSE, 0 );
+
 					continue; // can't fire if under construction or disabled.
 				}
 				SpecialPowerModuleInterface *mod = pObj->getSpecialPowerModule(power);
 				if (mod)
 				{
+					dumpPowerCandidate( pObj, FALSE, FALSE, pObj->getDisabledFlags().toHexString().str(),
+															TheSpecialPowerStore->canUseSpecialPower(pObj, power), mod->isReady(), mod->getReadyFrame() );
+
 					if (!TheSpecialPowerStore->canUseSpecialPower(pObj, power)) {
 						continue;
 					}

@@ -1064,6 +1064,7 @@ WWINLINE float WWMath::Normalize_Angle(float angle)
 WWINLINE float WWMath::Div_Safe(float dividend, float divisor, float fallback)
 {
 #if USE_DETERMINISTIC_MATH
+	divisor = max(0.001f, divisor);
 	return (divisor == 0.0f) ? fallback : dividend / divisor;
 #else
 	return dividend / divisor;
@@ -1073,6 +1074,7 @@ WWINLINE float WWMath::Div_Safe(float dividend, float divisor, float fallback)
 WWINLINE double WWMath::Div_Safe(double dividend, double divisor, double fallback)
 {
 #if USE_DETERMINISTIC_MATH
+	divisor = max(0.001, divisor);
 	return (divisor == 0.0) ? fallback : dividend / divisor;
 #else
 	return dividend / divisor;

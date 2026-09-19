@@ -29,6 +29,7 @@ GAME_FLAG_NOSHELLMAP=false
 GAME_FLAG_QUICKSTART=false
 GAME_FLAG_NOAUDIO=false
 GAME_FLAG_WIN=false
+GAME_FLAG_PATCH_OFF=true    # skip the community data patch, for data parity with the Windows build
 GAME_FLAG_XRES=""       # e.g. "1024"
 GAME_FLAG_YRES=""       # e.g. "768"
 GAME_FPS_LIMIT=""       # "" = in-game setting, "0" = uncapped, below 60 is clamped up to 60
@@ -225,6 +226,7 @@ GAME_ARGS=()
 [ "$GAME_FLAG_QUICKSTART" = true ] && GAME_ARGS+=(-quickstart)
 [ "$GAME_FLAG_NOAUDIO" = true ]    && GAME_ARGS+=(-noaudio)
 [ "$GAME_FLAG_WIN" = true ]        && GAME_ARGS+=(-win)
+[ "$GAME_FLAG_PATCH_OFF" = true ]  && GAME_ARGS+=(-disableCommunityDataPatch)
 [ -n "$GAME_FLAG_XRES" ]           && GAME_ARGS+=(-xRes "$GAME_FLAG_XRES")
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS+=(-yRes "$GAME_FLAG_YRES")
 [ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay "${REPLAY_NAME}.rep")

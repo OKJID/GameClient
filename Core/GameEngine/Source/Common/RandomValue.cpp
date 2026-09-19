@@ -262,6 +262,41 @@ Real GetGameClientRandomValueReal( Real lo, Real hi, const char *file, int line 
 	return rval;
 }
 
+// TheSuperHackers @diagnostic Dump every logic random draw inside a frame window, for cross platform
+// comparison. The seed diverges as soon as the two sides draw a different number of values.
+#define RANDOM_DIAG_FIRST_FRAME 5380
+#define RANDOM_DIAG_LAST_FRAME  5410
+
+static void dumpRandomDraw(const char *kind, const char *file, int line, UnsignedInt result)
+{
+	if (TheGameLogic == NULL)
+		return;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (frame < RANDOM_DIAG_FIRST_FRAME || frame > RANDOM_DIAG_LAST_FRAME)
+		return;
+
+	static FILE *s_randomFile = NULL;
+	static Bool s_randomTried = FALSE;
+
+	if (!s_randomTried)
+	{
+		s_randomTried = TRUE;
+		s_randomFile = fopen("RandomDiag.txt", "w");
+	}
+
+	if (!s_randomFile)
+		return;
+
+	const char *base = file;
+	for (const char *p = file; p && *p; ++p)
+		if (*p == '\\' || *p == '/')
+			base = p + 1;
+
+	fprintf(s_randomFile, "RND f%d %s val=%08X at=%s:%d\n", (Int)frame, kind, result, base, line);
+	fflush(s_randomFile);
+}
+
 //
 // Integer random value
 //
@@ -279,6 +314,8 @@ Int GetGameLogicRandomValue( int lo, int hi, const char *file, int line )
 #endif
 
 	const Int rval = ((Int)(randomValue(theGameLogicSeed) % delta)) + lo;
+
+	dumpRandomDraw( "int", file, line, (UnsignedInt)rval );
 
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValue = %d (%d - %d), %s line %d",
@@ -306,6 +343,12 @@ Real GetGameLogicRandomValueReal( Real lo, Real hi, const char *file, int line )
 #endif
 
 	const Real rval = ((Real)(randomValue(theGameLogicSeed)) * theMultFactor) * delta + lo;
+
+	{
+		UnsignedInt bits;
+		memcpy( &bits, &rval, sizeof(bits) );
+		dumpRandomDraw( "real", file, line, bits );
+	}
 
 #ifdef DEBUG_RANDOM_LOGIC
 	DEBUG_LOG(( "%d: GetGameLogicRandomValueReal = %f, %s line %d",

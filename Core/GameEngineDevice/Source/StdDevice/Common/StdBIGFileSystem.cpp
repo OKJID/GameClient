@@ -117,6 +117,46 @@ void StdBIGFileSystem::update() {
 void StdBIGFileSystem::postProcessLoad() {
 }
 
+// TheSuperHackers @diagnostic Dump every mounted archive with its size, entry count and a hash over
+// the whole directory listing, for cross platform comparison of the game data.
+static void dumpArchive(const Char *filename, Int archiveFileSize, Int numLittleFiles, UnsignedInt entriesHash)
+{
+	static FILE *s_archiveFile = NULL;
+	static Bool s_archiveTried = FALSE;
+
+	if (!s_archiveTried)
+	{
+		s_archiveTried = TRUE;
+		s_archiveFile = fopen("ArchiveDiag.txt", "w");
+	}
+
+	if (!s_archiveFile)
+		return;
+
+	const Char *base = filename;
+	for (const Char *p = filename; p && *p; ++p)
+		if (*p == '\\' || *p == '/')
+			base = p + 1;
+
+	fprintf(s_archiveFile, "BIG size=%d files=%d hash=%08X name=%s\n",
+		archiveFileSize, numLittleFiles, entriesHash, base);
+	fflush(s_archiveFile);
+}
+
+static void hashArchiveEntry(UnsignedInt &hash, const char *name, Int size, Int offset)
+{
+	for (const char *p = name; p && *p; ++p)
+	{
+		hash ^= (UnsignedInt)(unsigned char)*p;
+		hash *= 16777619u;
+	}
+
+	hash ^= (UnsignedInt)size;
+	hash *= 16777619u;
+	hash ^= (UnsignedInt)offset;
+	hash *= 16777619u;
+}
+
 ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
 	File *fp = TheLocalFileSystem->openFile(filename, File::READ | File::BINARY);
 	AsciiString archiveFileName;
@@ -170,6 +210,8 @@ ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
 	// read in each directory listing.
 	ArchivedFileInfo *fileInfo = NEW ArchivedFileInfo;
 
+	UnsignedInt entriesHash = 2166136261u;
+
 	for (Int i = 0; i < numLittleFiles; ++i) {
 		Int filesize = 0;
 		Int fileOffset = 0;
@@ -209,12 +251,16 @@ ArchiveFile * StdBIGFileSystem::openArchiveFile(const Char *filename) {
 		AsciiString debugpath;
 		debugpath = path;
 		debugpath.concat(fileInfo->m_filename);
+
+		hashArchiveEntry(entriesHash, debugpath.str(), filesize, fileOffset);
 //		DEBUG_LOG(("StdBIGFileSystem::openArchiveFile - adding file %s to archive file %s, file number %d", debugpath.str(), fileInfo->m_archiveFilename.str(), i));
 
 		archiveFile->addFile(path, fileInfo);
 	}
 
 	archiveFile->attachFile(fp);
+
+	dumpArchive(filename, archiveFileSize, numLittleFiles, entriesHash);
 
 	delete fileInfo;
 	fileInfo = nullptr;

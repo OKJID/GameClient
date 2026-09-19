@@ -3313,6 +3313,32 @@ void GameLogic::pushSleepyUpdate(UpdateModulePtr u)
 }
 
 // ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump the order in which sleepy updates run, for cross platform comparison.
+// ------------------------------------------------------------------------------------------------
+static void dumpSleepyUpdate(UnsignedInt frame, Int seq, const Object* obj, NameKeyType moduleNameKey, UnsignedInt priority, Int sleepLen)
+{
+	static FILE* s_sleepyFile = NULL;
+	static Bool s_sleepyTried = FALSE;
+
+	if (!s_sleepyTried && TheGameLogic->getGameMode() != GAME_SHELL)
+	{
+		s_sleepyTried = TRUE;
+		s_sleepyFile = fopen("SleepyDiag.txt", "w");
+	}
+
+	if (!s_sleepyFile)
+		return;
+
+	fprintf(s_sleepyFile, "SLEEPY f%d i%d obj=%d tpl=%s mod=%s pri=%08X sleep=%d\n",
+		(Int)frame, seq,
+		obj ? (Int)obj->getID() : -1,
+		obj ? obj->getTemplate()->getName().str() : "none",
+		KEYNAME(moduleNameKey).str(),
+		priority, sleepLen);
+	fflush(s_sleepyFile);
+}
+
 UpdateModulePtr GameLogic::peekSleepyUpdate() const
 {
 	USE_PERF_TIMER(SleepyMaintenance)
@@ -4119,6 +4145,7 @@ void GameLogic::update()
 #endif
 
 	{
+		Int sleepySeq = 0;
 		while (!m_sleepyUpdates.empty())
 		{
 			UpdateModulePtr u = peekSleepyUpdate();
@@ -4162,6 +4189,8 @@ void GameLogic::update()
 				m_curUpdateModule = NULL;
 
 			}
+
+			dumpSleepyUpdate(now, sleepySeq++, u->friend_getObject(), u->getModuleNameKey(), u->friend_getPriority(), (Int)sleepLen);
 
 			// else defer it till next frame and re-push it
 			u->friend_setNextCallFrame(now + sleepLen);

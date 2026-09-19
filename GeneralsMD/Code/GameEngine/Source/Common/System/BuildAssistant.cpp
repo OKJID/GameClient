@@ -318,6 +318,37 @@ void BuildAssistant::xferTheSellList( Xfer *xfer )
 //-------------------------------------------------------------------------------------------------
 /** Nice little method to wrap up creating an object from a build */
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump every build attempt and why it failed, for cross platform comparison.
+static void dumpBuildAttempt(const char *stage, const Object *constructorObject, const ThingTemplate *what,
+														 const Coord3D *pos, const Object *result)
+{
+	static FILE *s_buildFile = NULL;
+	static Bool s_buildTried = FALSE;
+
+	if (!s_buildTried && TheGameLogic->getGameMode() != GAME_SHELL)
+	{
+		s_buildTried = TRUE;
+		s_buildFile = fopen("BuildDiag.txt", "w");
+	}
+
+	if (!s_buildFile)
+		return;
+
+	UnsignedInt x, y, z;
+	memcpy(&x, &pos->x, sizeof(x));
+	memcpy(&y, &pos->y, sizeof(y));
+	memcpy(&z, &pos->z, sizeof(z));
+
+	fprintf(s_buildFile, "BUILD f%d stage=%s ctor=%d tpl=%s pos=%08X,%08X,%08X result=%d\n",
+		(Int)TheGameLogic->getFrame(), stage,
+		constructorObject ? (Int)constructorObject->getID() : -1,
+		what ? what->getName().str() : "none",
+		x, y, z,
+		result ? (Int)result->getID() : -1);
+
+	fflush(s_buildFile);
+}
+
 Object *BuildAssistant::buildObjectNow( Object *constructorObject, const ThingTemplate *what,
 																			  const Coord3D *pos, Real angle, Player *owningPlayer )
 {
@@ -340,7 +371,10 @@ Object *BuildAssistant::buildObjectNow( Object *constructorObject, const ThingTe
 	// Need to validate that we can make this in case someone fakes their CommandSet
 	// A nullptr constructor Object means a script built building so let it slide.
 	if( (constructorObject != nullptr) && !isPossibleToMakeUnit(constructorObject, what) )
+	{
+		dumpBuildAttempt( "impossible", constructorObject, what, pos, nullptr );
 		return nullptr;
+	}
 
 	// clear out any objects from the building area that are "auto-clearable" when building
 	clearRemovableForConstruction( what, pos, angle );
@@ -349,6 +383,7 @@ Object *BuildAssistant::buildObjectNow( Object *constructorObject, const ThingTe
 	{
 		// totally bogus. We tried to move our units out of the way, but they wouldn't.
 		// Chode-boys.
+		dumpBuildAttempt( "cannotmove", constructorObject, what, pos, nullptr );
 		if (owningPlayer->getPlayerType()==PLAYER_HUMAN) {
 			return nullptr;	// ai gets to cheat.  jba.
 		}
@@ -362,8 +397,11 @@ Object *BuildAssistant::buildObjectNow( Object *constructorObject, const ThingTe
 		if( ai )
 		{
 			ai->aiIdle(CMD_FROM_AI); // stop any current behavior.
-			return ai->construct( what, pos, angle, owningPlayer, FALSE );
+			Object *constructed = ai->construct( what, pos, angle, owningPlayer, FALSE );
+			dumpBuildAttempt( "dozer", constructorObject, what, pos, constructed );
+			return constructed;
 		}
+		dumpBuildAttempt( "noai", constructorObject, what, pos, nullptr );
 		return nullptr;
 
 	}

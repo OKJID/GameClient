@@ -318,10 +318,17 @@ public:
 
 			if (val != 0 || chunk == 0 || printedAny)
 			{
+				// TheSuperHackers @bugfix Print the chunk as two 32 bit halves. %I64X is a Microsoft
+				// extension that other compilers emit literally, which loses the value in the log.
+				const UnsignedInt high = (UnsignedInt)(val >> 32);
+				const UnsignedInt low = (UnsignedInt)(val & 0xFFFFFFFF);
+
 				if (printedAny)
-					snprintf(chunkBuf, sizeof(chunkBuf), "%016I64X", val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%08X%08X", high, low);
+				else if (high != 0)
+					snprintf(chunkBuf, sizeof(chunkBuf), "%X%08X", high, low);
 				else
-					snprintf(chunkBuf, sizeof(chunkBuf), "%I64X", val);
+					snprintf(chunkBuf, sizeof(chunkBuf), "%X", low);
 
 				result.concat(chunkBuf);
 				printedAny = true;

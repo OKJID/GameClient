@@ -4223,6 +4223,55 @@ void ScriptActions::doNamedFireSpecialPowerAtWaypoint( const AsciiString& unit, 
 }
 
 //-------------------------------------------------------------------------------------------------
+// TheSuperHackers @diagnostic Dump executed script actions and special power readiness inside a frame
+// window, for cross platform comparison of when scripts fire.
+//-------------------------------------------------------------------------------------------------
+#define SCRIPT_DIAG_FIRST_FRAME 5380
+#define SCRIPT_DIAG_LAST_FRAME  5410
+
+static FILE *getScriptDiagFile()
+{
+	if (TheGameLogic == NULL)
+		return NULL;
+
+	const UnsignedInt frame = TheGameLogic->getFrame();
+	if (frame < SCRIPT_DIAG_FIRST_FRAME || frame > SCRIPT_DIAG_LAST_FRAME)
+		return NULL;
+
+	static FILE *s_scriptFile = NULL;
+	static Bool s_scriptTried = FALSE;
+
+	if (!s_scriptTried)
+	{
+		s_scriptTried = TRUE;
+		s_scriptFile = fopen("ScriptDiag.txt", "w");
+	}
+
+	return s_scriptFile;
+}
+
+static void dumpScriptAction(Int actionType)
+{
+	FILE *file = getScriptDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "ACT f%d type=%d\n", (Int)TheGameLogic->getFrame(), actionType);
+	fflush(file);
+}
+
+static void dumpSpecialPowerReady(ObjectID objectID, Bool ready, UnsignedInt readyFrame)
+{
+	FILE *file = getScriptDiagFile();
+	if (!file)
+		return;
+
+	fprintf(file, "POWER f%d obj=%d ready=%d readyFrame=%d\n",
+		(Int)TheGameLogic->getFrame(), (Int)objectID, ready ? 1 : 0, (Int)readyFrame);
+	fflush(file);
+}
+
+//-------------------------------------------------------------------------------------------------
 /** doNamedFireSpecialPowerAtArea */
 //-------------------------------------------------------------------------------------------------
 void ScriptActions::doSkirmishFireSpecialPowerAtMostCost( const AsciiString &player, const AsciiString& specialPower )
@@ -4264,6 +4313,8 @@ void ScriptActions::doSkirmishFireSpecialPowerAtMostCost( const AsciiString &pla
 				SpecialPowerModuleInterface *mod = pObj->getSpecialPowerModule(power);
 				if (mod)
 				{
+					dumpSpecialPowerReady( pObj->getID(), mod->isReady(), mod->getReadyFrame() );
+
 					if( !mod->isReady() )
 						continue;
 
@@ -6535,6 +6586,8 @@ void ScriptActions::doNamedSetTrainHeld( const AsciiString &locoName, const Bool
 //-------------------------------------------------------------------------------------------------
 void ScriptActions::executeAction( ScriptAction *pAction )
 {
+	dumpScriptAction( (Int)pAction->getActionType() );
+
 	switch (pAction->getActionType()) {
 		default:
 			DEBUG_CRASH(("Unknown ScriptAction type %d", pAction->getActionType())); return;
