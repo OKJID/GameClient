@@ -19,7 +19,7 @@
 #pragma once
 
 #ifndef TSH_COMPATIBLE_CRC
-#define TSH_COMPATIBLE_CRC (1) // 
+#define TSH_COMPATIBLE_CRC (0) // 
 #endif
 
 #ifndef RETAIL_COMPATIBLE_CRC
