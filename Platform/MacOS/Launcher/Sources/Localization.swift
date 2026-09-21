@@ -60,6 +60,7 @@ enum L10n {
     static let portal = Portal()
     static let sidebar = Sidebar()
     static let donate = Donate()
+    static let sync = Sync()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -133,12 +134,15 @@ enum L10n {
         var modConfigMissing: String { resolve("alert.modConfigMissing") }
         var launchFailed: String { resolve("alert.launchFailed") }
         var cancel: String { resolve("alert.cancel") }
+        var diskAccess: String { resolve("alert.diskAccess") }
     }
 
     struct Mod {
         var section: String { resolve("mod.section") }
         var install: String { resolve("mod.install") }
         var repair: String { resolve("mod.repair") }
+        var update: String { resolve("mod.update") }
+        var outdated: String { resolve("mod.outdated") }
         var installed: String { resolve("mod.installed") }
         var reinstall: String { resolve("mod.reinstall") }
         var remove: String { resolve("mod.remove") }
@@ -173,6 +177,14 @@ enum L10n {
 
     struct Sidebar {
         var reset: String { resolve("sidebar.reset") }
+    }
+
+    struct Sync {
+        var statusChecking: String { resolve("sync.statusChecking") }
+        var statusOk: String { resolve("sync.statusOk") }
+        var statusStale: String { resolve("sync.statusStale") }
+        var statusOffline: String { resolve("sync.statusOffline") }
+        var statusLauncherOutdated: String { resolve("sync.statusLauncherOutdated") }
     }
 
     struct Update {
@@ -402,7 +414,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Saved password found",
         "steam.storedPasswordMsg": "A password for “%@” is stored in your keychain. Use it, or type a new one?",
         "steam.storedPasswordUse": "Use saved",
-        "steam.storedPasswordType": "Type manually"
+        "steam.storedPasswordType": "Type manually",
+        "alert.diskAccess": "The launcher cannot write to its data folder:\n%@\n\nThe game does not work without disk access.",
+        "mod.update": "UPDATE",
+        "mod.outdated": "A newer version of this mod package is out — update to play",
+        "sync.statusChecking": "Checking with the server…",
+        "sync.statusOk": "Verified with the server: you have the latest version and every fix",
+        "sync.statusStale": "Verified with the server under an hour ago: you have everything released up to then",
+        "sync.statusOffline": "Not verified with the server: the latest version and fixes are not guaranteed",
+        "sync.statusLauncherOutdated": "The launcher is out of date: game stability is not guaranteed until you update"
     ]
 
     static let ru: [String: String] = [
@@ -542,7 +562,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Найден сохранённый пароль",
         "steam.storedPasswordMsg": "Для «%@» в связке ключей есть пароль. Подставить его или ввести новый?",
         "steam.storedPasswordUse": "Подставить",
-        "steam.storedPasswordType": "Ввести вручную"
+        "steam.storedPasswordType": "Ввести вручную",
+        "alert.diskAccess": "Лаунчер не может записать в свою папку данных:\n%@\n\nБез доступа к диску игра не работает.",
+        "mod.update": "ОБНОВИТЬ",
+        "mod.outdated": "Вышла новая версия пакета мода — обновите, чтобы играть",
+        "sync.statusChecking": "Проверяем с сервером…",
+        "sync.statusOk": "Проверено с сервером: у вас последняя версия и все исправления",
+        "sync.statusStale": "Проверено с сервером меньше часа назад: всё, что вышло до этого, у вас",
+        "sync.statusOffline": "Нет проверки с сервером: последняя версия и исправления не гарантированы",
+        "sync.statusLauncherOutdated": "Лаунчер устарел: без обновления стабильность игры не гарантирована"
     ]
 
     static let uk: [String: String] = [
@@ -682,7 +710,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Знайдено збережений пароль",
         "steam.storedPasswordMsg": "Для «%@» у сховищі ключів є пароль. Підставити його чи ввести новий?",
         "steam.storedPasswordUse": "Підставити",
-        "steam.storedPasswordType": "Ввести вручну"
+        "steam.storedPasswordType": "Ввести вручну",
+        "alert.diskAccess": "Лаунчер не може записати у свою папку даних:\n%@\n\nБез доступу до диска гра не працює.",
+        "mod.update": "ОНОВИТИ",
+        "mod.outdated": "Вийшла нова версія пакета мода — оновіть, щоб грати",
+        "sync.statusChecking": "Перевіряємо із сервером…",
+        "sync.statusOk": "Перевірено із сервером: у вас остання версія і всі виправлення",
+        "sync.statusStale": "Перевірено із сервером менше години тому: усе, що вийшло до цього, у вас",
+        "sync.statusOffline": "Немає перевірки із сервером: остання версія і виправлення не гарантовані",
+        "sync.statusLauncherOutdated": "Лаунчер застарів: без оновлення стабільність гри не гарантована"
     ]
 
     static let hi: [String: String] = [
@@ -822,7 +858,15 @@ enum L10n {
         "steam.storedPasswordTitle": "सहेजा गया पासवर्ड मिला",
         "steam.storedPasswordMsg": "कीचेन में “%@” के लिए पासवर्ड सहेजा है। उसे भरें या नया दर्ज करें?",
         "steam.storedPasswordUse": "सहेजा हुआ भरें",
-        "steam.storedPasswordType": "खुद दर्ज करें"
+        "steam.storedPasswordType": "खुद दर्ज करें",
+        "alert.diskAccess": "लॉन्चर अपने डेटा फ़ोल्डर में लिख नहीं पा रहा है:\n%@\n\nडिस्क एक्सेस के बिना गेम काम नहीं करता।",
+        "mod.update": "अपडेट करें",
+        "mod.outdated": "इस मॉड पैकेज का नया संस्करण आ गया है — खेलने के लिए अपडेट करें",
+        "sync.statusChecking": "सर्वर से जाँच हो रही है…",
+        "sync.statusOk": "सर्वर से पुष्टि हुई: आपके पास नवीनतम संस्करण और सभी सुधार हैं",
+        "sync.statusStale": "एक घंटे से कम पहले सर्वर से पुष्टि हुई: तब तक जारी सब कुछ आपके पास है",
+        "sync.statusOffline": "सर्वर से पुष्टि नहीं हुई: नवीनतम संस्करण और सुधारों की गारंटी नहीं है",
+        "sync.statusLauncherOutdated": "लॉन्चर पुराना है: अपडेट किए बिना गेम की स्थिरता की गारंटी नहीं है"
     ]
 
     static let zh: [String: String] = [
@@ -962,7 +1006,15 @@ enum L10n {
         "steam.storedPasswordTitle": "找到已保存的密码",
         "steam.storedPasswordMsg": "钥匙串中保存了“%@”的密码。要使用它还是输入新密码？",
         "steam.storedPasswordUse": "使用已保存",
-        "steam.storedPasswordType": "手动输入"
+        "steam.storedPasswordType": "手动输入",
+        "alert.diskAccess": "启动器无法写入其数据文件夹：\n%@\n\n没有磁盘访问权限，游戏无法运行。",
+        "mod.update": "更新",
+        "mod.outdated": "此模组包已有新版本 — 更新后即可游玩",
+        "sync.statusChecking": "正在与服务器核对…",
+        "sync.statusOk": "已与服务器核对：您拥有最新版本和全部修复",
+        "sync.statusStale": "一小时内已与服务器核对：此前发布的内容您都已拥有",
+        "sync.statusOffline": "未与服务器核对：无法保证最新版本和修复",
+        "sync.statusLauncherOutdated": "启动器已过期：不更新则无法保证游戏稳定性"
     ]
 
     static let ar: [String: String] = [
@@ -1102,7 +1154,15 @@ enum L10n {
         "steam.storedPasswordTitle": "تم العثور على كلمة مرور محفوظة",
         "steam.storedPasswordMsg": "توجد كلمة مرور لـ «%@» في سلسلة المفاتيح. هل تستخدمها أم تُدخل واحدة جديدة؟",
         "steam.storedPasswordUse": "استخدام المحفوظة",
-        "steam.storedPasswordType": "إدخال يدوي"
+        "steam.storedPasswordType": "إدخال يدوي",
+        "alert.diskAccess": "لا يستطيع المشغّل الكتابة في مجلد بياناته:\n%@\n\nلا تعمل اللعبة بدون الوصول إلى القرص.",
+        "mod.update": "تحديث",
+        "mod.outdated": "صدر إصدار أحدث من حزمة هذا التعديل — حدّثها لتلعب",
+        "sync.statusChecking": "جارٍ التحقق مع الخادم…",
+        "sync.statusOk": "تم التحقق مع الخادم: لديك أحدث إصدار وجميع الإصلاحات",
+        "sync.statusStale": "تم التحقق مع الخادم قبل أقل من ساعة: لديك كل ما صدر حتى ذلك الوقت",
+        "sync.statusOffline": "لم يتم التحقق مع الخادم: أحدث إصدار والإصلاحات غير مضمونة",
+        "sync.statusLauncherOutdated": "المشغّل قديم: لا يمكن ضمان استقرار اللعبة دون التحديث"
     ]
 
     static let kk: [String: String] = [
@@ -1242,7 +1302,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Сақталған құпия сөз табылды",
         "steam.storedPasswordMsg": "«%@» үшін кілттер тізбегінде құпия сөз бар. Соны қою керек пе, әлде жаңасын енгізесіз бе?",
         "steam.storedPasswordUse": "Сақталғанды қою",
-        "steam.storedPasswordType": "Қолмен енгізу"
+        "steam.storedPasswordType": "Қолмен енгізу",
+        "alert.diskAccess": "Лаунчер өз деректер қалтасына жаза алмайды:\n%@\n\nДискіге қолжетімсіз ойын жұмыс істемейді.",
+        "mod.update": "ЖАҢАРТУ",
+        "mod.outdated": "Мод пакетінің жаңа нұсқасы шықты — ойнау үшін жаңартыңыз",
+        "sync.statusChecking": "Сервермен тексерілуде…",
+        "sync.statusOk": "Сервермен тексерілді: сізде соңғы нұсқа және барлық түзетулер бар",
+        "sync.statusStale": "Сервермен бір сағаттан аз уақыт бұрын тексерілді: оған дейін шыққанның бәрі сізде бар",
+        "sync.statusOffline": "Сервермен тексерілмеді: соңғы нұсқа мен түзетулерге кепілдік жоқ",
+        "sync.statusLauncherOutdated": "Лаунчер ескірген: жаңартпасаңыз, ойынның тұрақтылығына кепілдік жоқ"
     ]
 
     static let vi: [String: String] = [
@@ -1382,7 +1450,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Đã tìm thấy mật khẩu đã lưu",
         "steam.storedPasswordMsg": "Keychain có mật khẩu cho “%@”. Dùng mật khẩu đó hay nhập mật khẩu mới?",
         "steam.storedPasswordUse": "Dùng đã lưu",
-        "steam.storedPasswordType": "Tự nhập"
+        "steam.storedPasswordType": "Tự nhập",
+        "alert.diskAccess": "Trình khởi chạy không thể ghi vào thư mục dữ liệu của nó:\n%@\n\nTrò chơi không hoạt động nếu không có quyền truy cập ổ đĩa.",
+        "mod.update": "CẬP NHẬT",
+        "mod.outdated": "Đã có phiên bản mới của gói mod này — cập nhật để chơi",
+        "sync.statusChecking": "Đang kiểm tra với máy chủ…",
+        "sync.statusOk": "Đã kiểm tra với máy chủ: bạn có phiên bản mới nhất và mọi bản sửa lỗi",
+        "sync.statusStale": "Đã kiểm tra với máy chủ chưa đầy một giờ trước: bạn có mọi thứ phát hành đến lúc đó",
+        "sync.statusOffline": "Chưa kiểm tra với máy chủ: không đảm bảo phiên bản mới nhất và các bản sửa lỗi",
+        "sync.statusLauncherOutdated": "Trình khởi chạy đã cũ: không đảm bảo trò chơi ổn định nếu chưa cập nhật"
     ]
 
     static let pl: [String: String] = [
@@ -1522,7 +1598,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Znaleziono zapisane hasło",
         "steam.storedPasswordMsg": "W pęku kluczy jest hasło dla „%@”. Użyć go czy wpisać nowe?",
         "steam.storedPasswordUse": "Użyj zapisanego",
-        "steam.storedPasswordType": "Wpisz ręcznie"
+        "steam.storedPasswordType": "Wpisz ręcznie",
+        "alert.diskAccess": "Launcher nie może zapisywać w swoim folderze danych:\n%@\n\nBez dostępu do dysku gra nie działa.",
+        "mod.update": "AKTUALIZUJ",
+        "mod.outdated": "Wyszła nowa wersja pakietu moda — zaktualizuj, aby grać",
+        "sync.statusChecking": "Sprawdzanie z serwerem…",
+        "sync.statusOk": "Sprawdzono z serwerem: masz najnowszą wersję i wszystkie poprawki",
+        "sync.statusStale": "Sprawdzono z serwerem mniej niż godzinę temu: masz wszystko, co do tego czasu wyszło",
+        "sync.statusOffline": "Brak sprawdzenia z serwerem: najnowsza wersja i poprawki nie są gwarantowane",
+        "sync.statusLauncherOutdated": "Launcher jest nieaktualny: bez aktualizacji stabilność gry nie jest gwarantowana"
     ]
 
     static let de: [String: String] = [
@@ -1662,7 +1746,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Gespeichertes Passwort gefunden",
         "steam.storedPasswordMsg": "Für „%@“ liegt ein Passwort im Schlüsselbund. Verwenden oder neu eingeben?",
         "steam.storedPasswordUse": "Verwenden",
-        "steam.storedPasswordType": "Selbst eingeben"
+        "steam.storedPasswordType": "Selbst eingeben",
+        "alert.diskAccess": "Der Launcher kann nicht in seinen Datenordner schreiben:\n%@\n\nOhne Festplattenzugriff funktioniert das Spiel nicht.",
+        "mod.update": "AKTUALISIEREN",
+        "mod.outdated": "Eine neuere Version dieses Mod-Pakets ist erschienen — zum Spielen aktualisieren",
+        "sync.statusChecking": "Abgleich mit dem Server…",
+        "sync.statusOk": "Mit dem Server abgeglichen: Du hast die neueste Version und alle Fixes",
+        "sync.statusStale": "Vor weniger als einer Stunde mit dem Server abgeglichen: Du hast alles, was bis dahin erschienen ist",
+        "sync.statusOffline": "Nicht mit dem Server abgeglichen: Neueste Version und Fixes sind nicht garantiert",
+        "sync.statusLauncherOutdated": "Der Launcher ist veraltet: Ohne Update ist die Stabilität des Spiels nicht garantiert"
     ]
 
     static let es: [String: String] = [
@@ -1802,7 +1894,15 @@ enum L10n {
         "steam.storedPasswordTitle": "Contraseña guardada encontrada",
         "steam.storedPasswordMsg": "Hay una contraseña para «%@» en el llavero. ¿Usarla o escribir otra?",
         "steam.storedPasswordUse": "Usar guardada",
-        "steam.storedPasswordType": "Escribir a mano"
+        "steam.storedPasswordType": "Escribir a mano",
+        "alert.diskAccess": "El launcher no puede escribir en su carpeta de datos:\n%@\n\nEl juego no funciona sin acceso al disco.",
+        "mod.update": "ACTUALIZAR",
+        "mod.outdated": "Hay una versión nueva de este paquete del mod — actualiza para jugar",
+        "sync.statusChecking": "Comprobando con el servidor…",
+        "sync.statusOk": "Comprobado con el servidor: tienes la última versión y todas las correcciones",
+        "sync.statusStale": "Comprobado con el servidor hace menos de una hora: tienes todo lo publicado hasta entonces",
+        "sync.statusOffline": "Sin comprobar con el servidor: la última versión y las correcciones no están garantizadas",
+        "sync.statusLauncherOutdated": "El launcher está desactualizado: sin actualizar no se garantiza la estabilidad del juego"
     ]
 
     static let tr: [String: String] = [
@@ -1942,6 +2042,14 @@ enum L10n {
         "steam.storedPasswordTitle": "Kayıtlı parola bulundu",
         "steam.storedPasswordMsg": "“%@” için anahtar zincirinde bir parola var. Kullanılsın mı, yoksa yenisi mi girilsin?",
         "steam.storedPasswordUse": "Kayıtlıyı kullan",
-        "steam.storedPasswordType": "Elle gir"
+        "steam.storedPasswordType": "Elle gir",
+        "alert.diskAccess": "Başlatıcı veri klasörüne yazamıyor:\n%@\n\nDisk erişimi olmadan oyun çalışmaz.",
+        "mod.update": "GÜNCELLE",
+        "mod.outdated": "Bu mod paketinin yeni sürümü çıktı — oynamak için güncelleyin",
+        "sync.statusChecking": "Sunucuyla kontrol ediliyor…",
+        "sync.statusOk": "Sunucuyla doğrulandı: en son sürüm ve tüm düzeltmeler sizde",
+        "sync.statusStale": "Bir saatten kısa süre önce sunucuyla doğrulandı: o zamana kadar çıkan her şey sizde",
+        "sync.statusOffline": "Sunucuyla doğrulanmadı: en son sürüm ve düzeltmeler garanti edilmiyor",
+        "sync.statusLauncherOutdated": "Başlatıcı güncel değil: güncellemeden oyunun kararlılığı garanti edilmez"
     ]
 }

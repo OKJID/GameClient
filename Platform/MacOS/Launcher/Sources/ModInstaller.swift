@@ -215,14 +215,30 @@ class ModInstaller: ObservableObject {
 
     private func finish(_ profile: GameProfile, destination: URL) {
         stage = "verify"
+        guard let liveMod = GameProfile.mods.first(where: { $0.id == profile.id })?.mod else {
+            fail(profile, destination: destination, message: "mod is no longer in the catalog")
+            return
+        }
+
         let fm = FileManager.default
-        let missing = (profile.mod?.markers ?? []).filter { marker in
+        let missing = liveMod.markers.filter { marker in
             !fm.fileExists(atPath: destination.appendingPathComponent(marker).path)
         }
 
         guard missing.isEmpty else {
             let preview = missing.prefix(3).joined(separator: ", ")
             fail(profile, destination: destination, message: "\(missing.count) file(s) missing after unpack: \(preview)")
+            return
+        }
+
+        let packageVersion = ModSpec.packageVersion(inPackageAt: destination)
+        let catalogVersion = liveMod.packageVersion
+        guard packageVersion >= catalogVersion else {
+            fail(
+                profile,
+                destination: destination,
+                message: "package revision \(packageVersion) is older than the catalog's \(catalogVersion)"
+            )
             return
         }
 

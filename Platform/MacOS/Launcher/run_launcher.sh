@@ -12,6 +12,7 @@ APP_DIR="build/dist/Generals Online.app"
 APP_PATH="$APP_DIR/Contents/MacOS/$LAUNCHER_NAME"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
 LAUNCHER_ASSETS="background.png background_mod.png dir_image.png author_logo.png medallion_logo.png hacker.png Install_Final.bmp"
+API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
 REFRESH_SWIFT=0
 
 for arg in "$@"; do
@@ -44,6 +45,10 @@ if [ "$REFRESH_SWIFT" -eq 1 ]; then
     for asset in $LAUNCHER_ASSETS; do
         cp "assets/$asset" "$RESOURCES_DIR/$asset" 2>/dev/null || true
     done
+
+    echo "🗂️ Refreshing API snapshots..."
+    mkdir -p "$RESOURCES_DIR/api"
+    cp "$API_SNAPSHOTS_DIR"/*.json "$RESOURCES_DIR/api/"
 
     echo "🔏 Re-signing the bundle..."
     codesign --force --deep -s - "$APP_DIR"

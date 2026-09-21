@@ -42,50 +42,30 @@ private struct AnnouncementsPayload: Codable {
     let items: [Announcement]
 }
 
-final class AnnouncementsFeed: ObservableObject {
-    private static let feedURL = URL(string: "https://general-online-zh.web.app/api/announcements.json")!
-    private static let refreshInterval: TimeInterval = 30 * 60
-    private static let requestTimeout: TimeInterval = 10
+final class AnnouncementsFeed: ObservableObject, ApiResource {
+    private static let schemaVersion = 1
     private static let maxItems = 12
     private static let maxBodyLength = 4000
 
+    let resourceName = "announcements.json"
+
     @Published private(set) var items: [Announcement] = []
 
-    private var timer: Timer?
+    func reload() throws {
+        let payload = try ApiCache.load(resourceName, decode: Self.decode)
+        let accepted = Self.accepted(payload?.items ?? [])
+        guard accepted != items else { return }
 
-    func start() {
-        items = Self.readCache()
-        refresh()
+        items = accepted
+    }
 
-        timer = Timer.scheduledTimer(withTimeInterval: Self.refreshInterval, repeats: true) { [weak self] _ in
-            self?.refresh()
+    private static func decode(_ data: Data) -> AnnouncementsPayload? {
+        guard let payload = try? JSONDecoder().decode(AnnouncementsPayload.self, from: data),
+              payload.version == schemaVersion else {
+            return nil
         }
-    }
 
-    func stop() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    func refresh() {
-        var request = URLRequest(url: Self.feedURL)
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.timeoutInterval = Self.requestTimeout
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
-            guard let data, error == nil else { return }
-            guard let payload = try? JSONDecoder().decode(AnnouncementsPayload.self, from: data) else { return }
-
-            let accepted = Self.accepted(payload.items)
-
-            DispatchQueue.main.async {
-                guard let self else { return }
-                guard accepted != self.items else { return }
-
-                self.items = accepted
-                Self.writeCache(accepted)
-            }
-        }.resume()
+        return payload
     }
 
     private static func accepted(_ raw: [Announcement]) -> [Announcement] {
@@ -109,30 +89,5 @@ final class AnnouncementsFeed: ObservableObject {
             body: item.body.map { String($0.prefix(maxBodyLength)) },
             locales: limited
         )
-    }
-}
-
-private extension AnnouncementsFeed {
-    static var cacheURL: URL? {
-        guard let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
-            return nil
-        }
-
-        let folder = base.appendingPathComponent("GeneralsOnlineLauncher", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-
-        return folder.appendingPathComponent("announcements.json")
-    }
-
-    static func readCache() -> [Announcement] {
-        guard let cacheURL, let data = try? Data(contentsOf: cacheURL) else { return [] }
-        guard let cached = try? JSONDecoder().decode([Announcement].self, from: data) else { return [] }
-
-        return accepted(cached)
-    }
-
-    static func writeCache(_ items: [Announcement]) {
-        guard let cacheURL, let data = try? JSONEncoder().encode(items) else { return }
-        try? data.write(to: cacheURL, options: .atomic)
     }
 }

@@ -49,11 +49,17 @@ struct MainView: View {
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
     private let switcherButtonWidth: CGFloat = 144
+    private let switcherButtonHeight: CGFloat = 46
+    private let switcherSpacing: CGFloat = 8
+    private let modListOverscrollRows: CGFloat = 3
     private let switcherContentGap: CGFloat = 12
     private let contentInset: CGFloat = 60
 
     private var switcherColumnWidth: CGFloat {
         switcherButtonWidth + switcherContentGap - contentInset
+    }
+    private var modListOverscroll: CGFloat {
+        modListOverscrollRows * (switcherButtonHeight + switcherSpacing)
     }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
     private let darkPanel = Color.black.opacity(0.85)
@@ -80,6 +86,7 @@ struct MainView: View {
                     VStack(spacing: 0) {
                         _buildHeader()
                             .padding(.top, 16)
+                            .zIndex(1)
 
                         if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
                             _buildUpdateBanner(update)
@@ -278,17 +285,16 @@ struct MainView: View {
     // MARK: - Header
 
     private func _buildGameSwitcher() -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: switcherSpacing) {
             ForEach(GameProfile.baseGames) { profile in
                 _buildGameButton(profile, isEnabled: viewModel.installDirectory(for: profile) != nil)
             }
 
             _buildModSwitcherSection()
-
-            Spacer()
         }
         .padding(.top, 150)
         .frame(width: switcherColumnWidth, alignment: .leading)
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 
     @ViewBuilder
@@ -302,9 +308,16 @@ struct MainView: View {
                 .padding(.leading, 8)
                 .padding(.top, 10)
 
-            ForEach(mods) { profile in
-                _buildGameButton(profile, isEnabled: true)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: switcherSpacing) {
+                    ForEach(mods) { profile in
+                        _buildGameButton(profile, isEnabled: true)
+                    }
+                }
+                .padding(.top, 2)
+                .padding(.bottom, modListOverscroll)
             }
+            .frame(width: switcherButtonWidth + 2, alignment: .leading)
         }
     }
 
@@ -340,7 +353,7 @@ struct MainView: View {
                         .padding(.trailing, 12)
                 }
             }
-            .frame(width: switcherButtonWidth, height: 46)
+            .frame(width: switcherButtonWidth, height: switcherButtonHeight)
             .background(
                 LeftFlushShape(radius: 10)
                     .fill(isSelected ? profile.theme.accent.opacity(0.85) : profile.theme.panel.opacity(0.75))
@@ -378,6 +391,11 @@ struct MainView: View {
                 .shadow(color: accent, radius: 15)
 
             HStack(spacing: 8) {
+                SyncStatusIndicator(
+                    status: viewModel.apiSync.status,
+                    isLauncherOutdated: viewModel.updateChecker.availableUpdate != nil
+                )
+
                 Text(L10n.app.subtitle)
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
@@ -776,23 +794,20 @@ struct MainView: View {
 
     private func _buildModInstallButton(_ profile: GameProfile, errorText: String?) -> some View {
         let sizeText = _modSizeText(profile)
-        let isDamaged = viewModel.isModDamaged(profile)
-        let damageText = isDamaged
-            ? String(format: L10n.mod.damaged, viewModel.missingModFileCount(profile))
-            : nil
+        let action = _modInstallAction(profile)
 
         return VStack(spacing: 8) {
-            if let text = errorText ?? damageText {
+            if let text = errorText ?? _modNoticeText(profile) {
                 Text(text)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundColor(isDamaged && errorText == nil ? .orange.opacity(0.85) : .red.opacity(0.85))
+                    .foregroundColor(errorText == nil ? .orange.opacity(0.85) : .red.opacity(0.85))
                     .lineLimit(2)
             }
 
             Button(action: { viewModel.installMod(profile) }) {
                 HStack(spacing: 10) {
-                    Image(systemName: isDamaged ? "wrench.and.screwdriver.fill" : "arrow.down.circle.fill")
-                    Text("\(isDamaged ? L10n.mod.repair : L10n.mod.install) \(profile.shortName)")
+                    Image(systemName: action.icon)
+                    Text("\(action.title) \(profile.shortName)")
                 }
                 .font(.system(size: 20, weight: .bold, design: .monospaced))
                 .foregroundColor(.white)
@@ -856,6 +871,30 @@ struct MainView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(viewModel.modInstaller.isBusy)
+    }
+
+    private func _modInstallAction(_ profile: GameProfile) -> (title: String, icon: String) {
+        if viewModel.isModDamaged(profile) {
+            return (L10n.mod.repair, "wrench.and.screwdriver.fill")
+        }
+
+        if viewModel.isModOutdated(profile) {
+            return (L10n.mod.update, "arrow.triangle.2.circlepath.circle.fill")
+        }
+
+        return (L10n.mod.install, "arrow.down.circle.fill")
+    }
+
+    private func _modNoticeText(_ profile: GameProfile) -> String? {
+        if viewModel.isModDamaged(profile) {
+            return String(format: L10n.mod.damaged, viewModel.missingModFileCount(profile))
+        }
+
+        if viewModel.isModOutdated(profile) {
+            return L10n.mod.outdated
+        }
+
+        return nil
     }
 
     private func _modDownloadSizeText(_ profile: GameProfile) -> String {

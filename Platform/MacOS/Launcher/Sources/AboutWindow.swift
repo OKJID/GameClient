@@ -98,7 +98,7 @@ struct AboutView: View {
         HStack(spacing: 20) {
             _buildLink(title: L10n.about.website, url: "https://general-online-zh.web.app")
             _buildLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
-            _buildLink(title: "GitHub", url: "https://github.com/GeneralsOnlineDevelopmentTeam/GameClient")
+            _buildLink(title: "GitHub", url: "https://github.com/OKJID/GameClient")
         }
     }
 

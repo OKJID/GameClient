@@ -10,7 +10,7 @@ struct AppUpdate: Codable {
     let minOSVersion: String
 }
 
-class UpdateChecker: ObservableObject {
+class UpdateChecker: ObservableObject, ApiResource {
     static var currentVersion: String {
         Bundle.main.infoDictionary?["GOLauncherVersion"] as? String ?? "0.0.0"
     }
@@ -25,54 +25,25 @@ class UpdateChecker: ObservableObject {
         return "v\(version) (\(currentBuild))"
     }
 
-    private static let updateURL = URL(string: "https://general-online-zh.web.app/api/update.json")!
-    private static let checkInterval: TimeInterval = 5 * 60
+    let resourceName = "update.json"
 
     @Published var availableUpdate: AppUpdate? = nil
-    @Published var isChecking: Bool = false
-    @Published var lastCheckDate: Date? = nil
 
-    private var timer: Timer?
-
-    func startPeriodicChecks() {
-        checkForUpdate()
-
-        timer = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
-            self?.checkForUpdate()
-        }
+    func reload() throws {
+        let update = try ApiCache.load(resourceName) { try? JSONDecoder().decode(AppUpdate.self, from: $0) }
+        offer(update.flatMap { isOffered($0) ? $0 : nil })
     }
 
-    func stopPeriodicChecks() {
-        timer?.invalidate()
-        timer = nil
+    private func offer(_ update: AppUpdate?) {
+        guard update?.version != availableUpdate?.version else { return }
+
+        availableUpdate = update
+        guard let update else { return }
+        Analytics.logUpdateOffered(version: update.version)
     }
 
-    func checkForUpdate() {
-        guard !isChecking else { return }
-        isChecking = true
-
-        var request = URLRequest(url: Self.updateURL)
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.timeoutInterval = 10
-
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.isChecking = false
-                self.lastCheckDate = Date()
-
-                guard let data, error == nil else { return }
-                guard let update = try? JSONDecoder().decode(AppUpdate.self, from: data) else { return }
-
-                if self.isNewerVersion(update.version, than: Self.currentVersion)
-                    || update.build > Self.currentBuild {
-                    guard self.availableUpdate?.version != update.version else { return }
-
-                    self.availableUpdate = update
-                    Analytics.logUpdateOffered(version: update.version)
-                }
-            }
-        }.resume()
+    private func isOffered(_ update: AppUpdate) -> Bool {
+        isNewerVersion(update.version, than: Self.currentVersion) || update.build > Self.currentBuild
     }
 
     private func isNewerVersion(_ remote: String, than local: String) -> Bool {

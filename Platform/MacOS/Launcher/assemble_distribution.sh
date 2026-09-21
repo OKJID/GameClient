@@ -35,6 +35,7 @@ ZIP_NAME="Generals_Online_Mac_Alpha.zip"
 DMG_NAME="Generals_Online_Mac_Alpha.dmg"
 INSTRUCTIONS_NAME="Instructions.html"
 INSTRUCTIONS_BUILDER="../../../Dependencies/general_online_zh/build.sh"
+API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
 
 echo "=========================================="
 echo "📦 Assembling Final Distribution Package"
@@ -144,6 +145,18 @@ cp assets/medallion_logo.png "$RESOURCES_DIR/medallion_logo.png" 2>/dev/null || 
 cp assets/hacker.png "$RESOURCES_DIR/hacker.png" 2>/dev/null || true
 cp assets/Install_Final.bmp "$RESOURCES_DIR/Install_Final.bmp" 2>/dev/null || true
 cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
+
+# The launcher reads the API only through its cache and seeds that cache from these
+# snapshots, so a bundle without them cannot start offline.
+API_SNAPSHOTS=$(find "$API_SNAPSHOTS_DIR" -maxdepth 1 -name "*.json")
+if [ -z "$API_SNAPSHOTS" ]; then
+    echo "🚨 ERROR: No API snapshots found in $API_SNAPSHOTS_DIR"
+    exit 1
+fi
+
+mkdir -p "$RESOURCES_DIR/api"
+cp $API_SNAPSHOTS "$RESOURCES_DIR/api/"
+ls "$RESOURCES_DIR/api" | sed 's/^/   API snapshot: /'
 
 PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $LAUNCHER_NAME" "$PLIST_FILE"

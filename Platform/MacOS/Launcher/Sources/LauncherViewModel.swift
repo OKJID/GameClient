@@ -125,15 +125,17 @@ class LauncherViewModel: ObservableObject {
     var modInstaller = ModInstaller()
     var updateChecker = UpdateChecker()
     var announcements = AnnouncementsFeed()
+    lazy var apiSync = ApiSync(resources: [updateChecker, announcements, ModCatalog.shared])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
 
     private struct ModStatus {
         let installed: Bool
         let damaged: Bool
+        let outdated: Bool
         let missingCount: Int
 
-        static let unknown = ModStatus(installed: false, damaged: false, missingCount: 0)
+        static let unknown = ModStatus(installed: false, damaged: false, outdated: false, missingCount: 0)
     }
 
     private var validationEpoch: Int = 0
@@ -171,6 +173,30 @@ class LauncherViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        ModCatalog.shared.$mods
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.invalidateValidation()
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        apiSync.$status
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        apiSync.$isDiskAccessDenied
+            .removeDuplicates()
+            .filter { $0 }
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.reportDiskAccessDenied()
+            }
+            .store(in: &cancellables)
+
         steamCMD.$state
             .removeDuplicates()
             .sink { [weak self] state in
@@ -204,8 +230,7 @@ class LauncherViewModel: ObservableObject {
         loadSettings()
 
         self.isInitializing = false
-        updateChecker.startPeriodicChecks()
-        announcements.start()
+        apiSync.start()
 
         Analytics.logOpen(
             uiLanguage: selectedLanguage,
@@ -288,6 +313,10 @@ class LauncherViewModel: ObservableObject {
     func saveCredentials() {
         guard !steamUsername.isEmpty, !steamPassword.isEmpty else { return }
         KeychainHelper.save(account: steamUsername, password: steamPassword)
+    }
+
+    private func reportDiskAccessDenied() {
+        alertMessage = String(format: L10n.alerts.diskAccess, ApiCache.folderURL?.path ?? "")
     }
 
     private func reportSettingChange(_ key: String, _ value: Any) {
@@ -437,6 +466,10 @@ class LauncherViewModel: ObservableObject {
         modStatus(profile).damaged
     }
 
+    func isModOutdated(_ profile: GameProfile) -> Bool {
+        modStatus(profile).outdated
+    }
+
     func missingModFileCount(_ profile: GameProfile) -> Int {
         modStatus(profile).missingCount
     }
@@ -457,12 +490,16 @@ class LauncherViewModel: ObservableObject {
         }
 
         let missing = profile.missingModFiles(installRoot: root)
-        guard !missing.isEmpty else {
-            return ModStatus(installed: true, damaged: false, missingCount: 0)
+        guard missing.isEmpty else {
+            let exists = FileManager.default.fileExists(atPath: directory.path)
+            return ModStatus(installed: false, damaged: exists, outdated: false, missingCount: missing.count)
         }
 
-        let exists = FileManager.default.fileExists(atPath: directory.path)
-        return ModStatus(installed: false, damaged: exists, missingCount: missing.count)
+        guard profile.isModOutdated(installRoot: root) else {
+            return ModStatus(installed: true, damaged: false, outdated: false, missingCount: 0)
+        }
+
+        return ModStatus(installed: false, damaged: false, outdated: true, missingCount: 0)
     }
 
     func modState(_ profile: GameProfile) -> ModInstallState {
@@ -496,6 +533,7 @@ class LauncherViewModel: ObservableObject {
             return
         }
 
+        apiSync.tick()
         modInstaller.install(profile, installRoot: root)
     }
 
