@@ -170,6 +170,15 @@ PLIST_FILE="$CONTENTS_DIR/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :GOLauncherBuild string $BUILD" "$PLIST_FILE"
 echo "   Launcher version: v$VERSION (build $BUILD)"
 
+GAME_MIN_MACOS=$(vtool -show-build "$GAME_BINARY" | awk '/minos/ { print $2; exit }')
+if [ -z "$GAME_MIN_MACOS" ]; then
+    echo "🚨 ERROR: Could not read the minimum macOS version from $GAME_BINARY"
+    exit 1
+fi
+/usr/libexec/PlistBuddy -c "Delete :LSMinimumSystemVersion" "$PLIST_FILE" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :LSMinimumSystemVersion string $GAME_MIN_MACOS" "$PLIST_FILE"
+echo "   Minimum macOS: $GAME_MIN_MACOS"
+
 if [ -n "$GO_GA_MEASUREMENT_ID" ] && [ -n "$GO_GA_API_SECRET" ]; then
     /usr/libexec/PlistBuddy -c "Delete :GAMeasurementId" "$PLIST_FILE" 2>/dev/null || true
     /usr/libexec/PlistBuddy -c "Add :GAMeasurementId string $GO_GA_MEASUREMENT_ID" "$PLIST_FILE"
