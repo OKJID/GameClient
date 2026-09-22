@@ -62,6 +62,8 @@
 #ifdef __APPLE__
 #include <dlfcn.h>
 #include <malloc/malloc.h>
+#include <pthread.h>
+#include <stdlib.h>
 #include <string.h>
 
 static uintptr_t gExeStart = 0;
@@ -92,6 +94,86 @@ static inline bool isCallerAppleSystem() {
     
     // Otherwise, it's Apple Frameworks, AudioToolbox, or libc++
     return true;
+}
+
+// Who owns a freed block cannot be asked of the system allocator: pool blocks live inside malloc'd
+// blobs, and malloc_size() may answer for an interior pointer malloc never handed out. Every region
+// this module takes from the OS is recorded here, and that record decides who frees a block.
+struct AppleOwnedRegion
+{
+	uintptr_t begin;
+	uintptr_t end;
+};
+
+static AppleOwnedRegion *gOwnedRegions = nullptr;
+static size_t gOwnedRegionCount = 0;
+static size_t gOwnedRegionCapacity = 0;
+static pthread_mutex_t gOwnedRegionsLock = PTHREAD_MUTEX_INITIALIZER;
+
+static size_t appleOwnedRegionUpperBound(uintptr_t address)
+{
+	size_t low = 0;
+	size_t high = gOwnedRegionCount;
+	while (low < high) {
+		size_t mid = low + (high - low) / 2;
+		if (gOwnedRegions[mid].begin <= address) {
+			low = mid + 1;
+		} else {
+			high = mid;
+		}
+	}
+	return low;
+}
+
+static void appleOwnedRegionAdd(void *p, size_t size)
+{
+	pthread_mutex_lock(&gOwnedRegionsLock);
+
+	if (gOwnedRegionCount == gOwnedRegionCapacity) {
+		size_t capacity = gOwnedRegionCapacity ? gOwnedRegionCapacity * 2 : 256;
+		AppleOwnedRegion *grown = (AppleOwnedRegion *)::realloc(gOwnedRegions, capacity * sizeof(AppleOwnedRegion));
+		if (!grown) {
+			pthread_mutex_unlock(&gOwnedRegionsLock);
+			printf("!!! appleOwnedRegionAdd FAILED to grow to %zu regions\n", capacity);
+			fflush(stdout);
+			abort();
+		}
+		gOwnedRegions = grown;
+		gOwnedRegionCapacity = capacity;
+	}
+
+	size_t at = appleOwnedRegionUpperBound((uintptr_t)p);
+	::memmove(&gOwnedRegions[at + 1], &gOwnedRegions[at], (gOwnedRegionCount - at) * sizeof(AppleOwnedRegion));
+	gOwnedRegions[at].begin = (uintptr_t)p;
+	gOwnedRegions[at].end = (uintptr_t)p + size;
+	++gOwnedRegionCount;
+
+	pthread_mutex_unlock(&gOwnedRegionsLock);
+}
+
+static void appleOwnedRegionRemove(void *p)
+{
+	pthread_mutex_lock(&gOwnedRegionsLock);
+
+	size_t at = appleOwnedRegionUpperBound((uintptr_t)p);
+	if (at > 0 && gOwnedRegions[at - 1].begin == (uintptr_t)p) {
+		--at;
+		::memmove(&gOwnedRegions[at], &gOwnedRegions[at + 1], (gOwnedRegionCount - at - 1) * sizeof(AppleOwnedRegion));
+		--gOwnedRegionCount;
+	}
+
+	pthread_mutex_unlock(&gOwnedRegionsLock);
+}
+
+static bool appleOwnsPointer(const void *p)
+{
+	pthread_mutex_lock(&gOwnedRegionsLock);
+
+	size_t at = appleOwnedRegionUpperBound((uintptr_t)p);
+	bool owned = at > 0 && (uintptr_t)p < gOwnedRegions[at - 1].end;
+
+	pthread_mutex_unlock(&gOwnedRegionsLock);
+	return owned;
 }
 #endif
 
@@ -278,6 +360,9 @@ static void* sysAllocateDoNotZero(Int numBytes)
 #endif
 		throw ERROR_OUT_OF_MEMORY;
 	}
+#ifdef __APPLE__
+	appleOwnedRegionAdd(p, (size_t)numBytes);
+#endif
 #ifdef MEMORYPOOL_DEBUG
 	{
 		USE_PERF_TIMER(MemoryPoolDebugging)
@@ -310,6 +395,9 @@ static void sysFree(void* p)
 			::memset32(p, GARBAGE_FILL_VALUE, ::GlobalSize(p));
 			theTotalSystemAllocationInBytes -= ::GlobalSize(p);
 		}
+#endif
+#ifdef __APPLE__
+		appleOwnedRegionRemove(p);
 #endif
 		::GlobalFree(p);
 	}
@@ -2336,7 +2424,7 @@ void DynamicMemoryAllocator::freeBytes(void* pBlockPtr)
 		return;
 
 #ifdef __APPLE__
-	if (malloc_size(pBlockPtr) > 0) {
+	if (!appleOwnsPointer(pBlockPtr)) {
 		free(pBlockPtr);
 		return;
 	}
