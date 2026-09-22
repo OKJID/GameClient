@@ -633,8 +633,9 @@ struct Coord3D
 	Real length() const
 	{
 #if RETAIL_COMPATIBLE_CRC
-		// Must not touch this function because it affects its inline-ability
-		// and therefore changes the logic at an unknown call site that relies on it. It is a bug.
+		// TheSuperHackers @info With VC6, (Real)sqrt() and Sqrt() give different results here because of x87 excess
+		// precision, and TurretAIAimTurretState::update() relies on it. Calling Sqrt() here breaks retail CRC.
+		// TheSuperHackers @todo Keep the original sqrt() only in TurretAIAimTurretState::update() and call Sqrt() here.
 		return (Real)sqrt( x*x + y*y + z*z );
 #else
 		return Sqrt( x*x + y*y + z*z );
