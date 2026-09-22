@@ -121,47 +121,40 @@ static bool wav_parse(const uint8_t *data, size_t len, WavParseResult *out) {
 static AVAudioPCMBuffer *createPCMBuffer(const uint8_t *pcmData, uint32_t pcmBytes,
                                           uint32_t sampleRate, uint16_t channels,
                                           uint16_t bitsPerSample) {
-    AVAudioCommonFormat commonFmt;
-    uint32_t bytesPerSample;
+    // An input bus of AVAudioEngine runs on the standard format — deinterleaved float32 —
+    // and rejects anything else with kAudioUnitErr_FormatNotSupported. The engine's own
+    // file reader hands us that format already; raw PCM from the game archives is converted
+    // here so both paths reach the graph the same way.
+    const uint32_t bytesPerSample = (bitsPerSample == 16) ? 2 : 1;
+    if (channels == 0 || pcmBytes < bytesPerSample * channels) return nil;
 
-    if (bitsPerSample == 16) {
-        commonFmt = AVAudioPCMFormatInt16;
-        bytesPerSample = 2;
-    } else {
-        commonFmt = AVAudioOtherFormat;
-        bytesPerSample = 1;
-    }
-
-    if (commonFmt == AVAudioOtherFormat) {
-        AVAudioFormat *fmt16 = [[AVAudioFormat alloc] initWithCommonFormat:AVAudioPCMFormatInt16
-                                                               sampleRate:sampleRate
-                                                                 channels:channels
-                                                              interleaved:YES];
-        uint32_t numSamples = pcmBytes / channels;
-        AVAudioPCMBuffer *buf = [[AVAudioPCMBuffer alloc] initWithPCMFormat:fmt16
-                                                             frameCapacity:numSamples];
-        buf.frameLength = numSamples;
-
-        int16_t *dst = buf.int16ChannelData[0];
-        for (uint32_t i = 0; i < pcmBytes; i++) {
-            dst[i] = (int16_t)((pcmData[i] - 128) << 8);
-        }
-        return buf;
-    }
-
-    AVAudioFormat *fmt = [[AVAudioFormat alloc] initWithCommonFormat:commonFmt
-                                                         sampleRate:sampleRate
-                                                           channels:channels
-                                                        interleaved:YES];
+    AVAudioFormat *fmt = [[AVAudioFormat alloc] initStandardFormatWithSampleRate:sampleRate
+                                                                        channels:channels];
     if (!fmt) return nil;
 
-    uint32_t framesTotal = pcmBytes / (bytesPerSample * channels);
+    const uint32_t framesTotal = pcmBytes / (bytesPerSample * channels);
     AVAudioPCMBuffer *buf = [[AVAudioPCMBuffer alloc] initWithPCMFormat:fmt
                                                          frameCapacity:framesTotal];
     if (!buf) return nil;
 
     buf.frameLength = framesTotal;
-    memcpy(buf.int16ChannelData[0], pcmData, pcmBytes);
+
+    float * const *dst = buf.floatChannelData;
+    if (bitsPerSample == 16) {
+        const int16_t *src = (const int16_t *)pcmData;
+        for (uint32_t frame = 0; frame < framesTotal; frame++) {
+            for (uint16_t ch = 0; ch < channels; ch++) {
+                dst[ch][frame] = (float)src[frame * channels + ch] / 32768.0f;
+            }
+        }
+        return buf;
+    }
+
+    for (uint32_t frame = 0; frame < framesTotal; frame++) {
+        for (uint16_t ch = 0; ch < channels; ch++) {
+            dst[ch][frame] = ((float)pcmData[frame * channels + ch] - 128.0f) / 128.0f;
+        }
+    }
     return buf;
 }
 
