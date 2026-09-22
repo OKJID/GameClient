@@ -241,6 +241,20 @@ struct FragmentIn {
 //  Vertex Shader (with DX8 per-vertex lighting)
 // ─────────────────────────────────────────────────────
 
+static void applyClipPlanes(constant Uniforms &uniforms, float4 wPos, thread VertexOut &vOut) {
+    if (uniforms.clipPlaneEnable != 0) {
+        for (int i = 0; i < 6; ++i) {
+            if ((uniforms.clipPlaneEnable & (1 << i)) != 0) {
+                vOut.clipDistance[i] = dot(wPos, uniforms.clipPlanes[i]);
+            } else {
+                vOut.clipDistance[i] = 1.0;
+            }
+        }
+    } else {
+        for (int i = 0; i < 6; ++i) vOut.clipDistance[i] = 1.0;
+    }
+}
+
 vertex VertexOut vertex_main(VertexIn in [[stage_in]],
                             constant Uniforms &uniforms [[buffer(1)]],
                             constant LightingUniforms &lighting [[buffer(3)]],
@@ -251,20 +265,6 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     out.pointSize = 1.0;
 
     float4 pos = float4(in.position.xyz, 1.0);
-    
-    auto applyClipPlanes = [&](float4 wPos, thread VertexOut& vOut) {
-        if (uniforms.clipPlaneEnable != 0) {
-            for (int i = 0; i < 6; ++i) {
-                if ((uniforms.clipPlaneEnable & (1 << i)) != 0) {
-                    vOut.clipDistance[i] = dot(wPos, uniforms.clipPlanes[i]);
-                } else {
-                    vOut.clipDistance[i] = 1.0;
-                }
-            }
-        } else {
-            for (int i = 0; i < 6; ++i) vOut.clipDistance[i] = 1.0;
-        }
-    };
     
     // ─── Custom Vertex Shader: Trees (shaderType == 1) ───
     // Implements Trees.vso: WVP transform, sway displacement, shroud UV generation
@@ -343,7 +343,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
             out.fogFactor = 1.0;
         }
         
-        applyClipPlanes(swayedPos, out);
+        applyClipPlanes(uniforms, swayedPos, out);
         return out;
     }
     
@@ -384,7 +384,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
             out.fogFactor = 1.0;
         }
         
-        applyClipPlanes(pos, out);
+        applyClipPlanes(uniforms, pos, out);
         return out;
     }
     
@@ -473,7 +473,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     if (lighting.lightingEnabled == 0 || lighting.hasNormals == 0) {
         // Lighting disabled or no normals: pass through vertex color
         out.color = in.color;
-        applyClipPlanes(uniforms.world * pos, out);
+        applyClipPlanes(uniforms, uniforms.world * pos, out);
         return out;
     }
     
@@ -619,7 +619,7 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
     out.specularColor = float4(matSpecular.rgb * totalSpecular.rgb, 0.0);
     out.specularColor = clamp(out.specularColor, 0.0, 1.0);
     
-    applyClipPlanes(uniforms.world * pos, out);
+    applyClipPlanes(uniforms, uniforms.world * pos, out);
     return out;
 }
 
@@ -768,6 +768,61 @@ bool alphaTestPass(uint func, float alphaVal, float ref) {
 // ─────────────────────────────────────────────────────
 //  Stage 7: Fragment Shader with full TSS support
 // ─────────────────────────────────────────────────────
+static float3 computeTexCoord(constant Uniforms &uniforms, thread FragmentIn &in, uint tci, uint stage) {
+    uint tciMode = (tci >> 16) & 0x3;
+    uint uvIndex = tci & 0x3;
+    float4 unprojected;
+
+    if (tciMode == 1 && uniforms.useProjection == 1) {
+        // D3DTSS_TCI_CAMERASPACEPOSITION (1)
+        unprojected = float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
+    } else if (tciMode == 2) {
+        // D3DTSS_TCI_CAMERASPACENORMAL (2)
+        unprojected = float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
+    } else if (tciMode == 3) {
+        // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR (3)
+        float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
+        float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
+        float3 R = V - 2.0 * dot(V, N) * N;
+        unprojected = float4(R.x, R.y, R.z, 1.0);
+    } else {
+        // D3DTSS_TCI_PASSTHRU (0)
+        float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
+        unprojected = float4(uv.x, uv.y, 0.0, 1.0);
+    }
+
+    uint flags = uniforms.texTransformFlags[stage];
+    if (flags != 0) {
+        float4 tc = uniforms.texMatrix[stage] * unprojected;
+        if ((flags & 256) != 0) { // D3DTTFF_PROJECTED
+            uint count = flags & 255;
+            if (count == 3 && tc.z != 0.0f) {
+                if (tc.z <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
+                tc.x /= tc.z;
+                tc.y /= tc.z;
+                if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
+            } else if (count == 4 && tc.w != 0.0f) {
+                if (tc.w <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
+                tc.x /= tc.w;
+                tc.y /= tc.w;
+                tc.z /= tc.w;
+                if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
+            }
+        }
+        // Non-projected texgen (COUNT2): tc.z is the raw third matrix
+        // component, not a projective clip coordinate. The fragment body
+        // discards when any uv.z < 0 to emulate projected-texture clipping,
+        // and only the .xy of the result is ever sampled — so leaking a raw
+        // negative tc.z here made the projected terrain overlay (cloud/light
+        // map) get discarded in bands wherever tc.z dipped below zero across
+        // the near-flat lowland, producing shimmering horizontal stripes.
+        // Force z=0 so only genuine projected clipping (the -1 sentinel
+        // above) can trigger the discard.
+        return float3(tc.xy, 0.0f);
+    }
+    return unprojected.xyz;
+}
+
 fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
                              constant Uniforms &uniforms [[buffer(1)]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
@@ -795,61 +850,6 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
         in.texCoord2 = pointCoord;
     }
 
-    auto computeTexCoord = [&](uint tci, uint stage) -> float3 {
-        uint tciMode = (tci >> 16) & 0x3;
-        uint uvIndex = tci & 0x3;
-        float4 unprojected;
-        
-        if (tciMode == 1 && uniforms.useProjection == 1) { 
-            // D3DTSS_TCI_CAMERASPACEPOSITION (1)
-            unprojected = float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-        } else if (tciMode == 2) { 
-            // D3DTSS_TCI_CAMERASPACENORMAL (2)
-            unprojected = float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-        } else if (tciMode == 3) { 
-            // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR (3)
-            float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
-            float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-            float3 R = V - 2.0 * dot(V, N) * N;
-            unprojected = float4(R.x, R.y, R.z, 1.0);
-        } else {
-            // D3DTSS_TCI_PASSTHRU (0)
-            float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-            unprojected = float4(uv.x, uv.y, 0.0, 1.0);
-        }
-        
-        uint flags = uniforms.texTransformFlags[stage];
-        if (flags != 0) {
-            float4 tc = uniforms.texMatrix[stage] * unprojected;
-            if ((flags & 256) != 0) { // D3DTTFF_PROJECTED
-                uint count = flags & 255;
-                if (count == 3 && tc.z != 0.0f) {
-                    if (tc.z <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
-                    tc.x /= tc.z;
-                    tc.y /= tc.z;
-                    if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
-                } else if (count == 4 && tc.w != 0.0f) {
-                    if (tc.w <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
-                    tc.x /= tc.w;
-                    tc.y /= tc.w;
-                    tc.z /= tc.w;
-                    if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
-                }
-            }
-            // Non-projected texgen (COUNT2): tc.z is the raw third matrix
-            // component, not a projective clip coordinate. The fragment body
-            // discards when any uv.z < 0 to emulate projected-texture clipping,
-            // and only the .xy of the result is ever sampled — so leaking a raw
-            // negative tc.z here made the projected terrain overlay (cloud/light
-            // map) get discarded in bands wherever tc.z dipped below zero across
-            // the near-flat lowland, producing shimmering horizontal stripes.
-            // Force z=0 so only genuine projected clipping (the -1 sentinel
-            // above) can trigger the discard.
-            return float3(tc.xy, 0.0f);
-        }
-        return unprojected.xyz;
-    };
-
     // ════════════════════════════════════════════════════
     //  Custom Pixel Shader path — bypasses TSS completely
     //  When a DX8 pixel shader is active, the engine does NOT set TSS states.
@@ -858,10 +858,10 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
     if (psUniforms.psType != 0) {
         // Select UV coordinates (PS uses tex coord index from TSS states)
 
-        float3 psUV0 = computeTexCoord(fragUniforms.texCoordIndex[0], 0);
-        float3 psUV1 = computeTexCoord(fragUniforms.texCoordIndex[1], 1);
-        float3 psUV2 = computeTexCoord(fragUniforms.texCoordIndex[2], 2);
-        float3 psUV3 = computeTexCoord(fragUniforms.texCoordIndex[3], 3);
+        float3 psUV0 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[0], 0);
+        float3 psUV1 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[1], 1);
+        float3 psUV2 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[2], 2);
+        float3 psUV3 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[3], 3);
 
         float4 t0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, psUV0) : 
                     (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, psUV0.xy) : float4(1.0);
@@ -1009,11 +1009,11 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
     //  TSS (Texture Stage State) path — fallback when no PS active
     // ════════════════════════════════════════════════════
     
-    float3 uv0 = computeTexCoord(fragUniforms.texCoordIndex[0], 0);
+    float3 uv0 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[0], 0);
 
-    float3 uv1 = computeTexCoord(fragUniforms.texCoordIndex[1], 1);
-    float3 uv2 = computeTexCoord(fragUniforms.texCoordIndex[2], 2);
-    float3 uv3 = computeTexCoord(fragUniforms.texCoordIndex[3], 3);
+    float3 uv1 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[1], 1);
+    float3 uv2 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[2], 2);
+    float3 uv3 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[3], 3);
     
     // Sample textures using their respective UV coordinates.
     // If projective coordinates were truncated (tc.z < 0), DX8 hardware would have clipped this geometry.

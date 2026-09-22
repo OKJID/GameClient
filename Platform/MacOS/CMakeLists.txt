@@ -171,7 +171,7 @@ set(METAL_LIB_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/default.metallib)
 
 add_custom_command(
     OUTPUT ${METAL_AIR_OUTPUT}
-    COMMAND xcrun -sdk macosx metal -c ${METAL_SHADER_SOURCE} -o ${METAL_AIR_OUTPUT}
+    COMMAND xcrun -sdk macosx metal -std=metal3.0 -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET} -c ${METAL_SHADER_SOURCE} -o ${METAL_AIR_OUTPUT}
     DEPENDS ${METAL_SHADER_SOURCE}
     COMMENT "Compiling Metal shaders"
 )
