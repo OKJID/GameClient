@@ -25,6 +25,8 @@ struct PlayingAudio {
     SourceKind kind = SK_2D;       // what the sound currently playing here is
     Bool is3D = FALSE;
     Bool counted = FALSE;
+    Bool fading = FALSE;
+    Int framesFaded = 0;
 };
 
 class MacOSVideoAudioStream;
@@ -104,7 +106,17 @@ public:
 protected:
   void processRequestList() override;
   void playAudioEvent(AudioEventRTS *eventToPlay);
+  void stopAudioEvent(AudioHandle handle);
+  void stopMusic(Bool shouldFade);
+  void stopAllSpeech();
+  void processFadingList();
+  void processPlayingList();
+  void updatePositionalSource(PlayingAudio &pa);
+  Bool isBelowAudibleVolume(AudioEventRTS *event) const;
+  Real positionalVolumeOf(AudioEventRTS *event) const;
+  const PlayingAudio *findActiveMusic(const AsciiString *trackName = nullptr) const;
 
+  Real effectiveVolumeOf(const AudioEventRTS *event);
   int startPlayback(AudioEventRTS *eventToPlay, SourceKind kind);
   SourceKind sourceKindFor(AudioEventRTS *event) const;
   Bool shouldLoopSeamlessly(const AudioEventRTS *event) const;
@@ -113,6 +125,7 @@ protected:
   void advancePlayingAudio(PlayingAudio &pa);
 
   Bool isAffectedBy(const PlayingAudio &pa, AudioAffect which) const;
+  Bool isActiveSource(const PlayingAudio &pa) const;
 
   Real measureFileLengthMS(const std::string &path) const;
 
@@ -121,6 +134,7 @@ protected:
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand, SourceKind kind);
   PlayingAudio* findSourceByHandle(AudioHandle handle);
+  Bool isRequested(AudioHandle handle) const;
   void notifySampleStart(PlayingAudio &pa);
   void notifySampleCompletion(PlayingAudio &pa);
 
