@@ -4611,7 +4611,11 @@ void ScriptActions::doCameraSetDefault(Real pitch, Real angle, Real maxHeight)
 	angle = angle + ViewDefaultYawRadians;
 #endif
 
+#if defined(GENERALS_ONLINE) && defined(__APPLE__)
+	TheTacticalView->setDefaultView(pitch, angle, maxHeight, false);
+#else
 	TheTacticalView->setDefaultView(pitch, angle, maxHeight);
+#endif
 }
 
 //-------------------------------------------------------------------------------------------------

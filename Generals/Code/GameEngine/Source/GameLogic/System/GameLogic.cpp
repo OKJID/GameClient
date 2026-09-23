@@ -105,6 +105,9 @@
 #include "GameNetwork/GameSpy/ThreadUtils.h"
 #include "GameNetwork/LANAPICallbacks.h"
 #include "GameNetwork/NetworkInterface.h"
+#ifdef __APPLE__
+#include "Common/OptionPreferences.h"
+#endif
 
 struct QuitGameException {};
 
@@ -179,6 +182,21 @@ static Waypoint * findNamedWaypoint(AsciiString name)
 	}
 	return nullptr;
 }
+
+#ifdef __APPLE__
+// ------------------------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------------------------
+static Real maxCameraHeightForGameMode()
+{
+	const Real iniHeight = TheGlobalData->m_iniMaxCameraHeight;
+	if (TheGameLogic->isInMultiplayerGame() || TheGameLogic->isInShellGame())
+	{
+		return iniHeight;
+	}
+
+	return OptionPreferences().getMaxCameraHeight(iniHeight);
+}
+#endif
 
 // ------------------------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------------------------
@@ -1892,6 +1910,10 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	}
 
 	// Set up the camera height based on the map height & globalData.
+#ifdef __APPLE__
+	TheWritableGlobalData->m_maxCameraHeight = maxCameraHeightForGameMode();
+	TheTacticalView->setDefaultView(DEG_TO_RADF(TheGlobalData->m_cameraPitch), DEG_TO_RADF(TheGlobalData->m_cameraYaw), 1.0f);
+#endif
 	TheTacticalView->initHeightForMap();
 	TheTacticalView->setAngleToDefault();
 	TheTacticalView->setPitchToDefault();

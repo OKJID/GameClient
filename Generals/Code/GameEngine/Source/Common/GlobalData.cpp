@@ -854,6 +854,9 @@ GlobalData::GlobalData()
 #endif
 	m_minCameraHeight = 100.0f;
 	m_maxCameraHeight = 300.0f;
+#ifdef __APPLE__
+	m_iniMaxCameraHeight = m_maxCameraHeight;
+#endif
 	m_terrainHeightAtEdgeOfMap = 0.0f;
 
 	m_unitDamagedThresh = 0.5f;
@@ -1207,6 +1210,7 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	OptionPreferences optionPref;
 #ifdef __APPLE__
 	MacDebugLogConfigure(optionPref.getVerboseEngineLogging(), TheWritableGlobalData->getPath_UserData().str());
+	TheWritableGlobalData->m_iniMaxCameraHeight = TheWritableGlobalData->m_maxCameraHeight;
 #endif
 	TheWritableGlobalData->m_useAlternateMouse = optionPref.getAlternateMouseModeEnabled();
 	TheWritableGlobalData->m_useRightMouseScrollWithAlternateMouse = optionPref.getRightMouseScrollWithAlternateMouseEnabled();

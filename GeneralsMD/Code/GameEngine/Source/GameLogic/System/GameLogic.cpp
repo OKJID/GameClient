@@ -2275,6 +2275,9 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	}
 
 	// Set up the camera height based on the map height & globalData.
+#if defined(GENERALS_ONLINE) && defined(__APPLE__)
+	TheTacticalView->setDefaultView(DEG_TO_RADF(TheGlobalData->m_cameraPitch), DEG_TO_RADF(TheGlobalData->m_cameraYaw), 1.0f, false);
+#endif
 	TheTacticalView->initHeightForMap();
 	TheTacticalView->setAngleToDefault();
 	TheTacticalView->setPitchToDefault();

@@ -190,6 +190,9 @@ public:
 	Real m_cameraHeight;
 #endif
 	Real m_maxCameraHeight;
+#ifdef __APPLE__
+	Real m_iniMaxCameraHeight;
+#endif
 	Real m_minCameraHeight;
 	Real m_terrainHeightAtEdgeOfMap;
 	Real m_unitDamagedThresh;

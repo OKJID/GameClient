@@ -2250,6 +2250,9 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 
     // TODO_NGMP: Better way of doing this
 #if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
+#ifdef __APPLE__
+    bForceDefaultCam = bForceDefaultCam || (TheGameLogic != nullptr && TheGameLogic->isInShellGame());
+#endif
     if (bForceDefaultCam)
     {
         // safety for shellmap, etc

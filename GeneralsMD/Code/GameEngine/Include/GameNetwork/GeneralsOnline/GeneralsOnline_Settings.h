@@ -18,6 +18,9 @@ public:
 	float Camera_MoveSpeedRatio() const { return m_Camera_MoveSpeedRatio; }
 	float Camera_GetMinHeight() const { return m_Camera_MinHeight; }
 	float Camera_GetMaxHeight_WhenLobbyHost() const { return m_Camera_MaxHeight_LobbyHost; }
+#ifdef __APPLE__
+	float Camera_GetMaxHeight_Local() const { return m_Camera_MaxHeight_Local; }
+#endif
 
 	float DetermineCameraMaxHeight();
 
@@ -121,6 +124,9 @@ private:
 	float m_Camera_MoveSpeedRatio = m_Camera_MoveSpeedRatio_default;
 
 	float m_Camera_MaxHeight_LobbyHost = GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
+#ifdef __APPLE__
+	float m_Camera_MaxHeight_Local = GENERALS_ONLINE_DEFAULT_LOBBY_CAMERA_ZOOM;
+#endif
 
 	bool m_bInitialized = false;
 

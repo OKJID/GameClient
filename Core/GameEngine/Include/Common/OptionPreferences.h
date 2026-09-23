@@ -87,6 +87,9 @@ public:
 	Bool getShowHotKeyLabels() const;
 	Bool getWASDMapScroll() const;
 	Bool getVerboseEngineLogging() const;
+#ifdef __APPLE__
+	Real getMaxCameraHeight(Real iniHeight) const;
+#endif
 	Bool getSendDelay();
 	Int getFirewallBehavior();
 	Short getFirewallPortAllocationDelta();

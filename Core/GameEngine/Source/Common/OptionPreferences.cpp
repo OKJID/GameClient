@@ -491,6 +491,17 @@ Bool OptionPreferences::getVerboseEngineLogging() const
 	return FALSE;
 }
 
+#ifdef __APPLE__
+Real OptionPreferences::getMaxCameraHeight(Real iniHeight) const
+{
+	OptionPreferences::const_iterator it = find("MaxCameraHeight");
+	if (it == end())
+		return iniHeight;
+
+	return (Real) atof(it->second.str());
+}
+#endif
+
 Bool OptionPreferences::usesSystemMapDir()
 {
 	OptionPreferences::const_iterator it = find("UseSystemMapDir");
