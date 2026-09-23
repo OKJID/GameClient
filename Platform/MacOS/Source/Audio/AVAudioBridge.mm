@@ -261,10 +261,7 @@ static void ensure_engine_inited(void) {
 
     gEngine = [[AVAudioEngine alloc] init];
     gEnvNode = [[AVAudioEnvironmentNode alloc] init];
-    gEnvNode.distanceAttenuationParameters.distanceAttenuationModel = AVAudioEnvironmentDistanceAttenuationModelInverse;
-    gEnvNode.distanceAttenuationParameters.referenceDistance = 300.0f;
-    gEnvNode.distanceAttenuationParameters.maximumDistance = 2000.0f;
-    gEnvNode.distanceAttenuationParameters.rolloffFactor = 1.0f;
+    gEnvNode.distanceAttenuationParameters.rolloffFactor = 0.0f;
     gMixer2D = [[AVAudioMixerNode alloc] init];
 
     [gEngine attachNode:gEnvNode];
