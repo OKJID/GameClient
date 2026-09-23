@@ -34,7 +34,7 @@ if [ "$REFRESH_SWIFT" -eq 1 ]; then
 
     swiftc $(find Sources -name "*.swift") \
            -o "$APP_PATH" \
-           -target arm64-apple-macosx11.0
+           -target arm64-apple-macosx13.0
 
     if [ $? -ne 0 ]; then
         echo "❌ Swift compilation failed!"

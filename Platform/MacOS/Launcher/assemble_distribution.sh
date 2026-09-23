@@ -129,7 +129,7 @@ fi
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc $(find Sources -name "*.swift") \
        -o "$MACOS_DIR/$LAUNCHER_NAME" \
-       -target arm64-apple-macosx11.0
+       -target arm64-apple-macosx13.0
 
 if [ $? -ne 0 ]; then
     echo "❌ Swift compilation failed!"
