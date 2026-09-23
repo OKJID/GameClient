@@ -4,18 +4,40 @@ import AppKit
 struct SidebarView: View {
     @ObservedObject var viewModel: LauncherViewModel
 
+    @State private var isScrollRestored = false
+
+    private static let scrollAnchorKey = "SidebarScrollAnchor"
+    private let scrollSpace = "sidebarScroll"
     private var profile: GameProfile { viewModel.selectedProfile }
     private var accent: Color { profile.theme.accent }
-    private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
+
+    private func rememberTopRow(_ offsets: [SettingKey: CGFloat]) {
+        guard isScrollRestored else { return }
+
+        let scrolledPast = offsets.filter { $0.value <= 1 }
+        guard let topRow = scrolledPast.max(by: { $0.value < $1.value }) else {
+            UserDefaults.standard.removeObject(forKey: Self.scrollAnchorKey)
+            return
+        }
+
+        UserDefaults.standard.set(topRow.key.rawValue, forKey: Self.scrollAnchorKey)
+    }
+
+    private func restoreScroll(_ proxy: ScrollViewProxy) {
+        let savedRow = UserDefaults.standard.string(forKey: Self.scrollAnchorKey).flatMap(SettingKey.init)
+
+        DispatchQueue.main.async {
+            if let savedRow {
+                proxy.scrollTo(savedRow, anchor: .top)
+            }
+            isScrollRestored = true
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundColor(accent)
-                Text(L10n.settings.title)
-                    .font(.system(size: 16, weight: .black, design: .monospaced))
-                    .foregroundColor(.white)
+                _buildOpenSettingsPageButton()
                 Spacer()
                 
                 Button(action: {
@@ -35,54 +57,23 @@ struct SidebarView: View {
                 }
             }
             .padding(.bottom, 16)
-            
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: 16) {
 
-                    if profile.supportsAny([.gameLanguage, .windowedEdgeScroll, .showHotkeyLabels, .wasdMapScroll]) {
-                        _buildSectionHeader(title: L10n.settings.interfaceSection)
-                    }
-                    
-                    if profile.supports(.gameLanguage) {
-                        _buildGameLanguagePicker()
-                    }
-                    
-                    if profile.supports(.windowedEdgeScroll) {
-                        _buildSidebarSettingToggle(
-                            title: L10n.settings.windowedEdgeScroll,
-                            description: L10n.settings.windowedEdgeScrollDesc,
-                            isOn: $viewModel.isWindowedEdgeScrollEnabled,
-                            scope: .global
-                        )
-                    }
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 16) {
+                        ForEach(SettingTopic.allCases, id: \.self) { topic in
+                            _buildTopic(topic)
+                        }
 
-                    if profile.supports(.showHotkeyLabels) {
-                        _buildSidebarSettingToggle(
-                            title: L10n.settings.showHotkeyLabels,
-                            description: L10n.settings.showHotkeyLabelsDesc,
-                            isOn: $viewModel.showHotkeyLabels,
-                            scope: .global
-                        )
+                        _buildLegendSection()
                     }
-
-                    if profile.supports(.wasdMapScroll) {
-                        _buildSidebarSettingToggle(
-                            title: L10n.settings.wasdMapScroll,
-                            description: L10n.settings.wasdMapScrollDesc,
-                            isOn: $viewModel.wasdMapScroll,
-                            scope: .global
-                        )
-                    }
-
-                    _buildCameraSection()
-                    _buildPerformanceSection()
-                    _buildNetworkSection()
-
-                    _buildLegendSection()
+                    .padding(.trailing, 4)
                 }
-                .padding(.trailing, 4)
+                .coordinateSpace(name: scrollSpace)
+                .onPreferenceChange(SettingRowOffsetsKey.self, perform: rememberTopRow)
+                .onAppear { restoreScroll(proxy) }
             }
-            
+
             Spacer()
             
             VStack(spacing: 10) {
@@ -103,251 +94,56 @@ struct SidebarView: View {
         )
     }
 
-    private func _buildSectionHeader(title: String) -> some View {
-        HStack(spacing: 8) {
-            Text(title.uppercased())
-                .font(.system(size: 10, weight: .black, design: .monospaced))
-                .foregroundColor(accent.opacity(0.8))
-            
-            VStack {
-                Divider()
-                    .background(accent.opacity(0.15))
+    @ViewBuilder
+    private func _buildTopic(_ topic: SettingTopic) -> some View {
+        let keys = profile.supportedKeys(topic: topic)
+        if !keys.isEmpty {
+            SettingsSectionHeader(title: topic.title, accent: accent)
+
+            ForEach(keys, id: \.self) { key in
+                SettingRow(key: key, viewModel: viewModel)
+                    .id(key)
+                    .background(_buildOffsetReader(key))
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
     }
 
-    private func _buildSidebarSettingToggle(title: String, description: String, isOn: Binding<Bool>, scope: SettingScope) -> some View {
-        Button(action: { isOn.wrappedValue.toggle() }) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isOn.wrappedValue ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 18))
-                    .foregroundColor(isOn.wrappedValue ? neonGreen : .white.opacity(0.3))
-                    .padding(.top, 2)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .center, spacing: 6) {
-                        Text(title)
-                            .font(.system(size: 13, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.leading)
-                        
-                        ScopeChip(scope: scope)
-                    }
-                    
-                    if !description.isEmpty {
-                        Text(description)
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.5))
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                Spacer()
-            }
-            .padding(12)
-            .background(Color.white.opacity(isOn.wrappedValue ? 0.05 : 0.02))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(isOn.wrappedValue ? accent.opacity(0.4) : Color.white.opacity(0.05), lineWidth: 1)
+    private func _buildOffsetReader(_ key: SettingKey) -> some View {
+        GeometryReader { geometry in
+            Color.clear.preference(
+                key: SettingRowOffsetsKey.self,
+                value: [key: geometry.frame(in: .named(scrollSpace)).minY]
             )
         }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { inside in
-            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
     }
 
-    private func _buildGameLanguagePicker() -> some View {
-        let installed = viewModel.installDirectory(for: profile)
-            .map { profile.installedLanguages(at: $0) } ?? GameProfile.fallbackLanguages
-        let options = installed.contains(viewModel.gameLanguage) ? installed : installed + [viewModel.gameLanguage]
-
-        return VStack(alignment: .leading, spacing: 6) {
+    private func _buildOpenSettingsPageButton() -> some View {
+        Button(action: { viewModel.route = .settings }) {
             HStack(spacing: 8) {
-                Text(L10n.settings.gameLanguage)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.9))
-                ScopeChip(scope: .global)
-            }
-
-            Picker("", selection: $viewModel.gameLanguage) {
-                ForEach(options, id: \.self) { lang in
-                    Text(lang.capitalized).tag(lang)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-
-            Text(L10n.settings.gameLanguageRestart)
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.02))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
-        )
-    }
-
-    private func _buildCameraSection() -> some View {
-        Group {
-            if profile.supportsAny([.cameraMaxHeight, .cameraMaxHeightLocal, .cameraMinHeight, .cameraSpeed]) {
-                _buildSectionHeader(title: L10n.settings.cameraSection)
-            }
-
-            if profile.supports(.cameraMaxHeight) {
-                SettingsSliderField(
-                    title: L10n.settings.cameraMaxHeight,
-                    value: $viewModel.cameraMaxHeight,
-                    range: SettingsDefaults.cameraMaxHeightRange,
-                    step: SettingsDefaults.cameraMaxHeightStep,
-                    format: SettingsDefaults.cameraMaxHeightFormat,
-                    defaultValue: SettingsDefaults.cameraMaxHeight,
-                    scope: .lobbyHost
-                )
-            }
-
-            if profile.supports(.cameraMaxHeightLocal) {
-                SettingsSliderField(
-                    title: L10n.settings.cameraMaxHeightLocal,
-                    value: $viewModel.cameraMaxHeightLocal,
-                    range: SettingsDefaults.cameraMaxHeightLocalRange,
-                    step: SettingsDefaults.cameraMaxHeightLocalStep,
-                    format: SettingsDefaults.cameraMaxHeightLocalFormat,
-                    defaultValue: SettingsDefaults.cameraMaxHeightLocal,
-                    scope: .offline
-                )
-            }
-
-            if profile.supports(.cameraMinHeight) {
-                SettingsSliderField(
-                    title: L10n.settings.cameraMinHeight,
-                    value: $viewModel.cameraMinHeight,
-                    range: SettingsDefaults.cameraMinHeightRange,
-                    step: SettingsDefaults.cameraMinHeightStep,
-                    format: SettingsDefaults.cameraMinHeightFormat,
-                    defaultValue: SettingsDefaults.cameraMinHeight,
-                    scope: .global
-                )
-            }
-
-            if profile.supports(.cameraSpeed) {
-                SettingsSliderField(
-                    title: L10n.settings.cameraSpeed,
-                    value: $viewModel.cameraMoveSpeed,
-                    range: SettingsDefaults.cameraMoveSpeedRange,
-                    step: SettingsDefaults.cameraMoveSpeedStep,
-                    format: SettingsDefaults.cameraMoveSpeedFormat,
-                    defaultValue: SettingsDefaults.cameraMoveSpeed,
-                    scope: .global
-                )
-            }
-        }
-    }
-
-    private func _buildPerformanceSection() -> some View {
-        Group {
-            if profile.supportsAny([.limitFramerate, .fpsLimit, .statsOverlay]) {
-                _buildSectionHeader(title: L10n.settings.fpsSection)
-            }
-
-            if profile.supports(.limitFramerate) {
-                _buildSidebarSettingToggle(
-                    title: L10n.settings.limitFps,
-                    description: "",
-                    isOn: $viewModel.limitFramerate,
-                    scope: .global
-                )
-            }
-
-            if profile.supports(.fpsLimit) {
-                SettingsSliderField(
-                    title: "",
-                    value: $viewModel.fpsLimit,
-                    range: SettingsDefaults.fpsLimitRange,
-                    step: SettingsDefaults.fpsLimitStep,
-                    format: SettingsDefaults.fpsLimitFormat,
-                    defaultValue: SettingsDefaults.fpsLimit,
-                    isDisabled: !viewModel.limitFramerate,
-                    scope: .global
-                )
-            }
-
-            if profile.supports(.statsOverlay) {
-                _buildSidebarSettingToggle(
-                    title: L10n.settings.statsOverlay,
-                    description: "",
-                    isOn: $viewModel.statsOverlay,
-                    scope: .global
-                )
-            }
-        }
-    }
-
-    private func _buildNetworkSection() -> some View {
-        Group {
-            if profile.supportsAny([.altEndpoint, .verboseLogging]) {
-                _buildSectionHeader(title: L10n.settings.networkSection)
-            }
-
-            if profile.supports(.altEndpoint) {
-                _buildSidebarSettingToggle(
-                    title: L10n.settings.altEndpoint,
-                    description: "",
-                    isOn: $viewModel.useAlternativeEndpoint,
-                    scope: .online
-                )
-            }
-
-            if profile.supports(.verboseLogging) {
-                _buildSidebarSettingToggle(
-                    title: L10n.settings.verboseLogging,
-                    description: "",
-                    isOn: $viewModel.verboseLogging,
-                    scope: .global
-                )
-
-                _buildShareLogsButton()
-            }
-        }
-    }
-
-    private func _buildShareLogsButton() -> some View {
-        Button(action: { LogsSharer.share() }) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 16))
+                Image(systemName: "slider.horizontal.3")
                     .foregroundColor(accent)
-                    .padding(.top, 2)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(L10n.settings.shareLogs)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundColor(.white)
+                Text(L10n.settings.title)
+                    .font(.system(size: 14, weight: .black, design: .monospaced))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-                    Text(L10n.settings.shareLogsHint)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.5))
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(accent)
             }
-            .padding(12)
-            .background(Color.white.opacity(0.02))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(accent.opacity(0.1))
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(
                 RoundedRectangle(cornerRadius: 6)
-                    .stroke(accent.opacity(0.3), lineWidth: 1)
+                    .stroke(accent.opacity(0.45), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .help(L10n.settings.openAll)
         .onHover { inside in
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
@@ -355,21 +151,11 @@ struct SidebarView: View {
 
     private func _buildLegendSection() -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            _buildSectionHeader(title: L10n.settings.legendSection)
+            SettingsSectionHeader(title: L10n.settings.legendSection, accent: accent)
             
             VStack(alignment: .leading, spacing: 8) {
-                _buildLegendItem(scope: .global, desc: L10n.settings.scopeGlobalDesc)
-
-                if profile.supports(.altEndpoint) {
-                    _buildLegendItem(scope: .online, desc: L10n.settings.scopeOnlineDesc)
-                }
-
-                if profile.supports(.cameraMaxHeight) {
-                    _buildLegendItem(scope: .lobbyHost, desc: L10n.settings.scopeLobbyHostDesc)
-                }
-
-                if profile.supports(.cameraMaxHeightLocal) {
-                    _buildLegendItem(scope: .offline, desc: L10n.settings.scopeOfflineDesc)
+                ForEach(profile.supportedScopes, id: \.self) { scope in
+                    _buildLegendItem(scope: scope, desc: scope.description)
                 }
             }
             .padding(10)
@@ -486,7 +272,8 @@ struct SettingsSliderField: View {
     let defaultValue: Double
     var isDisabled: Bool = false
     let scope: SettingScope
-    
+    var showsScope: Bool = true
+
     @State private var textValue: String = ""
     @State private var pendingTextCommit: DispatchWorkItem?
     @FocusState private var isTextFocused: Bool
@@ -506,8 +293,10 @@ struct SettingsSliderField: View {
                     Text(title)
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundColor(isDisabled ? .white.opacity(0.2) : .white.opacity(0.7))
-                    
-                    ScopeChip(scope: scope)
+
+                    if showsScope {
+                        ScopeChip(scope: scope)
+                    }
                 }
                 Spacer()
                 
@@ -608,7 +397,7 @@ struct SettingsSliderField: View {
 }
 
 // MARK: - Settings Scope Support
-enum SettingScope {
+enum SettingScope: CaseIterable {
     case global
     case online
     case lobbyHost
@@ -620,6 +409,15 @@ enum SettingScope {
         case .online: return L10n.settings.scopeOnline
         case .lobbyHost: return L10n.settings.scopeLobbyHost
         case .offline: return L10n.settings.scopeOffline
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .global: return L10n.settings.scopeGlobalDesc
+        case .online: return L10n.settings.scopeOnlineDesc
+        case .lobbyHost: return L10n.settings.scopeLobbyHostDesc
+        case .offline: return L10n.settings.scopeOfflineDesc
         }
     }
     

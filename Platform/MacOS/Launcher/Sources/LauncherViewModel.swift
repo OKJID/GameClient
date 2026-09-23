@@ -8,6 +8,11 @@ class LauncherViewModel: ObservableObject {
         case local = "Local Archive"
     }
 
+    enum Route {
+        case home
+        case settings
+    }
+
     struct ModConfirmation: Identifiable {
         enum Kind {
             case reinstall
@@ -47,6 +52,7 @@ class LauncherViewModel: ObservableObject {
     @Published private(set) var storedPasswordAccount: String? = nil
     @Published var isAskingAboutStoredPassword: Bool = false
     @Published var isUpdateDismissed: Bool = false
+    @Published var route: Route = .home
     @Published var showPatchConfirmation: Bool = false
     @Published var modConfirmation: ModConfirmation? = nil
     @Published var selectedLanguage: String = L10n.current

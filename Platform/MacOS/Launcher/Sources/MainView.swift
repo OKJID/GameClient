@@ -76,48 +76,20 @@ struct MainView: View {
 
                 _buildBackground(size: geometry.size)
                 
-                _buildFooter()
-                    .padding(.top, 72)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                if viewModel.route == .home {
+                    _buildFooter()
+                        .padding(.top, 72)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
 
                 HStack(spacing: 0) {
                     _buildGameSwitcher()
 
-                    VStack(spacing: 0) {
-                        _buildHeader()
-                            .padding(.top, 16)
-                            .zIndex(1)
-
-                        if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
-                            _buildUpdateBanner(update)
-                                .padding(.horizontal, 40)
-                                .padding(.top, 12)
-                        }
-
-                        _buildTabBar()
-                            .padding(.top, 20)
-
-                        _buildActiveTab()
-                            .padding(.horizontal, 40)
-                            .padding(.top, 8)
-
-                        Spacer()
-
-                        _buildBottomAction()
-                            .frame(maxWidth: .infinity)
-                            .overlay(
-                                _buildDonateButton().padding(.trailing, 40),
-                                alignment: .bottomTrailing
-                            )
-                            .padding(.bottom, 8)
-                        AnnouncementPortalView(items: viewModel.announcements.items, accent: accent)
-                            .padding(.horizontal, 40)
-                            .padding(.bottom, 8)
+                    if viewModel.route == .settings {
+                        SettingsPageView(viewModel: viewModel)
+                    } else {
+                        _buildHome()
                     }
-                    .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity)
-
-                    SidebarView(viewModel: viewModel)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
@@ -126,6 +98,45 @@ struct MainView: View {
         .alert(item: _activeAlert) { alert in
             _buildAlert(alert)
         }
+    }
+
+    @ViewBuilder
+    private func _buildHome() -> some View {
+        VStack(spacing: 0) {
+            _buildHeader()
+                .padding(.top, 16)
+                .zIndex(1)
+
+            if let update = viewModel.updateChecker.availableUpdate, !viewModel.isUpdateDismissed {
+                _buildUpdateBanner(update)
+                    .padding(.horizontal, 40)
+                    .padding(.top, 12)
+            }
+
+            _buildTabBar()
+                .padding(.top, 20)
+
+            _buildActiveTab()
+                .padding(.horizontal, 40)
+                .padding(.top, 8)
+
+            Spacer()
+
+            _buildBottomAction()
+                .frame(maxWidth: .infinity)
+                .overlay(
+                    _buildDonateButton().padding(.trailing, 40),
+                    alignment: .bottomTrailing
+                )
+                .padding(.bottom, 8)
+            AnnouncementPortalView(items: viewModel.announcements.items, accent: accent)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 8)
+        }
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
+
+        SidebarView(viewModel: viewModel)
     }
 
     private var _activeAlert: Binding<LauncherAlert?> {
