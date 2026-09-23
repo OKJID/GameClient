@@ -251,10 +251,16 @@ void MacOSAudioManager::processPlayingList() {
             continue;
         }
 
+        if (m_volumeHasChanged && !pa.fading) {
+            avbridge_setVolume(pa.playerID, effectiveVolumeOf(pa.eventRTS));
+        }
+
         if (pa.kind == SK_3D) {
             updatePositionalSource(pa);
         }
     }
+
+    m_volumeHasChanged = FALSE;
 }
 
 void MacOSAudioManager::updatePositionalSource(PlayingAudio &pa) {
@@ -284,7 +290,7 @@ Bool MacOSAudioManager::isBelowAudibleVolume(AudioEventRTS *event) const {
         return FALSE;
     }
 
-    Real volume = positionalVolumeOf(event);
+    Real volume = effectiveVolumeOf(event);
     volume /= (m_sound3DVolume > 0.0f ? m_soundVolume : 1.0f);
     return (volume < getAudioSettings()->m_minVolume) ? TRUE : FALSE;
 }
@@ -587,7 +593,14 @@ void MacOSAudioManager::processRequestList() {
         if (req->m_usePendingEvent && req->m_pendingEvent &&
             req->m_pendingEvent->getDelay() >= MSEC_PER_LOGICFRAME_REAL) {
             req->m_pendingEvent->decrementDelay(MSEC_PER_LOGICFRAME_REAL);
+            req->m_requiresCheckForSample = TRUE;
             ++it;
+            continue;
+        }
+
+        if (req->m_requiresCheckForSample && !checkForSample(req)) {
+            deleteInstance(req);
+            it = m_audioRequests.erase(it);
             continue;
         }
 
@@ -610,6 +623,23 @@ void MacOSAudioManager::processRequestList() {
         deleteInstance(req);
         it = m_audioRequests.erase(it);
     }
+}
+
+Bool MacOSAudioManager::checkForSample(AudioRequest *req) {
+    if (!req->m_usePendingEvent || !req->m_pendingEvent) {
+        return TRUE;
+    }
+
+    if (req->m_pendingEvent->getAudioEventInfo() == nullptr) {
+        getInfoForAudioEvent(req->m_pendingEvent);
+    }
+
+    const AudioEventInfo *info = req->m_pendingEvent->getAudioEventInfo();
+    if (!info || info->m_type != AT_SoundEffect) {
+        return TRUE;
+    }
+
+    return m_sound->canPlayNow(req->m_pendingEvent);
 }
 
 void MacOSAudioManager::stopAudioEvent(AudioHandle handle) {
@@ -703,15 +733,19 @@ SourceKind MacOSAudioManager::sourceKindFor(AudioEventRTS *event) const {
     return (event->getPosition() != nullptr && event->isPositionalAudio()) ? SK_3D : SK_2D;
 }
 
-Real MacOSAudioManager::effectiveVolumeOf(const AudioEventRTS *event) {
+Real MacOSAudioManager::effectiveVolumeOf(AudioEventRTS *event) const {
     const AudioEventInfo *info = event->getAudioEventInfo();
+    const Real volume = event->getVolume() * event->getVolumeShift();
     if (info && info->m_soundType == AT_Music) {
-        return event->getVolume() * getVolume(AudioAffect_Music);
+        return volume * m_musicVolume;
     }
     if (info && info->m_soundType == AT_Streaming) {
-        return event->getVolume() * getVolume(AudioAffect_Speech);
+        return volume * m_speechVolume;
     }
-    return event->getVolume() * getVolume(AudioAffect_Sound);
+    if (!event->isPositionalAudio()) {
+        return volume * m_soundVolume;
+    }
+    return positionalVolumeOf(event);
 }
 
 int MacOSAudioManager::startPlayback(AudioEventRTS *eventToPlay, SourceKind kind) {
@@ -831,6 +865,7 @@ Bool MacOSAudioManager::startNextLoop(PlayingAudio &pa) {
     if (event->getDelay() > MSEC_PER_LOGICFRAME_REAL) {
         AudioRequest *req = allocateAudioRequest(TRUE);
         req->m_pendingEvent = event;
+        req->m_requiresCheckForSample = TRUE;
         appendAudioRequest(req);
 
         pa.eventRTS = nullptr;
@@ -1228,7 +1263,21 @@ void MacOSAudioManager::removeAllDisabledAudio() {
     }
     DEBUG_AUDIO_MAC(("removeAllDisabledAudio: %d playing stopped", stopped));
 }
-Bool MacOSAudioManager::has3DSensitiveStreamsPlaying() const { return FALSE; }
+Bool MacOSAudioManager::has3DSensitiveStreamsPlaying() const {
+    for (const auto &pa : m_sources) {
+        const AudioEventInfo *info = pa.eventRTS ? pa.eventRTS->getAudioEventInfo() : nullptr;
+        if (!pa.isPlaying || pa.fading || pa.kind != SK_Stream || !info) {
+            continue;
+        }
+        if (info->m_soundType != AT_Music) {
+            return TRUE;
+        }
+        if (!pa.eventRTS->getEventName().startsWith("Game_")) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
 void *MacOSAudioManager::getHandleForBink() {
     if (!m_videoAudioStream) {
         m_videoAudioStream = new MacOSVideoAudioStream();

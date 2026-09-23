@@ -116,7 +116,8 @@ protected:
   Real positionalVolumeOf(AudioEventRTS *event) const;
   const PlayingAudio *findActiveMusic(const AsciiString *trackName = nullptr) const;
 
-  Real effectiveVolumeOf(const AudioEventRTS *event);
+  Real effectiveVolumeOf(AudioEventRTS *event) const;
+  Bool checkForSample(AudioRequest *req);
   int startPlayback(AudioEventRTS *eventToPlay, SourceKind kind);
   SourceKind sourceKindFor(AudioEventRTS *event) const;
   Bool shouldLoopSeamlessly(const AudioEventRTS *event) const;
