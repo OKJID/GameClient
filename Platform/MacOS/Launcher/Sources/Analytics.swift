@@ -105,7 +105,8 @@ enum Analytics {
             (.statsOverlay, "stats_overlay", vm.statsOverlay.gaFlag),
             (.altEndpoint, "alternative_endpoint", vm.useAlternativeEndpoint.gaFlag),
             (.verboseLogging, "verbose_logging", vm.verboseLogging.gaFlag),
-            (.cameraSpeed, "camera_move_speed", vm.cameraMoveSpeed)
+            (.cameraSpeed, "camera_move_speed", vm.cameraMoveSpeed),
+            (.cameraMaxHeightLocal, "camera_max_height_local", Int(vm.cameraMaxHeightLocal))
         ]
 
         var params: [String: Any] = ["ui_language": vm.selectedLanguage]

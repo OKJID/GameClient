@@ -21,6 +21,7 @@ struct SettingsJsonHelper {
     static func writeSettings(
         cameraMinHeight: Double,
         cameraMaxHeight: Double,
+        cameraMaxHeightLocal: Double,
         cameraMoveSpeed: Double,
         limitFramerate: Bool,
         fpsLimit: Int,
@@ -47,6 +48,7 @@ struct SettingsJsonHelper {
         var camera = json["camera"] as? [String: Any] ?? [:]
         camera["min_height"] = cameraMinHeight
         camera["max_height_only_when_lobby_host"] = cameraMaxHeight
+        camera["max_height_local"] = cameraMaxHeightLocal
         camera["move_speed_ratio"] = cameraMoveSpeed
         json["camera"] = camera
         

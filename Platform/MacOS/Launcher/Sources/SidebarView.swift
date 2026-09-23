@@ -197,7 +197,7 @@ struct SidebarView: View {
 
     private func _buildCameraSection() -> some View {
         Group {
-            if profile.supportsAny([.cameraMaxHeight, .cameraMinHeight, .cameraSpeed]) {
+            if profile.supportsAny([.cameraMaxHeight, .cameraMaxHeightLocal, .cameraMinHeight, .cameraSpeed]) {
                 _buildSectionHeader(title: L10n.settings.cameraSection)
             }
 
@@ -210,6 +210,18 @@ struct SidebarView: View {
                     format: SettingsDefaults.cameraMaxHeightFormat,
                     defaultValue: SettingsDefaults.cameraMaxHeight,
                     scope: .lobbyHost
+                )
+            }
+
+            if profile.supports(.cameraMaxHeightLocal) {
+                SettingsSliderField(
+                    title: L10n.settings.cameraMaxHeightLocal,
+                    value: $viewModel.cameraMaxHeightLocal,
+                    range: SettingsDefaults.cameraMaxHeightLocalRange,
+                    step: SettingsDefaults.cameraMaxHeightLocalStep,
+                    format: SettingsDefaults.cameraMaxHeightLocalFormat,
+                    defaultValue: SettingsDefaults.cameraMaxHeightLocal,
+                    scope: .offline
                 )
             }
 
@@ -355,6 +367,10 @@ struct SidebarView: View {
                 if profile.supports(.cameraMaxHeight) {
                     _buildLegendItem(scope: .lobbyHost, desc: L10n.settings.scopeLobbyHostDesc)
                 }
+
+                if profile.supports(.cameraMaxHeightLocal) {
+                    _buildLegendItem(scope: .offline, desc: L10n.settings.scopeOfflineDesc)
+                }
             }
             .padding(10)
             .background(Color.white.opacity(0.02))
@@ -472,11 +488,17 @@ struct SettingsSliderField: View {
     let scope: SettingScope
     
     @State private var textValue: String = ""
-    @State private var isEditingText: Bool = false
-    
+    @State private var pendingTextCommit: DispatchWorkItem?
+    @FocusState private var isTextFocused: Bool
+
+    private let textCommitDelay: TimeInterval = 0.4
     private var accent: Color { GameProfile.current.theme.accent }
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
-    
+
+    private var parsedText: Double? {
+        Double(textValue.replacingOccurrences(of: ",", with: "."))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 6) {
@@ -506,23 +528,16 @@ struct SettingsSliderField: View {
             }
             
             HStack(spacing: 12) {
-                Slider(value: $value, in: range, step: step)
+                Slider(value: $value, in: range, step: step, onEditingChanged: releaseTextFocus)
                     .accentColor(accent)
                     .disabled(isDisabled)
-                    .onChange(of: value) { newValue in
-                        if !isEditingText {
-                            textValue = String(format: format, newValue)
-                        }
-                    }
-                
-                TextField("", text: $textValue, onEditingChanged: { editing in
-                    isEditingText = editing
-                    if !editing {
-                        validateAndCommit()
-                    }
-                }, onCommit: {
-                    validateAndCommit()
-                })
+                    .onChange(of: value, perform: syncText)
+
+                TextField("", text: $textValue)
+                .focused($isTextFocused)
+                .onSubmit(validateAndCommit)
+                .onChange(of: isTextFocused, perform: commitWhenFocusLost)
+                .onChange(of: textValue) { _ in scheduleTextCommit() }
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundColor(isDisabled ? .white.opacity(0.2) : neonGreen)
                 .multilineTextAlignment(.center)
@@ -549,17 +564,46 @@ struct SettingsSliderField: View {
         }
     }
     
+    private func releaseTextFocus(isDragging: Bool) {
+        guard isDragging else { return }
+        isTextFocused = false
+    }
+
+    private func commitWhenFocusLost(isFocused: Bool) {
+        guard !isFocused else { return }
+        validateAndCommit()
+    }
+
+    private func syncText(to newValue: Double) {
+        guard parsedText != newValue else { return }
+        textValue = String(format: format, newValue)
+    }
+
+    private func scheduleTextCommit() {
+        pendingTextCommit?.cancel()
+        let commit = DispatchWorkItem { applyTypedValue() }
+        pendingTextCommit = commit
+        DispatchQueue.main.asyncAfter(deadline: .now() + textCommitDelay, execute: commit)
+    }
+
+    private func applyTypedValue() {
+        guard let parsed = parsedText, parsed >= range.lowerBound else { return }
+        applyValue(parsed)
+    }
+
     private func validateAndCommit() {
-        isEditingText = false
-        let cleanText = textValue.replacingOccurrences(of: ",", with: ".")
-        if let parsed = Double(cleanText) {
-            let clamped = min(max(parsed, range.lowerBound), range.upperBound)
-            let rounded = (clamped / step).rounded() * step
-            value = rounded
-            textValue = String(format: format, rounded)
-        } else {
-            textValue = String(format: format, value)
+        pendingTextCommit?.cancel()
+        if let parsed = parsedText {
+            applyValue(parsed)
         }
+        textValue = String(format: format, value)
+    }
+
+    private func applyValue(_ parsed: Double) {
+        let clamped = min(max(parsed, range.lowerBound), range.upperBound)
+        let rounded = (clamped / step).rounded() * step
+        guard rounded != value else { return }
+        value = rounded
     }
 }
 
@@ -568,12 +612,14 @@ enum SettingScope {
     case global
     case online
     case lobbyHost
-    
+    case offline
+
     var title: String {
         switch self {
         case .global: return L10n.settings.scopeGlobal
         case .online: return L10n.settings.scopeOnline
         case .lobbyHost: return L10n.settings.scopeLobbyHost
+        case .offline: return L10n.settings.scopeOffline
         }
     }
     
@@ -585,6 +631,8 @@ enum SettingScope {
             return Color(red: 0.1, green: 0.5, blue: 1.0)
         case .lobbyHost:
             return Color(red: 0.95, green: 0.6, blue: 0.15)
+        case .offline:
+            return Color(red: 0.2, green: 0.8, blue: 0.7)
         }
     }
 }

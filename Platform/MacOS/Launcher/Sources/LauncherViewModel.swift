@@ -86,6 +86,9 @@ class LauncherViewModel: ObservableObject {
     @Published var cameraMaxHeight: Double = SettingsDefaults.cameraMaxHeight {
         didSet { saveSettings() }
     }
+    @Published var cameraMaxHeightLocal: Double = SettingsDefaults.cameraMaxHeightLocal {
+        didSet { saveCameraMaxHeightLocal() }
+    }
     @Published var cameraMoveSpeed: Double = SettingsDefaults.cameraMoveSpeed {
         didSet { saveSettings() }
     }
@@ -255,6 +258,10 @@ class LauncherViewModel: ObservableObject {
         verboseLogging = OptionsIniHelper.readValue(forKey: "VerboseEngineLogging") == "yes"
         gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
 
+        if !storesOnlineSettings {
+            cameraMaxHeightLocal = OptionsIniHelper.readValue(forKey: "MaxCameraHeight").flatMap(Double.init) ?? SettingsDefaults.cameraMaxHeightLocal
+        }
+
         loadOnlineSettings()
     }
 
@@ -266,6 +273,7 @@ class LauncherViewModel: ObservableObject {
         let camera = json["camera"] as? [String: Any]
         cameraMinHeight = camera?["min_height"] as? Double ?? SettingsDefaults.cameraMinHeight
         cameraMaxHeight = camera?["max_height_only_when_lobby_host"] as? Double ?? SettingsDefaults.cameraMaxHeight
+        cameraMaxHeightLocal = camera?["max_height_local"] as? Double ?? SettingsDefaults.cameraMaxHeightLocal
         cameraMoveSpeed = camera?["move_speed_ratio"] as? Double ?? SettingsDefaults.cameraMoveSpeed
 
         let render = json["render"] as? [String: Any]
@@ -324,11 +332,29 @@ class LauncherViewModel: ObservableObject {
         Analytics.logSettingChanged(key, value: value)
     }
 
+    private var storesOnlineSettings: Bool {
+        GameProfile.current.onlineSettingsRelativePath != nil
+    }
+
+    private func saveCameraMaxHeightLocal() {
+        if storesOnlineSettings {
+            saveSettings()
+            return
+        }
+
+        guard !isInitializing else { return }
+        OptionsIniHelper.writeValue(
+            value: String(format: SettingsDefaults.cameraMaxHeightLocalFormat, cameraMaxHeightLocal),
+            forKey: "MaxCameraHeight"
+        )
+    }
+
     private func saveSettings() {
         guard !isInitializing else { return }
         SettingsJsonHelper.writeSettings(
             cameraMinHeight: cameraMinHeight,
             cameraMaxHeight: cameraMaxHeight,
+            cameraMaxHeightLocal: cameraMaxHeightLocal,
             cameraMoveSpeed: cameraMoveSpeed,
             limitFramerate: limitFramerate,
             fpsLimit: Int(fpsLimit),
@@ -344,6 +370,7 @@ class LauncherViewModel: ObservableObject {
         gameLanguage = SettingsDefaults.gameLanguage
         cameraMinHeight = SettingsDefaults.cameraMinHeight
         cameraMaxHeight = SettingsDefaults.cameraMaxHeight
+        cameraMaxHeightLocal = SettingsDefaults.cameraMaxHeightLocal
         cameraMoveSpeed = SettingsDefaults.cameraMoveSpeed
         limitFramerate = SettingsDefaults.limitFramerate
         fpsLimit = SettingsDefaults.fpsLimit

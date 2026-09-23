@@ -15,6 +15,11 @@ struct SettingsDefaults {
     static let cameraMaxHeightRange: ClosedRange<Double> = 310...600
     static let cameraMaxHeightStep: Double = 1.0
     static let cameraMaxHeightFormat = "%.0f"
+
+    static let cameraMaxHeightLocal: Double = 310.0
+    static let cameraMaxHeightLocalRange: ClosedRange<Double> = 210...1000
+    static let cameraMaxHeightLocalStep: Double = 1.0
+    static let cameraMaxHeightLocalFormat = "%.0f"
     
     static let cameraMoveSpeed: Double = 1.0
     static let cameraMoveSpeedRange: ClosedRange<Double> = 0.2...5.0
