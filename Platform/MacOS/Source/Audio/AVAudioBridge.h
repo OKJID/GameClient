@@ -39,6 +39,7 @@ void    avbridge_setListenerPosition(float x, float y, float z,
                                      float upX, float upY, float upZ);
 
 void    avbridge_setVolume(int playerID, float gain);
+void    avbridge_setPosition(int playerID, float x, float y, float z);
 void    avbridge_setPitch(int playerID, float pitch);
 void    avbridge_pause(int playerID);
 void    avbridge_resume(int playerID);

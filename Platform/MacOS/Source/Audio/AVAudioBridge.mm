@@ -10,6 +10,7 @@ typedef unsigned char Byte;
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
 #import <os/lock.h>
+#include <algorithm>
 
 #pragma mark - Internal Types
 
@@ -179,6 +180,23 @@ static int reclaimExpiredSlot(void) {
     return -1;
 }
 
+static const int kVoiceSlotBits = 8;
+static const int kMaxVoiceSlots = 1 << kVoiceSlotBits;
+static const uint32_t kVoiceGenerationMask = 0x7FFFFF;
+
+static int makeVoiceID(int idx, uint32_t generation) {
+    return (int)(((generation & kVoiceGenerationMask) << kVoiceSlotBits) | (uint32_t)idx);
+}
+
+static int slotOfVoice(int voiceID) {
+    if (voiceID < 0) return -1;
+    const int idx = voiceID & (kMaxVoiceSlots - 1);
+    if (idx >= gMaxNodes) return -1;
+    const uint32_t generation = ((uint32_t)voiceID >> kVoiceSlotBits) & kVoiceGenerationMask;
+    if ((gSlots[idx].generation & kVoiceGenerationMask) != generation) return -1;
+    return idx;
+}
+
 static int findFreeSlot(void) {
     for (int i = 0; i < gMaxNodes; i++) {
         if (!gSlots[i].active) return i;
@@ -288,7 +306,7 @@ static void ensure_engine_inited(void) {
 bool avbridge_init(int maxNodes) {
     if (gSlots) return true;
 
-    gMaxNodes = maxNodes;
+    gMaxNodes = std::min(maxNodes, kMaxVoiceSlots);
     gSlots = (AVBridgePlayerSlot *)calloc(maxNodes, sizeof(AVBridgePlayerSlot));
     gBufferMap = [NSMutableDictionary dictionary];
 
@@ -414,7 +432,7 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     ensure_engine_running();
     [node play];
 
-    return idx;
+    return makeVoiceID(idx, capturedGen);
 }
 
 int avbridge_play3D(int bufferID, float gain, float pitch,
@@ -474,7 +492,7 @@ int avbridge_play3D(int bufferID, float gain, float pitch,
     ensure_engine_running();
     [node play];
 
-    return idx;
+    return makeVoiceID(idx, capturedGen);
 }
 
 static void releaseStreamSlot(int idx) {
@@ -623,13 +641,14 @@ int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop
     ensure_engine_running();
     [node play];
 
-    return idx;
+    return makeVoiceID(idx, capturedGen);
 }
 
 double avbridge_getPlayedSeconds(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return -1.0;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return -1.0;
 
-    AVAudioPlayerNode *node = gSlots[playerID].node;
+    AVAudioPlayerNode *node = gSlots[idx].node;
     AVAudioTime *nodeTime = node.lastRenderTime;
     if (!nodeTime) return -1.0;
 
@@ -640,10 +659,11 @@ double avbridge_getPlayedSeconds(int playerID) {
 }
 
 int avbridge_getLoopCount(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return -1;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return -1;
 
     os_unfair_lock_lock(&gLock);
-    const int count = gSlots[playerID].active ? (int)gSlots[playerID].loopsCompleted : -1;
+    const int count = gSlots[idx].active ? (int)gSlots[idx].loopsCompleted : -1;
     os_unfair_lock_unlock(&gLock);
     return count;
 }
@@ -669,16 +689,17 @@ float avbridge_getFileDurationMS(const char* filepath) {
 #pragma mark - Public API: Control
 
 void avbridge_stop(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return;
-    if (!gSlots[playerID].active) return;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    if (!gSlots[idx].active) return;
 
     os_unfair_lock_lock(&gLock);
-    gSlots[playerID].generation++;
-    gSlots[playerID].active = false;
-    gSlots[playerID].bufferID = 0;
+    gSlots[idx].generation++;
+    gSlots[idx].active = false;
+    gSlots[idx].bufferID = 0;
     os_unfair_lock_unlock(&gLock);
 
-    [gSlots[playerID].node stop];
+    [gSlots[idx].node stop];
 }
 
 void avbridge_stopAll(void) {
@@ -698,28 +719,40 @@ void avbridge_stopAll(void) {
 }
 
 bool avbridge_isPlaying(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return false;
-    return gSlots[playerID].active;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return false;
+    return gSlots[idx].active;
 }
 
 void avbridge_setVolume(int playerID, float gain) {
-    if (playerID < 0 || playerID >= gMaxNodes) return;
-    gSlots[playerID].node.volume = gain;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    gSlots[idx].node.volume = gain;
+}
+
+void avbridge_setPosition(int playerID, float x, float y, float z) {
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    if (!gSlots[idx].is3D) return;
+    gSlots[idx].node.position = AVAudioMake3DPoint(x, y, z);
 }
 
 void avbridge_setPitch(int playerID, float pitch) {
-    if (playerID < 0 || playerID >= gMaxNodes) return;
-    gSlots[playerID].node.rate = pitch;
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    gSlots[idx].node.rate = pitch;
 }
 
 void avbridge_pause(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return;
-    [gSlots[playerID].node pause];
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    [gSlots[idx].node pause];
 }
 
 void avbridge_resume(int playerID) {
-    if (playerID < 0 || playerID >= gMaxNodes) return;
-    [gSlots[playerID].node play];
+    const int idx = slotOfVoice(playerID);
+    if (idx < 0) return;
+    [gSlots[idx].node play];
 }
 
 void avbridge_pauseAll(void) {
