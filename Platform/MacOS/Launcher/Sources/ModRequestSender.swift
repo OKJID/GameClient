@@ -1,15 +1,8 @@
 import Foundation
 
-enum ModRequestOutcome {
-    case sent
-    case throttled
-    case failed
-}
-
 enum ModRequestSender {
-    private static let endpoint = URL(string: "https://general-online-zh.web.app/api/mod-request")!
+    private static let endpoint = Submission.apiBase.appendingPathComponent("mod-request")
     private static let requestTimeout: TimeInterval = 15
-    private static let throttledStatus = 429
 
     private struct Payload: Encodable {
         let name: String
@@ -19,20 +12,13 @@ enum ModRequestSender {
         let osVersion: String
     }
 
-    private static let launcherVersion: String = {
-        let info = Bundle.main.infoDictionary
-        let version = info?["GOLauncherVersion"] as? String ?? "unknown"
-        let build = info?["GOLauncherBuild"] as? String ?? "unknown"
-        return "\(version) (build \(build))"
-    }()
-
-    static func send(name: String, link: String, completion: @escaping (ModRequestOutcome) -> Void) {
+    static func send(name: String, link: String, completion: @escaping (SubmissionOutcome) -> Void) {
         let payload = Payload(
             name: name,
             link: link,
-            launcherVersion: launcherVersion,
+            launcherVersion: Submission.launcherVersion,
             language: L10n.current,
-            osVersion: ProcessInfo.processInfo.operatingSystemVersionString
+            osVersion: Submission.osVersion
         )
 
         var request = URLRequest(url: endpoint, timeoutInterval: requestTimeout)
@@ -42,26 +28,9 @@ enum ModRequestSender {
 
         URLSession.shared.dataTask(with: request) { _, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode
-            let outcome = resolveOutcome(status: status, error: error)
-            log(status: status, error: error, outcome: outcome)
+            let outcome = SubmissionOutcome(status: status, error: error)
+            Submission.log(endpoint: endpoint, status: status, error: error, outcome: outcome)
             DispatchQueue.main.async { completion(outcome) }
         }.resume()
-    }
-
-    private static func log(status: Int?, error: Error?, outcome: ModRequestOutcome) {
-        let statusText = status.map(String.init) ?? "none"
-        let errorText = error?.localizedDescription ?? "none"
-        print("[ModRequest] \(endpoint.absoluteString) status=\(statusText) error=\(errorText) outcome=\(outcome)")
-        fflush(stdout)
-    }
-
-    private static func resolveOutcome(status: Int?, error: Error?) -> ModRequestOutcome {
-        guard error == nil, let status else { return .failed }
-
-        if status == throttledStatus {
-            return .throttled
-        }
-
-        return (200..<300).contains(status) ? .sent : .failed
     }
 }

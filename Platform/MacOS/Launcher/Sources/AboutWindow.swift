@@ -16,10 +16,11 @@ struct AboutView: View {
             _buildCredits()
             Divider().background(Color.white.opacity(0.2))
             _buildLinks()
+            _buildCrashReportsNote()
             _buildLegal()
         }
         .padding(30)
-        .frame(width: 420, height: 480)
+        .frame(width: 420, height: 530)
         .background(Color(white: 0.1))
     }
 
@@ -121,6 +122,14 @@ struct AboutView: View {
         }
     }
 
+    private func _buildCrashReportsNote() -> some View {
+        Text(L10n.about.crashReports)
+            .font(.system(size: 11))
+            .foregroundColor(.white.opacity(0.45))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private func _buildLegal() -> some View {
         Text(L10n.about.legal)
             .font(.system(size: 10))
@@ -143,7 +152,7 @@ class AboutWindowController {
 
         let aboutView = NSHostingView(rootView: AboutView())
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 480),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 530),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

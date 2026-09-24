@@ -61,6 +61,7 @@ enum L10n {
     static let sidebar = Sidebar()
     static let donate = Donate()
     static let sync = Sync()
+    static let support = Support()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -202,6 +203,32 @@ enum L10n {
         var statusLauncherOutdated: String { resolve("sync.statusLauncherOutdated") }
     }
 
+    struct Support {
+        var help: String { resolve("support.help") }
+        var title: String { resolve("support.title") }
+        var subtitle: String { resolve("support.subtitle") }
+        var crashTitle: String { resolve("support.crashTitle") }
+        var crashSubtitle: String { resolve("support.crashSubtitle") }
+        var messageLabel: String { resolve("support.messageLabel") }
+        var crashMessageLabel: String { resolve("support.crashMessageLabel") }
+        var contactsLabel: String { resolve("support.contactsLabel") }
+        var attachFile: String { resolve("support.attachFile") }
+        var attachLimit: String { resolve("support.attachLimit") }
+        var fileTooLarge: String { resolve("support.fileTooLarge") }
+        var attachLogs: String { resolve("support.attachLogs") }
+        var attachReplay: String { resolve("support.attachReplay") }
+        var attachReplayHint: String { resolve("support.attachReplayHint") }
+        var noReplay: String { resolve("support.noReplay") }
+        var ago: String { resolve("support.ago") }
+        var send: String { resolve("support.send") }
+        var sentTitle: String { resolve("support.sentTitle") }
+        var sentMsg: String { resolve("support.sentMsg") }
+        var crashSentTitle: String { resolve("support.crashSentTitle") }
+        var crashSentMsg: String { resolve("support.crashSentMsg") }
+        var failed: String { resolve("support.failed") }
+        var throttled: String { resolve("support.throttled") }
+    }
+
     struct Update {
         var available: String { resolve("update.available") }
         var download: String { resolve("update.download") }
@@ -288,6 +315,7 @@ enum L10n {
         var builtOnTop: String { resolve("about.builtOnTop") }
         var website: String { resolve("about.website") }
         var legal: String { resolve("about.legal") }
+        var crashReports: String { resolve("about.crashReports") }
         var version: String { resolve("about.version") }
         var launcherVersion: String { resolve("about.launcherVersion") }
     }
@@ -400,6 +428,7 @@ enum L10n {
         "about.builtOnTop": "Built on top of the EA GPLv3 open-source release",
         "about.website": "Website",
         "about.legal": "C&C: Generals Zero Hour™ is a trademark of Electronic Arts.\nGame engine source code licensed under GPLv3.",
+        "about.crashReports": "To keep the game stable, the launcher sends crash reports to the developer: where the game crashed, the game version and the Mac model.",
         "mod.section": "MODS",
         "mod.install": "INSTALL",
         "mod.repair": "REPAIR",
@@ -460,7 +489,30 @@ enum L10n {
         "mod.request.sentTitle": "REQUEST SENT",
         "mod.request.sentMsg": "Stay tuned: the developer will make the mod compatible, and if it works out, the mod will appear in the list.",
         "mod.request.failed": "Could not send the request. Check your connection and try again.",
-        "mod.request.throttled": "Too many requests. Please try again in an hour."
+        "mod.request.throttled": "Too many requests. Please try again in an hour.",
+        "support.help": "Contact the developer",
+        "support.title": "CONTACT THE DEVELOPER",
+        "support.subtitle": "Describe the problem or ask a question. Contacts are optional: leave one if you want a reply.",
+        "support.crashTitle": "THE GAME CRASHED LAST TIME",
+        "support.crashSubtitle": "It happened on %@. If you have a minute, describe what you were doing and tick “Attach logs”.",
+        "support.messageLabel": "WHAT HAPPENED *",
+        "support.crashMessageLabel": "WHAT WERE YOU DOING (OPTIONAL)",
+        "support.contactsLabel": "CONTACTS (OPTIONAL)",
+        "support.attachFile": "Attach file",
+        "support.attachLimit": "up to %d MB",
+        "support.fileTooLarge": "The file is larger than %d MB.",
+        "support.attachLogs": "Attach logs",
+        "support.attachReplay": "Attach the last replay",
+        "support.attachReplayHint": "Last skirmish or online match, %@",
+        "support.noReplay": "No replay yet",
+        "support.ago": "%@ ago",
+        "support.send": "SEND",
+        "support.sentTitle": "MESSAGE SENT",
+        "support.sentMsg": "Thank you! If you left a contact, the developer will get back to you.",
+        "support.crashSentTitle": "REPORT SENT",
+        "support.crashSentMsg": "Thank you! Your report will help fix the crash.",
+        "support.failed": "Could not send. Check your connection and try again.",
+        "support.throttled": "Too many messages. Please try again in an hour."
     ]
 
     static let ru: [String: String] = [
@@ -565,6 +617,7 @@ enum L10n {
         "about.builtOnTop": "Разработано на базе открытого исходного кода EA GPLv3",
         "about.website": "Сайт",
         "about.legal": "C&C: Generals Zero Hour™ является товарным знаком Electronic Arts.\nИсходный код игрового движка лицензирован под GPLv3.",
+        "about.crashReports": "Для стабильности игры лаунчер отправляет разработчику отчёты о вылетах: место сбоя, версию игры и модель Mac.",
         "mod.section": "МОДЫ",
         "mod.install": "УСТАНОВИТЬ",
         "mod.repair": "ВОССТАНОВИТЬ",
@@ -625,7 +678,30 @@ enum L10n {
         "mod.request.sentTitle": "ЗАЯВКА ОТПРАВЛЕНА",
         "mod.request.sentMsg": "Ожидайте: разработчик подготовит совместимость мода, и в случае успеха он появится в списке.",
         "mod.request.failed": "Не удалось отправить заявку. Проверьте интернет и попробуйте ещё раз.",
-        "mod.request.throttled": "Слишком много заявок. Попробуйте через час."
+        "mod.request.throttled": "Слишком много заявок. Попробуйте через час.",
+        "support.help": "Связаться с разработчиком",
+        "support.title": "СВЯЗЬ С РАЗРАБОТЧИКОМ",
+        "support.subtitle": "Опишите проблему или задайте вопрос. Контакты необязательны — оставьте, если ждёте ответа.",
+        "support.crashTitle": "В ПРОШЛЫЙ РАЗ ИГРА ВЫЛЕТЕЛА",
+        "support.crashSubtitle": "Это было %@. Если есть минута, опишите, что вы делали, и отметьте «Приложить логи».",
+        "support.messageLabel": "ЧТО СЛУЧИЛОСЬ *",
+        "support.crashMessageLabel": "ЧТО ВЫ ДЕЛАЛИ (НЕОБЯЗАТЕЛЬНО)",
+        "support.contactsLabel": "КОНТАКТЫ (НЕОБЯЗАТЕЛЬНО)",
+        "support.attachFile": "Прикрепить файл",
+        "support.attachLimit": "до %d МБ",
+        "support.fileTooLarge": "Файл больше %d МБ.",
+        "support.attachLogs": "Приложить логи",
+        "support.attachReplay": "Приложить последний реплей",
+        "support.attachReplayHint": "Последний скирмиш или онлайн-матч, %@",
+        "support.noReplay": "Реплея пока нет",
+        "support.ago": "%@ назад",
+        "support.send": "ОТПРАВИТЬ",
+        "support.sentTitle": "СООБЩЕНИЕ ОТПРАВЛЕНО",
+        "support.sentMsg": "Спасибо! Если вы оставили контакт, разработчик вам ответит.",
+        "support.crashSentTitle": "ОТЧЁТ ОТПРАВЛЕН",
+        "support.crashSentMsg": "Спасибо! Отчёт поможет исправить вылет.",
+        "support.failed": "Не удалось отправить. Проверьте интернет и попробуйте ещё раз.",
+        "support.throttled": "Слишком много сообщений. Попробуйте через час."
     ]
 
     static let uk: [String: String] = [
@@ -730,6 +806,7 @@ enum L10n {
         "about.builtOnTop": "Розроблено на базі відкритого вихідного коду EA GPLv3",
         "about.website": "Сайт",
         "about.legal": "C&C: Generals Zero Hour™ є товарним знаком Electronic Arts.\nВихідний код ігрового движка ліцензовано під GPLv3.",
+        "about.crashReports": "Для стабільності гри лаунчер надсилає розробнику звіти про вильоти: місце збою, версію гри та модель Mac.",
         "mod.section": "МОДИ",
         "mod.install": "ВСТАНОВИТИ",
         "mod.repair": "ВІДНОВИТИ",
@@ -790,7 +867,30 @@ enum L10n {
         "mod.request.sentTitle": "ЗАЯВКУ НАДІСЛАНО",
         "mod.request.sentMsg": "Очікуйте: розробник підготує сумісність мода, і в разі успіху він з’явиться у списку.",
         "mod.request.failed": "Не вдалося надіслати заявку. Перевірте інтернет і спробуйте ще раз.",
-        "mod.request.throttled": "Забагато заявок. Спробуйте за годину."
+        "mod.request.throttled": "Забагато заявок. Спробуйте за годину.",
+        "support.help": "Зв’язатися з розробником",
+        "support.title": "ЗВ’ЯЗОК З РОЗРОБНИКОМ",
+        "support.subtitle": "Опишіть проблему або поставте запитання. Контакти необов’язкові — залиште, якщо чекаєте на відповідь.",
+        "support.crashTitle": "МИНУЛОГО РАЗУ ГРА ВИЛЕТІЛА",
+        "support.crashSubtitle": "Це сталося %@. Якщо маєте хвилинку, опишіть, що ви робили, і позначте «Додати логи».",
+        "support.messageLabel": "ЩО СТАЛОСЯ *",
+        "support.crashMessageLabel": "ЩО ВИ РОБИЛИ (НЕОБОВ’ЯЗКОВО)",
+        "support.contactsLabel": "КОНТАКТИ (НЕОБОВ’ЯЗКОВО)",
+        "support.attachFile": "Прикріпити файл",
+        "support.attachLimit": "до %d МБ",
+        "support.fileTooLarge": "Файл більший за %d МБ.",
+        "support.attachLogs": "Додати логи",
+        "support.attachReplay": "Додати останній реплей",
+        "support.attachReplayHint": "Останній скірміш або онлайн-матч, %@",
+        "support.noReplay": "Реплею поки немає",
+        "support.ago": "%@ тому",
+        "support.send": "НАДІСЛАТИ",
+        "support.sentTitle": "ПОВІДОМЛЕННЯ НАДІСЛАНО",
+        "support.sentMsg": "Дякуємо! Якщо ви залишили контакт, розробник вам відповість.",
+        "support.crashSentTitle": "ЗВІТ НАДІСЛАНО",
+        "support.crashSentMsg": "Дякуємо! Звіт допоможе виправити виліт.",
+        "support.failed": "Не вдалося надіслати. Перевірте інтернет і спробуйте ще раз.",
+        "support.throttled": "Забагато повідомлень. Спробуйте за годину."
     ]
 
     static let hi: [String: String] = [
@@ -895,6 +995,7 @@ enum L10n {
         "about.builtOnTop": "EA GPLv3 ओपन-सोर्स रिलीज़ के आधार पर निर्मित",
         "about.website": "वेबसाइट",
         "about.legal": "C&C: Generals Zero Hour™ Electronic Arts का एक ट्रेडमार्क है।\nगेम इंजन सोर्स कोड GPLv3 के तहत लाइसेंस प्राप्त है।",
+        "about.crashReports": "गेम को स्थिर रखने के लिए लॉन्चर डेवलपर को क्रैश रिपोर्ट भेजता है: गेम कहां क्रैश हुआ, गेम का संस्करण और Mac मॉडल।",
         "mod.section": "मॉड्स",
         "mod.install": "इंस्टॉल करें",
         "mod.repair": "मरम्मत करें",
@@ -955,7 +1056,30 @@ enum L10n {
         "mod.request.sentTitle": "अनुरोध भेजा गया",
         "mod.request.sentMsg": "प्रतीक्षा करें: डेवलपर मॉड की संगतता तैयार करेगा, और सफल होने पर यह सूची में दिखाई देगा।",
         "mod.request.failed": "अनुरोध नहीं भेजा जा सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।",
-        "mod.request.throttled": "बहुत अधिक अनुरोध। कृपया एक घंटे बाद फिर से प्रयास करें।"
+        "mod.request.throttled": "बहुत अधिक अनुरोध। कृपया एक घंटे बाद फिर से प्रयास करें।",
+        "support.help": "डेवलपर से संपर्क करें",
+        "support.title": "डेवलपर से संपर्क करें",
+        "support.subtitle": "समस्या बताएं या सवाल पूछें। संपर्क वैकल्पिक है: जवाब चाहिए तो कोई एक छोड़ें।",
+        "support.crashTitle": "पिछली बार गेम क्रैश हो गया था",
+        "support.crashSubtitle": "यह %@ को हुआ था। अगर एक मिनट हो, तो बताएं कि आप क्या कर रहे थे और “लॉग संलग्न करें” पर टिक करें।",
+        "support.messageLabel": "क्या हुआ *",
+        "support.crashMessageLabel": "आप क्या कर रहे थे (वैकल्पिक)",
+        "support.contactsLabel": "संपर्क (वैकल्पिक)",
+        "support.attachFile": "फ़ाइल संलग्न करें",
+        "support.attachLimit": "%d MB तक",
+        "support.fileTooLarge": "फ़ाइल %d MB से बड़ी है।",
+        "support.attachLogs": "लॉग संलग्न करें",
+        "support.attachReplay": "आख़िरी रीप्ले संलग्न करें",
+        "support.attachReplayHint": "आख़िरी स्कर्मिश या ऑनलाइन मैच, %@",
+        "support.noReplay": "अभी कोई रीप्ले नहीं",
+        "support.ago": "%@ पहले",
+        "support.send": "भेजें",
+        "support.sentTitle": "संदेश भेजा गया",
+        "support.sentMsg": "धन्यवाद! अगर आपने संपर्क छोड़ा है, तो डेवलपर आपको जवाब देगा।",
+        "support.crashSentTitle": "रिपोर्ट भेजी गई",
+        "support.crashSentMsg": "धन्यवाद! आपकी रिपोर्ट क्रैश ठीक करने में मदद करेगी।",
+        "support.failed": "भेजा नहीं जा सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।",
+        "support.throttled": "बहुत अधिक संदेश। कृपया एक घंटे बाद फिर से प्रयास करें।"
     ]
 
     static let zh: [String: String] = [
@@ -1060,6 +1184,7 @@ enum L10n {
         "about.builtOnTop": "基于 EA GPLv3 开源版本开发",
         "about.website": "官方网站",
         "about.legal": "C&C: Generals Zero Hour™ 是 Electronic Arts 的商标。\n游戏引擎源码基于 GPLv3 授权。",
+        "about.crashReports": "为保持游戏稳定，启动器会向开发者发送崩溃报告：崩溃位置、游戏版本和 Mac 型号。",
         "mod.section": "模组",
         "mod.install": "安装",
         "mod.repair": "修复",
@@ -1120,7 +1245,30 @@ enum L10n {
         "mod.request.sentTitle": "请求已发送",
         "mod.request.sentMsg": "请稍候：开发者将为该模组准备兼容性，如果成功，它将出现在列表中。",
         "mod.request.failed": "无法发送请求。请检查网络连接后重试。",
-        "mod.request.throttled": "请求过多。请一小时后再试。"
+        "mod.request.throttled": "请求过多。请一小时后再试。",
+        "support.help": "联系开发者",
+        "support.title": "联系开发者",
+        "support.subtitle": "描述问题或提出疑问。联系方式可选：如需回复，请留下一个。",
+        "support.crashTitle": "上次游戏崩溃了",
+        "support.crashSubtitle": "发生于 %@。如果有空，请描述你当时在做什么，并勾选“附加日志”。",
+        "support.messageLabel": "发生了什么 *",
+        "support.crashMessageLabel": "你当时在做什么（可选）",
+        "support.contactsLabel": "联系方式（可选）",
+        "support.attachFile": "附加文件",
+        "support.attachLimit": "最大 %d MB",
+        "support.fileTooLarge": "文件超过 %d MB。",
+        "support.attachLogs": "附加日志",
+        "support.attachReplay": "附加最近的录像",
+        "support.attachReplayHint": "最近一局遭遇战或在线对战，%@",
+        "support.noReplay": "暂无录像",
+        "support.ago": "%@前",
+        "support.send": "发送",
+        "support.sentTitle": "消息已发送",
+        "support.sentMsg": "谢谢！如果你留下了联系方式，开发者会回复你。",
+        "support.crashSentTitle": "报告已发送",
+        "support.crashSentMsg": "谢谢！你的报告将帮助修复崩溃。",
+        "support.failed": "发送失败。请检查网络连接后重试。",
+        "support.throttled": "消息过多。请一小时后再试。"
     ]
 
     static let ar: [String: String] = [
@@ -1225,6 +1373,7 @@ enum L10n {
         "about.builtOnTop": "مبني على إصدار EA GPLv3 مفتوح المصدر",
         "about.website": "الموقع الإلكتروني",
         "about.legal": "C&C: Generals Zero Hour™ هي علامة تجارية لشركة Electronic Arts.\nرمز مصدر محرك اللعبة مرخص بموجب GPLv3.",
+        "about.crashReports": "للحفاظ على استقرار اللعبة، يرسل المشغّل تقارير التعطّل إلى المطوّر: موضع التعطّل وإصدار اللعبة وطراز Mac.",
         "mod.section": "التعديلات",
         "mod.install": "تثبيت",
         "mod.repair": "إصلاح",
@@ -1285,7 +1434,30 @@ enum L10n {
         "mod.request.sentTitle": "تم إرسال الطلب",
         "mod.request.sentMsg": "انتظر: سيُجهّز المطوّر توافق التعديل، وإذا نجح ذلك فسيظهر في القائمة.",
         "mod.request.failed": "تعذّر إرسال الطلب. تحقّق من اتصالك بالإنترنت وحاول مرة أخرى.",
-        "mod.request.throttled": "طلبات كثيرة جدًا. حاول مرة أخرى بعد ساعة."
+        "mod.request.throttled": "طلبات كثيرة جدًا. حاول مرة أخرى بعد ساعة.",
+        "support.help": "تواصل مع المطوّر",
+        "support.title": "التواصل مع المطوّر",
+        "support.subtitle": "صف المشكلة أو اطرح سؤالًا. وسائل التواصل اختيارية: اترك واحدة إن أردت ردًا.",
+        "support.crashTitle": "تعطّلت اللعبة في المرة السابقة",
+        "support.crashSubtitle": "حدث ذلك في %@. إن كان لديك دقيقة، صف ما كنت تفعله وحدّد «إرفاق السجلات».",
+        "support.messageLabel": "ماذا حدث *",
+        "support.crashMessageLabel": "ماذا كنت تفعل (اختياري)",
+        "support.contactsLabel": "وسائل التواصل (اختياري)",
+        "support.attachFile": "إرفاق ملف",
+        "support.attachLimit": "حتى %d ميغابايت",
+        "support.fileTooLarge": "الملف أكبر من %d ميغابايت.",
+        "support.attachLogs": "إرفاق السجلات",
+        "support.attachReplay": "إرفاق آخر إعادة",
+        "support.attachReplayHint": "آخر مناوشة أو مباراة عبر الإنترنت، %@",
+        "support.noReplay": "لا توجد إعادة بعد",
+        "support.ago": "قبل %@",
+        "support.send": "إرسال",
+        "support.sentTitle": "تم إرسال الرسالة",
+        "support.sentMsg": "شكرًا! إذا تركت وسيلة تواصل فسيرد عليك المطوّر.",
+        "support.crashSentTitle": "تم إرسال التقرير",
+        "support.crashSentMsg": "شكرًا! سيساعد تقريرك في إصلاح التعطّل.",
+        "support.failed": "تعذّر الإرسال. تحقّق من اتصالك بالإنترنت وحاول مرة أخرى.",
+        "support.throttled": "رسائل كثيرة جدًا. حاول مرة أخرى بعد ساعة."
     ]
 
     static let kk: [String: String] = [
@@ -1390,6 +1562,7 @@ enum L10n {
         "about.builtOnTop": "EA GPLv3 ашық бастапқы коды негізінде жасалған",
         "about.website": "Веб-сайт",
         "about.legal": "C&C: Generals Zero Hour™ — Electronic Arts сауда белгісі.\nОйын қозғалтқышының бастапқы коды GPLv3 лицензиясымен таратылады.",
+        "about.crashReports": "Ойын тұрақты жұмыс істеуі үшін лаунчер әзірлеушіге құлау туралы есептерді жібереді: ақау орны, ойын нұсқасы және Mac моделі.",
         "mod.section": "МОДТАР",
         "mod.install": "ОРНАТУ",
         "mod.repair": "ҚАЛПЫНА КЕЛТІРУ",
@@ -1450,7 +1623,30 @@ enum L10n {
         "mod.request.sentTitle": "ӨТІНІМ ЖІБЕРІЛДІ",
         "mod.request.sentMsg": "Күтіңіз: әзірлеуші модтың үйлесімділігін дайындайды, сәтті болса, ол тізімде пайда болады.",
         "mod.request.failed": "Өтінімді жіберу мүмкін болмады. Интернетті тексеріп, қайталап көріңіз.",
-        "mod.request.throttled": "Өтінім тым көп. Бір сағаттан кейін қайталаңыз."
+        "mod.request.throttled": "Өтінім тым көп. Бір сағаттан кейін қайталаңыз.",
+        "support.help": "Әзірлеушімен байланысу",
+        "support.title": "ӘЗІРЛЕУШІМЕН БАЙЛАНЫС",
+        "support.subtitle": "Мәселені сипаттаңыз немесе сұрақ қойыңыз. Байланыс деректері міндетті емес — жауап күтсеңіз, біреуін қалдырыңыз.",
+        "support.crashTitle": "ӨТКЕН ЖОЛЫ ОЙЫН ҚҰЛАДЫ",
+        "support.crashSubtitle": "Бұл %@ болды. Уақытыңыз болса, не істеп жатқаныңызды жазып, «Логтарды тіркеу» белгісін қойыңыз.",
+        "support.messageLabel": "НЕ БОЛДЫ *",
+        "support.crashMessageLabel": "НЕ ІСТЕП ЖАТТЫҢЫЗ (МІНДЕТТІ ЕМЕС)",
+        "support.contactsLabel": "БАЙЛАНЫС (МІНДЕТТІ ЕМЕС)",
+        "support.attachFile": "Файл тіркеу",
+        "support.attachLimit": "%d МБ-қа дейін",
+        "support.fileTooLarge": "Файл %d МБ-тан үлкен.",
+        "support.attachLogs": "Логтарды тіркеу",
+        "support.attachReplay": "Соңғы реплейді тіркеу",
+        "support.attachReplayHint": "Соңғы скирмиш немесе онлайн-матч, %@",
+        "support.noReplay": "Реплей әлі жоқ",
+        "support.ago": "%@ бұрын",
+        "support.send": "ЖІБЕРУ",
+        "support.sentTitle": "ХАБАРЛАМА ЖІБЕРІЛДІ",
+        "support.sentMsg": "Рахмет! Байланыс қалдырсаңыз, әзірлеуші сізге жауап береді.",
+        "support.crashSentTitle": "ЕСЕП ЖІБЕРІЛДІ",
+        "support.crashSentMsg": "Рахмет! Есебіңіз құлауды түзетуге көмектеседі.",
+        "support.failed": "Жіберу мүмкін болмады. Интернетті тексеріп, қайталап көріңіз.",
+        "support.throttled": "Хабарлама тым көп. Бір сағаттан кейін қайталаңыз."
     ]
 
     static let vi: [String: String] = [
@@ -1555,6 +1751,7 @@ enum L10n {
         "about.builtOnTop": "Được xây dựng trên nền tảng nguồn mở EA GPLv3",
         "about.website": "Trang web",
         "about.legal": "C&C: Generals Zero Hour™ là nhãn hiệu của Electronic Arts.\nMã nguồn công cụ trò chơi được cấp phép theo GPLv3.",
+        "about.crashReports": "Để trò chơi ổn định hơn, trình khởi chạy gửi báo cáo sự cố cho nhà phát triển: vị trí lỗi, phiên bản trò chơi và mẫu Mac.",
         "mod.section": "MOD",
         "mod.install": "CÀI ĐẶT",
         "mod.repair": "SỬA CHỮA",
@@ -1615,7 +1812,30 @@ enum L10n {
         "mod.request.sentTitle": "ĐÃ GỬI YÊU CẦU",
         "mod.request.sentMsg": "Hãy chờ: nhà phát triển sẽ chuẩn bị khả năng tương thích cho mod, nếu thành công mod sẽ xuất hiện trong danh sách.",
         "mod.request.failed": "Không gửi được yêu cầu. Hãy kiểm tra kết nối và thử lại.",
-        "mod.request.throttled": "Quá nhiều yêu cầu. Vui lòng thử lại sau một giờ."
+        "mod.request.throttled": "Quá nhiều yêu cầu. Vui lòng thử lại sau một giờ.",
+        "support.help": "Liên hệ nhà phát triển",
+        "support.title": "LIÊN HỆ NHÀ PHÁT TRIỂN",
+        "support.subtitle": "Mô tả sự cố hoặc đặt câu hỏi. Thông tin liên hệ là tùy chọn: hãy để lại một cái nếu bạn muốn được phản hồi.",
+        "support.crashTitle": "LẦN TRƯỚC TRÒ CHƠI ĐÃ BỊ SẬP",
+        "support.crashSubtitle": "Sự cố xảy ra lúc %@. Nếu có thời gian, hãy mô tả bạn đang làm gì và đánh dấu “Đính kèm nhật ký”.",
+        "support.messageLabel": "ĐÃ XẢY RA CHUYỆN GÌ *",
+        "support.crashMessageLabel": "BẠN ĐANG LÀM GÌ (TÙY CHỌN)",
+        "support.contactsLabel": "LIÊN HỆ (TÙY CHỌN)",
+        "support.attachFile": "Đính kèm tệp",
+        "support.attachLimit": "tối đa %d MB",
+        "support.fileTooLarge": "Tệp lớn hơn %d MB.",
+        "support.attachLogs": "Đính kèm nhật ký",
+        "support.attachReplay": "Đính kèm bản phát lại gần nhất",
+        "support.attachReplayHint": "Trận skirmish hoặc trực tuyến gần nhất, %@",
+        "support.noReplay": "Chưa có bản phát lại",
+        "support.ago": "%@ trước",
+        "support.send": "GỬI",
+        "support.sentTitle": "ĐÃ GỬI TIN NHẮN",
+        "support.sentMsg": "Cảm ơn bạn! Nếu bạn để lại liên hệ, nhà phát triển sẽ phản hồi.",
+        "support.crashSentTitle": "ĐÃ GỬI BÁO CÁO",
+        "support.crashSentMsg": "Cảm ơn bạn! Báo cáo sẽ giúp khắc phục sự cố.",
+        "support.failed": "Không gửi được. Hãy kiểm tra kết nối và thử lại.",
+        "support.throttled": "Quá nhiều tin nhắn. Vui lòng thử lại sau một giờ."
     ]
 
     static let pl: [String: String] = [
@@ -1720,6 +1940,7 @@ enum L10n {
         "about.builtOnTop": "Zbudowano na bazie wersji open-source EA GPLv3",
         "about.website": "Strona internetowa",
         "about.legal": "C&C: Generals Zero Hour™ jest znakiem towarowym Electronic Arts.\nKod źródłowy silnika gry licencjonowany na GPLv3.",
+        "about.crashReports": "Dla stabilności gry launcher wysyła deweloperowi raporty o awariach: miejsce awarii, wersję gry i model Maca.",
         "mod.section": "MODY",
         "mod.install": "ZAINSTALUJ",
         "mod.repair": "NAPRAW",
@@ -1780,7 +2001,30 @@ enum L10n {
         "mod.request.sentTitle": "ZGŁOSZENIE WYSŁANE",
         "mod.request.sentMsg": "Czekaj: deweloper przygotuje kompatybilność moda, a jeśli się uda, pojawi się on na liście.",
         "mod.request.failed": "Nie udało się wysłać zgłoszenia. Sprawdź połączenie i spróbuj ponownie.",
-        "mod.request.throttled": "Zbyt wiele zgłoszeń. Spróbuj ponownie za godzinę."
+        "mod.request.throttled": "Zbyt wiele zgłoszeń. Spróbuj ponownie za godzinę.",
+        "support.help": "Kontakt z deweloperem",
+        "support.title": "KONTAKT Z DEWELOPEREM",
+        "support.subtitle": "Opisz problem lub zadaj pytanie. Kontakt jest opcjonalny — zostaw go, jeśli chcesz odpowiedzi.",
+        "support.crashTitle": "OSTATNIM RAZEM GRA ULEGŁA AWARII",
+        "support.crashSubtitle": "Stało się to %@. Jeśli masz chwilę, opisz, co robiłeś, i zaznacz „Dołącz logi”.",
+        "support.messageLabel": "CO SIĘ STAŁO *",
+        "support.crashMessageLabel": "CO ROBIŁEŚ (OPCJONALNIE)",
+        "support.contactsLabel": "KONTAKT (OPCJONALNIE)",
+        "support.attachFile": "Dołącz plik",
+        "support.attachLimit": "do %d MB",
+        "support.fileTooLarge": "Plik jest większy niż %d MB.",
+        "support.attachLogs": "Dołącz logi",
+        "support.attachReplay": "Dołącz ostatnią powtórkę",
+        "support.attachReplayHint": "Ostatnia potyczka lub mecz online, %@",
+        "support.noReplay": "Brak powtórki",
+        "support.ago": "%@ temu",
+        "support.send": "WYŚLIJ",
+        "support.sentTitle": "WIADOMOŚĆ WYSŁANA",
+        "support.sentMsg": "Dziękujemy! Jeśli zostawiłeś kontakt, deweloper ci odpowie.",
+        "support.crashSentTitle": "RAPORT WYSŁANY",
+        "support.crashSentMsg": "Dziękujemy! Raport pomoże naprawić awarię.",
+        "support.failed": "Nie udało się wysłać. Sprawdź połączenie i spróbuj ponownie.",
+        "support.throttled": "Zbyt wiele wiadomości. Spróbuj ponownie za godzinę."
     ]
 
     static let de: [String: String] = [
@@ -1885,6 +2129,7 @@ enum L10n {
         "about.builtOnTop": "Erstellt auf Basis der EA GPLv3 Open-Source-Version",
         "about.website": "Webseite",
         "about.legal": "C&C: Generals Zero Hour™ ist eine Marke von Electronic Arts.\nSpiel-Engine-Quellcode lizenziert unter GPLv3.",
+        "about.crashReports": "Damit das Spiel stabil läuft, sendet der Launcher Absturzberichte an den Entwickler: die Absturzstelle, die Spielversion und das Mac-Modell.",
         "mod.section": "MODS",
         "mod.install": "INSTALLIEREN",
         "mod.repair": "REPARIEREN",
@@ -1945,7 +2190,30 @@ enum L10n {
         "mod.request.sentTitle": "ANFRAGE GESENDET",
         "mod.request.sentMsg": "Bitte warte: Der Entwickler macht den Mod kompatibel, und wenn es klappt, erscheint er in der Liste.",
         "mod.request.failed": "Die Anfrage konnte nicht gesendet werden. Prüfe deine Verbindung und versuche es erneut.",
-        "mod.request.throttled": "Zu viele Anfragen. Versuche es in einer Stunde erneut."
+        "mod.request.throttled": "Zu viele Anfragen. Versuche es in einer Stunde erneut.",
+        "support.help": "Den Entwickler kontaktieren",
+        "support.title": "ENTWICKLER KONTAKTIEREN",
+        "support.subtitle": "Beschreib das Problem oder stell eine Frage. Kontaktdaten sind optional — hinterlass eine, wenn du eine Antwort möchtest.",
+        "support.crashTitle": "DAS SPIEL IST LETZTES MAL ABGESTÜRZT",
+        "support.crashSubtitle": "Das war am %@. Wenn du eine Minute hast, beschreib, was du gemacht hast, und hak „Logs anhängen“ an.",
+        "support.messageLabel": "WAS IST PASSIERT *",
+        "support.crashMessageLabel": "WAS HAST DU GEMACHT (OPTIONAL)",
+        "support.contactsLabel": "KONTAKT (OPTIONAL)",
+        "support.attachFile": "Datei anhängen",
+        "support.attachLimit": "bis %d MB",
+        "support.fileTooLarge": "Die Datei ist größer als %d MB.",
+        "support.attachLogs": "Logs anhängen",
+        "support.attachReplay": "Letztes Replay anhängen",
+        "support.attachReplayHint": "Letztes Gefecht oder Online-Match, %@",
+        "support.noReplay": "Noch kein Replay",
+        "support.ago": "vor %@",
+        "support.send": "SENDEN",
+        "support.sentTitle": "NACHRICHT GESENDET",
+        "support.sentMsg": "Danke! Wenn du einen Kontakt hinterlassen hast, meldet sich der Entwickler bei dir.",
+        "support.crashSentTitle": "BERICHT GESENDET",
+        "support.crashSentMsg": "Danke! Dein Bericht hilft, den Absturz zu beheben.",
+        "support.failed": "Senden fehlgeschlagen. Prüfe deine Verbindung und versuche es erneut.",
+        "support.throttled": "Zu viele Nachrichten. Versuche es in einer Stunde erneut."
     ]
 
     static let es: [String: String] = [
@@ -2050,6 +2318,7 @@ enum L10n {
         "about.builtOnTop": "Creado sobre la versión de código abierto EA GPLv3",
         "about.website": "Sitio web",
         "about.legal": "C&C: Generals Zero Hour™ es una marca comercial de Electronic Arts.\nCódigo fuente del motor de juego bajo licencia GPLv3.",
+        "about.crashReports": "Para que el juego sea más estable, el launcher envía informes de fallos al desarrollador: dónde falló el juego, la versión y el modelo de Mac.",
         "mod.section": "MODS",
         "mod.install": "INSTALAR",
         "mod.repair": "REPARAR",
@@ -2110,7 +2379,30 @@ enum L10n {
         "mod.request.sentTitle": "SOLICITUD ENVIADA",
         "mod.request.sentMsg": "Espera: el desarrollador preparará la compatibilidad del mod y, si todo sale bien, aparecerá en la lista.",
         "mod.request.failed": "No se pudo enviar la solicitud. Comprueba tu conexión e inténtalo de nuevo.",
-        "mod.request.throttled": "Demasiadas solicitudes. Inténtalo de nuevo en una hora."
+        "mod.request.throttled": "Demasiadas solicitudes. Inténtalo de nuevo en una hora.",
+        "support.help": "Contactar con el desarrollador",
+        "support.title": "CONTACTAR CON EL DESARROLLADOR",
+        "support.subtitle": "Describe el problema o haz una pregunta. Los contactos son opcionales: deja uno si quieres respuesta.",
+        "support.crashTitle": "LA ÚLTIMA VEZ EL JUEGO FALLÓ",
+        "support.crashSubtitle": "Ocurrió el %@. Si tienes un minuto, describe qué estabas haciendo y marca «Adjuntar logs».",
+        "support.messageLabel": "QUÉ HA PASADO *",
+        "support.crashMessageLabel": "QUÉ ESTABAS HACIENDO (OPCIONAL)",
+        "support.contactsLabel": "CONTACTOS (OPCIONAL)",
+        "support.attachFile": "Adjuntar archivo",
+        "support.attachLimit": "hasta %d MB",
+        "support.fileTooLarge": "El archivo supera los %d MB.",
+        "support.attachLogs": "Adjuntar logs",
+        "support.attachReplay": "Adjuntar la última repetición",
+        "support.attachReplayHint": "Última escaramuza o partida en línea, %@",
+        "support.noReplay": "Aún no hay repetición",
+        "support.ago": "hace %@",
+        "support.send": "ENVIAR",
+        "support.sentTitle": "MENSAJE ENVIADO",
+        "support.sentMsg": "¡Gracias! Si dejaste un contacto, el desarrollador te responderá.",
+        "support.crashSentTitle": "INFORME ENVIADO",
+        "support.crashSentMsg": "¡Gracias! Tu informe ayudará a corregir el fallo.",
+        "support.failed": "No se pudo enviar. Comprueba tu conexión e inténtalo de nuevo.",
+        "support.throttled": "Demasiados mensajes. Inténtalo de nuevo en una hora."
     ]
 
     static let tr: [String: String] = [
@@ -2215,6 +2507,7 @@ enum L10n {
         "about.builtOnTop": "EA GPLv3 açık kaynak sürümü temel alınarak oluşturulmuştur",
         "about.website": "Web Sitesi",
         "about.legal": "C&C: Generals Zero Hour™ Electronic Arts'ın ticari markasıdır.\nOyun motoru kaynak kodu GPLv3 lisanslıdır.",
+        "about.crashReports": "Oyunun kararlılığı için başlatıcı, çökme raporlarını geliştiriciye gönderir: çökmenin yeri, oyun sürümü ve Mac modeli.",
         "mod.section": "MODLAR",
         "mod.install": "KUR",
         "mod.repair": "ONAR",
@@ -2275,6 +2568,29 @@ enum L10n {
         "mod.request.sentTitle": "İSTEK GÖNDERİLDİ",
         "mod.request.sentMsg": "Bekleyin: geliştirici modun uyumluluğunu hazırlayacak ve başarılı olursa mod listede görünecek.",
         "mod.request.failed": "İstek gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
-        "mod.request.throttled": "Çok fazla istek. Lütfen bir saat sonra tekrar deneyin."
+        "mod.request.throttled": "Çok fazla istek. Lütfen bir saat sonra tekrar deneyin.",
+        "support.help": "Geliştiriciyle iletişime geç",
+        "support.title": "GELİŞTİRİCİYLE İLETİŞİM",
+        "support.subtitle": "Sorunu anlatın ya da bir soru sorun. İletişim bilgileri isteğe bağlıdır: yanıt istiyorsanız birini bırakın.",
+        "support.crashTitle": "OYUN GEÇEN SEFER ÇÖKTÜ",
+        "support.crashSubtitle": "Bu %@ tarihinde oldu. Bir dakikanız varsa ne yaptığınızı anlatın ve “Günlükleri ekle” kutusunu işaretleyin.",
+        "support.messageLabel": "NE OLDU *",
+        "support.crashMessageLabel": "NE YAPIYORDUNUZ (İSTEĞE BAĞLI)",
+        "support.contactsLabel": "İLETİŞİM (İSTEĞE BAĞLI)",
+        "support.attachFile": "Dosya ekle",
+        "support.attachLimit": "en fazla %d MB",
+        "support.fileTooLarge": "Dosya %d MB'tan büyük.",
+        "support.attachLogs": "Günlükleri ekle",
+        "support.attachReplay": "Son tekrarı ekle",
+        "support.attachReplayHint": "Son çatışma veya çevrim içi maç, %@",
+        "support.noReplay": "Henüz tekrar yok",
+        "support.ago": "%@ önce",
+        "support.send": "GÖNDER",
+        "support.sentTitle": "MESAJ GÖNDERİLDİ",
+        "support.sentMsg": "Teşekkürler! İletişim bilgisi bıraktıysanız geliştirici size yanıt verecek.",
+        "support.crashSentTitle": "RAPOR GÖNDERİLDİ",
+        "support.crashSentMsg": "Teşekkürler! Raporunuz çökmenin düzeltilmesine yardımcı olacak.",
+        "support.failed": "Gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
+        "support.throttled": "Çok fazla mesaj. Lütfen bir saat sonra tekrar deneyin."
     ]
 }

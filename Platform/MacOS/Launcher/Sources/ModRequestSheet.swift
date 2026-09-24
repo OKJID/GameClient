@@ -8,7 +8,7 @@ struct ModRequestSheet: View {
     @State private var name = ""
     @State private var link = ""
     @State private var isSending = false
-    @State private var outcome: ModRequestOutcome?
+    @State private var outcome: SubmissionOutcome?
 
     private let sheetWidth: CGFloat = 420
     private let linkPlaceholder = "https://www.moddb.com/mods/…"

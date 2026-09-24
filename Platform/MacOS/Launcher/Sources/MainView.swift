@@ -45,7 +45,6 @@ struct ChevronMark: Shape {
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
     @State private var isDonatePanelOpen = false
-    @State private var isModRequestOpen = false
 
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
@@ -99,8 +98,20 @@ struct MainView: View {
         .alert(item: _activeAlert) { alert in
             _buildAlert(alert)
         }
-        .sheet(isPresented: $isModRequestOpen) {
+        .sheet(item: $viewModel.activeSheet, onDismiss: viewModel.checkForCrash) { sheet in
+            _buildSheet(sheet)
+        }
+    }
+
+    @ViewBuilder
+    private func _buildSheet(_ sheet: LauncherViewModel.Sheet) -> some View {
+        switch sheet {
+        case .modRequest:
             ModRequestSheet(accent: accent)
+        case .support:
+            SupportSheet(crash: nil, accent: accent)
+        case .crash(let crash):
+            SupportSheet(crash: crash, accent: accent)
         }
     }
 
@@ -387,7 +398,7 @@ struct MainView: View {
     }
 
     private func _buildModRequestButton() -> some View {
-        Button(action: { isModRequestOpen = true }) {
+        Button(action: { viewModel.activeSheet = .modRequest }) {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
                     .font(.system(size: 10, weight: .bold))
@@ -1216,9 +1227,29 @@ struct MainView: View {
                     _buildFooterLink(title: "Telegram", url: "https://t.me/GeneralsOnlineMacOSChannel")
                 }
             }
+
+            _buildHelpButton()
+
             Spacer()
         }
         .padding(.horizontal, 8)
+    }
+
+    private func _buildHelpButton() -> some View {
+        Button(action: { viewModel.activeSheet = .support }) {
+            Image(systemName: "headset")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 30, height: 30)
+                .background(Circle().fill(accent.opacity(0.25)))
+                .overlay(Circle().stroke(accent.opacity(0.3), lineWidth: 1))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .offset(y: -8)
+        .help(L10n.support.help)
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 
     // MARK: - Donate

@@ -5,29 +5,34 @@ enum LogsSharer {
     static let telegramGroupURL = "https://t.me/GeneralsOnlineMacOS"
     static let telegramDeepLink = "tg://resolve?domain=GeneralsOnlineMacOS"
 
-    private static let crashReportNames = ["MacCrash.txt", "MacCrash.txt.bak", "MacCrash.txt.bak2", "MacCrash.txt.bak3"]
+    static let crashReportNames = ["MacCrash.txt", "MacCrash.txt.bak", "MacCrash.txt.bak2", "MacCrash.txt.bak3"]
 
-    private static var candidateLogs: [URL] {
-        let base = GameProfile.current.userDataDirURL
-        return [
+    private static func candidateLogs(in base: URL) -> [URL] {
+        [
             base.appendingPathComponent("MacDebug.txt"),
             base.appendingPathComponent("GeneralsOnlineData/GeneralsOnline.log")
         ] + crashReportNames.map { base.appendingPathComponent($0) }
     }
 
-    private static var existingLogs: [URL] {
-        candidateLogs.filter { FileManager.default.fileExists(atPath: $0.path) }
+    static func existingLogs(in base: URL) -> [URL] {
+        candidateLogs(in: base).filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    static func existingCrashReports(in base: URL) -> [URL] {
+        crashReportNames
+            .map { base.appendingPathComponent($0) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
     static func share() {
-        let files = existingLogs
+        let files = existingLogs(in: GameProfile.current.userDataDirURL)
         if files.isEmpty {
             presentAlert(L10n.settings.shareLogsNone)
             return
         }
 
         DispatchQueue.global(qos: .userInitiated).async {
-            let zipURL = makeZip(of: files)
+            let zipURL = makeZip(of: files, prefix: GameProfile.current.logsArchivePrefix)
             DispatchQueue.main.async {
                 guard let zipURL = zipURL else {
                     presentAlert(L10n.settings.shareLogsFailed)
@@ -49,12 +54,12 @@ enum LogsSharer {
         }
     }
 
-    private static func makeZip(of files: [URL]) -> URL? {
+    static func makeZip(of files: [URL], prefix: String) -> URL? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let stamp = formatter.string(from: Date())
         let zipURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("\(GameProfile.current.logsArchivePrefix)\(stamp).zip")
+            .appendingPathComponent("\(prefix)\(stamp).zip")
 
         try? FileManager.default.removeItem(at: zipURL)
 

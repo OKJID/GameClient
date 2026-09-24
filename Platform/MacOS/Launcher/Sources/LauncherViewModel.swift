@@ -24,6 +24,20 @@ class LauncherViewModel: ObservableObject {
         let profile: GameProfile
     }
 
+    enum Sheet: Identifiable {
+        case modRequest
+        case support
+        case crash(PendingCrash)
+
+        var id: String {
+            switch self {
+            case .modRequest: return "modRequest"
+            case .support: return "support"
+            case .crash(let crash): return "crash:\(crash.id)"
+            }
+        }
+    }
+
     private static let activeTabKey = "ActiveTab"
 
     private static var restoredTab: Tab {
@@ -55,6 +69,7 @@ class LauncherViewModel: ObservableObject {
     @Published var route: Route = .home
     @Published var showPatchConfirmation: Bool = false
     @Published var modConfirmation: ModConfirmation? = nil
+    @Published var activeSheet: Sheet? = nil
     @Published var selectedLanguage: String = L10n.current
     @Published var isWindowedEdgeScrollEnabled: Bool = false {
         didSet {
@@ -137,6 +152,7 @@ class LauncherViewModel: ObservableObject {
     lazy var apiSync = ApiSync(resources: [updateChecker, announcements, ModCatalog.shared])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
+    private var isSendingCrashReport = false
 
     private struct ModStatus {
         let installed: Bool
@@ -192,8 +208,10 @@ class LauncherViewModel: ObservableObject {
 
         apiSync.$status
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
+            .sink { [weak self] status in
                 self?.objectWillChange.send()
+                guard status == .current else { return }
+                self?.checkForCrash()
             }
             .store(in: &cancellables)
 
@@ -725,6 +743,27 @@ class LauncherViewModel: ObservableObject {
             Analytics.logLaunchFailed(reason: "process_run_failed")
             alertMessage = String(format: L10n.alerts.launchFailed, error.localizedDescription)
             isLaunching = false
+        }
+    }
+
+    func checkForCrash() {
+        guard activeSheet == nil, !isSendingCrashReport, let crash = CrashReports.pending() else { return }
+
+        guard CrashReports.wasPrompted(crash) else {
+            CrashReports.markPrompted(crash)
+            activeSheet = .crash(crash)
+            return
+        }
+
+        sendCrashReport(crash)
+    }
+
+    private func sendCrashReport(_ crash: PendingCrash) {
+        isSendingCrashReport = true
+        SupportSender.send(.crashReport(crash)) { [weak self] outcome in
+            self?.isSendingCrashReport = false
+            guard outcome == .sent else { return }
+            CrashReports.markReported(crash)
         }
     }
 
