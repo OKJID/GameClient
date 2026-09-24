@@ -625,6 +625,7 @@ int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop
     detachAndReattach(idx, false, file.processingFormat);
 
     AVAudioPlayerNode *node = gSlots[idx].node;
+    [node stop];
     node.volume = gain;
     node.rate = pitch;
 
@@ -685,18 +686,53 @@ float avbridge_getFileDurationMS(const char* filepath) {
 
 #pragma mark - Public API: Control
 
+static const AVAudioFrameCount kSilenceFrames = 64;
+static NSMutableDictionary<NSString *, AVAudioPCMBuffer *> *gSilenceBuffers = nil;
+
+static AVAudioPCMBuffer *silenceBufferFor(AVAudioFormat *format) {
+    if (!format) return nil;
+    if (!gSilenceBuffers) gSilenceBuffers = [NSMutableDictionary dictionary];
+
+    NSString *key = [NSString stringWithFormat:@"%.0f/%u", format.sampleRate, (unsigned)format.channelCount];
+    AVAudioPCMBuffer *cached = gSilenceBuffers[key];
+    if (cached) return cached;
+
+    AVAudioPCMBuffer *silence = [[AVAudioPCMBuffer alloc] initWithPCMFormat:format frameCapacity:kSilenceFrames];
+    if (!silence) return nil;
+    silence.frameLength = kSilenceFrames;
+    for (AVAudioChannelCount ch = 0; ch < format.channelCount; ch++) {
+        memset(silence.floatChannelData[ch], 0, kSilenceFrames * sizeof(float));
+    }
+    gSilenceBuffers[key] = silence;
+    return silence;
+}
+
+static void flushWithSilence(AVAudioPlayerNode *node, AVAudioFormat *format) {
+    AVAudioPCMBuffer *silence = silenceBufferFor(format);
+    if (!silence) {
+        [node stop];
+        return;
+    }
+    [node scheduleBuffer:silence atTime:nil options:AVAudioPlayerNodeBufferInterrupts completionHandler:nil];
+}
+
 void avbridge_stop(int playerID) {
     const int idx = slotOfVoice(playerID);
     if (idx < 0) return;
     if (!gSlots[idx].active) return;
 
     os_unfair_lock_lock(&gLock);
+    const bool isStream = gSlots[idx].bufferID == 0;
     gSlots[idx].generation++;
     gSlots[idx].active = false;
     gSlots[idx].bufferID = 0;
     os_unfair_lock_unlock(&gLock);
 
-    [gSlots[idx].node stop];
+    if (isStream) {
+        [gSlots[idx].node stop];
+        return;
+    }
+    flushWithSilence(gSlots[idx].node, gSlots[idx].connectedFormat);
 }
 
 void avbridge_stopAll(void) {
