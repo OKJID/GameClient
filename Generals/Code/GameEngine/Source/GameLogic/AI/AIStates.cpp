@@ -876,8 +876,11 @@ StateReturnType AIStateMachine::updateStateMachine()
 
 			return status;
 		}
-		m_temporaryState->onExit(EXIT_NORMAL);
-		m_temporaryState = nullptr;
+		if (m_temporaryState)
+		{
+			m_temporaryState->onExit(EXIT_NORMAL);
+			m_temporaryState = nullptr;
+		}
 	}
 	StateReturnType retType = StateMachine::updateStateMachine();
 
