@@ -157,6 +157,21 @@ enum L10n {
         var confirmRemoveTitle: String { resolve("mod.confirmRemoveTitle") }
         var confirmRemoveMsg: String { resolve("mod.confirmRemoveMsg") }
         let status = ModStatus()
+        let request = ModRequest()
+    }
+
+    struct ModRequest {
+        var button: String { resolve("mod.request.button") }
+        var title: String { resolve("mod.request.title") }
+        var subtitle: String { resolve("mod.request.subtitle") }
+        var nameLabel: String { resolve("mod.request.nameLabel") }
+        var namePlaceholder: String { resolve("mod.request.namePlaceholder") }
+        var linkLabel: String { resolve("mod.request.linkLabel") }
+        var send: String { resolve("mod.request.send") }
+        var sentTitle: String { resolve("mod.request.sentTitle") }
+        var sentMsg: String { resolve("mod.request.sentMsg") }
+        var failed: String { resolve("mod.request.failed") }
+        var throttled: String { resolve("mod.request.throttled") }
     }
 
     struct ModStatus {
@@ -434,7 +449,18 @@ enum L10n {
         "sync.statusOk": "Verified with the server: you have the latest version and every fix",
         "sync.statusStale": "Verified with the server under an hour ago: you have everything released up to then",
         "sync.statusOffline": "Not verified with the server: the latest version and fixes are not guaranteed",
-        "sync.statusLauncherOutdated": "The launcher is out of date: game stability is not guaranteed until you update"
+        "sync.statusLauncherOutdated": "The launcher is out of date: game stability is not guaranteed until you update",
+        "mod.request.button": "ADD MOD",
+        "mod.request.title": "ADD A MOD TO THE LAUNCHER",
+        "mod.request.subtitle": "Missing a mod? Tell us which one and we will try to bring it to the Mac.",
+        "mod.request.nameLabel": "MOD NAME *",
+        "mod.request.namePlaceholder": "Name and version",
+        "mod.request.linkLabel": "LINK TO THE MOD (OPTIONAL)",
+        "mod.request.send": "SEND",
+        "mod.request.sentTitle": "REQUEST SENT",
+        "mod.request.sentMsg": "Stay tuned: the developer will make the mod compatible, and if it works out, the mod will appear in the list.",
+        "mod.request.failed": "Could not send the request. Check your connection and try again.",
+        "mod.request.throttled": "Too many requests. Please try again in an hour."
     ]
 
     static let ru: [String: String] = [
@@ -588,7 +614,18 @@ enum L10n {
         "sync.statusOk": "Проверено с сервером: у вас последняя версия и все исправления",
         "sync.statusStale": "Проверено с сервером меньше часа назад: всё, что вышло до этого, у вас",
         "sync.statusOffline": "Нет проверки с сервером: последняя версия и исправления не гарантированы",
-        "sync.statusLauncherOutdated": "Лаунчер устарел: без обновления стабильность игры не гарантирована"
+        "sync.statusLauncherOutdated": "Лаунчер устарел: без обновления стабильность игры не гарантирована",
+        "mod.request.button": "ДОБАВИТЬ МОД",
+        "mod.request.title": "ДОБАВИТЬ МОД В ЛАУНЧЕР",
+        "mod.request.subtitle": "Не хватает мода? Напишите какого — попробуем перенести его на Mac.",
+        "mod.request.nameLabel": "НАЗВАНИЕ МОДА *",
+        "mod.request.namePlaceholder": "Название и версия",
+        "mod.request.linkLabel": "ССЫЛКА НА МОД (НЕОБЯЗАТЕЛЬНО)",
+        "mod.request.send": "ОТПРАВИТЬ",
+        "mod.request.sentTitle": "ЗАЯВКА ОТПРАВЛЕНА",
+        "mod.request.sentMsg": "Ожидайте: разработчик подготовит совместимость мода, и в случае успеха он появится в списке.",
+        "mod.request.failed": "Не удалось отправить заявку. Проверьте интернет и попробуйте ещё раз.",
+        "mod.request.throttled": "Слишком много заявок. Попробуйте через час."
     ]
 
     static let uk: [String: String] = [
@@ -742,7 +779,18 @@ enum L10n {
         "sync.statusOk": "Перевірено із сервером: у вас остання версія і всі виправлення",
         "sync.statusStale": "Перевірено із сервером менше години тому: усе, що вийшло до цього, у вас",
         "sync.statusOffline": "Немає перевірки із сервером: остання версія і виправлення не гарантовані",
-        "sync.statusLauncherOutdated": "Лаунчер застарів: без оновлення стабільність гри не гарантована"
+        "sync.statusLauncherOutdated": "Лаунчер застарів: без оновлення стабільність гри не гарантована",
+        "mod.request.button": "ДОДАТИ МОД",
+        "mod.request.title": "ДОДАТИ МОД ДО ЛАУНЧЕРА",
+        "mod.request.subtitle": "Бракує мода? Напишіть якого — спробуємо перенести його на Mac.",
+        "mod.request.nameLabel": "НАЗВА МОДА *",
+        "mod.request.namePlaceholder": "Назва та версія",
+        "mod.request.linkLabel": "ПОСИЛАННЯ НА МОД (НЕОБОВ’ЯЗКОВО)",
+        "mod.request.send": "НАДІСЛАТИ",
+        "mod.request.sentTitle": "ЗАЯВКУ НАДІСЛАНО",
+        "mod.request.sentMsg": "Очікуйте: розробник підготує сумісність мода, і в разі успіху він з’явиться у списку.",
+        "mod.request.failed": "Не вдалося надіслати заявку. Перевірте інтернет і спробуйте ще раз.",
+        "mod.request.throttled": "Забагато заявок. Спробуйте за годину."
     ]
 
     static let hi: [String: String] = [
@@ -896,7 +944,18 @@ enum L10n {
         "sync.statusOk": "सर्वर से पुष्टि हुई: आपके पास नवीनतम संस्करण और सभी सुधार हैं",
         "sync.statusStale": "एक घंटे से कम पहले सर्वर से पुष्टि हुई: तब तक जारी सब कुछ आपके पास है",
         "sync.statusOffline": "सर्वर से पुष्टि नहीं हुई: नवीनतम संस्करण और सुधारों की गारंटी नहीं है",
-        "sync.statusLauncherOutdated": "लॉन्चर पुराना है: अपडेट किए बिना गेम की स्थिरता की गारंटी नहीं है"
+        "sync.statusLauncherOutdated": "लॉन्चर पुराना है: अपडेट किए बिना गेम की स्थिरता की गारंटी नहीं है",
+        "mod.request.button": "मॉड जोड़ें",
+        "mod.request.title": "लॉन्चर में मॉड जोड़ें",
+        "mod.request.subtitle": "कोई मॉड नहीं मिल रहा? हमें बताएं कौन-सा — हम उसे Mac पर लाने की कोशिश करेंगे।",
+        "mod.request.nameLabel": "मॉड का नाम *",
+        "mod.request.namePlaceholder": "नाम और संस्करण",
+        "mod.request.linkLabel": "मॉड का लिंक (वैकल्पिक)",
+        "mod.request.send": "भेजें",
+        "mod.request.sentTitle": "अनुरोध भेजा गया",
+        "mod.request.sentMsg": "प्रतीक्षा करें: डेवलपर मॉड की संगतता तैयार करेगा, और सफल होने पर यह सूची में दिखाई देगा।",
+        "mod.request.failed": "अनुरोध नहीं भेजा जा सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।",
+        "mod.request.throttled": "बहुत अधिक अनुरोध। कृपया एक घंटे बाद फिर से प्रयास करें।"
     ]
 
     static let zh: [String: String] = [
@@ -1050,7 +1109,18 @@ enum L10n {
         "sync.statusOk": "已与服务器核对：您拥有最新版本和全部修复",
         "sync.statusStale": "一小时内已与服务器核对：此前发布的内容您都已拥有",
         "sync.statusOffline": "未与服务器核对：无法保证最新版本和修复",
-        "sync.statusLauncherOutdated": "启动器已过期：不更新则无法保证游戏稳定性"
+        "sync.statusLauncherOutdated": "启动器已过期：不更新则无法保证游戏稳定性",
+        "mod.request.button": "添加模组",
+        "mod.request.title": "向启动器添加模组",
+        "mod.request.subtitle": "缺少某个模组？告诉我们是哪一个，我们会尝试把它移植到 Mac。",
+        "mod.request.nameLabel": "模组名称 *",
+        "mod.request.namePlaceholder": "名称和版本",
+        "mod.request.linkLabel": "模组链接（可选）",
+        "mod.request.send": "发送",
+        "mod.request.sentTitle": "请求已发送",
+        "mod.request.sentMsg": "请稍候：开发者将为该模组准备兼容性，如果成功，它将出现在列表中。",
+        "mod.request.failed": "无法发送请求。请检查网络连接后重试。",
+        "mod.request.throttled": "请求过多。请一小时后再试。"
     ]
 
     static let ar: [String: String] = [
@@ -1204,7 +1274,18 @@ enum L10n {
         "sync.statusOk": "تم التحقق مع الخادم: لديك أحدث إصدار وجميع الإصلاحات",
         "sync.statusStale": "تم التحقق مع الخادم قبل أقل من ساعة: لديك كل ما صدر حتى ذلك الوقت",
         "sync.statusOffline": "لم يتم التحقق مع الخادم: أحدث إصدار والإصلاحات غير مضمونة",
-        "sync.statusLauncherOutdated": "المشغّل قديم: لا يمكن ضمان استقرار اللعبة دون التحديث"
+        "sync.statusLauncherOutdated": "المشغّل قديم: لا يمكن ضمان استقرار اللعبة دون التحديث",
+        "mod.request.button": "إضافة تعديل",
+        "mod.request.title": "إضافة تعديل إلى المشغّل",
+        "mod.request.subtitle": "هل ينقصك تعديل؟ أخبرنا أيّ تعديل وسنحاول نقله إلى Mac.",
+        "mod.request.nameLabel": "اسم التعديل *",
+        "mod.request.namePlaceholder": "الاسم والإصدار",
+        "mod.request.linkLabel": "رابط التعديل (اختياري)",
+        "mod.request.send": "إرسال",
+        "mod.request.sentTitle": "تم إرسال الطلب",
+        "mod.request.sentMsg": "انتظر: سيُجهّز المطوّر توافق التعديل، وإذا نجح ذلك فسيظهر في القائمة.",
+        "mod.request.failed": "تعذّر إرسال الطلب. تحقّق من اتصالك بالإنترنت وحاول مرة أخرى.",
+        "mod.request.throttled": "طلبات كثيرة جدًا. حاول مرة أخرى بعد ساعة."
     ]
 
     static let kk: [String: String] = [
@@ -1358,7 +1439,18 @@ enum L10n {
         "sync.statusOk": "Сервермен тексерілді: сізде соңғы нұсқа және барлық түзетулер бар",
         "sync.statusStale": "Сервермен бір сағаттан аз уақыт бұрын тексерілді: оған дейін шыққанның бәрі сізде бар",
         "sync.statusOffline": "Сервермен тексерілмеді: соңғы нұсқа мен түзетулерге кепілдік жоқ",
-        "sync.statusLauncherOutdated": "Лаунчер ескірген: жаңартпасаңыз, ойынның тұрақтылығына кепілдік жоқ"
+        "sync.statusLauncherOutdated": "Лаунчер ескірген: жаңартпасаңыз, ойынның тұрақтылығына кепілдік жоқ",
+        "mod.request.button": "МОД ҚОСУ",
+        "mod.request.title": "ЛАУНЧЕРГЕ МОД ҚОСУ",
+        "mod.request.subtitle": "Мод жетіспей ме? Қайсысы екенін жазыңыз — оны Mac-қа көшіріп көреміз.",
+        "mod.request.nameLabel": "МОД АТАУЫ *",
+        "mod.request.namePlaceholder": "Атауы және нұсқасы",
+        "mod.request.linkLabel": "МОДҚА СІЛТЕМЕ (МІНДЕТТІ ЕМЕС)",
+        "mod.request.send": "ЖІБЕРУ",
+        "mod.request.sentTitle": "ӨТІНІМ ЖІБЕРІЛДІ",
+        "mod.request.sentMsg": "Күтіңіз: әзірлеуші модтың үйлесімділігін дайындайды, сәтті болса, ол тізімде пайда болады.",
+        "mod.request.failed": "Өтінімді жіберу мүмкін болмады. Интернетті тексеріп, қайталап көріңіз.",
+        "mod.request.throttled": "Өтінім тым көп. Бір сағаттан кейін қайталаңыз."
     ]
 
     static let vi: [String: String] = [
@@ -1512,7 +1604,18 @@ enum L10n {
         "sync.statusOk": "Đã kiểm tra với máy chủ: bạn có phiên bản mới nhất và mọi bản sửa lỗi",
         "sync.statusStale": "Đã kiểm tra với máy chủ chưa đầy một giờ trước: bạn có mọi thứ phát hành đến lúc đó",
         "sync.statusOffline": "Chưa kiểm tra với máy chủ: không đảm bảo phiên bản mới nhất và các bản sửa lỗi",
-        "sync.statusLauncherOutdated": "Trình khởi chạy đã cũ: không đảm bảo trò chơi ổn định nếu chưa cập nhật"
+        "sync.statusLauncherOutdated": "Trình khởi chạy đã cũ: không đảm bảo trò chơi ổn định nếu chưa cập nhật",
+        "mod.request.button": "THÊM MOD",
+        "mod.request.title": "THÊM MOD VÀO TRÌNH KHỞI CHẠY",
+        "mod.request.subtitle": "Thiếu mod? Hãy cho chúng tôi biết mod nào, chúng tôi sẽ thử đưa nó lên Mac.",
+        "mod.request.nameLabel": "TÊN MOD *",
+        "mod.request.namePlaceholder": "Tên và phiên bản",
+        "mod.request.linkLabel": "LIÊN KẾT ĐẾN MOD (KHÔNG BẮT BUỘC)",
+        "mod.request.send": "GỬI",
+        "mod.request.sentTitle": "ĐÃ GỬI YÊU CẦU",
+        "mod.request.sentMsg": "Hãy chờ: nhà phát triển sẽ chuẩn bị khả năng tương thích cho mod, nếu thành công mod sẽ xuất hiện trong danh sách.",
+        "mod.request.failed": "Không gửi được yêu cầu. Hãy kiểm tra kết nối và thử lại.",
+        "mod.request.throttled": "Quá nhiều yêu cầu. Vui lòng thử lại sau một giờ."
     ]
 
     static let pl: [String: String] = [
@@ -1666,7 +1769,18 @@ enum L10n {
         "sync.statusOk": "Sprawdzono z serwerem: masz najnowszą wersję i wszystkie poprawki",
         "sync.statusStale": "Sprawdzono z serwerem mniej niż godzinę temu: masz wszystko, co do tego czasu wyszło",
         "sync.statusOffline": "Brak sprawdzenia z serwerem: najnowsza wersja i poprawki nie są gwarantowane",
-        "sync.statusLauncherOutdated": "Launcher jest nieaktualny: bez aktualizacji stabilność gry nie jest gwarantowana"
+        "sync.statusLauncherOutdated": "Launcher jest nieaktualny: bez aktualizacji stabilność gry nie jest gwarantowana",
+        "mod.request.button": "DODAJ MODA",
+        "mod.request.title": "DODAJ MODA DO LAUNCHERA",
+        "mod.request.subtitle": "Brakuje moda? Napisz, którego — spróbujemy przenieść go na Maca.",
+        "mod.request.nameLabel": "NAZWA MODA *",
+        "mod.request.namePlaceholder": "Nazwa i wersja",
+        "mod.request.linkLabel": "LINK DO MODA (OPCJONALNIE)",
+        "mod.request.send": "WYŚLIJ",
+        "mod.request.sentTitle": "ZGŁOSZENIE WYSŁANE",
+        "mod.request.sentMsg": "Czekaj: deweloper przygotuje kompatybilność moda, a jeśli się uda, pojawi się on na liście.",
+        "mod.request.failed": "Nie udało się wysłać zgłoszenia. Sprawdź połączenie i spróbuj ponownie.",
+        "mod.request.throttled": "Zbyt wiele zgłoszeń. Spróbuj ponownie za godzinę."
     ]
 
     static let de: [String: String] = [
@@ -1820,7 +1934,18 @@ enum L10n {
         "sync.statusOk": "Mit dem Server abgeglichen: Du hast die neueste Version und alle Fixes",
         "sync.statusStale": "Vor weniger als einer Stunde mit dem Server abgeglichen: Du hast alles, was bis dahin erschienen ist",
         "sync.statusOffline": "Nicht mit dem Server abgeglichen: Neueste Version und Fixes sind nicht garantiert",
-        "sync.statusLauncherOutdated": "Der Launcher ist veraltet: Ohne Update ist die Stabilität des Spiels nicht garantiert"
+        "sync.statusLauncherOutdated": "Der Launcher ist veraltet: Ohne Update ist die Stabilität des Spiels nicht garantiert",
+        "mod.request.button": "MOD HINZUFÜGEN",
+        "mod.request.title": "MOD ZUM LAUNCHER HINZUFÜGEN",
+        "mod.request.subtitle": "Fehlt ein Mod? Sag uns, welcher — wir versuchen, ihn auf den Mac zu bringen.",
+        "mod.request.nameLabel": "NAME DES MODS *",
+        "mod.request.namePlaceholder": "Name und Version",
+        "mod.request.linkLabel": "LINK ZUM MOD (OPTIONAL)",
+        "mod.request.send": "SENDEN",
+        "mod.request.sentTitle": "ANFRAGE GESENDET",
+        "mod.request.sentMsg": "Bitte warte: Der Entwickler macht den Mod kompatibel, und wenn es klappt, erscheint er in der Liste.",
+        "mod.request.failed": "Die Anfrage konnte nicht gesendet werden. Prüfe deine Verbindung und versuche es erneut.",
+        "mod.request.throttled": "Zu viele Anfragen. Versuche es in einer Stunde erneut."
     ]
 
     static let es: [String: String] = [
@@ -1974,7 +2099,18 @@ enum L10n {
         "sync.statusOk": "Comprobado con el servidor: tienes la última versión y todas las correcciones",
         "sync.statusStale": "Comprobado con el servidor hace menos de una hora: tienes todo lo publicado hasta entonces",
         "sync.statusOffline": "Sin comprobar con el servidor: la última versión y las correcciones no están garantizadas",
-        "sync.statusLauncherOutdated": "El launcher está desactualizado: sin actualizar no se garantiza la estabilidad del juego"
+        "sync.statusLauncherOutdated": "El launcher está desactualizado: sin actualizar no se garantiza la estabilidad del juego",
+        "mod.request.button": "AÑADIR MOD",
+        "mod.request.title": "AÑADIR UN MOD AL LAUNCHER",
+        "mod.request.subtitle": "¿Falta un mod? Dinos cuál e intentaremos traerlo al Mac.",
+        "mod.request.nameLabel": "NOMBRE DEL MOD *",
+        "mod.request.namePlaceholder": "Nombre y versión",
+        "mod.request.linkLabel": "ENLACE AL MOD (OPCIONAL)",
+        "mod.request.send": "ENVIAR",
+        "mod.request.sentTitle": "SOLICITUD ENVIADA",
+        "mod.request.sentMsg": "Espera: el desarrollador preparará la compatibilidad del mod y, si todo sale bien, aparecerá en la lista.",
+        "mod.request.failed": "No se pudo enviar la solicitud. Comprueba tu conexión e inténtalo de nuevo.",
+        "mod.request.throttled": "Demasiadas solicitudes. Inténtalo de nuevo en una hora."
     ]
 
     static let tr: [String: String] = [
@@ -2128,6 +2264,17 @@ enum L10n {
         "sync.statusOk": "Sunucuyla doğrulandı: en son sürüm ve tüm düzeltmeler sizde",
         "sync.statusStale": "Bir saatten kısa süre önce sunucuyla doğrulandı: o zamana kadar çıkan her şey sizde",
         "sync.statusOffline": "Sunucuyla doğrulanmadı: en son sürüm ve düzeltmeler garanti edilmiyor",
-        "sync.statusLauncherOutdated": "Başlatıcı güncel değil: güncellemeden oyunun kararlılığı garanti edilmez"
+        "sync.statusLauncherOutdated": "Başlatıcı güncel değil: güncellemeden oyunun kararlılığı garanti edilmez",
+        "mod.request.button": "MOD EKLE",
+        "mod.request.title": "BAŞLATICIYA MOD EKLE",
+        "mod.request.subtitle": "Bir mod mu eksik? Hangisi olduğunu yazın, onu Mac'e getirmeye çalışalım.",
+        "mod.request.nameLabel": "MOD ADI *",
+        "mod.request.namePlaceholder": "Ad ve sürüm",
+        "mod.request.linkLabel": "MOD BAĞLANTISI (İSTEĞE BAĞLI)",
+        "mod.request.send": "GÖNDER",
+        "mod.request.sentTitle": "İSTEK GÖNDERİLDİ",
+        "mod.request.sentMsg": "Bekleyin: geliştirici modun uyumluluğunu hazırlayacak ve başarılı olursa mod listede görünecek.",
+        "mod.request.failed": "İstek gönderilemedi. Bağlantınızı kontrol edip tekrar deneyin.",
+        "mod.request.throttled": "Çok fazla istek. Lütfen bir saat sonra tekrar deneyin."
     ]
 }

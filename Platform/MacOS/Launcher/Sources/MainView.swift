@@ -45,6 +45,7 @@ struct ChevronMark: Shape {
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
     @State private var isDonatePanelOpen = false
+    @State private var isModRequestOpen = false
 
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
@@ -97,6 +98,9 @@ struct MainView: View {
         }
         .alert(item: _activeAlert) { alert in
             _buildAlert(alert)
+        }
+        .sheet(isPresented: $isModRequestOpen) {
+            ModRequestSheet(accent: accent)
         }
     }
 
@@ -324,6 +328,8 @@ struct MainView: View {
                     ForEach(mods) { profile in
                         _buildGameButton(profile, isEnabled: true)
                     }
+
+                    _buildModRequestButton()
                 }
                 .padding(.top, 2)
                 .padding(.bottom, modListOverscroll)
@@ -378,6 +384,34 @@ struct MainView: View {
         .disabled(!isEnabled)
         .opacity(_switcherOpacity(isEnabled: isEnabled, isInstalledMod: isInstalledMod, isMod: profile.isMod))
         .help(_switcherHelp(profile, isEnabled: isEnabled, isInstalledMod: isInstalledMod))
+    }
+
+    private func _buildModRequestButton() -> some View {
+        Button(action: { isModRequestOpen = true }) {
+            HStack(spacing: 6) {
+                Image(systemName: "plus")
+                    .font(.system(size: 10, weight: .bold))
+
+                Text(L10n.mod.request.button)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+
+                Spacer(minLength: 0)
+            }
+            .foregroundColor(.white.opacity(0.6))
+            .padding(.leading, 19)
+            .frame(width: switcherButtonWidth, height: switcherButtonHeight)
+            .background(LeftFlushShape(radius: 10).fill(Color.black.opacity(0.45)))
+            .overlay(
+                LeftFlushShape(radius: 10)
+                    .stroke(Color.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 
     private func _switcherOpacity(isEnabled: Bool, isInstalledMod: Bool, isMod: Bool) -> Double {
