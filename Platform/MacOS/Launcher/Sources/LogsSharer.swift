@@ -5,12 +5,14 @@ enum LogsSharer {
     static let telegramGroupURL = "https://t.me/GeneralsOnlineMacOS"
     static let telegramDeepLink = "tg://resolve?domain=GeneralsOnlineMacOS"
 
+    private static let crashReportNames = ["MacCrash.txt", "MacCrash.txt.bak", "MacCrash.txt.bak2", "MacCrash.txt.bak3"]
+
     private static var candidateLogs: [URL] {
         let base = GameProfile.current.userDataDirURL
         return [
             base.appendingPathComponent("MacDebug.txt"),
             base.appendingPathComponent("GeneralsOnlineData/GeneralsOnline.log")
-        ]
+        ] + crashReportNames.map { base.appendingPathComponent($0) }
     }
 
     private static var existingLogs: [URL] {
