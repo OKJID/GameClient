@@ -43,8 +43,16 @@ enum ModRequestSender {
         URLSession.shared.dataTask(with: request) { _, response, error in
             let status = (response as? HTTPURLResponse)?.statusCode
             let outcome = resolveOutcome(status: status, error: error)
+            log(status: status, error: error, outcome: outcome)
             DispatchQueue.main.async { completion(outcome) }
         }.resume()
+    }
+
+    private static func log(status: Int?, error: Error?, outcome: ModRequestOutcome) {
+        let statusText = status.map(String.init) ?? "none"
+        let errorText = error?.localizedDescription ?? "none"
+        print("[ModRequest] \(endpoint.absoluteString) status=\(statusText) error=\(errorText) outcome=\(outcome)")
+        fflush(stdout)
     }
 
     private static func resolveOutcome(status: Int?, error: Error?) -> ModRequestOutcome {
