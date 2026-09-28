@@ -26,6 +26,8 @@ set(METAL_SRC
 # macos_platform_game_sources() at the end of this file.
 set(MAIN_SRC
     Source/Main/MacOSGameEngine.h
+    Source/Main/MacOSCrashTrail.cpp
+    Source/Main/MacOSCrashTrail.h
 )
 
 # ── Audio ──

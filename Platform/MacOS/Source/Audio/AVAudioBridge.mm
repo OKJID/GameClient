@@ -1,5 +1,6 @@
 #import "AVAudioBridge.h"
 #import "../Utils/MacDebug.h"
+#import "../Main/MacOSCrashTrail.h"
 
 // Restore Byte typedef required by AudioToolbox, which was undefined by metal_prefix.h
 #include <MacTypes.h>
@@ -250,8 +251,10 @@ static void ensure_engine_running(void) {
         NSError *err = nil;
         if ([gEngine startAndReturnError:&err]) {
             DEBUG_AUDIO_MAC(("ensure_engine_running: Engine was stopped/paused. Restarted successfully."));
+            MacOSCrashTrail::mark("audio engine restarted");
         } else {
             DEBUG_AUDIO_MAC(("ensure_engine_running: Failed to restart engine: %s", err.localizedDescription.UTF8String));
+            MacOSCrashTrail::mark("audio engine restart failed: %s", err.localizedDescription.UTF8String);
         }
     }
 }
@@ -287,10 +290,18 @@ static void ensure_engine_inited(void) {
         gSlots[i].generation = 0;
     }
 
+    [[NSNotificationCenter defaultCenter] addObserverForName:AVAudioEngineConfigurationChangeNotification
+                                                      object:gEngine
+                                                       queue:nil
+                                                  usingBlock:^(NSNotification *) {
+        MacOSCrashTrail::mark("audio output configuration changed, engine running=%d", gEngine.isRunning ? 1 : 0);
+    }];
+
     NSError *error = nil;
     if (![gEngine startAndReturnError:&error]) {
         printf("AVAudioBridge: AVAudioEngine start FAILED: %s\n", error.localizedDescription.UTF8String);
         fflush(stdout);
+        MacOSCrashTrail::mark("audio engine start failed: %s", error.localizedDescription.UTF8String);
     } else {
         gEngineStarted = true;
         printf("AVAudioBridge: AVAudioEngine started safely. %d player nodes.\n", gMaxNodes);

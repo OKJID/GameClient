@@ -7,6 +7,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 #include "MacOSGameEngine.h"
+#include "MacOSCrashTrail.h"
 
 #include "Utility/time_compat.h"
 
@@ -29,6 +30,10 @@ extern MacOSMouse *TheMacOSMouse;
 #include "GameClient/ParticleSys.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameClient/IMEManager.h"
+#include "GameClient/Shell.h"
+#include "GameClient/WindowLayout.h"
+#include "GameLogic/GameLogic.h"
+#include "Common/GlobalData.h"
 
 extern HWND ApplicationHWnd;
 
@@ -226,6 +231,72 @@ static bool DetectGameModes(const std::string& rootPath, std::string& outZH, std
 #endif
 }
 
+static const char* GameModeName(GameMode mode)
+{
+	switch (mode) {
+		case GAME_SINGLE_PLAYER: return "single player";
+		case GAME_LAN: return "LAN";
+		case GAME_SKIRMISH: return "skirmish";
+		case GAME_REPLAY: return "replay";
+		case GAME_SHELL: return "shell";
+		case GAME_INTERNET: return "online";
+		case GAME_NONE: return "none";
+	}
+	return "unknown";
+}
+
+class GameStateTrail
+{
+public:
+	void update()
+	{
+		if (TheGlobalData != nullptr) {
+			markChange(m_mapName, TheGlobalData->m_mapName.str(), "map");
+			markChange(m_pendingMap, TheGlobalData->m_pendingFile.str(), "pending map");
+		}
+
+		if (TheShell != nullptr) {
+			WindowLayout* screen = TheShell->top();
+			markChange(m_shellScreen, screen != nullptr ? screen->getFilename().str() : "", "menu screen");
+		}
+
+		if (TheGameLogic != nullptr) {
+			markChange(m_gameMode, GameModeName(TheGameLogic->getGameMode()), "game mode");
+			markMatchRunningChange();
+		}
+	}
+
+private:
+	void markMatchRunningChange()
+	{
+		const bool isMatchRunning = TheGameLogic->isInInteractiveGame() && TheGameLogic->getFrame() > 0;
+		if (isMatchRunning == m_isMatchRunning) {
+			return;
+		}
+
+		m_isMatchRunning = isMatchRunning;
+		MacOSCrashTrail::mark("%s", isMatchRunning ? "match running" : "match ended");
+	}
+
+	static void markChange(std::string& remembered, const char* current, const char* what)
+	{
+		if (remembered == current) {
+			return;
+		}
+
+		remembered = current;
+		MacOSCrashTrail::mark("%s: %s", what, current[0] != '\0' ? current : "(none)");
+	}
+
+	std::string m_mapName;
+	std::string m_pendingMap;
+	std::string m_shellScreen;
+	std::string m_gameMode;
+	bool m_isMatchRunning = false;
+};
+
+static GameStateTrail s_gameStateTrail;
+
 // ── Constructor/Destructor (mirrors Win32GameEngine) ──
 
 MacOSGameEngine::MacOSGameEngine()
@@ -330,6 +401,7 @@ void MacOSGameEngine::update()
 	@autoreleasepool {
 		serviceWindowsOS();
 		GameEngine::update();
+		s_gameStateTrail.update();
 	}
 }
 

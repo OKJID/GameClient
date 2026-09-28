@@ -7,6 +7,8 @@
 #   sh run_launcher.sh --refresh_swift             # recompile the Swift launcher first
 #   sh run_launcher.sh 2>&1 | tee launcher.log     # also save to file
 
+# pkill -SEGV -x 'GeneralsOnlineZH|GeneralsVanilla'
+
 LAUNCHER_NAME="GeneralsLauncher"
 APP_DIR="build/dist/Generals Online.app"
 APP_PATH="$APP_DIR/Contents/MacOS/$LAUNCHER_NAME"

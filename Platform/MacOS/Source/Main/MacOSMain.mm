@@ -23,6 +23,9 @@
 #include <clocale>
 #include <atomic>
 #include <ctime>
+#include <cxxabi.h>
+#include <exception>
+#include <typeinfo>
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -43,12 +46,16 @@
 #include "Common/GameEngine.h"
 #include "Common/GameMemory.h"
 #include "Common/Debug.h"
+#include "Common/Errors.h"
+#include "Common/INI.h"
+#include "Common/INIException.h"
 #include "Common/System/NativeFileSystem.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/Mouse.h"
 #include "BuildVersion.h"
 #include "GeneratedVersion.h"
+#include "MacOSCrashTrail.h"
 
 #if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
@@ -251,6 +258,7 @@ static void macosSignalHandler(int sig, siginfo_t* info, void* context) {
     snprintf(line, sizeof(line), "FATAL: Caught signal %d", sig);
     logCrashLine(line);
 
+    MacOSCrashTrail::report(logCrashLine);
     logFaultContext(info, context);
     logCrashBacktrace();
     logCrashLine(s_crashReportBuild);
@@ -268,12 +276,72 @@ static void installCrashHandler(int sig) {
     sigaction(sig, &action, nullptr);
 }
 
+static std::terminate_handler s_previousTerminateHandler = nullptr;
+
+static void recordUnknownExceptionType() {
+    const std::type_info* type = abi::__cxa_current_exception_type();
+    if (type == nullptr) {
+        MacOSCrashTrail::setExceptionReason("unknown exception");
+        return;
+    }
+
+    int status = 0;
+    char* demangled = abi::__cxa_demangle(type->name(), nullptr, nullptr, &status);
+    MacOSCrashTrail::setExceptionReason("%s", demangled != nullptr ? demangled : type->name());
+    free(demangled);
+}
+
+static void recordTerminatingException() {
+    std::exception_ptr exception = std::current_exception();
+    if (!exception) {
+        return;
+    }
+
+    try {
+        @try {
+            std::rethrow_exception(exception);
+        } @catch (NSException* nsException) {
+            MacOSCrashTrail::setExceptionReason("%s: %s", nsException.name.UTF8String, nsException.reason.UTF8String ?: "");
+        }
+    } catch (const INIException& iniException) {
+        MacOSCrashTrail::setExceptionReason("INIException: %s", iniException.mFailureMessage ?: "no message");
+    } catch (const std::exception& stdException) {
+        MacOSCrashTrail::setExceptionReason("%s: %s", typeid(stdException).name(), stdException.what());
+    } catch (ErrorCode errorCode) {
+        MacOSCrashTrail::setExceptionReason("ErrorCode 0x%08X", (unsigned int)errorCode);
+    } catch (decltype(INI_UNKNOWN_TOKEN) iniError) {
+        MacOSCrashTrail::setExceptionReason("INI error 0x%08X", (unsigned int)iniError);
+    } catch (...) {
+        recordUnknownExceptionType();
+    }
+}
+
+static void macosTerminateHandler() {
+    recordTerminatingException();
+    if (s_previousTerminateHandler != nullptr) {
+        s_previousTerminateHandler();
+    }
+    abort();
+}
+
 static void installCrashHandlers() {
+    MacOSCrashTrail::start();
     prepareCrashReportPaths();
     prepareCrashReportBuild();
     installCrashHandler(SIGSEGV);
     installCrashHandler(SIGBUS);
     installCrashHandler(SIGABRT);
+    s_previousTerminateHandler = std::set_terminate(macosTerminateHandler);
+}
+
+static void observeSystemSleep() {
+    NSNotificationCenter* center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    [center addObserverForName:NSWorkspaceWillSleepNotification object:nil queue:nil usingBlock:^(NSNotification*) {
+        MacOSCrashTrail::mark("system going to sleep");
+    }];
+    [center addObserverForName:NSWorkspaceDidWakeNotification object:nil queue:nil usingBlock:^(NSNotification*) {
+        MacOSCrashTrail::mark("system woke up");
+    }];
 }
 
 // ── External engine bridges ──
@@ -370,6 +438,7 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
 
     // 1. Signal handlers (mirrors SetUnhandledExceptionFilter, line 808)
     installCrashHandlers();
+    observeSystemSleep();
 
     // 2. Critical sections (mirrors lines 817-821)
     TheAsciiStringCriticalSection = &critSec1;
