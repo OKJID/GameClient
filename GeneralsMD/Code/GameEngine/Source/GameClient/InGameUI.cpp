@@ -4506,6 +4506,21 @@ void InGameUI::displayCantBuildMessage(LegalBuildCode lbc)
 }
 
 // ------------------------------------------------------------------------------------------------
+static Coord2D getMilitaryCaptionMultiplier()
+{
+	Coord2D multiplier;
+#if !defined(GENERALS_ONLINE_WIDESCREEN)
+	multiplier.x = (float)TheDisplay->getWidth() / 800.0f;
+	multiplier.y = (float)TheDisplay->getHeight() / 600.0f;
+
+#else
+	multiplier.x = (float)TheDisplay->getWidth() / GENERALS_ONLINE_WIDESCREEN_X_SCALE;
+	multiplier.y = (float)TheDisplay->getHeight() / GENERALS_ONLINE_WIDESCREEN_Y_SCALE;
+#endif
+	return multiplier;
+}
+
+// ------------------------------------------------------------------------------------------------
 // InGameUI::militarySubtitle
 // ------------------------------------------------------------------------------------------------
 void InGameUI::militarySubtitle(const AsciiString& label, Int duration)
@@ -4533,15 +4548,7 @@ void InGameUI::militarySubtitle(const AsciiString& label, Int duration)
 	disableTooltipsUntil(messageTimeout);
 
 	// calculate where this screen position should be since the position being passed in is based off 8x6
-	Coord2D multiplier;
-#if !defined(GENERALS_ONLINE_WIDESCREEN)
-	multiplier.x = (float)TheDisplay->getWidth() / 800.0f;
-	multiplier.y = (float)TheDisplay->getHeight() / 600.0f;
-
-#else
-	multiplier.x = (float)TheDisplay->getWidth() / GENERALS_ONLINE_WIDESCREEN_X_SCALE;
-	multiplier.y = (float)TheDisplay->getHeight() / GENERALS_ONLINE_WIDESCREEN_Y_SCALE;
-#endif
+	const Coord2D multiplier = getMilitaryCaptionMultiplier();
 
 	// lets bring out the data structure!
 	m_militarySubtitle = NEW MilitarySubtitleData;
@@ -6186,20 +6193,6 @@ void InGameUI::resetIdleWorker()
 
 }
 
-void InGameUI::recreateControlBar()
-{
-	GameWindow* win = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey("ControlBar.wnd"));
-	deleteInstance(win);
-
-	m_idleWorkerWin = nullptr;
-
-	createControlBar();
-
-	delete TheControlBar;
-	TheControlBar = NEW ControlBar;
-	TheControlBar->init();
-}
-
 // ======================================================================================
 // Observer Notification
 // ======================================================================================
@@ -6863,6 +6856,94 @@ void InGameUI::refreshCustomUiResources(void)
     refreshGameTimeResources();
     initObserverOverlay();
 	refreshObserverNotificationResources();
+}
+
+void InGameUI::onResolutionChanged()
+{
+	refreshCustomUiResources();
+	refreshSuperweaponFonts();
+	refreshNamedTimerFonts();
+	refreshMessageFonts();
+	refitMilitarySubtitle();
+}
+
+void InGameUI::refreshSuperweaponFonts()
+{
+	for (Int playerIndex = 0; playerIndex < MAX_PLAYER_COUNT; ++playerIndex)
+	{
+		for (SuperweaponMap::iterator mapIt = m_superweapons[playerIndex].begin(); mapIt != m_superweapons[playerIndex].end(); ++mapIt)
+		{
+			for (SuperweaponList::iterator listIt = mapIt->second.begin(); listIt != mapIt->second.end(); ++listIt)
+			{
+				SuperweaponInfo* info = *listIt;
+				if (info->m_ready)
+					info->setFont(m_superweaponReadyFont, m_superweaponReadyPointSize, m_superweaponReadyBold);
+				else
+					info->setFont(m_superweaponNormalFont, m_superweaponNormalPointSize, m_superweaponNormalBold);
+			}
+		}
+	}
+}
+
+void InGameUI::refreshNamedTimerFonts()
+{
+	GameFont* readyFont = TheFontLibrary->getFont(m_namedTimerReadyFont,
+		TheGlobalLanguageData->adjustFontSize(m_namedTimerReadyPointSize), m_namedTimerReadyBold);
+	GameFont* normalFont = TheFontLibrary->getFont(m_namedTimerNormalFont,
+		TheGlobalLanguageData->adjustFontSize(m_namedTimerNormalPointSize), m_namedTimerNormalBold);
+
+	for (NamedTimerMapIt timerIt = m_namedTimers.begin(); timerIt != m_namedTimers.end(); ++timerIt)
+	{
+		NamedTimerInfo* info = timerIt->second;
+		const Bool isReady = info->isCountdown && info->timestamp == 0;
+		info->displayString->setFont(isReady ? readyFont : normalFont);
+	}
+}
+
+void InGameUI::refreshMessageFonts()
+{
+	GameFont* messageFont = TheFontLibrary->getFont(m_messageFont,
+		TheGlobalLanguageData->adjustFontSize(m_messagePointSize), m_messageBold);
+
+	for (Int i = 0; i < MAX_UI_MESSAGES; i++)
+	{
+		if (m_uiMessages[i].displayString)
+			m_uiMessages[i].displayString->setFont(messageFont);
+	}
+}
+
+void InGameUI::refitMilitarySubtitle()
+{
+	if (!m_militarySubtitle)
+		return;
+
+	const Coord2D multiplier = getMilitaryCaptionMultiplier();
+	m_militarySubtitle->position.x = m_militaryCaptionPosition.x * multiplier.x;
+	m_militarySubtitle->position.y = m_militaryCaptionPosition.y * multiplier.y;
+
+	GameFont* titleFont = TheFontLibrary->getFont(m_militaryCaptionTitleFont,
+		TheGlobalLanguageData->adjustFontSize(m_militaryCaptionTitlePointSize), m_militaryCaptionTitleBold);
+	GameFont* captionFont = TheFontLibrary->getFont(m_militaryCaptionFont,
+		TheGlobalLanguageData->adjustFontSize(m_militaryCaptionPointSize), m_militaryCaptionBold);
+
+	const UnsignedInt currentLine = min(m_militarySubtitle->currentDisplayString, (UnsignedInt)(MAX_SUBTITLE_LINES - 1));
+	Int cursorY = m_militarySubtitle->position.y;
+	for (UnsignedInt i = 0; i <= currentLine; i++)
+	{
+		DisplayString* line = m_militarySubtitle->displayStrings[i];
+		line->setFont(i == 0 ? titleFont : captionFont);
+		if (i == currentLine)
+			break;
+
+		Int height;
+		line->getSize(nullptr, &height);
+		cursorY += height;
+	}
+
+	Int currentWidth;
+	m_militarySubtitle->displayStrings[currentLine]->getSize(&currentWidth, nullptr);
+	m_militarySubtitle->blockPos.x = m_militarySubtitle->position.x + currentWidth;
+	m_militarySubtitle->blockPos.y = cursorY;
 }
 
 void InGameUI::refreshNetworkLatencyResources()

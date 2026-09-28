@@ -122,10 +122,14 @@ public:
 
 	virtual void skip() = 0;
 
+	virtual void refreshGeometry() {}  ///< re-read the geometry cached from windows, keeping the animation progress
+
 	void unlinkGameWindow(GameWindow* win) { if ( m_win == win ) m_win = nullptr; }
 	Bool isFinished() { return m_isFinished;	}
 	Int getFrameLength(){ return m_frameLength;	}
 protected:
+
+	Bool readWindowGeometry( ICoord2D *pos, ICoord2D *size );  ///< screen position and size of m_win
 
 	Int m_frameLength;	// how many frames does this thing take.
 	Bool m_isFinished;  // when we finish we set this
@@ -193,6 +197,8 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	FULLFADETRANSITION_START = 0,
@@ -218,12 +224,15 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	CONTROLBARARROWTRANSITION_START = 0,
 	CONTROLBARARROWTRANSITION_BEGIN_FADE = 16,
 	CONTROLBARARROWTRANSITION_END	 = 22		// Max text type we'll allow.
 	};
+	Bool placeArrowAboveGeneralButton();
 	ICoord2D m_pos;
 	ICoord2D m_incrementPos;
 	ICoord2D m_size;
@@ -246,6 +255,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -271,6 +282,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -306,6 +319,8 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	TEXTTYPETRANSITION_START = 0,
@@ -332,6 +347,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -363,6 +380,8 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	MAINMENUMEDIUMSCALEUPTRANSITION_START = 0,
@@ -390,6 +409,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -423,6 +444,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -469,6 +492,8 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	SCORESCALEUPTRANSITION_START = 0,
@@ -502,6 +527,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -538,6 +565,8 @@ public:
 
 	virtual void skip() override;
 
+	virtual void refreshGeometry() override;
+
 protected:
 	enum{
 	FLASHTRANSITION_START = 0,
@@ -568,6 +597,8 @@ public:
 	virtual void draw() override;
 
 	virtual void skip() override;
+
+	virtual void refreshGeometry() override;
 
 protected:
 	enum{
@@ -608,6 +639,7 @@ public:
 	Int  getTotalFrames();
 	void skip();
 	void draw();
+	void refreshGeometry();
 
 	void unlinkGameWindow( GameWindow* win );
 
@@ -637,6 +669,7 @@ public:
 	void draw();
 
 	void skip ();
+	void refreshGeometry();
 	AsciiString getName() { return m_name; }
 	void setName( AsciiString name){ m_name = name;	}
 	void addWindow( TransitionWindow *transWin );
@@ -664,6 +697,7 @@ public:
 	virtual void update() override;
 	virtual void draw() override;
 	Bool isFinished();
+	void onResolutionChanged();  ///< re-read the window geometry cached by the active groups
 	const FieldParse *getFieldParse() const { return m_gameWindowTransitionsFieldParseTable; }								///< returns the parsing fields
 	static const FieldParse m_gameWindowTransitionsFieldParseTable[];																				///< the parse table
 	static void parseWindow( INI* ini, void *instance, void *store, const void *userData );

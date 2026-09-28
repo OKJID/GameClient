@@ -640,19 +640,13 @@ void W3DCommandBarBackgroundDraw( GameWindow *window, WinInstanceData *instData 
 		return;
 	static NameKeyType winNamekey	= TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" );
 	GameWindow *win =  TheWindowManager->winGetWindowFromId(nullptr,winNamekey);
-	static ICoord2D basePos;
 	if(!win)
 	{
 		return;
 		//win = TheWindowManager->winGetWindowFromId(nullptr,TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" ));
 	}
-	TheControlBar->getBackgroundMarkerPos(&basePos.x, &basePos.y);
-	ICoord2D pos, offset;
-	win->winGetScreenPosition(&pos.x,&pos.y);
-	offset.x = pos.x - basePos.x;
-	offset.y = pos.y - basePos.y;
 
-	man->drawBackground(offset);
+	man->drawBackground(TheControlBar->getOffsetFromDefaultPosition());
 }
 
 
@@ -665,19 +659,13 @@ void W3DCommandBarForegroundDraw( GameWindow *window, WinInstanceData *instData 
 
 	static NameKeyType winNamekey	= TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" );
 	GameWindow *win = TheWindowManager->winGetWindowFromId(nullptr,winNamekey);
-	static ICoord2D basePos;
 	if(!win)
 	{
 		return;
 		//win = TheWindowManager->winGetWindowFromId(nullptr,TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" ));
 	}
-	TheControlBar->getForegroundMarkerPos(&basePos.x, &basePos.y);
-	ICoord2D pos, offset;
-	win->winGetScreenPosition(&pos.x,&pos.y);
-	offset.x = pos.x - basePos.x;
-	offset.y = pos.y - basePos.y;
 
-	man->drawForeground(offset);
+	man->drawForeground(TheControlBar->getOffsetFromDefaultPosition());
 
 }
 

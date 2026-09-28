@@ -52,6 +52,7 @@
 #include "GameClient/GadgetCheckBox.h"
 #include "GameClient/GlobalLanguage.h"
 #include "GameClient/GameWindowTransitions.h"
+#include "GameClient/HeaderTemplate.h"
 #include "Common/NameKeyGenerator.h"
 
 // PUBLIC DATA ////////////////////////////////////////////////////////////////////////////////////
@@ -683,6 +684,30 @@ GameWindow *GameWindowManager::winGetWindowList()
 
 	return m_windowList;
 
+}
+
+//----------------------------------------------------------------------------------------------
+static void refreshTemplateFont( GameWindow *window )
+{
+	GameFont *templateFont = TheHeaderTemplateManager->getFontFromTemplate( window->winGetInstanceData()->m_headerTemplateName );
+	if( templateFont && templateFont != window->winGetFont() )
+		window->winSetFont( templateFont );
+
+	for( GameWindow *child = window->winGetChild(); child; child = child->winGetNext() )
+		refreshTemplateFont( child );
+}
+
+//----------------------------------------------------------------------------------------------
+/** Fit every window to the current display size and refresh the fonts that scale with it */
+//----------------------------------------------------------------------------------------------
+void GameWindowManager::onResolutionChanged()
+{
+	for( GameWindow *window = m_windowList; window; window = window->m_next )
+	{
+		window->winFitToDisplay();
+		if( TheHeaderTemplateManager )
+			refreshTemplateFont( window );
+	}
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -1463,6 +1488,7 @@ GameWindow *GameWindowManager::winCreate( GameWindow *parent,
 	window->m_region.hi.y = y + height;
 
 	window->normalizeWindowRegion();
+	window->storeFractionalRegion();
 
 	// set the system function and send a create message to window
 	window->winSetSystemFunc( system );

@@ -144,6 +144,8 @@
 | ✅ | `MacOSDisplayManager` | `CGDisplayCopyAllDisplayModes` + standard mode generation |
 | ✅ | `Resize_And_Position_Window` | NSWindow + CAMetalLayer + MetalDevice8 resize chain |
 | ✅ | `windowDidEndLiveResize` | NSWindowDelegate bridge for resize events |
+| ✅ | `applyResolutionToInterface` | In-place refit of the whole 2D interface on any resolution change, menus and matches — see [RENDERING.md](RENDERING.md#resolution-changes-and-the-2d-interface) |
+| ✅ | `contentMinSize` | Game window cannot be dragged below 800×600 |
 
 ---
 

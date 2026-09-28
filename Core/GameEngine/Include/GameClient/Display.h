@@ -86,6 +86,9 @@ public:
 	virtual void setHeight(UnsignedInt height);									///< Sets the height of the display
 	virtual UnsignedInt getWidth() { return m_width; }			///< Returns the width of the display
 	virtual UnsignedInt getHeight() { return m_height; }		///< Returns the height of the display
+	Bool isSizeKnown();																				///< Are both display dimensions set
+	Coord2D pixelsToFraction(const ICoord2D& pixels);						///< Pixels as fractions of the display size
+	ICoord2D fractionToPixels(const Coord2D& fraction);					///< Fractions of the display size as pixels, truncated like window scripts
 	virtual void setBitDepth(UnsignedInt bitDepth) { m_bitDepth = bitDepth; }
 	virtual UnsignedInt getBitDepth() { return m_bitDepth; }
 	virtual void setWindowed(Bool windowed) { m_windowed = windowed; }  ///< set windowed/fullscreen flag
@@ -202,6 +205,7 @@ protected:
 	virtual void onFlush() {}
 
 	virtual void deleteViews();   ///< delete all views
+	void applyResolutionToInterface();  ///< refit every 2D subsystem that depends on the display size
 	UnsignedInt m_width, m_height;			///< Dimensions of the display
 	UnsignedInt m_bitDepth;							///< bit depth of the display
 	Bool m_windowed;										///< TRUE when windowed, FALSE when fullscreen

@@ -769,8 +769,7 @@ public:
 	/// set the command data into the button
 	void setControlCommand( GameWindow *button, const CommandButton *commandButton );
 
-	void getForegroundMarkerPos(Int *x, Int *y);
-	void getBackgroundMarkerPos(Int *x, Int *y);
+	ICoord2D getOffsetFromDefaultPosition();  ///< how far the control bar has moved from its default position
 
 
 	static void parseCommandSetDefinition( INI *ini );
@@ -781,11 +780,6 @@ public:
 	void setArrowImage( const Image *arrowImage ){ m_genArrow = arrowImage;	}
 
 	void initSpecialPowershortcutBar( Player *player);
-
-#ifdef __APPLE__
-	// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored UI during gameplay resize
-	void repositionForResolution(Int oldW, Int newW);
-#endif
 
 	void triggerRadarAttackGlow();
 
@@ -890,7 +884,7 @@ public:
 
 protected:
 
-	ICoord2D m_defaultControlBarPosition;				///< Stored the original position of the control bar on the screen
+	Coord2D m_defaultControlBarPosition;				///< Stored the original position of the control bar on the screen, in fractions of the display
 	ControlBarStages m_currentControlBarStage;
 
 	Bool m_UIDirty;																///< the context UI must be re-evaluated
@@ -1036,9 +1030,6 @@ private:
 	Bool m_genStarFlash;
 	Real m_genStarFlashTimeAccumulator; ///< Frame time accumulated within the current star blink cycle, in seconds
 	Int m_lastFlashedAtPointValue;
-
-	ICoord2D m_controlBarForegroundMarkerPos;
-	ICoord2D m_controlBarBackgroundMarkerPos;
 
 	Bool m_radarAttackGlowOn;
 	Int m_remainingRadarAttackGlowFrames;

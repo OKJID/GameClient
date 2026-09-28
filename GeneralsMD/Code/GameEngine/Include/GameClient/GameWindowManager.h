@@ -216,6 +216,7 @@ public:
 	virtual Int winDestroy( GameWindow *window );  ///< destroy this window
 	virtual Int winDestroyAll();  ///< destroy all windows in the system
 	virtual GameWindow *winGetWindowList();  ///< get head of master list
+	void onResolutionChanged();  ///< fit every window to the display size and refresh template fonts
 
 	/// hide all windows in a certain range of id's (inclusinve );
 	virtual void hideWindowsInRange(GameWindow* baseWindow, Int first, Int last,

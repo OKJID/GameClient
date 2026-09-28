@@ -76,6 +76,7 @@
 #include "Common/Upgrade.h"
 #include "GameClient/AnimateWindowManager.h"
 #include "GameClient/DisconnectMenu.h"
+#include "GameClient/Display.h"
 #include "GameClient/GameWindow.h"
 #include "GameClient/Gadget.h"
 #include "GameClient/GadgetTextEntry.h"
@@ -627,7 +628,7 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 	{
 
 		static NameKeyType winNamekey	= TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" );
-		static ICoord2D lastOffset = { 0, 0 };
+		static Coord2D lastOffsetFraction = { 0.0f, 0.0f };
 
 		ICoord2D size, newSize, pos;
 		Int diffSize;
@@ -662,22 +663,16 @@ void ControlBar::populateBuildTooltipLayout( const CommandButton *commandButton,
 //		heightChange = controlBarPos.y - m_defaultControlBarPosition.y;
 
 		GameWindow *marker =  TheWindowManager->winGetWindowFromId(nullptr,winNamekey);
-		static ICoord2D basePos;
 		if(!marker)
 		{
 			return;
 		}
-		getBackgroundMarkerPos(&basePos.x, &basePos.y);
-		ICoord2D curPos, offset;
-		marker->winGetScreenPosition(&curPos.x,&curPos.y);
-
-		offset.x = curPos.x - basePos.x;
-		offset.y = curPos.y - basePos.y;
+		const ICoord2D offset = getOffsetFromDefaultPosition();
+		const ICoord2D lastOffset = TheDisplay->fractionToPixels(lastOffsetFraction);
 
 		parent->winSetPosition(pos.x, (pos.y - diffSize) + (offset.y - lastOffset.y));
 
-		lastOffset.x = offset.x;
-		lastOffset.y = offset.y;
+		lastOffsetFraction = TheDisplay->pixelsToFraction(offset);
 
 		win->winGetSize(&size.x, &size.y);
  		win->winSetSize(size.x, size.y + diffSize);

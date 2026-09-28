@@ -1093,7 +1093,7 @@ void ControlBar::init()
 		NameKeyType id;
 		id = TheNameKeyGenerator->nameToKey( "ControlBar.wnd:ControlBarParent" );
 		m_contextParent[ CP_MASTER ] = TheWindowManager->winGetWindowFromId( nullptr, id );
-	m_contextParent[ CP_MASTER ]->winGetPosition(&m_defaultControlBarPosition.x, &m_defaultControlBarPosition.y);
+	m_contextParent[ CP_MASTER ]->winGetFractionalPosition(&m_defaultControlBarPosition);
 
 		m_scienceLayout = TheWindowManager->winCreateLayout("GeneralsExpPoints.wnd");
 		m_scienceLayout->hide(TRUE);
@@ -1260,12 +1260,6 @@ void ControlBar::init()
 		}
 
 		m_radarAttackGlowWindow = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey("ControlBar.wnd:WinUAttack"));
-
-
-		win = TheWindowManager->winGetWindowFromId(nullptr,TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" ));
-		win->winGetScreenPosition(&m_controlBarForegroundMarkerPos.x, &m_controlBarForegroundMarkerPos.y);
-		win = TheWindowManager->winGetWindowFromId(nullptr,TheNameKeyGenerator->nameToKey( "ControlBar.wnd:BackgroundMarker" ));
-		win->winGetScreenPosition(&m_controlBarBackgroundMarkerPos.x,&m_controlBarBackgroundMarkerPos.y);
 
 		if(!m_videoManager)
 			m_videoManager = NEW WindowVideoManager;
@@ -3085,7 +3079,7 @@ void ControlBar::setDefaultControlBarConfig()
 //	}
 	m_currentControlBarStage = CONTROL_BAR_STAGE_DEFAULT;
 	setScaledViewportHeight();
-	m_contextParent[ CP_MASTER ]->winSetPosition(m_defaultControlBarPosition.x, m_defaultControlBarPosition.y);
+	m_contextParent[ CP_MASTER ]->winSetFractionalPosition(m_defaultControlBarPosition);
 	m_contextParent[ CP_MASTER ]->winHide(FALSE);
 	repopulateBuildTooltipLayout();
 	setUpDownImages();
@@ -3097,7 +3091,7 @@ void ControlBar::setSquishedControlBarConfig()
 	if(m_currentControlBarStage == CONTROL_BAR_STAGE_SQUISHED)
 		return;
 	m_currentControlBarStage = CONTROL_BAR_STAGE_SQUISHED;
-	m_contextParent[ CP_MASTER ]->winSetPosition(m_defaultControlBarPosition.x, m_defaultControlBarPosition.y);
+	m_contextParent[ CP_MASTER ]->winSetFractionalPosition(m_defaultControlBarPosition);
 
 //	m_controlBarResizer->sizeWindowsAlt();
 	repopulateBuildTooltipLayout();
@@ -3114,11 +3108,11 @@ void ControlBar::setLowControlBarConfig()
 //	}
 
 	m_currentControlBarStage = CONTROL_BAR_STAGE_LOW;
-	ICoord2D pos;
+	Coord2D pos;
 	pos.x = m_defaultControlBarPosition.x;
-	pos.y = TheDisplay->getHeight() - .1 * TheDisplay->getHeight();
+	pos.y = 0.9f;
 	setFullViewportHeight();
-	m_contextParent[ CP_MASTER ]->winSetPosition(pos.x, pos.y);
+	m_contextParent[ CP_MASTER ]->winSetFractionalPosition(pos);
 	m_contextParent[ CP_MASTER ]->winHide(FALSE);
 	setUpDownImages();
 
@@ -3223,15 +3217,17 @@ void ControlBar::setUpDownImages()
 
 }
 
-void ControlBar::getForegroundMarkerPos(Int *x, Int *y)
+ICoord2D ControlBar::getOffsetFromDefaultPosition()
 {
-	*x = m_controlBarForegroundMarkerPos.x;
-	*y = m_controlBarForegroundMarkerPos.y;
-}
-void ControlBar::getBackgroundMarkerPos(Int *x, Int *y)
-{
-	*x = m_controlBarBackgroundMarkerPos.x;
-	*y = m_controlBarBackgroundMarkerPos.y;
+	ICoord2D currentPosition;
+	m_contextParent[ CP_MASTER ]->winGetPosition(&currentPosition.x, &currentPosition.y);
+
+	const ICoord2D defaultPosition = TheDisplay->fractionToPixels(m_defaultControlBarPosition);
+
+	ICoord2D offset;
+	offset.x = currentPosition.x - defaultPosition.x;
+	offset.y = currentPosition.y - defaultPosition.y;
+	return offset;
 }
 
 void ControlBar::drawTransitionHandler()
@@ -3845,42 +3841,6 @@ void ControlBar::hideSpecialPowerShortcut()
 	m_specialPowerShortcutParent->winHide(TRUE);
 
 }
-
-#ifdef __APPLE__
-// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored UI
-// elements (special power shortcut bar, right HUD) when the display resolution
-// changes during gameplay. Full recreateControlBar() crashes mid-game, so this
-// lightweight approach only adjusts X coordinates by the width delta.
-void ControlBar::repositionForResolution(Int oldW, Int newW)
-{
-	if (oldW == newW || oldW == 0) return;
-
-	if (m_specialPowerShortcutParent) {
-		if (m_animateWindowManagerForGenShortcuts
-		    && !m_animateWindowManagerForGenShortcuts->isEmpty()) {
-			m_animateWindowManagerForGenShortcuts->reset();
-		}
-
-		Int x, y, w, h;
-		m_specialPowerShortcutParent->winGetPosition(&x, &y);
-		m_specialPowerShortcutParent->winGetSize(&w, &h);
-		Int newW_panel = static_cast<Int>(static_cast<Real>(w) * newW / oldW);
-		Int newX = newW - newW_panel;
-		m_specialPowerShortcutParent->winSetPosition(newX, y);
-		m_specialPowerShortcutParent->winSetSize(newW_panel, h);
-	}
-
-	if (m_rightHUDWindow) {
-		Int x, y, w, h;
-		m_rightHUDWindow->winGetPosition(&x, &y);
-		m_rightHUDWindow->winGetSize(&w, &h);
-		Int newX = static_cast<Int>(static_cast<Real>(x) * newW / oldW);
-		Int newW_hud = static_cast<Int>(static_cast<Real>(w) * newW / oldW);
-		m_rightHUDWindow->winSetPosition(newX, y);
-		m_rightHUDWindow->winSetSize(newW_hud, h);
-	}
-}
-#endif
 
 void ControlBar::setFullViewportHeight()
 {

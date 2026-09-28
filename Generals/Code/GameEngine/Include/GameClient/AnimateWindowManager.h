@@ -131,6 +131,10 @@ public:
 	void	setStartTime( UnsignedInt t);						///< Set the start time of the time-based anim
 	void	setEndTime( UnsignedInt t);							///< Set the end time of the time-based anim
 
+	void anchorToWindow( const ICoord2D &windowPixels, const Coord2D &windowFraction );	///< End and rest positions on the window's pixel take its exact fraction
+	void snapWindowToAnchor();									///< A window resting on its end or rest pixel takes the exact fraction
+	void placeWindowAtRest();										///< Place the window at its rest position
+
 	void setFinished(Bool finished);							///< Set if the animation has finished
 	Bool isFinished();											///< Return if the animation has finished or not.
 	void setNeedsToFinish( Bool needsToFinish);		///< set if we need this animation to finish for the manager to return true
@@ -138,11 +142,12 @@ public:
 
 private:
 	UnsignedInt m_delay;													///< Holds the delay time in which the animation will start (in milliseconds)
-	ICoord2D m_startPos;													///< Holds the starting position of the animation
+	// Positions are kept in fractions of the display size so that animations survive a resolution change
+	Coord2D m_startPos;														///< Holds the starting position of the animation
 																								///<(usually is also the end position of the animation when the animation is reversed)
-	ICoord2D m_endPos;														///< Holds the target End Position (usually is the same as the rest position)
-	ICoord2D m_curPos;														///< It's Current Position
-	ICoord2D m_restPos;														///< When the Manager Resets, It sets the window's position to this position
+	Coord2D m_endPos;															///< Holds the target End Position (usually is the same as the rest position)
+	Coord2D m_curPos;															///< It's Current Position
+	Coord2D m_restPos;														///< When the Manager Resets, It sets the window's position to this position
 	GameWindow *m_win;														///< the window that this animation is happening on
 	Coord2D m_vel;																///< the Velocity of the animation
 	UnsignedInt m_startTime;											///< time we started the time-based anim
@@ -199,10 +204,6 @@ private:
 //-----------------------------------------------------------------------------
 namespace wnd
 {
-	inline ICoord2D			AnimateWindow::getStartPos()	{ return m_startPos; };
-	inline ICoord2D			AnimateWindow::getCurPos()		{ return m_curPos; };
-	inline ICoord2D			AnimateWindow::getEndPos()		{ return m_endPos; };
-	inline ICoord2D			AnimateWindow::getRestPos()		{ return m_restPos; };
 	inline GameWindow  *AnimateWindow::getGameWindow(){ return m_win; };
 	inline AnimTypes		AnimateWindow::getAnimType()	{ return m_animType; };
 	inline UnsignedInt	AnimateWindow::getDelay()			{ return m_delay; };
@@ -210,10 +211,6 @@ namespace wnd
 	inline UnsignedInt	AnimateWindow::getStartTime()	{ return m_startTime; };
 	inline UnsignedInt	AnimateWindow::getEndTime()		{ return m_endTime; };
 
-	inline void	AnimateWindow::setStartPos( ICoord2D startPos)		{ m_startPos = startPos; };
-	inline void	AnimateWindow::setCurPos( ICoord2D curPos)				{ m_curPos = curPos; };
-	inline void	AnimateWindow::setEndPos( ICoord2D endPos)				{ m_endPos = endPos; };
-	inline void	AnimateWindow::setRestPos( ICoord2D restPos)			{ m_restPos = restPos; };
 	inline void	AnimateWindow::setGameWindow( GameWindow *win)		{ m_win = win; };
 	inline void	AnimateWindow::setAnimType( AnimTypes animType)		{ m_animType = animType; };
 	inline void	AnimateWindow::setDelay( UnsignedInt delay)				{ m_delay = delay; };

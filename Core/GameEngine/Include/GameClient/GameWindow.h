@@ -272,6 +272,10 @@ public:
 	Int winGetPosition( Int *x, Int *y );  ///< get window position
 	Int winGetScreenPosition( Int *x, Int *y );  ///< get screen coordinates
 	Int winGetRegion( IRegion2D *region );  ///< get window region
+	void winSetFractionalScreenRegion( const Region2D &screenRegion );  ///< set region in fractions of the display, relative to the screen
+	void winGetFractionalPosition( Coord2D *position );  ///< get position in fractions of the display, relative to the parent
+	void winSetFractionalPosition( const Coord2D &position );  ///< set position in fractions of the display, relative to the parent
+	void winFitToDisplay();  ///< derive pixel geometry of this window and its children from the display size
 	Int winSetCursorPosition( Int x, Int y );  ///< set window cursor position
 	Int winGetCursorPosition( Int *x, Int *y );  ///< get window cursor position
 
@@ -394,6 +398,12 @@ protected:
 	void unlinkFromTransitionWindows();
 
 	void normalizeWindowRegion();  ///< put UL corner in window region.lo
+	void storeFractionalRegion();  ///< mirror the pixel region into the fractional region
+	void storeFractionalPosition();  ///< mirror the pixel position, keep the fractional size
+	void storeFractionalSize();  ///< mirror the pixel size, keep the fractional position
+	void setPixelGeometry( Int x, Int y, Int width, Int height );  ///< set pixel region without touching the fractional region
+	void fitToDisplay( const Coord2D &parentFraction, const ICoord2D &parentScreen );
+	Coord2D getFractionalScreenPosition();  ///< fractional position relative to the screen
 
 	GameWindow *findFirstLeaf();  ///< return first leaf of branch
 	GameWindow *findLastLeaf();  ///< return last leaf of branch
@@ -406,6 +416,7 @@ protected:
 	ICoord2D  m_size;						     	  // Width and height of the window
 	IRegion2D m_region;      					  // Current region occupied by window.
 	// Low x,y is the window's origin
+	Region2D m_fractionalRegion;				///< m_region in fractions of the display size, source of truth on resolution change
 	Int m_cursorX;											// window cursor X position if any
 	Int m_cursorY;											// window cursor Y position if any
 

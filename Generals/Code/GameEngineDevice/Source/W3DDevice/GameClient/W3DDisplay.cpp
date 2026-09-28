@@ -3190,10 +3190,6 @@ static void drawFramerateBar()
 
 #ifdef __APPLE__
 
-#include "GameClient/Shell.h"
-#include "GameClient/InGameUI.h"
-#include "GameClient/ControlBar.h"
-#include "GameClient/HeaderTemplate.h"
 #include "Common/OptionPreferences.h"
 
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
@@ -3205,36 +3201,10 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 		return;
 	}
 
-	Int oldXRes = TheWritableGlobalData->m_xResolution;
-
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
 	TheWritableGlobalData->m_windowed = isWindowed;
 	TheDisplay->setWindowed(isWindowed);
-
-	if (TheHeaderTemplateManager) {
-		TheHeaderTemplateManager->onResolutionChanged();
-	}
-	if (TheMouse) {
-		TheMouse->onResolutionChanged();
-	}
-
-	// Only recreate UI layouts when in the main menu shell, NOT during gameplay.
-	// During gameplay, setDisplayMode already updates the 3D viewport,
-	// TacticalView, Render2DClass, and Display width/height.
-	// Calling recreateWindowLayouts during gameplay crashes because windows
-	// are mid-update and resources are actively in use.
-	if (TheShell && TheShell->isShellActive()) {
-		TheShell->recreateWindowLayouts();
-		if (TheInGameUI) {
-			TheInGameUI->recreateControlBar();
-			TheInGameUI->refreshCustomUiResources();
-		}
-	} else if (TheControlBar) {
-		// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored
-		// UI elements during gameplay resize (shortcut bar, right HUD).
-		TheControlBar->repositionForResolution(oldXRes, w);
-	}
 
 	OptionPreferences pref;
 	if (isWindowed) {

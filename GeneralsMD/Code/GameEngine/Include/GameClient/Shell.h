@@ -122,8 +122,6 @@ public:
 	virtual void update() override;
 	//===============================================================================================
 
-	void recreateWindowLayouts();
-
 	void showShellMap(Bool useShellMap );										///< access function to turn on and off the shell map
 
 	void hide( Bool hide );																	///< show/hide all shell layouts

@@ -494,7 +494,8 @@ static Bool parseTooltip( const char *token, WinInstanceData *instData,
 	* if present */
 //=============================================================================
 static Bool parseScreenRect( const char *token, char *buffer,
-														 Int *x, Int *y, Int *width, Int *height )
+														 Int *x, Int *y, Int *width, Int *height,
+														 Region2D *fractionalScreenRegion )
 {
 	GameWindow *parent = peekWindow();
 	IRegion2D screenRegion;
@@ -519,6 +520,11 @@ static Bool parseScreenRect( const char *token, char *buffer,
 	scanInt( c, createRes.x );
 	c = strtok( nullptr, seps );  // y creation resolution
 	scanInt( c, createRes.y );
+
+	fractionalScreenRegion->lo.x = (Real)screenRegion.lo.x / (Real)createRes.x;
+	fractionalScreenRegion->lo.y = (Real)screenRegion.lo.y / (Real)createRes.y;
+	fractionalScreenRegion->hi.x = (Real)screenRegion.hi.x / (Real)createRes.x;
+	fractionalScreenRegion->hi.y = (Real)screenRegion.hi.y / (Real)createRes.y;
 
 	//
 	// shrink or expand the screen region by the ratio of the current
@@ -2318,6 +2324,7 @@ static GameWindow *parseWindow( File *inFile, char *buffer )
 	char token[ 256 ];
 	char *c;
 	Int x, y, width, height;
+	Region2D fractionalScreenRegion;
 	void *data = nullptr;
 	ICoord2D parentSize;
 	AsciiString asciibuf;
@@ -2381,7 +2388,7 @@ static GameWindow *parseWindow( File *inFile, char *buffer )
 	readUntilSemicolon( inFile, buffer, WIN_BUFFER_LENGTH );
 	c = strtok( buffer, seps );
 	assert( strcmp( c, "SCREENRECT" ) == 0 );
-	if( parseScreenRect( c, buffer, &x, &y, &width, &height ) == FALSE )
+	if( parseScreenRect( c, buffer, &x, &y, &width, &height, &fractionalScreenRegion ) == FALSE )
 		goto cleanupAndExit;
 
 	// parse all the field definitions
@@ -2447,6 +2454,8 @@ static GameWindow *parseWindow( File *inFile, char *buffer )
 																 width, height, &instData, data,
 																 systemFunc, inputFunc, tooltipFunc, drawFunc );
 
+				if( window )
+					window->winSetFractionalScreenRegion( fractionalScreenRegion );
 
 				goto cleanupAndExit;
 
@@ -2461,6 +2470,8 @@ static GameWindow *parseWindow( File *inFile, char *buffer )
 
 				if (window == nullptr)
 					goto cleanupAndExit;
+
+				window->winSetFractionalScreenRegion( fractionalScreenRegion );
 
 				// Parses the CHILD's window info.
 				if( parseChildWindows( window, inFile, buffer ) == FALSE )

@@ -843,9 +843,6 @@ static void saveOptions()
 				TheWritableGlobalData->m_xResolution = xres;
 				TheWritableGlobalData->m_yResolution = yres;
 
-				TheHeaderTemplateManager->onResolutionChanged();
-				TheMouse->onResolutionChanged();
-
 				//Save new settings for a dialog box confirmation after options are accepted
 				newDispSettings.xRes = xres;
 				newDispSettings.yRes = yres;
@@ -855,11 +852,6 @@ static void saveOptions()
 				AsciiString prefString;
 				prefString.format("%d %d", xres, yres );
 				(*pref)["Resolution"] = prefString;
-
-				TheShell->recreateWindowLayouts();
-
-				TheInGameUI->recreateControlBar();
-				TheInGameUI->refreshCustomUiResources();
 			}
 		}
 	}

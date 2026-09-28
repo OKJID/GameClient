@@ -1,6 +1,6 @@
 # macOS Port — Rendering Pipeline
 
-> Updated: 2026-04-15
+> Updated: 2026-09-28
 
 ---
 
@@ -304,6 +304,54 @@ For `D3DFVF_XYZRHW` vertices (screen coordinates), three overrides are applied:
 1. **Depth test/write disabled** — 2D UI renders on top of 3D geometry
 2. **Culling disabled** — Y-flip in shader changes winding CW → CCW
 3. **`useProjection == 2`** — shader converts screen coords → NDC: `pos / screenSize * 2 - 1`, Y-flip
+
+---
+
+## Resolution Changes and the 2D Interface
+
+Dragging the window edge, the fullscreen toggle and the Options menu all change the
+resolution through `Display::setDisplayMode`, in the menus and during a match alike. The
+interface is refit in place; no layout is destroyed or recreated.
+
+### Single source of truth
+
+Every `GameWindow` keeps `m_fractionalRegion` — its region relative to the parent, in
+fractions of the display size. Pixels (`m_region`, `m_size`) are derived from it.
+
+| Writer | Fractional region |
+|:---|:---|
+| `.wnd` loader (`parseScreenRect`) | exact: design coordinates / `CREATIONRESOLUTION` |
+| `winCreate` | from the pixel region |
+| `winSetPosition` | from the pixel position, fractional size kept |
+| `winSetSize` | from the pixel size, fractional position kept |
+| `winSetFractionalPosition` | set directly, pixels refit |
+
+`Display::fractionToPixels` truncates like the `.wnd` loader, so a refit window lands where a
+fresh load at that resolution would put it.
+
+### Refit order
+
+`Display::setDisplayMode` → `applyResolutionToInterface()`:
+
+1. `HeaderTemplateManager::onResolutionChanged` — template fonts for the new size
+2. `GameWindowManager::onResolutionChanged` — `winFitToDisplay` on every root, hidden ones
+   included, then template fonts pushed into the windows
+3. `GameWindowTransitionsHandler::onResolutionChanged` — active transition groups re-read
+   window geometry through `Transition::refreshGeometry`
+4. `Mouse::onResolutionChanged`
+5. `InGameUI::onResolutionChanged` — HUD strings, superweapon and named timer fonts,
+   messages, military subtitle
+
+### Rules for new code
+
+- Never keep a pixel copy of a window position or size in a member or static. Read it from
+  the window when needed, or keep it in fractions (`Display::pixelsToFraction`).
+- Values derived from the display size are getters, not cached fields
+  (`ControlBarSchemeManager::getMultiplier`, `ControlBar::getOffsetFromDefaultPosition`).
+- `AnimateWindow` stores its positions in fractions; an animation that finishes on its end or
+  rest pixel snaps the window back to the exact fraction it had before the animation.
+- A new subsystem that caches display-dependent state gets an `onResolutionChanged` and a
+  call in `applyResolutionToInterface`.
 
 ---
 

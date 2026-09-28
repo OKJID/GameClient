@@ -3308,17 +3308,10 @@ static void drawFramerateBar()
 }
 
 // TheSuperHackers @feature macOS: Bridge function for applying resolution changes.
-// Called from MacOSMain.mm (windowDidEndLiveResize:) when the user finishes
-// dragging the window edge. Mirrors the OptionsMenu Accept flow at lines 828-853
-// of OptionsMenu.cpp: setDisplayMode + GlobalData + subsystem notifications + layout rebuild.
-// CRITICAL: UI layout rebuild is gated by isShellActive() to prevent crashes
-// during gameplay. During in-game, only the lightweight Metal+viewport update
-// happens via setDisplayMode(). This matches the old port's proven approach.
+// Called from MacOSMain.mm (windowDidEndLiveResize:) and from Toggle_Windowed.
+// setDisplayMode refits the whole 2D interface, in menus and in a running match alike.
 #ifdef __APPLE__
 #include "GameClient/Shell.h"
-#include "GameClient/InGameUI.h"
-#include "GameClient/ControlBar.h"
-#include "GameClient/HeaderTemplate.h"
 #include "Common/OptionPreferences.h"
 
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
@@ -3335,36 +3328,10 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 		return;
 	}
 
-	Int oldXRes = TheWritableGlobalData->m_xResolution;
-
 	TheWritableGlobalData->m_xResolution = w;
 	TheWritableGlobalData->m_yResolution = h;
 	TheWritableGlobalData->m_windowed = isWindowed;
 	TheDisplay->setWindowed(isWindowed);
-
-	if (TheHeaderTemplateManager) {
-		TheHeaderTemplateManager->onResolutionChanged();
-	}
-	if (TheMouse) {
-		TheMouse->onResolutionChanged();
-	}
-
-	// Only recreate UI layouts when in the main menu shell, NOT during gameplay.
-	// During gameplay, setDisplayMode already updates the 3D viewport,
-	// TacticalView, Render2DClass, and Display width/height.
-	// Calling recreateWindowLayouts during gameplay crashes because windows
-	// are mid-update and resources are actively in use.
-	if (TheShell && TheShell->isShellActive()) {
-		TheShell->recreateWindowLayouts();
-		if (TheInGameUI) {
-			TheInGameUI->recreateControlBar();
-			TheInGameUI->refreshCustomUiResources();
-		}
-	} else if (TheControlBar) {
-		// TheSuperHackers @feature okji 26/04/2026 Reposition right-edge-anchored
-		// UI elements during gameplay resize (shortcut bar, right HUD).
-		TheControlBar->repositionForResolution(oldXRes, w);
-	}
 
 	OptionPreferences pref;
 	if (isWindowed) {

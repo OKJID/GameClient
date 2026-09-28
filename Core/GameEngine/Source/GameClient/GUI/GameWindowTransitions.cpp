@@ -219,6 +219,12 @@ void TransitionWindow::draw()
 		m_transition->draw();
 }
 
+void TransitionWindow::refreshGeometry()
+{
+	if(m_transition)
+		m_transition->refreshGeometry();
+}
+
 void TransitionWindow::unlinkGameWindow(GameWindow* win)
 {
 	if (m_win != win)
@@ -359,6 +365,17 @@ void TransitionGroup::skip ()
 	{
 		TransitionWindow *tWin = *it;
 		tWin->skip();
+		it++;
+	}
+}
+
+void TransitionGroup::refreshGeometry()
+{
+	TransitionWindowList::iterator it = m_transitionWindowList.begin();
+	while (it != m_transitionWindowList.end())
+	{
+		TransitionWindow *tWin = *it;
+		tWin->refreshGeometry();
 		it++;
 	}
 }
@@ -572,6 +589,16 @@ Bool GameWindowTransitionsHandler::isFinished()
 	if(m_currentGroup)
 		return m_currentGroup->isFinished();
 	return TRUE;
+}
+
+void GameWindowTransitionsHandler::onResolutionChanged()
+{
+	TransitionGroup *activeGroups[] = { m_currentGroup, m_pendingGroup, m_drawGroup, m_secondaryDrawGroup };
+	for (TransitionGroup *group : activeGroups)
+	{
+		if (group)
+			group->refreshGeometry();
+	}
 }
 
 //-----------------------------------------------------------------------------

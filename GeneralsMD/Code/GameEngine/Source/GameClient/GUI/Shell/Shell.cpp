@@ -218,53 +218,6 @@ void Shell::update()
 }
 
 //-------------------------------------------------------------------------------------------------
-namespace
-{
-	struct ScreenInfo
-	{
-		ScreenInfo() : isHidden(false) {}
-		AsciiString filename;
-		bool isHidden;
-	};
-}
-
-//-------------------------------------------------------------------------------------------------
-void Shell::recreateWindowLayouts()
-{
-		// collect state of the current shell
-	const Int screenCount = getScreenCount();
-	std::vector<ScreenInfo> screenStackInfos;
-
-	{
-		screenStackInfos.resize(screenCount);
-		Int screenIndex = 0;
-		for (; screenIndex < screenCount; ++screenIndex)
-		{
-			const WindowLayout* layout = getScreenLayout(screenIndex);
-			ScreenInfo& screenInfo = screenStackInfos[screenIndex];
-			screenInfo.filename = layout->getFilename();
-			screenInfo.isHidden = layout->isHidden();
-		}
-	}
-
-	// reconstruct the shell now
-	deconstruct();
-	construct();
-	init();
-
-	// restore the screen stack
-	Int screenIndex = 0;
-	for (; screenIndex < screenCount; ++screenIndex)
-	{
-		const ScreenInfo& screenInfo = screenStackInfos[screenIndex];
-		push(screenInfo.filename);
-
-		WindowLayout* layout = getScreenLayout(screenIndex);
-		layout->hide(screenInfo.isHidden);
-	}
-}
-
-//-------------------------------------------------------------------------------------------------
 /** Find a screen via the .wnd script filename loaded */
 //-------------------------------------------------------------------------------------------------
 WindowLayout* Shell::findScreenByFilename(AsciiString filename)

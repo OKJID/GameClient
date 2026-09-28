@@ -34,6 +34,10 @@
 #include "GameClient/DisplayStringManager.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GlobalLanguage.h"
+#include "GameClient/GameWindowManager.h"
+#include "GameClient/GameWindowTransitions.h"
+#include "GameClient/HeaderTemplate.h"
+#include "GameClient/InGameUI.h"
 //#include "GameLogic/ScriptEngine.h"
 //#include "GameLogic/GameLogic.h"
 
@@ -162,7 +166,32 @@ Bool Display::setDisplayMode(UnsignedInt xres, UnsignedInt yres, UnsignedInt bit
 	TheTacticalView->setHeight((Real)oldViewHeight / (Real)oldDisplayHeight * (Real)yres);
 	TheTacticalView->setOrigin((Real)oldViewOriginX / (Real)oldDisplayWidth * (Real)xres,
 		(Real)oldViewOriginY / (Real)oldDisplayHeight * (Real)yres);
+
+	if (xres != oldDisplayWidth || yres != oldDisplayHeight)
+		applyResolutionToInterface();
+
 	return TRUE;
+}
+
+// Display::applyResolutionToInterface ========================================
+/** Bring every 2D subsystem to the current display size */
+//=============================================================================
+void Display::applyResolutionToInterface()
+{
+	if (TheHeaderTemplateManager)
+		TheHeaderTemplateManager->onResolutionChanged();
+
+	if (TheWindowManager)
+		TheWindowManager->onResolutionChanged();
+
+	if (TheTransitionHandler)
+		TheTransitionHandler->onResolutionChanged();
+
+	if (TheMouse)
+		TheMouse->onResolutionChanged();
+
+	if (TheInGameUI)
+		TheInGameUI->onResolutionChanged();
 }
 
 // Display::setWidth ==========================================================
@@ -193,6 +222,41 @@ void Display::setHeight(UnsignedInt height)
 	if (TheMouse)
 		TheMouse->setMouseLimits();
 
+}
+
+static const Real FRACTION_TO_PIXEL_EPSILON = 0.001f;
+
+static Int fractionToPixels(Real fraction, UnsignedInt displaySize)
+{
+	const Real pixels = fraction * (Real)displaySize;
+	return (Int)(pixels >= 0.0f ? pixels + FRACTION_TO_PIXEL_EPSILON : pixels - FRACTION_TO_PIXEL_EPSILON);
+}
+
+// Display::isSizeKnown =======================================================
+//=============================================================================
+Bool Display::isSizeKnown()
+{
+	return getWidth() > 0 && getHeight() > 0;
+}
+
+// Display::pixelsToFraction ==================================================
+//=============================================================================
+Coord2D Display::pixelsToFraction(const ICoord2D& pixels)
+{
+	Coord2D fraction;
+	fraction.x = (Real)pixels.x / (Real)getWidth();
+	fraction.y = (Real)pixels.y / (Real)getHeight();
+	return fraction;
+}
+
+// Display::fractionToPixels ==================================================
+//=============================================================================
+ICoord2D Display::fractionToPixels(const Coord2D& fraction)
+{
+	ICoord2D pixels;
+	pixels.x = ::fractionToPixels(fraction.x, getWidth());
+	pixels.y = ::fractionToPixels(fraction.y, getHeight());
+	return pixels;
 }
 
 //============================================================================

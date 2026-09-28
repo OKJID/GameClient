@@ -54,6 +54,7 @@
 #include "GameClient/GameWindow.h"
 #include "GameClient/GameWindowManager.h"
 #include "GameClient/Gadget.h"
+#include "GameClient/Display.h"
 #include "GameClient/DisplayStringManager.h"
 #include "GameClient/GadgetListBox.h"
 #include "GameClient/GadgetComboBox.h"
@@ -75,6 +76,11 @@
 
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
 
+static Bool isDisplaySizeKnown()
+{
+	return TheDisplay != nullptr && TheDisplay->isSizeKnown();
+}
+
 // PUBLIC FUNCTIONS ///////////////////////////////////////////////////////////
 
 // GameWindow::GameWindow =====================================================
@@ -90,6 +96,9 @@ GameWindow::GameWindow()
 	m_region.lo.y = 0;
 	m_region.hi.x = 0;
 	m_region.hi.y = 0;
+
+	m_fractionalRegion.lo.zero();
+	m_fractionalRegion.hi.zero();
 
 	m_cursorX = 0;
 	m_cursorY = 0;
@@ -185,6 +194,104 @@ void GameWindow::normalizeWindowRegion()
 
 	if( m_region.lo.y > m_region.hi.y )
 		std::swap( m_region.lo.y, m_region.hi.y );
+}
+
+// GameWindow::storeFractionalRegion ==========================================
+//=============================================================================
+void GameWindow::storeFractionalRegion()
+{
+	if( !isDisplaySizeKnown() )
+		return;
+
+	m_fractionalRegion.lo = TheDisplay->pixelsToFraction( m_region.lo );
+	m_fractionalRegion.hi = TheDisplay->pixelsToFraction( m_region.hi );
+}
+
+// GameWindow::storeFractionalPosition ========================================
+//=============================================================================
+void GameWindow::storeFractionalPosition()
+{
+	if( !isDisplaySizeKnown() )
+		return;
+
+	const Real fractionalWidth = m_fractionalRegion.hi.x - m_fractionalRegion.lo.x;
+	const Real fractionalHeight = m_fractionalRegion.hi.y - m_fractionalRegion.lo.y;
+
+	m_fractionalRegion.lo = TheDisplay->pixelsToFraction( m_region.lo );
+	m_fractionalRegion.hi.x = m_fractionalRegion.lo.x + fractionalWidth;
+	m_fractionalRegion.hi.y = m_fractionalRegion.lo.y + fractionalHeight;
+}
+
+// GameWindow::storeFractionalSize ============================================
+//=============================================================================
+void GameWindow::storeFractionalSize()
+{
+	if( !isDisplaySizeKnown() )
+		return;
+
+	const Coord2D fractionalSize = TheDisplay->pixelsToFraction( m_size );
+
+	m_fractionalRegion.hi.x = m_fractionalRegion.lo.x + fractionalSize.x;
+	m_fractionalRegion.hi.y = m_fractionalRegion.lo.y + fractionalSize.y;
+}
+
+// GameWindow::setPixelGeometry ===============================================
+//=============================================================================
+void GameWindow::setPixelGeometry( Int x, Int y, Int width, Int height )
+{
+	const Bool isResized = width != m_size.x || height != m_size.y;
+
+	m_size.x = width;
+	m_size.y = height;
+
+	m_region.lo.x = x;
+	m_region.lo.y = y;
+	m_region.hi.x = x + width;
+	m_region.hi.y = y + height;
+
+	normalizeWindowRegion();
+
+	if( !isResized )
+		return;
+
+	TheWindowManager->winSendSystemMsg( this, GGM_RESIZED, (WindowMsgData)width, (WindowMsgData)height );
+}
+
+// GameWindow::fitToDisplay ===================================================
+//=============================================================================
+void GameWindow::fitToDisplay( const Coord2D &parentFraction, const ICoord2D &parentScreen )
+{
+	Coord2D fractionLo;
+	fractionLo.x = parentFraction.x + m_fractionalRegion.lo.x;
+	fractionLo.y = parentFraction.y + m_fractionalRegion.lo.y;
+
+	Coord2D fractionHi;
+	fractionHi.x = parentFraction.x + m_fractionalRegion.hi.x;
+	fractionHi.y = parentFraction.y + m_fractionalRegion.hi.y;
+
+	const ICoord2D screenLo = TheDisplay->fractionToPixels( fractionLo );
+	const ICoord2D screenHi = TheDisplay->fractionToPixels( fractionHi );
+
+	setPixelGeometry( screenLo.x - parentScreen.x, screenLo.y - parentScreen.y,
+										screenHi.x - screenLo.x, screenHi.y - screenLo.y );
+
+	for( GameWindow *child = m_child; child; child = child->m_next )
+		child->fitToDisplay( fractionLo, screenLo );
+}
+
+// GameWindow::getFractionalScreenPosition ====================================
+//=============================================================================
+Coord2D GameWindow::getFractionalScreenPosition()
+{
+	Coord2D position = m_fractionalRegion.lo;
+
+	for( GameWindow *parent = m_parent; parent; parent = parent->m_parent )
+	{
+		position.x += parent->m_fractionalRegion.lo.x;
+		position.y += parent->m_fractionalRegion.lo.y;
+	}
+
+	return position;
 }
 
 // GameWindow::findFirstLeaf ==================================================
@@ -510,6 +617,7 @@ Int GameWindow::winSetPosition( Int x, Int y )
 	m_region.hi.y = y + m_size.y;
 
 	normalizeWindowRegion();
+	storeFractionalPosition();
 
 	return WIN_ERR_OK;
 
@@ -599,6 +707,70 @@ Int GameWindow::winGetRegion( IRegion2D *region )
 
 }
 
+// GameWindow::winSetFractionalScreenRegion ===================================
+/** Set the region from resolution independent layout data, such as a
+	* window script, so that later resolution changes derive from it exactly */
+//=============================================================================
+void GameWindow::winSetFractionalScreenRegion( const Region2D &screenRegion )
+{
+	Coord2D parentPosition;
+	parentPosition.zero();
+
+	if( m_parent )
+		parentPosition = m_parent->getFractionalScreenPosition();
+
+	m_fractionalRegion.lo.x = screenRegion.lo.x - parentPosition.x;
+	m_fractionalRegion.lo.y = screenRegion.lo.y - parentPosition.y;
+	m_fractionalRegion.hi.x = screenRegion.hi.x - parentPosition.x;
+	m_fractionalRegion.hi.y = screenRegion.hi.y - parentPosition.y;
+}
+
+// GameWindow::winGetFractionalPosition =======================================
+//=============================================================================
+void GameWindow::winGetFractionalPosition( Coord2D *position )
+{
+	if( position )
+		*position = m_fractionalRegion.lo;
+}
+
+// GameWindow::winSetFractionalPosition =======================================
+//=============================================================================
+void GameWindow::winSetFractionalPosition( const Coord2D &position )
+{
+	const Real fractionalWidth = m_fractionalRegion.hi.x - m_fractionalRegion.lo.x;
+	const Real fractionalHeight = m_fractionalRegion.hi.y - m_fractionalRegion.lo.y;
+
+	m_fractionalRegion.lo = position;
+	m_fractionalRegion.hi.x = position.x + fractionalWidth;
+	m_fractionalRegion.hi.y = position.y + fractionalHeight;
+
+	winFitToDisplay();
+}
+
+// GameWindow::winFitToDisplay ================================================
+/** Derive the pixel geometry of this window and all its children from their
+	* fractional regions and the current display size */
+//=============================================================================
+void GameWindow::winFitToDisplay()
+{
+	if( !isDisplaySizeKnown() )
+		return;
+
+	Coord2D parentFraction;
+	parentFraction.zero();
+	ICoord2D parentScreen;
+	parentScreen.x = 0;
+	parentScreen.y = 0;
+
+	if( m_parent )
+	{
+		parentFraction = m_parent->getFractionalScreenPosition();
+		m_parent->winGetScreenPosition( &parentScreen.x, &parentScreen.y );
+	}
+
+	fitToDisplay( parentFraction, parentScreen );
+}
+
 // GameWindow::winPointInWindow ===============================================
 /** Check to see if the given point is inside the window.  Will
 	* still return true if the point is actually in a child. */
@@ -628,6 +800,7 @@ Int GameWindow::winSetSize( Int width, Int height )
 	m_size.y = height;
 	m_region.hi.x = m_region.lo.x + width;
 	m_region.hi.y = m_region.lo.y + height;
+	storeFractionalSize();
 
 	TheWindowManager->winSendSystemMsg( this,
 																			GGM_RESIZED,

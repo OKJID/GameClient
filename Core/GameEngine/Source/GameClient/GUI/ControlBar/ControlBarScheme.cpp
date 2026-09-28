@@ -820,7 +820,6 @@ ControlBarSchemeManager::ControlBarSchemeManager()
 {
 	m_currentScheme = nullptr;
 	m_schemeList.clear();
-	m_multiplier.x = m_multiplier.y = 1;
 }
 
 //
@@ -1039,9 +1038,6 @@ void ControlBarSchemeManager::setControlBarScheme(AsciiString schemeName)
 	ControlBarScheme *tempScheme = findControlBarScheme( schemeName );
 	if(tempScheme)
 	{
-		// setup the multiplier value
-		m_multiplier.x = TheDisplay->getWidth() / tempScheme->m_ScreenCreationRes.x;
-		m_multiplier.y = TheDisplay->getHeight() / tempScheme->m_ScreenCreationRes.y;
 		m_currentScheme = tempScheme;
 	}
 	else
@@ -1066,13 +1062,21 @@ void ControlBarSchemeManager::update()
 void ControlBarSchemeManager::drawForeground( ICoord2D offset )
 {
 	if(m_currentScheme)
-		m_currentScheme->drawForeground( m_multiplier, offset);
+		m_currentScheme->drawForeground( getMultiplier(), offset);
 }
 //-----------------------------------------------------------------------------
 void ControlBarSchemeManager::drawBackground( ICoord2D offset )
 {
 	if(m_currentScheme)
-		m_currentScheme->drawBackground( m_multiplier, offset );
+		m_currentScheme->drawBackground( getMultiplier(), offset );
+}
+//-----------------------------------------------------------------------------
+Coord2D ControlBarSchemeManager::getMultiplier()
+{
+	Coord2D multiplier;
+	multiplier.x = TheDisplay->getWidth() / (Real)m_currentScheme->m_ScreenCreationRes.x;
+	multiplier.y = TheDisplay->getHeight() / (Real)m_currentScheme->m_ScreenCreationRes.y;
+	return multiplier;
 }
 
 //-----------------------------------------------------------------------------
@@ -1121,9 +1125,6 @@ void ControlBarSchemeManager::setControlBarSchemeByPlayerTemplate( const PlayerT
 
 	if(tempScheme)
 	{
-		// setup the multiplier value
-		m_multiplier.x = TheDisplay->getWidth() / (Real)tempScheme->m_ScreenCreationRes.x;
-		m_multiplier.y = TheDisplay->getHeight() / (Real)tempScheme->m_ScreenCreationRes.y;
 		m_currentScheme = tempScheme;
 	}
 	else
@@ -1189,9 +1190,6 @@ void ControlBarSchemeManager::setControlBarSchemeByPlayer(Player *p)
 
 	if(tempScheme)
 	{
-		// setup the multiplier value
-		m_multiplier.x = TheDisplay->getWidth() / (Real)tempScheme->m_ScreenCreationRes.x;
-		m_multiplier.y = TheDisplay->getHeight() / (Real)tempScheme->m_ScreenCreationRes.y;
 		m_currentScheme = tempScheme;
 	}
 	else

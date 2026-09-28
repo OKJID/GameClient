@@ -675,19 +675,12 @@ void DeclineResolution()
 		TheWritableGlobalData->m_xResolution = newDispSettings.xRes;
 		TheWritableGlobalData->m_yResolution = newDispSettings.yRes;
 
-		TheHeaderTemplateManager->onResolutionChanged();
-		TheMouse->onResolutionChanged();
-
 		AsciiString prefString;
 		prefString.format("%d %d", newDispSettings.xRes, newDispSettings.yRes);
 
 		OptionPreferences optionPref;
 		optionPref["Resolution"] = prefString;
 		optionPref.write();
-
-		TheShell->recreateWindowLayouts();
-
-		TheInGameUI->recreateControlBar();
 	}
 }
 

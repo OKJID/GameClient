@@ -93,14 +93,58 @@ void AnimateWindow::setAnimData( 	ICoord2D startPos, ICoord2D endPos,
 																	UnsignedInt endTime )
 
 {
-	m_startPos = startPos;
-	m_endPos = endPos;
-	m_curPos = curPos;
-	m_restPos = restPos;
+	setStartPos(startPos);
+	setEndPos(endPos);
+	setCurPos(curPos);
+	setRestPos(restPos);
 	m_vel = vel;
 	m_startTime = startTime;
 	m_endTime = endTime;
 
+}
+
+ICoord2D AnimateWindow::getStartPos()	{ return TheDisplay->fractionToPixels(m_startPos); }
+ICoord2D AnimateWindow::getCurPos()		{ return TheDisplay->fractionToPixels(m_curPos); }
+ICoord2D AnimateWindow::getEndPos()		{ return TheDisplay->fractionToPixels(m_endPos); }
+ICoord2D AnimateWindow::getRestPos()	{ return TheDisplay->fractionToPixels(m_restPos); }
+
+void AnimateWindow::setStartPos( ICoord2D startPos )	{ m_startPos = TheDisplay->pixelsToFraction(startPos); }
+void AnimateWindow::setCurPos( ICoord2D curPos )			{ m_curPos = TheDisplay->pixelsToFraction(curPos); }
+void AnimateWindow::setEndPos( ICoord2D endPos )			{ m_endPos = TheDisplay->pixelsToFraction(endPos); }
+void AnimateWindow::setRestPos( ICoord2D restPos )		{ m_restPos = TheDisplay->pixelsToFraction(restPos); }
+
+static Bool isSamePixel( const ICoord2D &a, const ICoord2D &b )
+{
+	return a.x == b.x && a.y == b.y;
+}
+
+void AnimateWindow::anchorToWindow( const ICoord2D &windowPixels, const Coord2D &windowFraction )
+{
+	if( isSamePixel(getEndPos(), windowPixels) )
+		m_endPos = windowFraction;
+
+	if( isSamePixel(getRestPos(), windowPixels) )
+		m_restPos = windowFraction;
+}
+
+void AnimateWindow::snapWindowToAnchor()
+{
+	ICoord2D windowPixels;
+	m_win->winGetPosition(&windowPixels.x, &windowPixels.y);
+
+	if( isSamePixel(windowPixels, getEndPos()) )
+	{
+		m_win->winSetFractionalPosition(m_endPos);
+		return;
+	}
+
+	if( isSamePixel(windowPixels, getRestPos()) )
+		m_win->winSetFractionalPosition(m_restPos);
+}
+
+void AnimateWindow::placeWindowAtRest()
+{
+	m_win->winSetFractionalPosition(m_restPos);
 }
 
 } // namespace wnd
@@ -173,6 +217,17 @@ void AnimateWindowManager::reset()
 	m_reverse = FALSE;
 }
 
+static Bool updateForward( ProcessAnimateWindow *processAnim, wnd::AnimateWindow *animWin )
+{
+	const Bool wasFinished = animWin->isFinished();
+	const Bool isFinished = processAnim->updateAnimateWindow(animWin);
+
+	if( !wasFinished && animWin->isFinished() )
+		animWin->snapWindowToAnchor();
+
+	return isFinished;
+}
+
 void AnimateWindowManager::update()
 {
 
@@ -202,7 +257,7 @@ void AnimateWindowManager::update()
 				}
 				else
 				{
-					if(!processAnim->updateAnimateWindow(animWin))
+					if(!updateForward(processAnim, animWin))
 						m_needsUpdate = TRUE;
 				}
 			}
@@ -230,7 +285,7 @@ void AnimateWindowManager::update()
 		else
 		{
 			if(processAnim)
-				processAnim->updateAnimateWindow(animWin);
+				updateForward(processAnim, animWin);
 		}
 		it ++;
 	}
@@ -257,6 +312,11 @@ void AnimateWindowManager::registerGameWindow(GameWindow *win, AnimTypes animTyp
 	animWin->setNeedsToFinish(needsToFinish);
 	animWin->setDelay(delayMs);
 
+	ICoord2D windowPixels;
+	win->winGetPosition(&windowPixels.x, &windowPixels.y);
+	Coord2D windowFraction;
+	win->winGetFractionalPosition(&windowFraction);
+
 	// Run the window through the processAnim's init function.
 	ProcessAnimateWindow *processAnim = getProcessAnimate( animType );
 	if(processAnim)
@@ -264,6 +324,7 @@ void AnimateWindowManager::registerGameWindow(GameWindow *win, AnimTypes animTyp
 		processAnim->setMaxDuration(ms);
 		processAnim->initAnimateWindow( animWin );
 	}
+	animWin->anchorToWindow(windowPixels, windowFraction);
 
 	// Add the Window to the proper list
 	if(needsToFinish)
@@ -392,10 +453,8 @@ void AnimateWindowManager::resetToRestPosition()
 			DEBUG_CRASH(("There's No AnimateWindow in the AnimateWindow List"));
 			return;
 		}
-		ICoord2D restPos = animWin->getRestPos();
-		GameWindow *win = animWin->getGameWindow();
-		if(win)
-			win->winSetPosition(restPos.x, restPos.y);
+		if(animWin->getGameWindow())
+			animWin->placeWindowAtRest();
 		it ++;
 	}
 	it = 	m_winList.begin();
@@ -407,10 +466,8 @@ void AnimateWindowManager::resetToRestPosition()
 			DEBUG_CRASH(("There's No AnimateWindow in the AnimateWindow List"));
 			return;
 		}
-		ICoord2D restPos = animWin->getRestPos();
-		GameWindow *win = animWin->getGameWindow();
-		if(win)
-			win->winSetPosition(restPos.x, restPos.y);
+		if(animWin->getGameWindow())
+			animWin->placeWindowAtRest();
 		it ++;
 	}
 

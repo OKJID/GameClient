@@ -552,13 +552,13 @@ public:  // ********************************************************************
 	virtual void selectNextIdleWorker();
 	static std::vector<Object*> getUniqueIdleWorkers(const ObjectList& idleWorkers);
 
-	virtual void recreateControlBar();
 	virtual void refreshCustomUiResources();
 	virtual void refreshNetworkLatencyResources();
 	virtual void refreshRenderFpsResources();
 	virtual void refreshSystemTimeResources();
 	virtual void refreshGameTimeResources();
 	virtual void refreshPlayerInfoListResources();
+	void onResolutionChanged();  ///< refit the fonts and positions that depend on the display size
 
 	virtual void disableTooltipsUntil(UnsignedInt frameNum);
 	virtual void clearTooltipsDisabled();
@@ -683,6 +683,11 @@ protected:
 
 	void createControlBar();			///< create the control bar user interface
 	void createReplayControl();		///< create the replay control window
+
+	void refreshSuperweaponFonts();
+	void refreshNamedTimerFonts();
+	void refreshMessageFonts();
+	void refitMilitarySubtitle();
 
 	void setMouseCursor(Mouse::MouseCursor c);
 

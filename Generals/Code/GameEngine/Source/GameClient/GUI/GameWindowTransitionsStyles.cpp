@@ -78,6 +78,16 @@ Transition::~Transition()
 {
 
 }
+
+Bool Transition::readWindowGeometry( ICoord2D *pos, ICoord2D *size )
+{
+	if(!m_win)
+		return FALSE;
+
+	m_win->winGetSize(&size->x, &size->y);
+	m_win->winGetScreenPosition(&pos->x, &pos->y );
+	return TRUE;
+}
 //-----------------------------------------------------------------------------
 
 FlashTransition::FlashTransition ()
@@ -98,14 +108,18 @@ void FlashTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(FLASHTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 
+}
+
+void FlashTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void FlashTransition::update( Int frame )
@@ -254,14 +268,18 @@ void ButtonFlashTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(BUTTONFLASHTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 	m_gradient = (Image *)TheMappedImageCollection->findImageByName("Gradient");
+}
+
+void ButtonFlashTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void ButtonFlashTransition::update( Int frame )
@@ -628,13 +646,17 @@ void FadeTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(FADETRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
+}
+
+void FadeTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void FadeTransition::update( Int frame )
@@ -765,19 +787,24 @@ void ScaleUpTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(SCALEUPTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 
+}
+
+void ScaleUpTransition::refreshGeometry()
+{
+	if(!readWindowGeometry(&m_pos, &m_size))
+		return;
+
 	m_centerPos.x = m_pos.x + m_size.x / 2;
 	m_centerPos.y = m_pos.y + m_size.y / 2;
 	m_incrementSize.x = m_size.x / SCALEUPTRANSITION_END;
 	m_incrementSize.y = m_size.y / SCALEUPTRANSITION_END;
-
 }
 
 void ScaleUpTransition::update( Int frame )
@@ -888,19 +915,24 @@ void ScoreScaleUpTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(SCORESCALEUPTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 
+}
+
+void ScoreScaleUpTransition::refreshGeometry()
+{
+	if(!readWindowGeometry(&m_pos, &m_size))
+		return;
+
 	m_centerPos.x = m_pos.x + m_size.x / 2;
 	m_centerPos.y = m_pos.y + m_size.y / 2;
 	m_incrementSize.x = m_size.x / SCORESCALEUPTRANSITION_END;
 	m_incrementSize.y = m_size.y / SCORESCALEUPTRANSITION_END;
-
 }
 
 void ScoreScaleUpTransition::update( Int frame )
@@ -1011,27 +1043,34 @@ void MainMenuScaleUpTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
 	}
 	m_growWin = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey("MainMenu.wnd:WinGrowMarker"));
+	refreshGeometry();
+	if(!m_growWin)
+		return;
+
+	m_isForward = FALSE;
+	update(MAINMENUSCALEUPTRANSITION_START);
+	m_isFinished = FALSE;
+	m_isForward = TRUE;
+	const Image *image = m_win->winGetDisabledImage(0);
+	m_growWin->winSetEnabledImage(0, image);
+
+}
+
+void MainMenuScaleUpTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 	if(!m_growWin)
 		return;
 
 	m_growWin->winGetSize(&m_growSize.x, &m_growSize.y);
 	m_growWin->winGetScreenPosition(&m_growPos.x, &m_growPos.y );
 
-	m_isForward = FALSE;
-	update(MAINMENUSCALEUPTRANSITION_START);
-	m_isFinished = FALSE;
-	m_isForward = TRUE;
 	m_incrementPos.x = (m_growPos.x - m_pos.x)  / MAINMENUSCALEUPTRANSITION_END;
 	m_incrementPos.y = (m_growPos.y - m_pos.y)  / MAINMENUSCALEUPTRANSITION_END;
 	m_incrementSize.x = (m_growSize.x - m_size.x) / MAINMENUSCALEUPTRANSITION_END;
 	m_incrementSize.y = (m_growSize.y - m_size.y) / MAINMENUSCALEUPTRANSITION_END;
-	const Image *image = m_win->winGetDisabledImage(0);
-	m_growWin->winSetEnabledImage(0, image);
-
 }
 
 void MainMenuScaleUpTransition::update( Int frame )
@@ -1128,29 +1167,36 @@ void MainMenuMediumScaleUpTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
 	}
 	AsciiString growWinName;
 	growWinName = m_win->winGetInstanceData()->m_decoratedNameString;
 	growWinName.concat("Medium");
 	m_growWin = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey(growWinName));
+	refreshGeometry();
 	if(!m_growWin)
 		return;
-
-	m_growWin->winGetSize(&m_growSize.x, &m_growSize.y);
-	m_growWin->winGetScreenPosition(&m_growPos.x, &m_growPos.y );
 
 	m_isForward = FALSE;
 	update(MAINMENUMEDIUMSCALEUPTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 
-	m_incrementSize.x = (m_growSize.x - m_size.x) / MAINMENUMEDIUMSCALEUPTRANSITION_END;
-	m_incrementSize.y = (m_growSize.y - m_size.y) / MAINMENUMEDIUMSCALEUPTRANSITION_END;
 //	const Image *image = m_win->winGetEnabledImage(0);
 	//m_growWin->winSetEnabledImage(0, image);
 
+}
+
+void MainMenuMediumScaleUpTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
+	if(!m_growWin)
+		return;
+
+	m_growWin->winGetSize(&m_growSize.x, &m_growSize.y);
+	m_growWin->winGetScreenPosition(&m_growPos.x, &m_growPos.y );
+
+	m_incrementSize.x = (m_growSize.x - m_size.x) / MAINMENUMEDIUMSCALEUPTRANSITION_END;
+	m_incrementSize.y = (m_growSize.y - m_size.y) / MAINMENUMEDIUMSCALEUPTRANSITION_END;
 }
 
 void MainMenuMediumScaleUpTransition::update( Int frame )
@@ -1247,29 +1293,36 @@ void MainMenuSmallScaleDownTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
 	}
 	AsciiString growWinName;
 	growWinName = m_win->winGetInstanceData()->m_decoratedNameString;
 	growWinName.concat("Small");
 	m_growWin = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey(growWinName));
+	refreshGeometry();
 	if(!m_growWin)
 		return;
-
-	m_growWin->winGetSize(&m_growSize.x, &m_growSize.y);
-	m_growWin->winGetScreenPosition(&m_growPos.x, &m_growPos.y );
 
 	m_isForward = FALSE;
 	update(MAINMENUSMALLSCALEDOWNTRANSITION_START);
 	m_isFinished = FALSE;
 	m_isForward = TRUE;
 
-	m_incrementSize.x = (m_growSize.x - m_size.x) / MAINMENUSMALLSCALEDOWNTRANSITION_END;
-	m_incrementSize.y = (m_growSize.y - m_size.y) / MAINMENUSMALLSCALEDOWNTRANSITION_END;
 	const Image *image = m_win->winGetEnabledImage(0);
 	m_growWin->winSetEnabledImage(0, image);
 
+}
+
+void MainMenuSmallScaleDownTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
+	if(!m_growWin)
+		return;
+
+	m_growWin->winGetSize(&m_growSize.x, &m_growSize.y);
+	m_growWin->winGetScreenPosition(&m_growPos.x, &m_growPos.y );
+
+	m_incrementSize.x = (m_growSize.x - m_size.x) / MAINMENUSMALLSCALEDOWNTRANSITION_END;
+	m_incrementSize.y = (m_growSize.y - m_size.y) / MAINMENUSMALLSCALEDOWNTRANSITION_END;
 }
 
 void MainMenuSmallScaleDownTransition::update( Int frame )
@@ -1364,8 +1417,7 @@ void TextTypeTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 	m_isForward = FALSE;
 	update(TEXTTYPETRANSITION_START);
@@ -1375,6 +1427,11 @@ void TextTypeTransition::init( GameWindow *win )
 	m_fullText = GadgetStaticTextGetText(m_win);
 	Int length = m_fullText.getLength();
 	m_frameLength = MIN(length, TEXTTYPETRANSITION_END);
+}
+
+void TextTypeTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void TextTypeTransition::update( Int frame )
@@ -1473,8 +1530,7 @@ void CountUpTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 
 		if( m_win->winIsHidden() )
 		{
@@ -1514,6 +1570,11 @@ void CountUpTransition::init( GameWindow *win )
 	UnicodeString currVal;
 	currVal.format(L"%d",m_currentValue);
 	GadgetStaticTextSetText(m_win, currVal);
+}
+
+void CountUpTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void CountUpTransition::update( Int frame )
@@ -1627,10 +1688,15 @@ void ScreenFadeTransition::init( GameWindow *win )
 
 	m_percent = 1.0f / (SCREENFADETRANSITION_END - 1);
 
+	refreshGeometry();
+
+}
+
+void ScreenFadeTransition::refreshGeometry()
+{
 	m_pos.y = m_pos.x = 0;
 	m_size.x = TheDisplay->getWidth();
 	m_size.y = TheDisplay->getHeight();
-
 }
 
 void ScreenFadeTransition::update( Int frame )
@@ -1705,12 +1771,24 @@ void ControlBarArrowTransition::init( GameWindow *win )
 	m_fadePercent = 1.0f/ (CONTROLBARARROWTRANSITION_END - CONTROLBARARROWTRANSITION_BEGIN_FADE);
 
 	m_arrowImage = TheControlBar->getArrowImage();
-	GameWindow *twin = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey("ControlBar.wnd:ButtonGeneral"));
-	if(!twin || !m_arrowImage)
+	if(!placeArrowAboveGeneralButton())
 	{
 		m_isFinished = TRUE;
 		return;
 	}
+}
+
+void ControlBarArrowTransition::refreshGeometry()
+{
+	placeArrowAboveGeneralButton();
+}
+
+Bool ControlBarArrowTransition::placeArrowAboveGeneralButton()
+{
+	GameWindow *twin = TheWindowManager->winGetWindowFromId(nullptr, TheNameKeyGenerator->nameToKey("ControlBar.wnd:ButtonGeneral"));
+	if(!twin || !m_arrowImage)
+		return FALSE;
+
 	ICoord2D screenPos, screenSize;
 	twin->winGetScreenPosition(&screenPos.x, &screenPos.y);
 	twin->winGetSize(&screenSize.x, &screenSize.y);
@@ -1724,6 +1802,7 @@ void ControlBarArrowTransition::init( GameWindow *win )
 	m_size.x = m_arrowImage->getImageWidth();
 	m_size.y = m_arrowImage->getImageHeight();
 
+	return TRUE;
 }
 
 void ControlBarArrowTransition::update( Int frame )
@@ -1808,8 +1887,7 @@ void FullFadeTransition::init( GameWindow *win )
 	if(win)
 	{
 		m_win = win;
-		m_win->winGetSize(&m_size.x, &m_size.y);
-		m_win->winGetScreenPosition(&m_pos.x, &m_pos.y );
+		refreshGeometry();
 	}
 
 	m_isForward = FALSE;
@@ -1819,6 +1897,11 @@ void FullFadeTransition::init( GameWindow *win )
 
 	m_percent = 1.0f / (FULLFADETRANSITION_END/2);
 
+}
+
+void FullFadeTransition::refreshGeometry()
+{
+	readWindowGeometry(&m_pos, &m_size);
 }
 
 void FullFadeTransition::update( Int frame )
