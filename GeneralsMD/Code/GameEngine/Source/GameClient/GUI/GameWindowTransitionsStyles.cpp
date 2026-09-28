@@ -516,6 +516,8 @@ void ButtonFlashTransition::reverse()
 
 void ButtonFlashTransition::draw()
 {
+	if(!m_win)
+		return;
 	switch (m_drawState)
 	{
 		case BUTTONFLASHTRANSITION_FADE_IN_1:
