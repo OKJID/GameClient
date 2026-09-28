@@ -725,6 +725,8 @@ class LauncherViewModel: ObservableObject {
 
         var env = ProcessInfo.processInfo.environment
         env["GENERALS_INSTALL_PATH"] = effectiveInstallPath
+        env[LauncherSession.startedAtEnvironmentKey] = String(Int(LauncherSession.startedAt.timeIntervalSince1970))
+        env[SupportIdentity.environmentKey] = SupportIdentity.current
         task.environment = env
 
         do {

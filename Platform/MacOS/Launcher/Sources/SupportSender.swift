@@ -78,7 +78,8 @@ enum SupportSender {
             ("launcherVersion", Submission.launcherVersion),
             ("language", L10n.current),
             ("osVersion", Submission.osVersion),
-            ("machine", Submission.machine)
+            ("machine", Submission.machine),
+            ("supportId", SupportIdentity.current)
         ]
     }
 
