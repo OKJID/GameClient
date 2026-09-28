@@ -766,3 +766,27 @@ void MacOSMouse::addEvent(int type, int x, int y, int button, int wheelDelta,
 
   m_nextFreeIndex = nextIndex;
 }
+
+void MacOSMouse::discardPendingLeftButtonDown() {
+  if (m_nextFreeIndex == m_nextGetIndex) {
+    return;
+  }
+
+  const unsigned int lastIndex = (m_nextFreeIndex + MAX_EVENTS - 1) % MAX_EVENTS;
+  const int lastType = m_eventBuffer[lastIndex].type;
+  if (lastType != MACOS_MOUSE_LBUTTON_DOWN && lastType != MACOS_MOUSE_LBUTTON_DBLCLK) {
+    return;
+  }
+
+  m_nextFreeIndex = lastIndex;
+}
+
+extern MacOSMouse *TheMacOSMouse;
+
+extern "C" void MacOS_DiscardPendingMouseDown() {
+  if (TheMacOSMouse == nullptr) {
+    return;
+  }
+
+  TheMacOSMouse->discardPendingLeftButtonDown();
+}

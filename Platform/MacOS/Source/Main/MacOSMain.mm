@@ -280,6 +280,7 @@ static void installCrashHandlers() {
 
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
 extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
+extern "C" void MacOS_DiscardPendingMouseDown();
 
 #include <sys/types.h>
 #include <sys/sysctl.h>
@@ -324,6 +325,13 @@ extern "C" void MacOS_GetAdaptiveResolution(int *w, int *h) {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self runGame];
     });
+}
+
+// The press that starts dragging the window edge lands inside the content view, but
+// AppKit keeps its release for the resize. Windows never delivers a border press to
+// the game (WM_NCLBUTTONDOWN), so the press is taken back before the game reads it.
+- (void)windowWillStartLiveResize:(NSNotification *)notification {
+    MacOS_DiscardPendingMouseDown();
 }
 
 // TheSuperHackers @feature macOS: Sync engine resolution when user finishes
@@ -464,6 +472,7 @@ extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
                                     backing:NSBackingStoreBuffered
                                     defer:NO];
     [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenNone];
+    [self.window setContentMinSize:NSMakeSize(DEFAULT_DISPLAY_WIDTH, DEFAULT_DISPLAY_HEIGHT)];
     [self.window setTitle:@"Command and Conquer Generals"];
     [self.window center];
     [self.window setAlphaValue:0.0];

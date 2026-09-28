@@ -82,6 +82,7 @@ private:
 public:
   void addEvent(int type, int x, int y, int button, int wheelDelta,
                 unsigned int time);
+  void discardPendingLeftButtonDown();
 };
 
 enum MacOSMouseEventType {

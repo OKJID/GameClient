@@ -333,6 +333,18 @@ void MacOSGameEngine::update()
 	}
 }
 
+static bool IsInsideContentView(NSEvent* event)
+{
+	NSWindow* window = [event window];
+	if (window == nil) {
+		return false;
+	}
+
+	NSView* contentView = [window contentView];
+	const NSPoint location = [contentView convertPoint:[event locationInWindow] fromView:nil];
+	return NSPointInRect(location, contentView.bounds);
+}
+
 // ── serviceWindowsOS() mirrors Win32GameEngine lines 140-175 ──
 // NSEvent polling replaces PeekMessage/GetMessage/DispatchMessage
 
@@ -393,7 +405,7 @@ void MacOSGameEngine::serviceWindowsOS()
 					TheMacOSMouse->addEvent(MACOS_MOUSE_MOVE, loc.x, loc.y, 0, 0, timeMs);
 				}
 			} else if (type == NSEventTypeLeftMouseDown) {
-				if (TheMacOSMouse) {
+				if (TheMacOSMouse && IsInsideContentView(event)) {
 					NSPoint loc = [event locationInWindow];
 					if ([event window]) {
 						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
@@ -413,7 +425,7 @@ void MacOSGameEngine::serviceWindowsOS()
 					TheMacOSMouse->addEvent(MACOS_MOUSE_LBUTTON_UP, loc.x, loc.y, 1, 0, timeMs);
 				}
 			} else if (type == NSEventTypeRightMouseDown) {
-				if (TheMacOSMouse) {
+				if (TheMacOSMouse && IsInsideContentView(event)) {
 					NSPoint loc = [event locationInWindow];
 					if ([event window]) {
 						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
