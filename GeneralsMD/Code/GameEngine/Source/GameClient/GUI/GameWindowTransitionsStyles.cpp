@@ -686,6 +686,8 @@ void FadeTransition::update( Int frame )
 	case FADETRANSITION_FADE_IN_7:
 	case FADETRANSITION_FADE_IN_8:
 	case FADETRANSITION_FADE_IN_9:
+		if(!m_win)
+			break;
 		m_win->winHide(TRUE);
 
 		m_drawState = frame;
