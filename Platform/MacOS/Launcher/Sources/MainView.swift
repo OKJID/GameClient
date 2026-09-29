@@ -63,6 +63,8 @@ struct MainView: View {
     private let switcherButtonWidth: CGFloat = 144
     private let switcherButtonHeight: CGFloat = 46
     private let switcherBannerOpacity: Double = 0.55
+    private let modPanelBannerOpacity: Double = 0.40
+    private let modPanelBannerBlur: CGFloat = 1
     private let switcherSpacing: CGFloat = 8
     private let modListOverscrollRows: CGFloat = 3
     private let switcherContentGap: CGFloat = 12
@@ -959,6 +961,28 @@ struct MainView: View {
                     .foregroundColor(.white.opacity(0.5))
             }
         }
+        .padding(.horizontal, 30)
+        .padding(.vertical, 12)
+        .background(_buildModPanelBackground(profile))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    private func _buildModPanelBackground(_ profile: GameProfile) -> some View {
+        ZStack {
+            Color.black.opacity(0.35)
+
+            ModArtworkImage(path: profile.mod?.bannerPath, fallback: ModArtwork.defaultBanner, contentMode: .fill)
+                .blur(radius: modPanelBannerBlur)
+                .opacity(modPanelBannerOpacity)
+
+            RadialGradient(
+                colors: [.clear, .black.opacity(0.45)],
+                center: .center,
+                startRadius: 60,
+                endRadius: 360
+            )
+        }
     }
 
     private func _buildModInstalled(_ profile: GameProfile) -> some View {
@@ -987,7 +1011,7 @@ struct MainView: View {
         }
         .padding(.horizontal, 30)
         .padding(.vertical, 12)
-        .background(Color.black.opacity(0.35))
+        .background(_buildModPanelBackground(profile))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent.opacity(0.35), lineWidth: 1))
     }
