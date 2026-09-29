@@ -730,6 +730,9 @@ UnsignedByte MacOSMouse::getMouseEvent(MouseIO *result, Bool flush) {
   case MACOS_MOUSE_MBUTTON_UP:
     result->middleState = MBS_Up;
     break;
+  case MACOS_MOUSE_MBUTTON_DBLCLK:
+    result->middleState = MBS_DoubleClick;
+    break;
   case MACOS_MOUSE_WHEEL:
     result->wheelPos = ev.wheelDelta;
     break;

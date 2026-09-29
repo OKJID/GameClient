@@ -516,6 +516,26 @@ void MacOSGameEngine::serviceWindowsOS()
 					}
 					TheMacOSMouse->addEvent(MACOS_MOUSE_RBUTTON_UP, loc.x, loc.y, 2, 0, timeMs);
 				}
+			} else if (type == NSEventTypeOtherMouseDown && [event buttonNumber] == 2) {
+				if (TheMacOSMouse && IsInsideContentView(event)) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					if ([event clickCount] == 2) {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_MBUTTON_DBLCLK, loc.x, loc.y, 3, 0, timeMs);
+					} else {
+						TheMacOSMouse->addEvent(MACOS_MOUSE_MBUTTON_DOWN, loc.x, loc.y, 3, 0, timeMs);
+					}
+				}
+			} else if (type == NSEventTypeOtherMouseUp && [event buttonNumber] == 2) {
+				if (TheMacOSMouse) {
+					NSPoint loc = [event locationInWindow];
+					if ([event window]) {
+						loc.y = NSHeight([[event window] contentView].bounds) - loc.y;
+					}
+					TheMacOSMouse->addEvent(MACOS_MOUSE_MBUTTON_UP, loc.x, loc.y, 3, 0, timeMs);
+				}
 			} else if (type == NSEventTypeScrollWheel) {
 				if (TheMacOSMouse) {
 					NSPoint loc = [event locationInWindow];
