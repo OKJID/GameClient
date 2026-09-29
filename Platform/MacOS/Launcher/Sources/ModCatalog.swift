@@ -13,6 +13,8 @@ struct ModCatalogEntry: Decodable {
     let downloadSizeMB: Int
     let diskSizeMB: Int
     let markers: [String]
+    let banner: String?
+    let medallion: String?
 }
 
 private struct ModCatalogPayload: Decodable {
@@ -42,6 +44,11 @@ final class ModCatalog: ObservableObject, ApiResource {
     func reload() throws {
         let payload = try ApiCache.load(resourceName, decode: Self.decode)
         mods = Self.profiles(from: payload?.mods.compactMap(\.entry) ?? [])
+        ModArtwork.shared.prune(keeping: Self.artworkPaths(of: mods))
+    }
+
+    private static func artworkPaths(of profiles: [GameProfile]) -> Set<String> {
+        Set(profiles.compactMap(\.mod).flatMap { [$0.bannerPath, $0.medallionPath].compactMap { $0 } })
     }
 
     private static func decode(_ data: Data) -> ModCatalogPayload? {
@@ -75,7 +82,9 @@ final class ModCatalog: ObservableObject, ApiResource {
                 downloadURLs: entry.urls.compactMap(URL.init(string:)),
                 downloadSizeMB: entry.downloadSizeMB,
                 diskSizeMB: entry.diskSizeMB,
-                markers: [ModSpec.configFileName] + entry.markers
+                markers: [ModSpec.configFileName] + entry.markers,
+                bannerPath: entry.banner.flatMap(ModArtwork.validPath),
+                medallionPath: entry.medallion.flatMap(ModArtwork.validPath)
             )
         )
     }

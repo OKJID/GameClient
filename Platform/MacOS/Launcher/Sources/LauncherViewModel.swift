@@ -26,12 +26,14 @@ class LauncherViewModel: ObservableObject {
 
     enum Sheet: Identifiable {
         case modRequest
+        case modAuthorRequest(GameProfile)
         case support
         case crash(PendingCrash)
 
         var id: String {
             switch self {
             case .modRequest: return "modRequest"
+            case .modAuthorRequest(let profile): return "modAuthorRequest:\(profile.id.rawValue)"
             case .support: return "support"
             case .crash(let crash): return "crash:\(crash.id)"
             }
@@ -149,7 +151,7 @@ class LauncherViewModel: ObservableObject {
     var modInstaller = ModInstaller()
     var updateChecker = UpdateChecker()
     var announcements = AnnouncementsFeed()
-    lazy var apiSync = ApiSync(resources: [updateChecker, announcements, ModCatalog.shared])
+    lazy var apiSync = ApiSync(resources: [updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
     private var isSendingCrashReport = false
@@ -202,6 +204,13 @@ class LauncherViewModel: ObservableObject {
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
                 self?.invalidateValidation()
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        ModAboutCatalog.shared.$entries
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)

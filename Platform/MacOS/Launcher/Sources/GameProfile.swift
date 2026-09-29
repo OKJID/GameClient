@@ -77,6 +77,8 @@ struct ModSpec {
     let downloadSizeMB: Int
     let diskSizeMB: Int
     let markers: [String]
+    let bannerPath: String?
+    let medallionPath: String?
 
     static let configFileName = "config.json"
     static let modsDirName = "Mods"

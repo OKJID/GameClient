@@ -42,14 +42,27 @@ struct ChevronMark: Shape {
     }
 }
 
+struct ModRowOffsetsKey: PreferenceKey {
+    static var defaultValue: [String: CGFloat] = [:]
+
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue()) { _, next in next }
+    }
+}
+
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
     @State private var isDonatePanelOpen = false
+    @State private var isModScrollRestored = false
+
+    private static let modScrollAnchorKey = "ModListScrollAnchor"
+    private let modScrollSpace = "modListScroll"
 
     private var theme: LauncherTheme { viewModel.selectedProfile.theme }
     private var accent: Color { theme.accent }
     private let switcherButtonWidth: CGFloat = 144
     private let switcherButtonHeight: CGFloat = 46
+    private let switcherBannerOpacity: Double = 0.55
     private let switcherSpacing: CGFloat = 8
     private let modListOverscrollRows: CGFloat = 3
     private let switcherContentGap: CGFloat = 12
@@ -108,6 +121,8 @@ struct MainView: View {
         switch sheet {
         case .modRequest:
             ModRequestSheet(accent: accent)
+        case .modAuthorRequest(let profile):
+            ModAuthorRequestSheet(profile: profile, accent: accent)
         case .support:
             SupportSheet(crash: nil, accent: accent)
         case .crash(let crash):
@@ -323,6 +338,29 @@ struct MainView: View {
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
+    private func rememberTopMod(_ offsets: [String: CGFloat]) {
+        guard isModScrollRestored else { return }
+
+        let scrolledPast = offsets.filter { $0.value <= 1 }
+        guard let topRow = scrolledPast.max(by: { $0.value < $1.value }) else {
+            UserDefaults.standard.removeObject(forKey: Self.modScrollAnchorKey)
+            return
+        }
+
+        UserDefaults.standard.set(topRow.key, forKey: Self.modScrollAnchorKey)
+    }
+
+    private func restoreModScroll(_ proxy: ScrollViewProxy) {
+        let savedRow = UserDefaults.standard.string(forKey: Self.modScrollAnchorKey)
+
+        DispatchQueue.main.async {
+            if let savedRow {
+                proxy.scrollTo(savedRow, anchor: .top)
+            }
+            isModScrollRestored = true
+        }
+    }
+
     @ViewBuilder
     private func _buildModSwitcherSection() -> some View {
         let mods = viewModel.availableMods
@@ -334,18 +372,34 @@ struct MainView: View {
                 .padding(.leading, 8)
                 .padding(.top, 10)
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: switcherSpacing) {
-                    ForEach(mods) { profile in
-                        _buildGameButton(profile, isEnabled: true)
-                    }
+            ScrollViewReader { proxy in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: switcherSpacing) {
+                        ForEach(mods) { profile in
+                            _buildGameButton(profile, isEnabled: true)
+                                .id(profile.id.rawValue)
+                                .background(_buildModOffsetReader(profile.id.rawValue))
+                        }
 
-                    _buildModRequestButton()
+                        _buildModRequestButton()
+                    }
+                    .padding(.top, 2)
+                    .padding(.bottom, modListOverscroll)
                 }
-                .padding(.top, 2)
-                .padding(.bottom, modListOverscroll)
+                .coordinateSpace(name: modScrollSpace)
+                .onPreferenceChange(ModRowOffsetsKey.self, perform: rememberTopMod)
+                .onAppear { restoreModScroll(proxy) }
             }
             .frame(width: switcherButtonWidth + 2, alignment: .leading)
+        }
+    }
+
+    private func _buildModOffsetReader(_ rowID: String) -> some View {
+        GeometryReader { geometry in
+            Color.clear.preference(
+                key: ModRowOffsetsKey.self,
+                value: [rowID: geometry.frame(in: .named(modScrollSpace)).minY]
+            )
         }
     }
 
@@ -382,10 +436,7 @@ struct MainView: View {
                 }
             }
             .frame(width: switcherButtonWidth, height: switcherButtonHeight)
-            .background(
-                LeftFlushShape(radius: 10)
-                    .fill(isSelected ? profile.theme.accent.opacity(0.85) : profile.theme.panel.opacity(0.75))
-            )
+            .background(_buildSwitcherBackground(profile, isSelected: isSelected))
             .overlay(
                 LeftFlushShape(radius: 10)
                     .stroke(isSelected ? profile.theme.accentSoft : profile.theme.panelBorder, lineWidth: isSelected ? 2 : 1)
@@ -395,6 +446,29 @@ struct MainView: View {
         .disabled(!isEnabled)
         .opacity(_switcherOpacity(isEnabled: isEnabled, isInstalledMod: isInstalledMod, isMod: profile.isMod))
         .help(_switcherHelp(profile, isEnabled: isEnabled, isInstalledMod: isInstalledMod))
+    }
+
+    private func _buildSwitcherBackground(_ profile: GameProfile, isSelected: Bool) -> some View {
+        ZStack {
+            LeftFlushShape(radius: 10)
+                .fill(isSelected ? profile.theme.accent.opacity(0.85) : profile.theme.panel.opacity(0.75))
+
+            if let mod = profile.mod {
+                ModArtworkImage(path: mod.bannerPath, fallback: ModArtwork.defaultBanner, contentMode: .fill)
+                    .opacity(switcherBannerOpacity)
+                    .clipShape(LeftFlushShape(radius: 10))
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.6), location: 0),
+                        .init(color: .clear, location: 0.7)
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .clipShape(LeftFlushShape(radius: 10))
+            }
+        }
     }
 
     private func _buildModRequestButton() -> some View {
@@ -877,9 +951,13 @@ struct MainView: View {
             .disabled(viewModel.modInstaller.isBusy)
             .opacity(viewModel.modInstaller.isBusy ? 0.4 : 1.0)
 
-            Text(sizeText)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.5))
+            HStack(spacing: 12) {
+                _buildModAboutButton(profile)
+
+                Text(sizeText)
+                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.5))
+            }
         }
     }
 
@@ -896,6 +974,8 @@ struct MainView: View {
             _buildLaunchButton()
 
             HStack(spacing: 12) {
+                _buildModAboutButton(profile)
+
                 _buildModSecondaryButton(title: L10n.mod.reinstall, color: profile.theme.accentSoft) {
                     viewModel.requestModReinstall(profile)
                 }
@@ -927,6 +1007,12 @@ struct MainView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(viewModel.modInstaller.isBusy)
+    }
+
+    private func _buildModAboutButton(_ profile: GameProfile) -> some View {
+        ModAboutButton(profile: profile, color: profile.theme.accentSoft) {
+            viewModel.activeSheet = .modAuthorRequest(profile)
+        }
     }
 
     private func _modInstallAction(_ profile: GameProfile) -> (title: String, icon: String) {
