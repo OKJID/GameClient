@@ -812,8 +812,8 @@ void MetalDevice8::ApplyPerDrawState() {
   DWORD zBias = m_RenderStates[D3DRS_ZBIAS];
   if (zBias != m_LastAppliedZBias) {
     if (zBias != 0) {
-      float bias = -(float)zBias * 5000.0f;
-      float slopeScale = -(float)zBias * 1.0f;
+      float bias = -(float)zBias * 256.0f;
+      float slopeScale = 0.0f;
       [MTL_ENCODER setDepthBias:bias slopeScale:slopeScale clamp:0.0f];
     } else {
       [MTL_ENCODER setDepthBias:0.0f slopeScale:0.0f clamp:0.0f];
