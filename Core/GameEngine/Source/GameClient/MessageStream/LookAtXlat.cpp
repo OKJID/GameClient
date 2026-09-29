@@ -131,6 +131,34 @@ Bool LookAtTranslator::canScrollAtScreenEdge() const
 	return true;
 }
 
+#ifdef __APPLE__
+static const Int MIDDLE_CLICK_DEAD_ZONE_PIXELS = 5;
+
+//-----------------------------------------------------------------------------
+void LookAtTranslator::updateRotationDragState()
+{
+	if (m_isRotationDragging)
+		return;
+
+	const Int dx = abs(m_currentPos.x - m_originalAnchor.x);
+	const Int dy = abs(m_currentPos.y - m_originalAnchor.y);
+	if (dx <= MIDDLE_CLICK_DEAD_ZONE_PIXELS && dy <= MIDDLE_CLICK_DEAD_ZONE_PIXELS)
+		return;
+
+	m_isRotationDragging = true;
+	m_originalAnchor = m_currentPos;
+}
+
+//-----------------------------------------------------------------------------
+void LookAtTranslator::resetCameraToHome()
+{
+	TheTacticalView->userResetPivotToGround();
+	TheTacticalView->userSetAngleToDefault();
+	TheTacticalView->userSetPitchToDefault();
+	TheTacticalView->userSetZoomToDefault();
+}
+#endif
+
 //-----------------------------------------------------------------------------
 LookAtTranslator::LookAtTranslator() :
 	m_isScrolling(false),
@@ -312,10 +340,24 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 		m_isRotating = true;
 		m_anchor = msg->getArgument(0)->pixel;
 		m_anchorAngle = TheTacticalView->getAngle();
+#ifdef __APPLE__
+		m_anchorPitch = TheTacticalView->getPitch();
+		m_isRotationDragging = false;
+#endif
 		m_originalAnchor = msg->getArgument(0)->pixel;
 		m_currentPos = msg->getArgument(0)->pixel;
 		break;
 	}
+
+#ifdef __APPLE__
+	//-----------------------------------------------------------------------------
+	case GameMessage::MSG_RAW_MOUSE_MIDDLE_DOUBLE_CLICK:
+	{
+		m_lastMouseMoveTimeMsec = timeGetTime();
+		resetCameraToHome();
+		break;
+	}
+#endif
 
 	//-----------------------------------------------------------------------------
 	case GameMessage::MSG_RAW_MOUSE_MIDDLE_BUTTON_UP:
@@ -323,7 +365,11 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 		const UnsignedInt now = timeGetTime();
 		m_lastMouseMoveTimeMsec = now;
 
+#ifdef __APPLE__
+		const UnsignedInt CLICK_DURATION_MSEC = 350;
+#else
 		const UnsignedInt CLICK_DURATION_MSEC = 167;
+#endif
 		const UnsignedInt PIXEL_OFFSET = 5;
 
 		m_isRotating = false;
@@ -331,6 +377,9 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 		if (dx < 0) dx = -dx;
 		Int dy = m_currentPos.y - m_originalAnchor.y;
 		Bool didMove = dx > PIXEL_OFFSET || dy > PIXEL_OFFSET;
+#ifdef __APPLE__
+		didMove = m_isRotationDragging;
+#endif
 
 		const UnsignedInt elapsedMsec = now - m_middleButtonDownTimeMsec;
 
@@ -383,7 +432,14 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 		}
 
 		// rotate the view
+#ifdef __APPLE__
 		if (m_isRotating)
+			updateRotationDragState();
+
+		if (m_isRotating && m_isRotationDragging)
+#else
+		if (m_isRotating)
+#endif
 		{
 			const Real FACTOR = 0.01f;
 			const Real angle = FACTOR * (m_currentPos.x - m_originalAnchor.x);
@@ -398,6 +454,13 @@ GameMessageDisposition LookAtTranslator::translateGameMessage(const GameMessage*
 			}
 
 			TheTacticalView->userSetAngle(targetAngle);
+#ifdef __APPLE__
+			if (!TheGameLogic->isInMultiplayerGame())
+			{
+				const Real pitchDelta = FACTOR * (m_currentPos.y - m_originalAnchor.y);
+				TheTacticalView->userSetPitch(m_anchorPitch - pitchDelta);
+			}
+#endif
 			m_anchor = msg->getArgument(0)->pixel;
 		}
 
