@@ -10,12 +10,15 @@ typedef unsigned char Byte;
 
 #import <AVFoundation/AVFoundation.h>
 #import <AudioToolbox/AudioToolbox.h>
+#import <AppKit/AppKit.h>
 #import <os/lock.h>
 #include <algorithm>
+#include <atomic>
 
 #pragma mark - Internal Types
 
 static bool gEngineStarted = false;
+static std::atomic<bool> gSystemGoingToSleep{false};
 
 struct AVBridgePlayerSlot {
     AVAudioPlayerNode *node;
@@ -309,6 +312,22 @@ static void ensure_engine_inited(void) {
     }
 }
 
+static void observeSystemSleep(void) {
+    NSNotificationCenter *center = [[NSWorkspace sharedWorkspace] notificationCenter];
+    [center addObserverForName:NSWorkspaceWillSleepNotification object:nil queue:nil usingBlock:^(NSNotification *) {
+        gSystemGoingToSleep = true;
+        DEBUG_AUDIO_MAC(("observeSystemSleep: system going to sleep, playback suspended"));
+    }];
+    [center addObserverForName:NSWorkspaceDidWakeNotification object:nil queue:nil usingBlock:^(NSNotification *) {
+        gSystemGoingToSleep = false;
+        DEBUG_AUDIO_MAC(("observeSystemSleep: system woke up, playback allowed, engine running=%d", gEngine.isRunning ? 1 : 0));
+    }];
+}
+
+static bool canStartPlayback(void) {
+    return gEngineStarted && !gSystemGoingToSleep;
+}
+
 #pragma mark - Public API: Init / Shutdown
 
 bool avbridge_init(int maxNodes) {
@@ -317,6 +336,7 @@ bool avbridge_init(int maxNodes) {
     gMaxNodes = std::min(maxNodes, kMaxVoiceSlots);
     gSlots = (AVBridgePlayerSlot *)calloc(maxNodes, sizeof(AVBridgePlayerSlot));
     gBufferMap = [NSMutableDictionary dictionary];
+    observeSystemSleep();
 
     printf("avbridge_init: Data structures initialized. Engine creation deferred.\n");
     fflush(stdout);
@@ -390,7 +410,7 @@ static AVBridgeBufferEntry *getBufferEntry(int bufferID) {
 
 int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
     ensure_engine_inited();
-    if (!gEngineStarted) return -1;
+    if (!canStartPlayback()) return -1;
 
     AVBridgeBufferEntry *entry = getBufferEntry(bufferID);
     if (!entry) return -1;
@@ -446,7 +466,7 @@ int avbridge_play(int bufferID, float gain, float pitch, bool loop) {
 int avbridge_play3D(int bufferID, float gain, float pitch,
                     float x, float y, float z, float maxDist, float refDist, bool loop) {
     ensure_engine_inited();
-    if (!gEngineStarted) return -1;
+    if (!canStartPlayback()) return -1;
 
     AVBridgeBufferEntry *entry = getBufferEntry(bufferID);
     if (!entry) return -1;
@@ -606,7 +626,7 @@ void avbridge_serviceLoops(void) {
 
 int avbridge_playStream(const char* filepath, float gain, float pitch, bool loop) {
     ensure_engine_inited();
-    if (!gEngineStarted) return -1;
+    if (!canStartPlayback()) return -1;
 
     NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:filepath]];
     NSError *err = nil;
@@ -794,6 +814,7 @@ void avbridge_pause(int playerID) {
 }
 
 void avbridge_resume(int playerID) {
+    if (!canStartPlayback()) return;
     const int idx = slotOfVoice(playerID);
     if (idx < 0) return;
     [gSlots[idx].node play];
