@@ -194,6 +194,10 @@ struct MainView: View {
                     return .modConfirmation(confirmation)
                 }
 
+                if viewModel.isConfirmingLocaleRemoval {
+                    return .localeRemoval
+                }
+
                 if viewModel.isAskingAboutStoredPassword, let account = viewModel.storedPasswordAccount {
                     return .storedPassword(account: account)
                 }
@@ -206,6 +210,7 @@ struct MainView: View {
                 viewModel.steamCMD.showRosettaAlert = false
                 viewModel.showPatchConfirmation = false
                 viewModel.modConfirmation = nil
+                viewModel.isConfirmingLocaleRemoval = false
                 viewModel.isAskingAboutStoredPassword = false
             }
         )
@@ -258,6 +263,16 @@ struct MainView: View {
 
         case .modConfirmation(let confirmation):
             return _buildModConfirmationAlert(confirmation)
+
+        case .localeRemoval:
+            return Alert(
+                title: Text(L10n.settings.localeRemoveTitle),
+                message: Text(L10n.settings.localeRemoveMsg),
+                primaryButton: .destructive(Text(L10n.mod.remove)) {
+                    viewModel.removeLocalePack()
+                },
+                secondaryButton: .cancel(Text(L10n.alerts.cancel))
+            )
 
         case .storedPassword(let account):
             return Alert(
@@ -1460,6 +1475,7 @@ enum LauncherAlert: Identifiable {
     case rosetta
     case patchConfirmation
     case modConfirmation(LauncherViewModel.ModConfirmation)
+    case localeRemoval
     case storedPassword(account: String)
 
     var id: String {
@@ -1469,6 +1485,7 @@ enum LauncherAlert: Identifiable {
         case .rosetta: return "rosetta"
         case .patchConfirmation: return "patch"
         case .modConfirmation(let confirmation): return "mod:\(confirmation.id)"
+        case .localeRemoval: return "localeRemoval"
         case .storedPassword: return "storedPassword"
         }
     }

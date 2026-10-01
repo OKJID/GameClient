@@ -34,6 +34,7 @@ struct PatchManifest {
 
             guard item.pathExtension.lowercased() == archiveExtension else { continue }
             guard !allowed.contains(item.lastPathComponent.lowercased()) else { continue }
+            guard !LocaleLayout.isLocaleArchive(item.lastPathComponent) else { continue }
 
             found.append(item)
         }

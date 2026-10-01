@@ -71,6 +71,7 @@ class LauncherViewModel: ObservableObject {
     @Published var route: Route = .home
     @Published var showPatchConfirmation: Bool = false
     @Published var modConfirmation: ModConfirmation? = nil
+    @Published var isConfirmingLocaleRemoval = false
     @Published var activeSheet: Sheet? = nil
     @Published var selectedLanguage: String = L10n.current
     @Published var isWindowedEdgeScrollEnabled: Bool = false {
@@ -149,9 +150,12 @@ class LauncherViewModel: ObservableObject {
     var steamCMD = SteamCMDManager()
     var assetPatcher = AssetPatcher()
     var modInstaller = ModInstaller()
+    var localeInstaller = LocaleInstaller()
     var updateChecker = UpdateChecker()
     var announcements = AnnouncementsFeed()
-    lazy var apiSync = ApiSync(resources: [updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared])
+    lazy var apiSync = ApiSync(resources: [
+        updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared
+    ])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
     private var isSendingCrashReport = false
@@ -185,6 +189,17 @@ class LauncherViewModel: ObservableObject {
         modInstaller.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &cancellables)
+
+        localeInstaller.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
+        LocaleCatalog.shared.$packs
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
 
         updateChecker.$availableUpdate
             .receive(on: RunLoop.main)
@@ -602,6 +617,67 @@ class LauncherViewModel: ObservableObject {
         modInstaller.remove(profile, installRoot: root)
     }
 
+    // MARK: - Locale packs
+
+    private var selectedGameLanguage: String {
+        gameLanguage.lowercased()
+    }
+
+    var localePackStatus: LocalePackStatus {
+        guard selectedGameLanguage != SettingsDefaults.gameLanguage, isBaseReady(for: selectedProfile) else {
+            return .hidden
+        }
+
+        let state = localeInstaller.state(for: selectedGameLanguage)
+        if state.isRunning {
+            return .running(state)
+        }
+
+        guard let pack = LocaleCatalog.shared.pack(for: selectedGameLanguage) else {
+            return hasNativeVoices ? .native : .hidden
+        }
+
+        if case .failed(let message) = state {
+            return .failed(message, pack)
+        }
+
+        if let version = installedLocaleVersion(of: pack) {
+            return version < pack.packageVersion ? .outdated(pack) : .installed(pack)
+        }
+
+        return hasNativeVoices ? .native : .available(pack)
+    }
+
+    private var hasNativeVoices: Bool {
+        let base = selectedProfile.baseProfile
+        guard let directory = installDirectory(for: base) else { return false }
+        return LocaleLayout.hasNativeVoices(language: selectedGameLanguage, profile: base, at: directory)
+    }
+
+    private func installedLocaleVersion(of pack: LocalePack) -> Int? {
+        let targets = patchTargets
+        let versions = targets.compactMap { LocaleManifest.read(language: pack.id, in: $0.directory)?.packageVersion }
+        guard let version = versions.min() else { return nil }
+
+        let complete = pack.markers.allSatisfy { marker in
+            guard let url = LocaleLayout.installedURL(for: marker, targets: targets) else { return true }
+            return FileManager.default.fileExists(atPath: url.path)
+        }
+        return complete ? version : nil
+    }
+
+    func installLocalePack() {
+        guard let pack = LocaleCatalog.shared.pack(for: selectedGameLanguage) else { return }
+        guard !modInstaller.isBusy, !assetPatcher.state.isRunning, !steamCMD.state.isRunning else { return }
+
+        localeInstaller.install(pack, targets: patchTargets)
+    }
+
+    func removeLocalePack() {
+        guard !modInstaller.isBusy, !assetPatcher.state.isRunning else { return }
+        localeInstaller.remove(language: selectedGameLanguage, targets: patchTargets)
+    }
+
     var isSteamPatchReady: Bool {
         assetPatcher.isCommunityPatchInstalled(.zeroHour, at: steamCMD.assetsDir)
     }
@@ -621,7 +697,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     var canLaunch: Bool {
-        guard !modInstaller.isBusy else { return false }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return false }
 
         if selectedProfile.isMod {
             guard isModInstalled(selectedProfile), !isModDamaged(selectedProfile) else { return false }
@@ -642,7 +718,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func chooseFolder() {
-        guard !modInstaller.isBusy else { return }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return }
 
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -662,7 +738,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func requestPatching() {
-        guard !modInstaller.isBusy else { return }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return }
 
         switch activeTab {
         case .steam:
@@ -673,7 +749,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func confirmPatching() {
-        guard !modInstaller.isBusy else { return }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return }
 
         Analytics.logPatchStarted(source: activeTab.rawValue)
 

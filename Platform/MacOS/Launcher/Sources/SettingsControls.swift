@@ -65,6 +65,7 @@ struct SettingRow: View {
 
     var body: some View {
         _buildControl()
+            .zIndex(key == .gameLanguage ? 1 : 0)
     }
 
     @ViewBuilder
@@ -244,7 +245,14 @@ struct GameLanguagePickerCard: View {
     @ObservedObject var viewModel: LauncherViewModel
     var showsScope: Bool = true
 
+    @State private var isLocaleStatusHovered = false
+
     private var profile: GameProfile { viewModel.selectedProfile }
+
+    private var localeHint: String? {
+        guard isLocaleStatusHovered else { return nil }
+        return viewModel.localePackStatus.label(for: profile)
+    }
 
     private var options: [String] {
         let installed = viewModel.installDirectory(for: profile)
@@ -264,13 +272,22 @@ struct GameLanguagePickerCard: View {
                 }
             }
 
-            Picker("", selection: $viewModel.gameLanguage) {
-                ForEach(options, id: \.self) { lang in
-                    Text(lang.capitalized).tag(lang)
+            HStack(spacing: 12) {
+                Picker("", selection: $viewModel.gameLanguage) {
+                    ForEach(options, id: \.self) { lang in
+                        Text(lang.capitalized).tag(lang)
+                    }
                 }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+
+                LocalePackStatusView(viewModel: viewModel, isHovered: $isLocaleStatusHovered)
+
+                Spacer(minLength: 0)
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
+            .overlay(_buildLocaleHint())
+            .zIndex(1)
 
             Text(L10n.settings.gameLanguageRestart)
                 .font(.system(size: 10, design: .monospaced))
@@ -278,12 +295,18 @@ struct GameLanguagePickerCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.02))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color.white.opacity(0.02)))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .stroke(Color.white.opacity(0.05), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private func _buildLocaleHint() -> some View {
+        if let localeHint {
+            LocalePackHint(text: localeHint, accent: profile.theme.accent)
+        }
     }
 }
 
