@@ -428,24 +428,13 @@
 
     .mods-row {
         display: grid;
-        grid-template-columns: 1fr auto auto;
-        gap: 16px;
+        grid-template-columns: 28px 1fr auto auto;
+        gap: 14px;
         align-items: center;
         padding: 10px 16px;
         font-size: 13px;
         color: #cbd5e1;
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .mods-row:last-child {
-        border-bottom: none;
-    }
-
-    .mods-row span:not(.mod-name) {
-        font-variant-numeric: tabular-nums;
-        color: var(--text-muted);
-        min-width: 66px;
-        text-align: right;
     }
 
     .mods-head {
@@ -455,6 +444,60 @@
         text-transform: uppercase;
         letter-spacing: 0.6px;
         color: var(--text-muted);
+    }
+
+    .mods-size {
+        min-width: 66px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+    }
+
+    .mods-status {
+        padding: 14px 16px;
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .mod-item {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .mod-item:last-child {
+        border-bottom: none;
+    }
+
+    .mod-item.is-extra {
+        display: none;
+    }
+
+    #mods-list.is-expanded .mod-item.is-extra {
+        display: block;
+    }
+
+    .mod-item summary {
+        border-bottom: none;
+        cursor: pointer;
+        list-style: none;
+        transition: background 0.2s;
+    }
+
+    .mod-item summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .mod-item summary:hover,
+    .mod-item[open] summary {
+        background: rgba(16, 185, 129, 0.06);
+    }
+
+    .mod-medallion {
+        display: block;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        object-fit: cover;
     }
 
     .mod-name {
@@ -476,8 +519,134 @@
         vertical-align: middle;
     }
 
-    .mods-table + .steps-list {
+    .mod-about {
+        padding: 4px 16px 16px 58px;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--text-muted);
+    }
+
+    .mod-card {
+        position: relative;
+        overflow: hidden;
+        margin-top: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.25);
+    }
+
+    .mod-cover {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.4;
+        pointer-events: none;
+    }
+
+    .mod-details {
+        position: relative;
+        padding: 14px 16px;
+    }
+
+    .mod-credits {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        font-size: 12px;
+        color: #cbd5e1;
+    }
+
+    .step .mod-about .mod-description {
+        margin: 8px 0 0;
+        color: var(--text-main);
+    }
+
+    .mod-credits,
+    .mod-description,
+    .mod-includes {
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .mod-includes {
+        margin-top: 10px;
+    }
+
+    .mod-includes-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+    }
+
+    .mod-includes-list {
+        margin: 4px 0 0;
+        padding-left: 18px;
+    }
+
+    .mod-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .mod-link {
+        padding: 4px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        background: rgba(11, 15, 25, 0.75);
+        font-size: 12px;
+    }
+
+    .mod-link:hover {
+        border-color: rgba(16, 185, 129, 0.4);
+        text-decoration: none;
+    }
+
+    .mods-toggle {
+        display: block;
+        width: 100%;
+        margin-top: 8px;
+        padding: 9px 16px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        color: var(--accent);
+        font-family: var(--font-family);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .mods-toggle:hover {
+        background: rgba(16, 185, 129, 0.08);
+    }
+
+    .mods-toggle[hidden] {
+        display: none;
+    }
+
+    .mods-table + .mods-toggle + .steps-list,
+    .mods-table + .mods-toggle[hidden] + .steps-list {
         margin-top: 20px;
+    }
+
+    @media (max-width: 520px) {
+        .mods-row {
+            grid-template-columns: 24px 1fr auto;
+            gap: 10px;
+        }
+
+        .mods-row > :nth-child(3) {
+            display: none;
+        }
+
+        .mod-about {
+            padding-left: 16px;
+        }
     }
     /* styles/60-boxes.css */
     .cache-box {
@@ -721,8 +890,17 @@
         padding-right: 20px;
     }
 
-    [dir="rtl"] .mods-row span:not(.mod-name) {
+    [dir="rtl"] .mods-size {
         text-align: left;
+    }
+
+    [dir="rtl"] .mod-about {
+        padding: 4px 58px 16px 16px;
+    }
+
+    [dir="rtl"] .mod-includes-list {
+        padding-left: 0;
+        padding-right: 18px;
     }
 
     [dir="rtl"] .mod-parts {
@@ -842,51 +1020,16 @@
             <div class="step-body">
                 <div class="mods-table">
                     <div class="mods-row mods-head">
+                        <span></span>
                         <span data-i18n="modsColumnMod">Mod</span>
-                        <span data-i18n="modsColumnDownload">Download</span>
-                        <span data-i18n="modsColumnDisk">On disk</span>
+                        <span class="mods-size" data-i18n="modsColumnDownload">Download</span>
+                        <span class="mods-size" data-i18n="modsColumnDisk">On disk</span>
                     </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Contra 007</span>
-                        <span>0.1 GB</span>
-                        <span>0.3 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Contra 008</span>
-                        <span>0.6 GB</span>
-                        <span>0.9 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Contra 009</span>
-                        <span>1.2 GB</span>
-                        <span>1.9 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Contra X <em class="mod-parts">3 <span data-i18n="modsPartsLabel">parts</span></em></span>
-                        <span>1.8 GB</span>
-                        <span>3.0 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Apocalptic</span>
-                        <span>0.4 GB</span>
-                        <span>0.6 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Silent Death <em class="mod-parts">4 <span data-i18n="modsPartsLabel">parts</span></em></span>
-                        <span>3.5 GB</span>
-                        <span>5.0 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">ShockWave</span>
-                        <span>0.3 GB</span>
-                        <span>0.6 GB</span>
-                    </div>
-                    <div class="mods-row">
-                        <span class="mod-name">Rise of the Reds</span>
-                        <span>0.8 GB</span>
-                        <span>1.3 GB</span>
+                    <div id="mods-list">
+                        <div class="mods-status" data-i18n="modsLoading">Loading the mod list…</div>
                     </div>
                 </div>
+                <button class="mods-toggle" id="mods-toggle" type="button" hidden></button>
 
                 <ul class="steps-list" data-i18n="modsSteps"></ul>
 
@@ -1066,6 +1209,17 @@ I18N.ar = {
     modsColumnDownload: "التنزيل",
     modsColumnDisk: "على القرص",
     modsPartsLabel: "أجزاء",
+    modsLoading: "جارٍ تحميل قائمة التعديلات…",
+    modsUnavailable: "تعذّر تحميل قائمة التعديلات. القائمة الحالية موجودة دائمًا في قسم MODS في المشغّل.",
+    modsShowAll: "عرض كل التعديلات (+{count})",
+    modsShowLess: "عرض أقل",
+    modsVersionLabel: "الإصدار",
+    modsAuthorsLabel: "المؤلفون",
+    modsAuthorUnknown: "المؤلف غير معروف",
+    modsIncludesLabel: "يتضمن",
+    modsNoDetails: "لا توجد تفاصيل عن هذا التعديل بعد.",
+    modsLinkWebsite: "الموقع",
+    modsLinkSupport: "ادعم المؤلفين",
     modsSteps: '<li>اختر تعديلًا من العمود الأيسر واضغط <b>INSTALL</b>.</li><li>التعديلات الكبيرة تصل على عدة أجزاء؛ يبقى التشغيل والتصحيح مقفلين حتى ينتهي التنزيل، لذا اترك اللانشر مفتوحًا.</li><li>تذهب الملفات إلى <code>&lt;مجلد اللعبة&gt;/Mods/</code> — المجلد الذي اخترته في Local Archive، أو <code>~/Documents/Generals Online/</code> مع Steam.</li><li>يحصل التعديل المثبّت على زري <b>Reinstall</b> و <b>Remove</b>؛ وإذا نقصت ملفات يتحول زر التثبيت إلى <b>REPAIR</b>.</li>',
     modsNoteTitle: "انتبه:",
     modsNoteList: '<li>التعديلات تعمل على Zero Hour فقط — لا توجد تعديلات للعبة Generals العادية.</li><li>في المباراة عبر الإنترنت يجب أن يستخدم الجميع التعديل نفسه بالإصدار نفسه.</li>',
@@ -1142,6 +1296,17 @@ I18N.de = {
     modsColumnDownload: "Download",
     modsColumnDisk: "Auf der Platte",
     modsPartsLabel: "Teile",
+    modsLoading: "Mod-Liste wird geladen…",
+    modsUnavailable: "Die Mod-Liste konnte nicht geladen werden. Die aktuelle steht immer im Bereich MODS des Launchers.",
+    modsShowAll: "Alle Mods anzeigen (+{count})",
+    modsShowLess: "Weniger anzeigen",
+    modsVersionLabel: "Version",
+    modsAuthorsLabel: "Autoren",
+    modsAuthorUnknown: "Autor unbekannt",
+    modsIncludesLabel: "Enthält",
+    modsNoDetails: "Zu dieser Mod gibt es noch keine Details.",
+    modsLinkWebsite: "Website",
+    modsLinkSupport: "Autoren unterstützen",
     modsSteps: '<li>Wähle eine Mod in der linken Spalte und klicke auf <b>INSTALL</b>.</li><li>Große Mods kommen in mehreren Teilen; Starten und Patchen bleiben bis zum Ende des Downloads gesperrt, lass den Launcher also offen.</li><li>Die Dateien landen in <code>&lt;Spielordner&gt;/Mods/</code> — im Ordner aus Local Archive oder in <code>~/Documents/Generals Online/</code> bei Steam.</li><li>Eine installierte Mod bekommt die Schaltflächen <b>Reinstall</b> und <b>Remove</b>; fehlen Dateien, wird aus der Installation ein <b>REPAIR</b>.</li>',
     modsNoteTitle: "Zu beachten:",
     modsNoteList: '<li>Mods laufen nur auf Zero Hour — für das klassische Generals gibt es keine.</li><li>In einem Online-Match brauchen alle dieselbe Mod in derselben Version.</li>',
@@ -1218,6 +1383,17 @@ I18N.en = {
     modsColumnDownload: "Download",
     modsColumnDisk: "On disk",
     modsPartsLabel: "parts",
+    modsLoading: "Loading the mod list…",
+    modsUnavailable: "Could not load the mod list. The current one is always in the MODS section of the launcher.",
+    modsShowAll: "Show all mods (+{count})",
+    modsShowLess: "Show fewer",
+    modsVersionLabel: "Version",
+    modsAuthorsLabel: "Authors",
+    modsAuthorUnknown: "Author unknown",
+    modsIncludesLabel: "Includes",
+    modsNoDetails: "No details about this mod yet.",
+    modsLinkWebsite: "Website",
+    modsLinkSupport: "Support the authors",
     modsSteps: '<li>Pick a mod in the left column and press <b>INSTALL</b>.</li><li>Large mods arrive in several parts; launching and patching stay locked until the download is over, so leave the launcher open.</li><li>Files land in <code>&lt;game folder&gt;/Mods/</code> — the folder you chose in Local Archive, or <code>~/Documents/Generals Online/</code> for Steam.</li><li>An installed mod gets <b>Reinstall</b> and <b>Remove</b> buttons; if files go missing, the install button turns into <b>REPAIR</b>.</li>',
     modsNoteTitle: "Keep in mind:",
     modsNoteList: '<li>Mods run on Zero Hour only — classic Generals has none.</li><li>Everyone in an online match must run the same mod of the same version.</li>',
@@ -1294,6 +1470,17 @@ I18N.es = {
     modsColumnDownload: "Descarga",
     modsColumnDisk: "En disco",
     modsPartsLabel: "partes",
+    modsLoading: "Cargando la lista de mods…",
+    modsUnavailable: "No se pudo cargar la lista de mods. La actual siempre está en la sección MODS del lanzador.",
+    modsShowAll: "Mostrar todos los mods (+{count})",
+    modsShowLess: "Mostrar menos",
+    modsVersionLabel: "Versión",
+    modsAuthorsLabel: "Autores",
+    modsAuthorUnknown: "Autor desconocido",
+    modsIncludesLabel: "Incluye",
+    modsNoDetails: "Todavía no hay detalles de este mod.",
+    modsLinkWebsite: "Sitio web",
+    modsLinkSupport: "Apoyar a los autores",
     modsSteps: '<li>Elige un mod en la columna izquierda y pulsa <b>INSTALL</b>.</li><li>Los mods grandes llegan en varias partes; el lanzamiento y el parcheo quedan bloqueados hasta terminar la descarga, así que no cierres el lanzador.</li><li>Los archivos van a <code>&lt;carpeta del juego&gt;/Mods/</code>: la carpeta elegida en Local Archive, o <code>~/Documents/Generals Online/</code> con Steam.</li><li>Un mod instalado añade los botones <b>Reinstall</b> y <b>Remove</b>; si faltan archivos, el botón de instalar pasa a ser <b>REPAIR</b>.</li>',
     modsNoteTitle: "Ten en cuenta:",
     modsNoteList: '<li>Los mods solo funcionan en Zero Hour — para el Generals clásico no hay.</li><li>En una partida en línea todos deben usar el mismo mod y la misma versión.</li>',
@@ -1370,6 +1557,17 @@ I18N.hi = {
     modsColumnDownload: "डाउनलोड",
     modsColumnDisk: "डिस्क पर",
     modsPartsLabel: "भाग",
+    modsLoading: "मॉड सूची लोड हो रही है…",
+    modsUnavailable: "मॉड सूची लोड नहीं हो सकी। ताज़ा सूची हमेशा लॉन्चर के MODS सेक्शन में होती है।",
+    modsShowAll: "सभी मॉड दिखाएँ (+{count})",
+    modsShowLess: "कम दिखाएँ",
+    modsVersionLabel: "संस्करण",
+    modsAuthorsLabel: "लेखक",
+    modsAuthorUnknown: "लेखक अज्ञात",
+    modsIncludesLabel: "शामिल है",
+    modsNoDetails: "इस मॉड के बारे में अभी कोई जानकारी नहीं है।",
+    modsLinkWebsite: "वेबसाइट",
+    modsLinkSupport: "लेखकों का समर्थन करें",
     modsSteps: '<li>बाएँ कॉलम में मॉड चुनें और <b>INSTALL</b> दबाएँ।</li><li>बड़े मॉड कई भागों में आते हैं; डाउनलोड पूरा होने तक लॉन्च और पैच बंद रहते हैं, इसलिए लॉन्चर खुला रहने दें।</li><li>फ़ाइलें <code>&lt;गेम फ़ोल्डर&gt;/Mods/</code> में जाती हैं — Local Archive में चुना फ़ोल्डर, या Steam के लिए <code>~/Documents/Generals Online/</code>।</li><li>इंस्टॉल किए मॉड पर <b>Reinstall</b> और <b>Remove</b> बटन आते हैं; फ़ाइलें गायब होने पर इंस्टॉल बटन <b>REPAIR</b> बन जाता है।</li>',
     modsNoteTitle: "ध्यान रखें:",
     modsNoteList: '<li>मॉड सिर्फ़ Zero Hour पर चलते हैं — वेनिला Generals के लिए मॉड नहीं हैं।</li><li>ऑनलाइन मैच में सभी के पास एक ही मॉड का एक ही संस्करण होना चाहिए।</li>',
@@ -1446,6 +1644,17 @@ I18N.kk = {
     modsColumnDownload: "Жүктеу",
     modsColumnDisk: "Дискіде",
     modsPartsLabel: "бөлік",
+    modsLoading: "Модтар тізімі жүктелуде…",
+    modsUnavailable: "Модтар тізімін жүктеу мүмкін болмады. Өзекті тізім әрқашан лаунчердің MODS бөлімінде.",
+    modsShowAll: "Барлық модтарды көрсету (+{count})",
+    modsShowLess: "Жасыру",
+    modsVersionLabel: "Нұсқа",
+    modsAuthorsLabel: "Авторлар",
+    modsAuthorUnknown: "Авторы белгісіз",
+    modsIncludesLabel: "Құрамында",
+    modsNoDetails: "Бұл мод туралы әзірге мәлімет жоқ.",
+    modsLinkWebsite: "Сайт",
+    modsLinkSupport: "Авторларды қолдау",
     modsSteps: '<li>Сол жақ бағаннан мод таңдап, <b>INSTALL</b> түймесін басыңыз.</li><li>Үлкен модтар бірнеше бөлікпен жүктеледі; жүктеу аяқталғанша іске қосу мен патч бұғатталады, сондықтан лаунчерді жаппаңыз.</li><li>Файлдар <code>&lt;ойын қалтасы&gt;/Mods/</code> ішіне түседі — Local Archive-та таңдалған қалта немесе Steam үшін <code>~/Documents/Generals Online/</code>.</li><li>Орнатылған модта <b>Reinstall</b> және <b>Remove</b> түймелері пайда болады; файлдар жоғалса, орнату түймесі <b>REPAIR</b> болып өзгереді.</li>',
     modsNoteTitle: "Ескеріңіз:",
     modsNoteList: '<li>Модтар тек Zero Hour-да жұмыс істейді — қарапайым Generals үшін модтар жоқ.</li><li>Онлайн матчта барлығында бір модтың бір нұсқасы тұруы керек.</li>',
@@ -1522,6 +1731,17 @@ I18N.pl = {
     modsColumnDownload: "Pobieranie",
     modsColumnDisk: "Na dysku",
     modsPartsLabel: "części",
+    modsLoading: "Wczytywanie listy modów…",
+    modsUnavailable: "Nie udało się wczytać listy modów. Aktualna jest zawsze w sekcji MODS launchera.",
+    modsShowAll: "Pokaż wszystkie mody (+{count})",
+    modsShowLess: "Pokaż mniej",
+    modsVersionLabel: "Wersja",
+    modsAuthorsLabel: "Autorzy",
+    modsAuthorUnknown: "Autor nieznany",
+    modsIncludesLabel: "Zawiera",
+    modsNoDetails: "Brak jeszcze opisu tego moda.",
+    modsLinkWebsite: "Strona",
+    modsLinkSupport: "Wesprzyj autorów",
     modsSteps: '<li>Wybierz mod w lewej kolumnie i kliknij <b>INSTALL</b>.</li><li>Duże mody pobierają się w kilku częściach; uruchamianie i łatanie są zablokowane do końca pobierania, więc nie zamykaj launchera.</li><li>Pliki trafiają do <code>&lt;folder gry&gt;/Mods/</code> — folderu wybranego w Local Archive albo <code>~/Documents/Generals Online/</code> przy Steamie.</li><li>Zainstalowany mod dostaje przyciski <b>Reinstall</b> i <b>Remove</b>; gdy plików brakuje, przycisk instalacji zmienia się w <b>REPAIR</b>.</li>',
     modsNoteTitle: "Pamiętaj:",
     modsNoteList: '<li>Mody działają tylko na Zero Hour — dla klasycznego Generals ich nie ma.</li><li>W meczu online wszyscy muszą mieć ten sam mod w tej samej wersji.</li>',
@@ -1598,6 +1818,17 @@ I18N.ru = {
     modsColumnDownload: "Загрузка",
     modsColumnDisk: "На диске",
     modsPartsLabel: "части",
+    modsLoading: "Загружаю список модов…",
+    modsUnavailable: "Не удалось загрузить список модов. Актуальный всегда есть в разделе MODS лаунчера.",
+    modsShowAll: "Показать все моды (+{count})",
+    modsShowLess: "Свернуть",
+    modsVersionLabel: "Версия",
+    modsAuthorsLabel: "Авторы",
+    modsAuthorUnknown: "Автор неизвестен",
+    modsIncludesLabel: "Включает",
+    modsNoDetails: "Об этом моде пока нет описания.",
+    modsLinkWebsite: "Сайт",
+    modsLinkSupport: "Поддержать авторов",
     modsSteps: '<li>Выберите мод в левой колонке и нажмите <b>INSTALL</b>.</li><li>Большие моды качаются частями; запуск и патч заблокированы до конца загрузки, так что не закрывайте лаунчер.</li><li>Файлы попадают в <code>&lt;папка игры&gt;/Mods/</code> — это папка, выбранная в Local Archive, или <code>~/Documents/Generals Online/</code> для Steam.</li><li>У установленного мода появляются кнопки <b>Reinstall</b> и <b>Remove</b>; если файлы пропали, кнопка установки превращается в <b>REPAIR</b>.</li>',
     modsNoteTitle: "Учтите:",
     modsNoteList: '<li>Моды работают только на Zero Hour — для ванильной Generals их нет.</li><li>В онлайн-матче у всех должен стоять один и тот же мод одной версии.</li>',
@@ -1674,6 +1905,17 @@ I18N.tr = {
     modsColumnDownload: "İndirme",
     modsColumnDisk: "Diskte",
     modsPartsLabel: "parça",
+    modsLoading: "Mod listesi yükleniyor…",
+    modsUnavailable: "Mod listesi yüklenemedi. Güncel liste her zaman başlatıcının MODS bölümünde.",
+    modsShowAll: "Tüm modları göster (+{count})",
+    modsShowLess: "Daha az göster",
+    modsVersionLabel: "Sürüm",
+    modsAuthorsLabel: "Yapımcılar",
+    modsAuthorUnknown: "Yapımcı bilinmiyor",
+    modsIncludesLabel: "İçerir",
+    modsNoDetails: "Bu mod hakkında henüz bilgi yok.",
+    modsLinkWebsite: "Web sitesi",
+    modsLinkSupport: "Yapımcıları destekle",
     modsSteps: '<li>Sol sütundan bir mod seçin ve <b>INSTALL</b> düğmesine basın.</li><li>Büyük modlar birkaç parça halinde iner; indirme bitene kadar başlatma ve yama kilitli kalır, bu yüzden Launcher\'ı açık bırakın.</li><li>Dosyalar <code>&lt;oyun klasörü&gt;/Mods/</code> içine gider — Local Archive\'da seçtiğiniz klasör ya da Steam için <code>~/Documents/Generals Online/</code>.</li><li>Kurulu modda <b>Reinstall</b> ve <b>Remove</b> düğmeleri belirir; dosyalar eksikse kurulum düğmesi <b>REPAIR</b> olur.</li>',
     modsNoteTitle: "Unutmayın:",
     modsNoteList: '<li>Modlar yalnızca Zero Hour üzerinde çalışır — klasik Generals için mod yoktur.</li><li>Çevrimiçi maçta herkeste aynı sürümün aynı modu olmalıdır.</li>',
@@ -1750,6 +1992,17 @@ I18N.uk = {
     modsColumnDownload: "Завантаження",
     modsColumnDisk: "На диску",
     modsPartsLabel: "частини",
+    modsLoading: "Завантажую список модів…",
+    modsUnavailable: "Не вдалося завантажити список модів. Актуальний завжди є в розділі MODS лаунчера.",
+    modsShowAll: "Показати всі моди (+{count})",
+    modsShowLess: "Згорнути",
+    modsVersionLabel: "Версія",
+    modsAuthorsLabel: "Автори",
+    modsAuthorUnknown: "Автор невідомий",
+    modsIncludesLabel: "Містить",
+    modsNoDetails: "Про цей мод поки немає опису.",
+    modsLinkWebsite: "Сайт",
+    modsLinkSupport: "Підтримати авторів",
     modsSteps: '<li>Оберіть мод у лівій колонці та натисніть <b>INSTALL</b>.</li><li>Великі моди качаються частинами; запуск і патч заблоковані до кінця завантаження, тож не закривайте лаунчер.</li><li>Файли потрапляють у <code>&lt;папка гри&gt;/Mods/</code> — це папка, обрана в Local Archive, або <code>~/Documents/Generals Online/</code> для Steam.</li><li>У встановленого мода з\'являються кнопки <b>Reinstall</b> і <b>Remove</b>; якщо файли зникли, кнопка встановлення перетворюється на <b>REPAIR</b>.</li>',
     modsNoteTitle: "Врахуйте:",
     modsNoteList: '<li>Моди працюють лише на Zero Hour — для ванільної Generals їх немає.</li><li>В онлайн-матчі в усіх має стояти один і той самий мод однієї версії.</li>',
@@ -1826,6 +2079,17 @@ I18N.vi = {
     modsColumnDownload: "Tải về",
     modsColumnDisk: "Trên ổ đĩa",
     modsPartsLabel: "phần",
+    modsLoading: "Đang tải danh sách mod…",
+    modsUnavailable: "Không tải được danh sách mod. Danh sách mới nhất luôn có trong mục MODS của trình khởi chạy.",
+    modsShowAll: "Hiện tất cả mod (+{count})",
+    modsShowLess: "Thu gọn",
+    modsVersionLabel: "Phiên bản",
+    modsAuthorsLabel: "Tác giả",
+    modsAuthorUnknown: "Không rõ tác giả",
+    modsIncludesLabel: "Bao gồm",
+    modsNoDetails: "Chưa có thông tin về mod này.",
+    modsLinkWebsite: "Trang web",
+    modsLinkSupport: "Ủng hộ tác giả",
     modsSteps: '<li>Chọn một mod ở cột bên trái và nhấn <b>INSTALL</b>.</li><li>Mod lớn được tải theo nhiều phần; việc khởi chạy và vá bị khóa cho tới khi tải xong, vì vậy đừng đóng launcher.</li><li>Tệp nằm trong <code>&lt;thư mục game&gt;/Mods/</code> — thư mục bạn chọn ở Local Archive, hoặc <code>~/Documents/Generals Online/</code> nếu dùng Steam.</li><li>Mod đã cài sẽ có nút <b>Reinstall</b> và <b>Remove</b>; nếu thiếu tệp, nút cài đặt sẽ thành <b>REPAIR</b>.</li>',
     modsNoteTitle: "Lưu ý:",
     modsNoteList: '<li>Mod chỉ chạy trên Zero Hour — Generals gốc không có mod.</li><li>Trong trận online, mọi người phải dùng cùng một mod và cùng phiên bản.</li>',
@@ -1902,6 +2166,17 @@ I18N.zh = {
     modsColumnDownload: "下载",
     modsColumnDisk: "占用空间",
     modsPartsLabel: "个分卷",
+    modsLoading: "正在加载模组列表…",
+    modsUnavailable: "无法加载模组列表。最新列表始终在启动器的 MODS 栏目中。",
+    modsShowAll: "显示全部模组（+{count}）",
+    modsShowLess: "收起",
+    modsVersionLabel: "版本",
+    modsAuthorsLabel: "作者",
+    modsAuthorUnknown: "作者不详",
+    modsIncludesLabel: "包含",
+    modsNoDetails: "暂无此模组的详细信息。",
+    modsLinkWebsite: "网站",
+    modsLinkSupport: "支持作者",
     modsSteps: '<li>在左栏选择一个模组，点击 <b>INSTALL</b>。</li><li>大型模组会分成几个分卷下载；下载结束前启动和打补丁都会锁定，请勿关闭启动器。</li><li>文件会放到 <code>&lt;游戏文件夹&gt;/Mods/</code>——即 Local Archive 中所选的文件夹，或 Steam 模式下的 <code>~/Documents/Generals Online/</code>。</li><li>已安装的模组会出现 <b>Reinstall</b> 与 <b>Remove</b> 按钮；若文件缺失，安装按钮会变成 <b>REPAIR</b>。</li>',
     modsNoteTitle: "请注意：",
     modsNoteList: '<li>模组只能用于 Zero Hour——基础版 Generals 没有模组。</li><li>联机对战中所有人必须使用同一模组的同一版本。</li>',
@@ -2079,6 +2354,357 @@ function initVersionLabel() {
     });
 }
 
+// js/45-mods.js
+var MODS_SITE_API = 'https://general-online-zh.web.app/api/';
+var MODS_VISIBLE_ROWS = 7;
+var MOD_ARTWORK_PATTERN = /^mods\/[\w-]+\/[\w.-]+\.png$/;
+var MOD_LINK_TITLES = {
+    moddb: 'ModDB',
+    discord: 'Discord',
+    youtube: 'YouTube',
+    facebook: 'Facebook',
+    github: 'GitHub'
+};
+
+var modCatalog = null;
+var modsExpanded = false;
+var modsUnavailable = false;
+
+function modsApiBase() {
+    return window.location.protocol === 'file:' ? MODS_SITE_API : '/api/';
+}
+
+function fetchJson(name) {
+    return fetch(modsApiBase() + name).then(function (response) {
+        if (!response.ok) {
+            throw new Error(name + ': ' + response.status);
+        }
+
+        return response.json();
+    });
+}
+
+function artworkUrl(path) {
+    if (!path || !MOD_ARTWORK_PATTERN.test(path)) {
+        return null;
+    }
+
+    return modsApiBase() + path;
+}
+
+function safeLinkUrl(value) {
+    try {
+        var url = new URL(value);
+
+        return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+    } catch (error) {
+        return null;
+    }
+}
+
+function formatGigabytes(megabytes) {
+    return (megabytes / 1024).toFixed(1) + ' GB';
+}
+
+function element(tag, className, text) {
+    var node = document.createElement(tag);
+
+    if (className) {
+        node.className = className;
+    }
+
+    if (text !== undefined) {
+        node.textContent = text;
+    }
+
+    return node;
+}
+
+function currentLanguage() {
+    return document.documentElement.lang || FALLBACK_LANGUAGE;
+}
+
+function modDescription(about) {
+    if (!about || !about.description) {
+        return '';
+    }
+
+    return about.description[currentLanguage()] || about.description[FALLBACK_LANGUAGE] || '';
+}
+
+function modLinkTitle(link) {
+    var title = MOD_LINK_TITLES[link.kind];
+
+    if (link.kind === 'website') {
+        title = activeDictionary.modsLinkWebsite;
+    }
+
+    if (link.kind === 'support') {
+        title = activeDictionary.modsLinkSupport;
+    }
+
+    if (!title) {
+        return link.label || link.url;
+    }
+
+    return link.label ? title + ' · ' + link.label : title;
+}
+
+function buildModSummary(mod) {
+    var summary = element('summary', 'mods-row');
+    var medallion = artworkUrl(mod.medallion);
+    var icon = element(medallion ? 'img' : 'span', 'mod-medallion');
+    var name = element('span', 'mod-name', mod.displayName);
+
+    if (medallion) {
+        icon.src = medallion;
+        icon.alt = '';
+        icon.loading = 'lazy';
+    }
+
+    if (mod.urls && mod.urls.length > 1) {
+        var parts = element('em', 'mod-parts', mod.urls.length + ' ' + activeDictionary.modsPartsLabel);
+        name.appendChild(parts);
+    }
+
+    summary.appendChild(icon);
+    summary.appendChild(name);
+    summary.appendChild(element('span', 'mods-size', formatGigabytes(mod.downloadSizeMB)));
+    summary.appendChild(element('span', 'mods-size', formatGigabytes(mod.diskSizeMB)));
+
+    return summary;
+}
+
+function buildModCredits(about) {
+    var credits = element('div', 'mod-credits');
+
+    if (about.version) {
+        credits.appendChild(element('span', '', activeDictionary.modsVersionLabel + ': ' + about.version));
+    }
+
+    if (about.attribution === 'unknown') {
+        credits.appendChild(element('span', '', activeDictionary.modsAuthorUnknown));
+        return credits;
+    }
+
+    if (about.authors) {
+        credits.appendChild(element('span', '', activeDictionary.modsAuthorsLabel + ': ' + about.authors));
+    }
+
+    return credits;
+}
+
+function buildModIncludes(includes) {
+    var block = element('div', 'mod-includes');
+    var list = element('ul', 'mod-includes-list');
+
+    block.appendChild(element('div', 'mod-includes-title', activeDictionary.modsIncludesLabel));
+
+    includes.forEach(function (include) {
+        var item = element('li');
+        var url = include.url ? safeLinkUrl(include.url) : null;
+        var label = include.authors ? include.name + ' — ' + include.authors : include.name;
+        var target = url ? element('a', '', label) : element('span', '', label);
+
+        if (url) {
+            target.href = url;
+            target.target = '_blank';
+            target.rel = 'noopener';
+        }
+
+        item.appendChild(target);
+        list.appendChild(item);
+    });
+
+    block.appendChild(list);
+    return block;
+}
+
+function buildModLinks(links) {
+    var row = element('div', 'mod-links');
+
+    links.forEach(function (link) {
+        var url = safeLinkUrl(link.url);
+
+        if (!url) {
+            return;
+        }
+
+        var anchor = element('a', 'mod-link', modLinkTitle(link) + ' ↗');
+        anchor.href = url;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener';
+        row.appendChild(anchor);
+    });
+
+    return row;
+}
+
+function buildModCover(mod) {
+    var banner = artworkUrl(mod.banner);
+
+    if (!banner) {
+        return null;
+    }
+
+    var image = element('img', 'mod-cover');
+    image.src = banner;
+    image.alt = '';
+    image.loading = 'lazy';
+
+    return image;
+}
+
+function buildModDetails(about) {
+    var details = element('div', 'mod-details');
+    var description = modDescription(about);
+
+    if (!about) {
+        details.appendChild(element('p', 'mod-description', activeDictionary.modsNoDetails));
+        return details;
+    }
+
+    details.appendChild(buildModCredits(about));
+
+    if (description) {
+        details.appendChild(element('p', 'mod-description', description));
+    }
+
+    if (about.includes && about.includes.length) {
+        details.appendChild(buildModIncludes(about.includes));
+    }
+
+    if (about.links && about.links.length) {
+        details.appendChild(buildModLinks(about.links));
+    }
+
+    return details;
+}
+
+function buildModAbout(mod, about) {
+    var panel = element('div', 'mod-about');
+    var card = element('div', 'mod-card');
+    var cover = buildModCover(mod);
+
+    if (cover) {
+        card.appendChild(cover);
+    }
+
+    card.appendChild(buildModDetails(about));
+    panel.appendChild(card);
+
+    return panel;
+}
+
+function buildModItem(mod, about, index) {
+    var item = element('details', 'mod-item');
+
+    if (index >= MODS_VISIBLE_ROWS) {
+        item.classList.add('is-extra');
+    }
+
+    item.appendChild(buildModSummary(mod));
+    item.appendChild(buildModAbout(mod, about));
+
+    return item;
+}
+
+function renderModsToggle(total) {
+    var toggle = document.getElementById('mods-toggle');
+    var hidden = total - MODS_VISIBLE_ROWS;
+
+    if (!toggle) {
+        return;
+    }
+
+    if (hidden <= 0) {
+        toggle.hidden = true;
+        return;
+    }
+
+    toggle.hidden = false;
+    toggle.textContent = modsExpanded
+        ? activeDictionary.modsShowLess
+        : activeDictionary.modsShowAll.replace('{count}', hidden);
+}
+
+function renderModsUnavailable(list) {
+    list.textContent = '';
+    list.appendChild(element('div', 'mods-status', activeDictionary.modsUnavailable));
+}
+
+function renderModCatalog() {
+    var list = document.getElementById('mods-list');
+
+    if (!list) {
+        return;
+    }
+
+    if (modsUnavailable) {
+        renderModsUnavailable(list);
+        return;
+    }
+
+    if (!modCatalog) {
+        return;
+    }
+
+    list.textContent = '';
+    list.classList.toggle('is-expanded', modsExpanded);
+
+    modCatalog.mods.forEach(function (mod, index) {
+        list.appendChild(buildModItem(mod, modCatalog.about[mod.id], index));
+    });
+
+    renderModsToggle(modCatalog.mods.length);
+}
+
+function toggleExtraMods() {
+    var list = document.getElementById('mods-list');
+
+    if (!list || !modCatalog) {
+        return;
+    }
+
+    modsExpanded = !modsExpanded;
+    list.classList.toggle('is-expanded', modsExpanded);
+    renderModsToggle(modCatalog.mods.length);
+}
+
+function initModsToggle() {
+    var toggle = document.getElementById('mods-toggle');
+
+    if (!toggle) {
+        return;
+    }
+
+    toggle.addEventListener('click', toggleExtraMods);
+}
+
+function initModCatalog() {
+    if (!document.getElementById('mods-list')) {
+        return;
+    }
+
+    initModsToggle();
+
+    var catalog = fetchJson('mods.json');
+    var about = fetchJson('mods-about.json').catch(function () {
+        return { mods: {} };
+    });
+
+    Promise.all([catalog, about]).then(function (results) {
+        modCatalog = {
+            mods: results[0].mods || [],
+            about: results[1].mods || {}
+        };
+        renderModCatalog();
+    }).catch(function () {
+        modsUnavailable = true;
+        renderModCatalog();
+    });
+}
+
 // js/50-boot.js
 function initLanguageSwitcher(language) {
     var switcher = document.getElementById('lang-switcher');
@@ -2090,6 +2716,7 @@ function initLanguageSwitcher(language) {
     switcher.value = language;
     switcher.addEventListener('change', function () {
         applyTranslations(switcher.value);
+        renderModCatalog();
     });
 }
 
@@ -2101,6 +2728,7 @@ window.addEventListener('DOMContentLoaded', function () {
     initTabs();
     initCopyButton();
     initVersionLabel();
+    initModCatalog();
     initFaq();
 });
 
