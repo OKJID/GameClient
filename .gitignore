@@ -83,3 +83,5 @@ Platform/MacOS/Build/Logs/
 /Dependencies/eac_plugin/
 # Community Patch Assets (locale files, maps, etc.)
 /Dependencies/GeneralsOnline-MacPatch/
+# Locale voice and video packs
+/Dependencies/GeneralsOnline-MacLocales/
