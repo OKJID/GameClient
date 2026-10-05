@@ -288,6 +288,8 @@ enum L10n {
 
     struct Donate {
         var button: String { resolve("donate.button") }
+        var title: String { resolve("donate.title") }
+        var subtitle: String { resolve("donate.subtitle") }
     }
 
     struct Settings {
@@ -363,6 +365,8 @@ enum L10n {
 
     static let en: [String: String] = [
         "donate.button": "SUPPORT",
+        "donate.title": "We will live in prosperity",
+        "donate.subtitle": "Pick a way to supply the port.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "COMMUNITY MAC PORT",
         "tab.steam": "STEAM (RECOMMENDED)",
@@ -579,6 +583,8 @@ enum L10n {
 
     static let ru: [String: String] = [
         "donate.button": "ПОДДЕРЖАТЬ",
+        "donate.title": "Мы будем жить в роскоши!",
+        "donate.subtitle": "Выберите способ снабдить порт.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "MAC ПОРТ ОТ СООБЩЕСТВА",
         "tab.steam": "STEAM (РЕКОМЕНДУЕТСЯ)",
@@ -795,6 +801,8 @@ enum L10n {
 
     static let uk: [String: String] = [
         "donate.button": "ПІДТРИМАТИ",
+        "donate.title": "Ми житимемо в достатку!",
+        "donate.subtitle": "Оберіть спосіб постачання порту.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "MAC ПОРТ ВІД СПІЛЬНОТИ",
         "tab.steam": "STEAM (РЕКОМЕНДОВАНО)",
@@ -1011,6 +1019,8 @@ enum L10n {
 
     static let hi: [String: String] = [
         "donate.button": "सहयोग करें",
+        "donate.title": "हम समृद्धि में जिएंगे!",
+        "donate.subtitle": "पोर्ट की आपूर्ति का तरीका चुनें।",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "कम्युनिटी MAC पोर्ट",
         "tab.steam": "STEAM (अनुशंसित)",
@@ -1227,6 +1237,8 @@ enum L10n {
 
     static let zh: [String: String] = [
         "donate.button": "支持",
+        "donate.title": "我们将生活在繁荣之中！",
+        "donate.subtitle": "选择一种支援移植版的方式。",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "社区 MAC 移植版",
         "tab.steam": "STEAM（推荐）",
@@ -1443,6 +1455,8 @@ enum L10n {
 
     static let ar: [String: String] = [
         "donate.button": "ادعم",
+        "donate.title": "سوف نعيش في رخاء!",
+        "donate.subtitle": "اختر طريقة لدعم المشروع.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "نسخة MAC من المجتمع",
         "tab.steam": "STEAM (موصى به)",
@@ -1659,6 +1673,8 @@ enum L10n {
 
     static let kk: [String: String] = [
         "donate.button": "ҚОЛДАУ",
+        "donate.title": "Біз молшылықта өмір сүреміз!",
+        "donate.subtitle": "Портты қолдау тәсілін таңдаңыз.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "ҚАУЫМДАСТЫҚ MAC ПОРТЫ",
         "tab.steam": "STEAM (ҰСЫНЫЛАДЫ)",
@@ -1875,6 +1891,8 @@ enum L10n {
 
     static let vi: [String: String] = [
         "donate.button": "ỦNG HỘ",
+        "donate.title": "Chúng ta sẽ sống trong thịnh vượng!",
+        "donate.subtitle": "Chọn một cách tiếp tế cho bản port.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PHIÊN BẢN MAC CỘNG ĐỒNG",
         "tab.steam": "STEAM (KHUYẾN NGHỊ)",
@@ -2091,6 +2109,8 @@ enum L10n {
 
     static let pl: [String: String] = [
         "donate.button": "WSPARCIE",
+        "donate.title": "Będziemy żyć w dostatku!",
+        "donate.subtitle": "Wybierz sposób zaopatrzenia portu.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PORT MAC OD SPOŁECZNOŚCI",
         "tab.steam": "STEAM (ZALECANE)",
@@ -2307,6 +2327,8 @@ enum L10n {
 
     static let de: [String: String] = [
         "donate.button": "UNTERSTÜTZEN",
+        "donate.title": "Wir werden in Wohlstand leben!",
+        "donate.subtitle": "Wähle einen Weg, den Port zu versorgen.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "COMMUNITY MAC PORT",
         "tab.steam": "STEAM (EMPFOHLEN)",
@@ -2523,6 +2545,8 @@ enum L10n {
 
     static let es: [String: String] = [
         "donate.button": "APOYAR",
+        "donate.title": "¡Viviremos en prosperidad!",
+        "donate.subtitle": "Elige cómo abastecer el port.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "PORT MAC DE LA COMUNIDAD",
         "tab.steam": "STEAM (RECOMENDADO)",
@@ -2739,6 +2763,8 @@ enum L10n {
 
     static let tr: [String: String] = [
         "donate.button": "DESTEK OL",
+        "donate.title": "Refah içinde yaşayacağız!",
+        "donate.subtitle": "Porta ikmal sağlamak için bir yol seç.",
         "app.title": "GENERALS ONLINE",
         "app.subtitle": "TOPLULUK MAC PORTU",
         "tab.steam": "STEAM (ÖNERİLEN)",

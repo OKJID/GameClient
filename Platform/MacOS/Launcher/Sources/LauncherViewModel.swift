@@ -154,7 +154,8 @@ class LauncherViewModel: ObservableObject {
     var updateChecker = UpdateChecker()
     var announcements = AnnouncementsFeed()
     lazy var apiSync = ApiSync(resources: [
-        updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared
+        updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared,
+        DonationsCatalog.shared
     ])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
