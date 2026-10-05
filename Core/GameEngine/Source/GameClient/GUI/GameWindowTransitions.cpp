@@ -57,6 +57,10 @@
 #include "GameClient/GameWindowManager.h"
 #include "Common/FramePacer.h"
 #include "Common/GlobalData.h"
+
+#ifdef __APPLE__
+extern "C" void MacOS_CrashTrailMark(const char* text);
+#endif
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -230,6 +234,16 @@ void TransitionWindow::unlinkGameWindow(GameWindow* win)
 	if (m_win != win)
 		return;
 
+	DEBUG_INFO_MAC(("TRANSITION_UNLINK: window '%s' style %d finished %d",
+		m_winName.str(), m_style, (int)(m_transition ? m_transition->isFinished() : TRUE)));
+#ifdef __APPLE__
+	if (m_transition && !m_transition->isFinished())
+	{
+		AsciiString trailText;
+		trailText.format("window gone mid-transition: %s style %d", m_winName.str(), m_style);
+		MacOS_CrashTrailMark(trailText.str());
+	}
+#endif
 	m_transition->unlinkGameWindow(win);
 	m_win = nullptr;
 }

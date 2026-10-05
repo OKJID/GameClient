@@ -62,6 +62,10 @@
 #include "GameClient/GadgetStaticText.h"
 #include "GameClient/ControlBar.h"
 
+#ifdef __APPLE__
+extern "C" void MacOS_CrashTrailMark(const char* text);
+#endif
+
 //-----------------------------------------------------------------------------
 // DEFINES ////////////////////////////////////////////////////////////////////
 //-----------------------------------------------------------------------------
@@ -1583,6 +1587,16 @@ void CountUpTransition::refreshGeometry()
 
 void CountUpTransition::update( Int frame )
 {
+	if (!m_win)
+	{
+		DEBUG_INFO_MAC(("COUNTUP_NO_WINDOW: frame %d frameLength %d forward %d finished %d",
+			frame, m_frameLength, (int)m_isForward, (int)m_isFinished));
+#ifdef __APPLE__
+		AsciiString trailText;
+		trailText.format("countup transition without window: frame %d of %d forward %d", frame, m_frameLength, (int)m_isForward);
+		MacOS_CrashTrailMark(trailText.str());
+#endif
+	}
 	m_drawState = -1;
 	if(frame < COUNTUPTRANSITION_START || frame > COUNTUPTRANSITION_END)
 	{

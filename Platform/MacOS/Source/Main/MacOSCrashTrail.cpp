@@ -164,3 +164,8 @@ namespace MacOSCrashTrail
         reportTrail(logLine);
     }
 }
+
+extern "C" void MacOS_CrashTrailMark(const char* text)
+{
+    MacOSCrashTrail::mark("%s", text);
+}
