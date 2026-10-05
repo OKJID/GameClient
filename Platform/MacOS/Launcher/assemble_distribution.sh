@@ -36,6 +36,7 @@ DMG_NAME="Generals_Online_Mac_Alpha.dmg"
 INSTRUCTIONS_NAME="Instructions.html"
 INSTRUCTIONS_BUILDER="../../../Dependencies/general_online_zh/build.sh"
 API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
+DONATION_ICONS_INLINER="../../../Dependencies/general_online_zh/scripts/put_svg_string.sh"
 
 echo "=========================================="
 echo "📦 Assembling Final Distribution Package"
@@ -149,6 +150,12 @@ cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
 
 # The launcher reads the API only through its cache and seeds that cache from these
 # snapshots, so a bundle without them cannot start offline.
+echo "🎨 Inlining donation icons into the donations.json snapshot..."
+if ! sh "$DONATION_ICONS_INLINER"; then
+    echo "🚨 ERROR: Donation icons could not be inlined into donations.json"
+    exit 1
+fi
+
 API_SNAPSHOTS=$(find "$API_SNAPSHOTS_DIR" -maxdepth 1 -name "*.json")
 if [ -z "$API_SNAPSHOTS" ]; then
     echo "🚨 ERROR: No API snapshots found in $API_SNAPSHOTS_DIR"
