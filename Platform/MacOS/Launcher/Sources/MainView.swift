@@ -52,7 +52,6 @@ struct ModRowOffsetsKey: PreferenceKey {
 
 struct MainView: View {
     @StateObject private var viewModel = LauncherViewModel()
-    @State private var isDonatePanelOpen = false
     @State private var isModScrollRestored = false
 
     private static let modScrollAnchorKey = "ModListScrollAnchor"
@@ -1382,71 +1381,8 @@ struct MainView: View {
     private func _buildDonateButton() -> some View {
         SupportButton(theme: theme, label: L10n.donate.button) {
             Analytics.logDonateOpened()
-            isDonatePanelOpen.toggle()
+            NSWorkspace.shared.open(Donations.pageURL)
         }
-        .popover(isPresented: $isDonatePanelOpen, arrowEdge: .bottom) {
-            _buildDonatePanel()
-        }
-    }
-
-    private func _buildDonatePanel() -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(L10n.donate.title)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-
-            Text(L10n.donate.subtitle)
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Divider()
-
-            ForEach(Donations.methods) { method in
-                _buildDonateRow(method)
-            }
-        }
-        .padding(16)
-        .frame(width: 300)
-    }
-
-    private func _buildDonateRow(_ method: DonationMethod) -> some View {
-        Button(action: { _openDonateLink(method) }) {
-            HStack(spacing: 10) {
-                Image(systemName: method.icon)
-                    .frame(width: 18)
-                    .foregroundColor(accent)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(method.title)
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
-
-                    Text(method.subtitle())
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9))
-                    .foregroundColor(.secondary)
-            }
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(PlainButtonStyle())
-        .onHover { inside in
-            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-    }
-
-    private func _openDonateLink(_ method: DonationMethod) {
-        Analytics.logLinkOpened(target: method.id, location: "donate")
-        isDonatePanelOpen = false
-
-        guard let link = URL(string: method.url) else { return }
-        NSWorkspace.shared.open(link)
     }
 
     private func _buildFooterLink(title: String, url: String) -> some View {
