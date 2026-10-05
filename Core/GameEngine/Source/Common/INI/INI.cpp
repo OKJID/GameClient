@@ -407,6 +407,8 @@ UnsignedInt INI::load( AsciiString filename, INILoadType loadType, Xfer *pXfer )
 
 					} catch (...) {
 						DEBUG_CRASH(("Error parsing block '%s' in INI file '%s'", token, m_filename.str()) );
+						DEBUG_INFO_MAC(("INI_PARSE_FAIL: file '%s' block '%s' stopped at line %u token '%s'",
+							m_filename.str(), currentLine.str(), getLineNum(), m_buffer));
 						char buff[1024];
 						snprintf(buff, ARRAY_SIZE(buff), "Error parsing INI file '%s' (Line: '%s')\n",
 							m_filename.str(), currentLine.str());
