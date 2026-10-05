@@ -52,6 +52,37 @@ static int hexDigitToInt(char c)
 	return 0;
 }
 
+#ifdef __APPLE__
+static void appendQuotedPrintableByte(char *dest, int &i, unsigned char byte)
+{
+	if (!isalnum(byte))
+	{
+		dest[i++] = MAGIC_CHAR;
+		dest[i++] = intToHexDigit(byte>>4);
+		dest[i++] = intToHexDigit(byte&0xf);
+		return;
+	}
+	dest[i++] = byte;
+}
+
+// Convert unicode strings into ascii quoted-printable strings
+AsciiString UnicodeStringToQuotedPrintable(UnicodeString original)
+{
+	static char dest[1024];
+	const WideChar *src = original.str();
+	int i=0;
+	while ( *src != 0 && i<1018 )
+	{
+		const UnsignedInt utf16Unit = static_cast<UnsignedInt>(*src) & 0xffff;
+		appendQuotedPrintableByte(dest, i, static_cast<unsigned char>(utf16Unit & 0xff));
+		appendQuotedPrintableByte(dest, i, static_cast<unsigned char>(utf16Unit >> 8));
+		src ++;
+	}
+	dest[i] = '\0';
+
+	return dest;
+}
+#else
 // Convert unicode strings into ascii quoted-printable strings
 AsciiString UnicodeStringToQuotedPrintable(UnicodeString original)
 {
@@ -87,6 +118,7 @@ AsciiString UnicodeStringToQuotedPrintable(UnicodeString original)
 
 	return dest;
 }
+#endif
 
 // Convert ascii strings into ascii quoted-printable strings
 AsciiString AsciiStringToQuotedPrintable(AsciiString original)
@@ -113,6 +145,50 @@ AsciiString AsciiStringToQuotedPrintable(AsciiString original)
 	return dest;
 }
 
+#ifdef __APPLE__
+static int decodeQuotedPrintableBytes(const unsigned char *src, unsigned char *bytes, int maxBytes)
+{
+	int count=0;
+	while (*src && count<maxBytes)
+	{
+		if (*src != MAGIC_CHAR)
+		{
+			bytes[count++] = *src++;
+			continue;
+		}
+		if (src[1] == '\0')
+		{
+			break;
+		}
+		unsigned char value = hexDigitToInt(src[1]);
+		src += 2;
+		if (*src != '\0')
+		{
+			value = (value<<4) | hexDigitToInt(*src);
+			src++;
+		}
+		bytes[count++] = value;
+	}
+	return count;
+}
+
+// Convert ascii quoted-printable strings into unicode strings
+UnicodeString QuotedPrintableToUnicodeString(AsciiString original)
+{
+	static WideChar dest[1024];
+	static unsigned char bytes[2046];
+	const int byteCount = decodeQuotedPrintableBytes(reinterpret_cast<const unsigned char *>(original.str()), bytes, 2046);
+	int i=0;
+	for (int b=0; b<byteCount; b+=2)
+	{
+		const unsigned char highByte = (b+1 < byteCount) ? bytes[b+1] : 0;
+		dest[i++] = static_cast<WideChar>(bytes[b] | (highByte<<8));
+	}
+	dest[i] = 0;
+
+	return dest;
+}
+#else
 // Convert ascii quoted-printable strings into unicode strings
 UnicodeString QuotedPrintableToUnicodeString(AsciiString original)
 {
@@ -163,6 +239,7 @@ UnicodeString QuotedPrintableToUnicodeString(AsciiString original)
 
 	return dest;
 }
+#endif
 
 // Convert ascii quoted-printable strings into ascii strings
 AsciiString QuotedPrintableToAsciiString(AsciiString original)
