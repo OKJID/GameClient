@@ -1378,6 +1378,9 @@ static CommandLineParam paramsForEngineInit[] =
 	{ "-showTeamDot", parseShowTeamDot },
 	{ "-extraLogging", parseExtraLogging },
 #endif
+#if defined(__APPLE__) && !defined(RTS_DEBUG)
+	{ "-buildmapcache", parseBuildMapCache },
+#endif
 
 #ifdef DEBUG_LOGGING
 	{ "-setDebugLevel", parseSetDebugLevel },

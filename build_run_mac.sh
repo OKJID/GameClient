@@ -11,6 +11,7 @@
 #   sh build_run_mac.sh --crc_logs            # build + run with full crc logs
 #   sh build_run_mac.sh --rep_def             # build + ran replay
 #   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic | ShockWave | RotR
+#   sh build_run_mac.sh --mod=X --buildmapcache  # build + write <install>/Maps/MapCache.ini from every visible map, then quit
 
 export PATH="/opt/homebrew/bin:$PATH"
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
@@ -40,6 +41,7 @@ DO_SCREENSHOT=false
 DO_TEST=false
 DO_LLDB=false
 DO_CRC_LOGS=false
+DO_BUILD_MAP_CACHE=false
 DO_CONSOLE_LOGS=true
 DO_DEBUG=true
 TEST_FILTER=""
@@ -75,6 +77,9 @@ for arg in "$@"; do
             ;;
         --rep_def)
             DO_REPLAY_DEF=true
+            ;;
+        --buildmapcache)
+            DO_BUILD_MAP_CACHE=true
             ;;
         --mod=*)
             MOD_PATH="${arg#--mod=}"
@@ -229,6 +234,7 @@ GAME_ARGS=()
 [ -n "$GAME_FLAG_YRES" ]           && GAME_ARGS+=(-yRes "$GAME_FLAG_YRES")
 [ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay "${REPLAY_NAME}.rep")
 [ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
+[ "$DO_BUILD_MAP_CACHE" = true ]   && GAME_ARGS+=(-buildmapcache)
 
 if [ -n "$MOD_PATH" ]; then
     case "$MOD_PATH" in
