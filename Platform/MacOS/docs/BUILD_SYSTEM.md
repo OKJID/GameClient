@@ -100,6 +100,21 @@ Third-party libraries come from vcpkg (`vcpkg.json`), the same manifest the Wind
 
 ---
 
+## EasyAntiCheat Plugin
+
+`Dependencies/eac_plugin/` is a private mirror of `GeneralsOnlineDevelopmentTeam/AntiCheatPlugin_EasyAntiCheat`
+(`Okladnoj/AntiCheatPlugin_EasyAntiCheat`, remote `god-team` for upstream merges), cloned by hand and ignored by git.
+The macOS port lives in `__APPLE__` / `if(APPLE)` blocks; on first configure it fetches the Mac EOS SDK into `EOS/`.
+
+| Switch | Where | Effect |
+|:---|:---|:---|
+| `GENERALS_ONLINE_MAC_EAC` | `NextGenMP_defines.h` | `0` (default): no anticheat plugin is loaded, online runs with `anticheat_id 0`. `1`: loads `Contents/MacOS/plugins/easyanticheat/easyanticheat.dylib`. |
+| `EAC_EOS_PRODUCT_ID`, `EAC_EOS_SANDBOX_ID`, `EAC_EOS_DEPLOYMENT_ID`, `EAC_EOS_CLIENT_ID`, `EAC_EOS_CLIENT_SECRET` | `-D` on configure or environment | The plugin is always built (`build/macos/eac_plugin/`). It and `libEOSSDK-Mac-Shipping.dylib` go into the bundle only when all five are set; otherwise both are removed from it. |
+
+`CMakeCache.txt` stores the credentials in plain text: never share the build directory.
+
+---
+
 ## Preset Configuration
 
 The `macos` preset in `CMakePresets.json` builds Release with Ninja into `build/macos`, using the vcpkg toolchain
@@ -113,6 +128,7 @@ static arm64 libraries built for the game's minimum macOS version.
 | Variable | Description | Default |
 |:---|:---|:---|
 | `VCPKG_ROOT` | vcpkg checkout used by the `macos` preset | (required) |
+| `EAC_EOS_*` | EOS credentials for the EasyAntiCheat plugin (see above) | (unset: plugin not bundled) |
 | `GENERALS_INSTALL_PATH` | Root path to game installation | (required) |
 | `GENERALS_FPS_LIMIT` | FPS cap | 60 |
 | `GENERALS_MSAA` | MSAA sample count | 1 (off) |

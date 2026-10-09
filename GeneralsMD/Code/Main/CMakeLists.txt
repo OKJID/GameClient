@@ -212,17 +212,39 @@ if(APPLE)
         BUILD_RPATH "@executable_path/../Frameworks;${CMAKE_BINARY_DIR}/eac_plugin"
     )
 
-    # EAC Plugin (Private Submodule)
+    # EAC Plugin (private mirror of GeneralsOnlineDevelopmentTeam/AntiCheatPlugin_EasyAntiCheat).
+    # Always built so the port keeps compiling; bundled only with all EOS credentials.
     if(EXISTS "${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin/CMakeLists.txt")
-        add_subdirectory("${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin" "${CMAKE_BINARY_DIR}/eac_plugin")
+        foreach(cred EAC_EOS_PRODUCT_ID EAC_EOS_SANDBOX_ID EAC_EOS_DEPLOYMENT_ID EAC_EOS_CLIENT_ID EAC_EOS_CLIENT_SECRET)
+            if(DEFINED ENV{${cred}} AND "${${cred}}" STREQUAL "")
+                set(${cred} "$ENV{${cred}}" CACHE STRING "EOS credential: ${cred}" FORCE)
+            endif()
+        endforeach()
 
-        # Copy EOS SDK to the game bundle
-        add_custom_command(TARGET z_generals POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin/EOS-SDK/SDK/Bin/libEOSSDK-Mac-Shipping.dylib" "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks/"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:easyanticheat>" "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat/"
-        )
+        add_subdirectory("${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin" "${CMAKE_BINARY_DIR}/eac_plugin")
+        add_dependencies(z_generals plugin_eac)
+
+        set(EAC_EOS_CREDENTIALS_COMPLETE TRUE)
+        foreach(cred EAC_EOS_PRODUCT_ID EAC_EOS_SANDBOX_ID EAC_EOS_DEPLOYMENT_ID EAC_EOS_CLIENT_ID EAC_EOS_CLIENT_SECRET)
+            if("${${cred}}" STREQUAL "")
+                set(EAC_EOS_CREDENTIALS_COMPLETE FALSE)
+            endif()
+        endforeach()
+
+        if(EAC_EOS_CREDENTIALS_COMPLETE)
+            add_custom_command(TARGET z_generals POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_SOURCE_DIR}/Dependencies/eac_plugin/EOS/Bin/libEOSSDK-Mac-Shipping.dylib" "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks/"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat"
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:plugin_eac>" "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat/"
+            )
+        else()
+            add_custom_command(TARGET z_generals POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E rm -rf "$<TARGET_FILE_DIR:z_generals>/plugins/easyanticheat"
+                COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_BUNDLE_DIR:z_generals>/Contents/Frameworks/libEOSSDK-Mac-Shipping.dylib"
+            )
+            message(STATUS "EAC Plugin: EOS credentials incomplete, plugin is built but not bundled.")
+        endif()
     else()
         message(STATUS "EAC Plugin source not found (private repo). Skipping plugin build.")
     endif()

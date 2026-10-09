@@ -10,6 +10,12 @@
 
 #define GENERALS_ONLINE_USE_PLUGINS_INTERFACE
 
+#if defined(__APPLE__)
+#ifndef GENERALS_ONLINE_MAC_EAC
+#define GENERALS_ONLINE_MAC_EAC (0) // macOS loads the EasyAntiCheat plugin; 0 plays online without an anticheat plugin (anticheat_id 0)
+#endif
+#endif
+
 //#define USE_MAULLER_ONEDRIVE_FIX 1
 //#define USE_STUBBJAX_TRANSPORT_CONTAIN_FIX 1
 

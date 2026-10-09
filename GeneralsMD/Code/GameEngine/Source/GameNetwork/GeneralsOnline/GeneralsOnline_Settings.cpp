@@ -87,12 +87,21 @@ std::string GenOnlineSettings::GetAnticheatPlugin() const
     if (m_Plugins_Anticheat.empty())
     {
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] AntiCheat name was empty, doing fallback flow");
+#ifdef __APPLE__
+        std::string pluginPath1 = GetMacAnticheatPluginPath("easyanticheat");
+        std::string pluginPath2 = GetMacAnticheatPluginPath("goanticheat");
+#else
         std::string pluginPath1 = "plugins/easyanticheat/easyanticheat.dll";
         std::string pluginPath2 = "plugins/goanticheat/goanticheat.dll";
+#endif
 
         // prefer EAC
         NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Fallback flow: Testing EAC");
+#ifdef __APPLE__
+        if (std::filesystem::exists(pluginPath1.c_str()))
+#else
         if (std::filesystem::exists(pluginPath2.c_str()))
+#endif
         {
             NetworkLog(ELogVerbosity::LOG_RELEASE, "[AC] Fallback flow: EAC Found.");
             return std::string("easyanticheat");

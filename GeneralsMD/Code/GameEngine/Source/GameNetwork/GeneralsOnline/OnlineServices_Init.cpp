@@ -52,6 +52,11 @@ namespace {
 		return ".";
 	}
 }
+
+std::string GetMacAnticheatPluginPath(const std::string& pluginName)
+{
+	return std::format("{}/plugins/{}/{}.dylib", GetExecutableDirectory(), pluginName, pluginName);
+}
 #endif
 
 #ifdef _WIN32
@@ -1009,12 +1014,10 @@ void NGMP_OnlineServicesManager::Init()
 	m_pHTTPManager = new HTTPManager();
 	m_pHTTPManager->Initialize();
 
+#if defined(__APPLE__) && !GENERALS_ONLINE_MAC_EAC
+    std::string strPlugin;
+#else
     std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
-#ifdef __APPLE__
-    if (strPlugin.empty())
-    {
-        strPlugin = "easyanticheat";
-    }
 #endif
 	DEBUG_EAC_MAC(("[EAC_INIT] GetAnticheatPlugin() = '%s'", strPlugin.c_str()));
 
@@ -1022,8 +1025,7 @@ void NGMP_OnlineServicesManager::Init()
 	if (!strPlugin.empty())
 	{
 #ifdef __APPLE__
-		std::string exeDir = GetExecutableDirectory();
-		std::string pluginPath = std::format("{}/plugins/{}/{}.dylib", exeDir, strPlugin.c_str(), strPlugin.c_str());
+		std::string pluginPath = GetMacAnticheatPluginPath(strPlugin);
 #else
 		std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
 #endif

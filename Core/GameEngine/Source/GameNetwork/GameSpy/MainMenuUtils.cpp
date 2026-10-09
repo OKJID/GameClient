@@ -917,11 +917,7 @@ void StartPatchCheck()
 	{
         std::string strPlugin = NGMP_OnlineServicesManager::Settings.GetAnticheatPlugin();
 #ifdef __APPLE__
-        if (strPlugin.empty())
-        {
-            strPlugin = "easyanticheat";
-        }
-        std::string pluginPath = std::format("<app_bundle>/Contents/MacOS/plugins/{}/{}.dylib", strPlugin.c_str(), strPlugin.c_str());
+        std::string pluginPath = GetMacAnticheatPluginPath(strPlugin);
 #else
         std::string pluginPath = std::format("plugins/{}/{}.dll", strPlugin.c_str(), strPlugin.c_str());
 #endif

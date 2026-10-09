@@ -358,6 +358,10 @@ struct ServiceConfig
 		screenshot_width, screenshot_height, ice_implementation, use_new_networking)
 };
 
+#if defined(__APPLE__)
+std::string GetMacAnticheatPluginPath(const std::string& pluginName);
+#endif
+
 class NGMP_OnlineServicesManager
 {
 private:
