@@ -293,6 +293,13 @@ GameInfo::GameInfo()
 	reset();
 }
 
+// TheSuperHackers @fix arcticdolphin 19/09/2026 Clear TheGameInfo on destruction to prevent dangling pointer use.
+GameInfo::~GameInfo()
+{
+	if (TheGameInfo == this)
+		TheGameInfo = nullptr;
+}
+
 void GameInfo::init()
 {
 	reset();
@@ -1652,5 +1659,3 @@ void SkirmishGameInfo::xfer( Xfer *xfer )
 void SkirmishGameInfo::loadPostProcess()
 {
 }
-
-

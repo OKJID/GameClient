@@ -54,7 +54,11 @@ typedef signed int      sint;
 #else
 typedef unsigned char	uint8;
 typedef unsigned short	uint16;
+#if defined(_MSC_VER)
+typedef unsigned __int32	uint32;
+#else
 typedef unsigned long	uint32;
+#endif
 typedef unsigned int    uint;
 
 typedef signed char		sint8;

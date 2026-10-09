@@ -188,7 +188,17 @@ static const LookupListRec GameMessageMetaTypeNames[] =
 	{ "END_CAMERA_ZOOM_IN",												GameMessage::MSG_META_END_CAMERA_ZOOM_IN },
 	{ "BEGIN_CAMERA_ZOOM_OUT",										GameMessage::MSG_META_BEGIN_CAMERA_ZOOM_OUT },
 	{ "END_CAMERA_ZOOM_OUT",											GameMessage::MSG_META_END_CAMERA_ZOOM_OUT },
+	{ "BEGIN_CAMERA_PITCH_UP",										GameMessage::MSG_META_BEGIN_CAMERA_PITCH_UP },
+	{ "END_CAMERA_PITCH_UP",											GameMessage::MSG_META_END_CAMERA_PITCH_UP },
+	{ "ALT_BEGIN_CAMERA_PITCH_UP",								GameMessage::MSG_META_ALT_BEGIN_CAMERA_PITCH_UP },
+	{ "ALT_END_CAMERA_PITCH_UP",									GameMessage::MSG_META_ALT_END_CAMERA_PITCH_UP },
+	{ "BEGIN_CAMERA_PITCH_DOWN",									GameMessage::MSG_META_BEGIN_CAMERA_PITCH_DOWN },
+	{ "END_CAMERA_PITCH_DOWN",										GameMessage::MSG_META_END_CAMERA_PITCH_DOWN },
+	{ "ALT_BEGIN_CAMERA_PITCH_DOWN",							GameMessage::MSG_META_ALT_BEGIN_CAMERA_PITCH_DOWN },
+	{ "ALT_END_CAMERA_PITCH_DOWN",								GameMessage::MSG_META_ALT_END_CAMERA_PITCH_DOWN },
 	{ "CAMERA_RESET",															GameMessage::MSG_META_CAMERA_RESET },
+	{ "CAMERA_PITCH_RESET",											GameMessage::MSG_META_CAMERA_PITCH_RESET },
+	{ "ALT_CAMERA_PITCH_RESET",									GameMessage::MSG_META_ALT_CAMERA_PITCH_RESET },
 	{ "TOGGLE_CAMERA_TRACKING_DRAWABLE",					GameMessage::MSG_META_TOGGLE_CAMERA_TRACKING_DRAWABLE },
 	{ "TOGGLE_FAST_FORWARD_REPLAY",								GameMessage::MSG_META_TOGGLE_FAST_FORWARD_REPLAY },
 	{ "TOGGLE_PAUSE",															GameMessage::MSG_META_TOGGLE_PAUSE },
@@ -1004,6 +1014,96 @@ void MetaMap::generateMetaMap()
 			map->m_key = MK_KP6;
 			map->m_transition = DOWN;
 			map->m_modState = CTRL;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_BEGIN_CAMERA_PITCH_UP);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_KP9;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_END_CAMERA_PITCH_UP);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_KP9;
+			map->m_transition = UP;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_ALT_BEGIN_CAMERA_PITCH_UP);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_PGUP;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_ALT_END_CAMERA_PITCH_UP);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_PGUP;
+			map->m_transition = UP;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_BEGIN_CAMERA_PITCH_DOWN);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_KP3;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_END_CAMERA_PITCH_DOWN);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_KP3;
+			map->m_transition = UP;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_ALT_BEGIN_CAMERA_PITCH_DOWN);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_PGDN;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_ALT_END_CAMERA_PITCH_DOWN);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_PGDN;
+			map->m_transition = UP;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_CAMERA_PITCH_RESET);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_KP7;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
+			map->m_usableIn = COMMANDUSABLE_GAME;
+		}
+	}
+	{
+		MetaMapRec *map = getMetaMapRec(GameMessage::MSG_META_ALT_CAMERA_PITCH_RESET);
+		if (map->m_key == MK_NONE) {
+			map->m_key = MK_HOME;
+			map->m_transition = DOWN;
+			map->m_modState = NONE;
 			map->m_usableIn = COMMANDUSABLE_GAME;
 		}
 	}

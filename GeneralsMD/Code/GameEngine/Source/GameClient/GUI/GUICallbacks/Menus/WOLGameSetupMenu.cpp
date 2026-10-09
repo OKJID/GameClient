@@ -34,6 +34,7 @@
 #include "Common/GameState.h"
 #include "Common/MultiplayerSettings.h"
 #include "Common/OptionPreferences.h"
+#include "GameClient/Display.h"
 #include "GameClient/GameText.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/CustomMatchPreferences.h"
@@ -71,6 +72,7 @@
 #include <ws2ipdef.h>
 #endif
 #include <format>
+#include <cmath>
 #include "../OnlineServices_Init.h"
 #include "GameLogic/GameLogic.h"
 NGMPGame* TheNGMPGame = NULL;
@@ -254,7 +256,17 @@ static GameWindow *buttonMapStartPosition[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 static GameWindow *genericPingWindow[MAX_SLOTS] = {NULL,NULL,NULL,NULL,
 																								NULL,NULL,NULL,NULL };
 
-static const Image *pingImages[3] = { NULL, NULL, NULL };
+// Connection indicator per slot: 0..4 is the signal level (1..5 bars), negative values are special states.
+enum
+{
+	CONNECTION_INDICATOR_CONNECTING = -1,
+	CONNECTION_INDICATOR_WARNING = -2,
+};
+static Int connectionIndicatorState[MAX_SLOTS];
+
+static const Int CONNECTION_LEVEL_COUNT = 5;
+static const Int connectionLevelThresholds[CONNECTION_LEVEL_COUNT - 1] = { 40, 60, 75, 90 }; ///< score needed for 2..5 bars
+static const Int CONNECTION_LEVEL_HYSTERESIS = 3;
 
 WindowLayout *WOLMapSelectLayout = NULL;
 
@@ -542,8 +554,13 @@ static void playerTooltip(GameWindow *window,
 	if (localPlayerID == slot->m_userID)
 	{
 		// local user wont have a connection
+#if defined(WORLD_SERIES_CLIENT)
 		playerInfo.format(L"\nOverall Elo Rating: %d (in %d matches)\nWS Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
 			stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#else
+        playerInfo.format(L"\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+            stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#endif
 	}
 	else if (bIsConnected)
 	{
@@ -552,14 +569,26 @@ static void playerTooltip(GameWindow *window,
 		if (connectionLatency >= 0) latencyStr.format(L"%d ms", connectionLatency); else latencyStr = L"Unknown";
 		if (connectionJitter >= 0) jitterStr.format(L"%d ms", connectionJitter); else jitterStr = L"Unknown";
 		if (connectionQualityPct >= 0) qualityStr.format(L"%d%%", connectionQualityPct); else qualityStr = L"Unknown";
+
+#if defined(WORLD_SERIES_CLIENT)
 		playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nWS Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
 			strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
 			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#else
+        playerInfo.format(L"\nConnection State: Connected (%hs)\nConnection Score: %s\nLatency: %s\nJitter: %s\nReliability: %s\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+            strConnectionType.c_str(), scoreStr.str(), latencyStr.str(), jitterStr.str(), qualityStr.str(),
+            member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#endif
 	}
 	else
 	{
+#if defined(WORLD_SERIES_CLIENT)
 		playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nWS Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
 			member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#else
+        playerInfo.format(L"\nConnection State: Connecting...\nRegion: %hs\nOverall Elo Rating: %d (in %d matches)\nMonthly Elo Rating: %d\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
+            member.region.c_str(), stats.elo_rating, stats.elo_num_matches, stats.monthly_elo_rating, totalWins, totalLosses, totalDiscons, favoriteSide.str());
+#endif
 	}
 #else
 			playerInfo.format(L"\nLatency: %d ms\nWins: %d\nLosses: %d\nDisconnects: %d\nFavorite Army: %s",
@@ -965,6 +994,11 @@ static void StartPressed()
 		return;
 
 	NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
+	if (pMesh == nullptr)
+	{
+		return;
+	}
+
 	int numHumanPlayers = 0;
 	for(LobbyMemberEntry & member : pLobbyInterface->GetCurrentLobby().members)
 	{
@@ -1018,7 +1052,7 @@ static void StartPressed()
 	}
 	else
 	{
-		mapDisplayName.format(L"%hs", myGame->getMap().str());
+		mapDisplayName.translate(myGame->getMap().str());
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
 	for( int i = 0; i < MAX_SLOTS; i++ )
@@ -1130,7 +1164,7 @@ static void StartPressed()
 				buttonStart->winEnable(FALSE);
 			}
 
-			pWS->SendData_StartFullMeshConnectivityCheck([=](bool bMeshFullyConnected, std::list<std::pair<int64_t, int64_t>> missingConnections)
+			pWS->SendData_StartFullMeshConnectivityCheck([=](bool bMeshFullyConnected, std::list<std::pair<int64_t, int64_t>> missingConnections, std::string strFailureReason)
 				{
 					if (bMeshFullyConnected)
 					{
@@ -1179,6 +1213,13 @@ static void StartPressed()
 					{
 						UnicodeString strInform = UnicodeString(L"Connections: The player network is not ready. Try again shortly.");
 						GadgetListBoxAddEntryText(listboxGameSetupChat, strInform, GameMakeColor(255, 194, 15, 255), -1, -1);
+
+						if (!strFailureReason.empty())
+						{
+							UnicodeString strReasonLine;
+							strReasonLine.format(L"Connections: Reason: %s", from_utf8(strFailureReason).c_str());
+							GadgetListBoxAddEntryText(listboxGameSetupChat, strReasonLine, GameMakeColor(255, 194, 15, 255), -1, -1);
+						}
 
 						NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 
@@ -1371,6 +1412,23 @@ void WOLDisplayGameOptions()
 //  -----------------------------------------------------------------------------------------
 // The Bad munkee slot list displaying function
 //-------------------------------------------------------------------------------------------------
+static Int WOLUpdateConnectionLevel(Int level, Int score)
+{
+    if (level < 0)
+    {
+        level = 0;
+        while (level < CONNECTION_LEVEL_COUNT - 1 && score >= connectionLevelThresholds[level])
+            ++level;
+        return level;
+    }
+
+    while (level < CONNECTION_LEVEL_COUNT - 1 && score >= connectionLevelThresholds[level] + CONNECTION_LEVEL_HYSTERESIS)
+        ++level;
+    while (level > 0 && score < connectionLevelThresholds[level - 1] - CONNECTION_LEVEL_HYSTERESIS)
+        --level;
+    return level;
+}
+
 static void WOLRefreshConnectionIndicators(void)
 {
     NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
@@ -1379,30 +1437,24 @@ static void WOLRefreshConnectionIndicators(void)
         return;
 
     NetworkMesh* pMesh = NGMP_OnlineServicesManager::GetNetworkMesh();
-    static const Image* heroImage = TheMappedImageCollection->findImageByName("HeroReticle");
 
     for (Int i = 0; i < MAX_SLOTS; ++i)
     {
         NGMPGameSlot* slot = game->getGameSpySlot(i);
-        if (slot == nullptr || !slot->isHuman())
+        if (slot == nullptr || !slot->isHuman() || i == game->getLocalSlotNum())
         {
             if (genericPingWindow[i])
                 genericPingWindow[i]->winHide(TRUE);
+            connectionIndicatorState[i] = CONNECTION_INDICATOR_CONNECTING;
             continue;
         }
 
         if (genericPingWindow[i] == nullptr)
             continue;
 
-        if (i == game->getLocalSlotNum())
-        {
-            genericPingWindow[i]->winHide(TRUE);
-            continue;
-        }
-
         genericPingWindow[i]->winHide(FALSE);
 
-        bool bIsConnected = false;
+        EConnectionState connectionState = EConnectionState::NOT_CONNECTED;
         int connectionScore = -1;
 
         if (pMesh != nullptr)
@@ -1410,26 +1462,96 @@ static void WOLRefreshConnectionIndicators(void)
             PlayerConnection* pConnection = pMesh->GetConnectionForUser(slot->m_userID);
             if (pConnection != nullptr)
             {
-                bIsConnected = pConnection->GetState() == EConnectionState::CONNECTED_DIRECT;
+                connectionState = pConnection->GetState();
                 connectionScore = pConnection->ComputeConnectionScore();
             }
         }
 
-        if (!bIsConnected || connectionScore < 0)
-        {
-            genericPingWindow[i]->winSetEnabledImage(0, heroImage);
-        }
-        else if (connectionScore >= 75)
-        {
-            genericPingWindow[i]->winSetEnabledImage(0, pingImages[0]);
-        }
-        else if (connectionScore >= 50)
-        {
-            genericPingWindow[i]->winSetEnabledImage(0, pingImages[1]);
-        }
+        Int& state = connectionIndicatorState[i];
+        if (connectionState == EConnectionState::CONNECTION_FAILED || connectionState == EConnectionState::CONNECTION_DISCONNECTED)
+            state = CONNECTION_INDICATOR_WARNING;
+        else if (connectionState != EConnectionState::CONNECTED_DIRECT || connectionScore < 0)
+            state = CONNECTION_INDICATOR_CONNECTING;
         else
+            state = WOLUpdateConnectionLevel(state, connectionScore);
+    }
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Draws the connection indicator: a spinner while connecting, a warning triangle on failure, else signal bars. */
+//-------------------------------------------------------------------------------------------------
+static void WOLConnectionIndicatorDraw(GameWindow *window, WinInstanceData *instData)
+{
+    Int slot = -1;
+    for (Int i = 0; i < MAX_SLOTS; ++i)
+    {
+        if (genericPingWindow[i] == window)
         {
-            genericPingWindow[i]->winSetEnabledImage(0, pingImages[2]);
+            slot = i;
+            break;
+        }
+    }
+    if (slot < 0)
+        return;
+
+    Int x, y, width, height;
+    window->winGetScreenPosition(&x, &y);
+    window->winGetSize(&width, &height);
+
+    const Int size = (Int)(min(width, height) * 0.7f);
+    const Int left = x + (width - size) / 2;
+    const Int top = y + (height - size) / 2;
+    const Real centerX = left + size * 0.5f;
+    const Real centerY = top + size * 0.5f;
+    const Int state = connectionIndicatorState[slot];
+
+    if (state == CONNECTION_INDICATOR_CONNECTING)
+    {
+        // Faint full ring with a solid arc rotating around it, drawn as short segments.
+        const Int segmentCount = 24;
+        const Int arcSegments = 7;
+        const Real radius = size * 0.4f;
+        const Real rotation = (timeGetTime() % 900) * 2.0f * PI / 900.0f;
+        const Color ringColor = GameMakeColor(47, 55, 168, 70); // Zero Hour UI blue
+        const Color arcColor = GameMakeColor(47, 55, 168, 255);
+        for (Int segment = 0; segment < segmentCount; ++segment)
+        {
+            const Real startAngle = rotation + segment * 2.0f * PI / segmentCount;
+            const Real endAngle = startAngle + 2.0f * PI / segmentCount;
+            TheDisplay->drawLine((Int)(centerX + std::cos(startAngle) * radius), (Int)(centerY + std::sin(startAngle) * radius),
+                (Int)(centerX + std::cos(endAngle) * radius), (Int)(centerY + std::sin(endAngle) * radius),
+                3.0f, segment < arcSegments ? arcColor : ringColor);
+        }
+    }
+    else if (state == CONNECTION_INDICATOR_WARNING)
+    {
+        const Color amber = GameMakeColor(255, 190, 0, 255);
+        const Int apexY = top + (Int)(size * 0.1f);
+        const Int baseY = top + (Int)(size * 0.9f);
+        const Int baseLeft = left + (Int)(size * 0.05f);
+        const Int baseRight = left + (Int)(size * 0.95f);
+        TheDisplay->drawLine((Int)centerX, apexY, baseLeft, baseY, 1.5f, amber);
+        TheDisplay->drawLine((Int)centerX, apexY, baseRight, baseY, 1.5f, amber);
+        TheDisplay->drawLine(baseLeft, baseY, baseRight, baseY, 1.5f, amber);
+        TheDisplay->drawLine((Int)centerX, top + (Int)(size * 0.38f), (Int)centerX, top + (Int)(size * 0.66f), 2.0f, amber);
+        TheDisplay->drawFillRect((Int)centerX - 1, top + (Int)(size * 0.73f), 2, 2, amber);
+    }
+    else
+    {
+        Color levelColor = GameMakeColor(220, 40, 40, 255);
+        if (state >= 3)
+            levelColor = GameMakeColor(0, 200, 0, 255);
+        else if (state == 2)
+            levelColor = GameMakeColor(255, 190, 0, 255);
+        const Color emptyColor = GameMakeColor(90, 90, 90, 200);
+
+        const Int gap = 1;
+        const Int barWidth = max(1, (size - gap * (CONNECTION_LEVEL_COUNT - 1)) / CONNECTION_LEVEL_COUNT);
+        for (Int bar = 0; bar < CONNECTION_LEVEL_COUNT; ++bar)
+        {
+            const Int barHeight = max(1, size * (bar + 1) / CONNECTION_LEVEL_COUNT);
+            TheDisplay->drawFillRect(left + bar * (barWidth + gap), top + size - barHeight, barWidth, barHeight,
+                bar <= state ? levelColor : emptyColor);
         }
     }
 }
@@ -1496,12 +1618,8 @@ void InitWOLGameGadgets()
 		return;
 	}
 
-	pingImages[0] = TheMappedImageCollection->findImageByName("Ping03");
-	pingImages[1] = TheMappedImageCollection->findImageByName("Ping02");
-	pingImages[2] = TheMappedImageCollection->findImageByName("Ping01");
-	DEBUG_ASSERTCRASH(pingImages[0], ("Can't find ping image!"));
-	DEBUG_ASSERTCRASH(pingImages[1], ("Can't find ping image!"));
-	DEBUG_ASSERTCRASH(pingImages[2], ("Can't find ping image!"));
+	for (Int i = 0; i < MAX_SLOTS; ++i)
+		connectionIndicatorState[i] = CONNECTION_INDICATOR_CONNECTING;
 
 	//Initialize the gadget IDs
 	parentWOLGameSetupID = TheNameKeyGenerator->nameToKey( "GameSpyGameOptionsMenu.wnd:GameSpyGameOptionsMenuParent" );
@@ -1687,6 +1805,7 @@ void InitWOLGameGadgets()
 		genericPingWindow[i] = TheWindowManager->winGetWindowFromId( parentWOLGameSetup, genericPingWindowID[i] );
 		DEBUG_ASSERTCRASH(genericPingWindow[i], ("Could not find the genericPingWindow[%d]",i ));
 		genericPingWindow[i]->winSetTooltipFunc(pingTooltip);
+		genericPingWindow[i]->winSetDrawFunc(WOLConnectionIndicatorDraw);
 
 //		tmpString.format("GameSpyGameOptionsMenu.wnd:ButtonStartPosition%d", i);
 //		buttonStartPositionID[i] = TheNameKeyGenerator->nameToKey( tmpString );
@@ -1876,9 +1995,9 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 			else
 			{
 #ifdef __APPLE__
-				mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(TheNGMPGame->getMap()).str());
+				mapDisplayName.translate(TheGameState->getMapLeafName(TheNGMPGame->getMap()).str());
 #else
-				mapDisplayName.format(L"%hs", TheNGMPGame->getMap().str());
+				mapDisplayName.translate(TheNGMPGame->getMap().str());
 #endif
 				willTransfer = WouldMapTransfer(TheNGMPGame->getMap());
 			}
@@ -2018,6 +2137,10 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 
 	// TODO_NGMP
 	NGMPGame* game = pLobbyInterface == nullptr ? nullptr : pLobbyInterface->GetCurrentGame();
+	if (game == nullptr)
+	{
+		return;
+	}
 
 	NGMPGameSlot* hostSlot = game->getGameSpySlot(0);
 	hostSlot->setAccept();
@@ -2321,6 +2444,13 @@ void WOLGameSetupMenuShutdown( WindowLayout *layout, void *userData )
 	if (pMesh != nullptr)
 	{
 		pMesh->DeregisterForConnectionEvents();
+	}
+
+	// drop any in-flight mesh connectivity check so a late reply never fires into this now-dead menu
+	std::shared_ptr<WebSocket> pWS = NGMP_OnlineServicesManager::GetWebSocket();
+	if (pWS != nullptr)
+	{
+		pWS->ClearConnectivityCheckCallback();
 	}
 
 	//TheGameSpyInfo->unregisterTextWindow(listboxGameSetupChat);
@@ -3099,7 +3229,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 										}
 										else
 										{
-											mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(game->getMap()).str());
+											mapDisplayName.translate(TheGameState->getMapLeafName(game->getMap()).str());
 											willTransfer = WouldMapTransfer(game->getMap());
 										}
 										if (willTransfer)
@@ -3257,7 +3387,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 									}
 									else
 									{
-										mapDisplayName.format(L"%hs", game->getMap().str());
+										mapDisplayName.translate(game->getMap().str());
 										willTransfer = WouldMapTransfer(game->getMap());
 									}
 									UnicodeString text;
@@ -4062,6 +4192,11 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					{
 						//I'm the Client... send an accept message to the host.
 						auto game = pLobbyInterface->GetCurrentGame();
+						if (game == nullptr)
+						{
+							break;
+						}
+
 						GameSlot *localSlot = game->getSlot(game->getLocalSlotNum());
 						if (localSlot)
 						{
@@ -4099,11 +4234,16 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 						break;
 					}
 
+					NGMPGame* game = pLobbyInterface->GetCurrentGame();
+					if (game == nullptr)
+					{
+						break;
+					}
+
 					for (Int i = 0; i < MAX_SLOTS; i++)
 					{
 						if (controlID == buttonMapStartPositionID[i])
 						{
-							NGMPGame* game = pLobbyInterface->GetCurrentGame();
 							Int playerIdxInPos = -1;
 							for (Int j=0; j<MAX_SLOTS; ++j)
 							{
@@ -4158,11 +4298,16 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 					break;
 				}
 
+				NGMPGame* game = pLobbyInterface->GetCurrentGame();
+				if (game == nullptr)
+				{
+					break;
+				}
+
 				for (Int i = 0; i < MAX_SLOTS; i++)
 				{
 					if (controlID == buttonMapStartPositionID[i])
 					{
-						NGMPGame* game = pLobbyInterface->GetCurrentGame();
 						Int playerIdxInPos = -1;
 						for (Int j=0; j<MAX_SLOTS; ++j)
 						{

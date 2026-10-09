@@ -171,7 +171,7 @@ public:
 	// manipulating files
 	Bool doesSaveGameExist( AsciiString filename );							///< does the save file exist
 	void populateSaveGameListbox( GameWindow *listbox, SaveLoadLayoutType layoutType );	///< populate listbox with available save games
-	void getSaveGameInfoFromFile( AsciiString filename, SaveGameInfo *saveGameInfo );		///< get save game info from file
+	Bool getSaveGameInfoFromFile( AsciiString filename, SaveGameInfo *saveGameInfo );		///< get save game info from file, false if it can't be read
 
 	void friend_xferSaveDataForCRC( Xfer *xfer, SnapshotType which );		///< This should only be called to DeepCRC sanity checking
 

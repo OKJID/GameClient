@@ -1,3 +1,4 @@
+#include <random>
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
 #include "GameNetwork/GeneralsOnline/NGMP_include.h"
 #include "GameNetwork/GeneralsOnline/NetworkPacket.h"
@@ -7,6 +8,12 @@
 #include "../OnlineServices_Init.h"
 #include "../HTTP/HTTPManager.h"
 #include "GameNetwork/GameSpy/PeerDefs.h"
+
+// one clock for every websocket timestamp; utc_clock also loads the time zone database on MSVC
+static int64_t NowMs()
+{
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
 
 // -----------------------------
 // Module info structure
@@ -161,11 +168,7 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 		return;
 	}
 
-#ifdef __APPLE__
-	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-	m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+	m_lastPong = NowMs();
 
 	// TODO_CACHE: Cleanup multi too
 	if (m_pCurlWS != nullptr)
@@ -210,29 +213,10 @@ void WebSocket::Connect(const char* url, bool bIsReconnect, std::function<void(v
 
 		curl_easy_setopt(m_pCurlWS, CURLOPT_VERBOSE, 1L);
 #else
-        if (HTTPManager::IsCACertStoreBad())
-        {
-            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
-            curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
-        }
-        else
-        {
-            std::ifstream certFile("cacert.pem");
-            if (certFile.good())
-            {
-                certFile.close();
-                curl_easy_setopt(m_pCurlWS, CURLOPT_CAINFO, "cacert.pem");
-
-                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 1L);
-                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 2L);
-            }
-            else
-            {
-				HTTPManager::SetCACertStoreBad();
-                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 0);
-                curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 0);
-            }
-        }
+        // Use the OS cert store (needed since we build curl against OpenSSL, not schannel).
+        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYPEER, 1L);
+        curl_easy_setopt(m_pCurlWS, CURLOPT_SSL_VERIFYHOST, 2L);
 #endif
 
 
@@ -367,6 +351,23 @@ void WebSocket::Disconnect()
 
 	if (m_pCurlWS != nullptr)
 	{
+		// best-effort flush of anything queued since the last Tick() before closing
+		std::vector<std::string> outboundBatch;
+		{
+			std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+			outboundBatch.swap(m_vecQueuedOutboungMsgs);
+		}
+
+		for (std::string& strPayload : outboundBatch)
+		{
+			size_t sentPayload;
+			CURLcode sendResult = curl_ws_send(m_pCurlWS, strPayload.c_str(), strPayload.length(), &sentPayload, 0, CURLWS_BINARY);
+			if (sendResult != CURLE_OK)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Disconnect: failed to flush queued message: %s", curl_easy_strerror(sendResult));
+			}
+		}
+
 		// send close
 		size_t sent;
 		(void)curl_ws_send(m_pCurlWS, "", 0, &sent, 0, CURLWS_CLOSE);
@@ -397,29 +398,17 @@ void WebSocket::Disconnect()
 
 void WebSocket::Send(const char* send_payload)
 {
-	if (!AcquireLock())
+	// Thread-safe; always queues. Tick() flushes on the main thread.
+	std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+
+	static constexpr size_t kMaxQueuedOutboundMsgs = 256;
+	if (m_vecQueuedOutboungMsgs.size() >= kMaxQueuedOutboundMsgs)
 	{
-		return;
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Outbound queue full (%zu), discarding oldest message", m_vecQueuedOutboungMsgs.size());
+		m_vecQueuedOutboungMsgs.erase(m_vecQueuedOutboungMsgs.begin());
 	}
 
-	if (!m_bConnected)
-	{
-		// just queue it instead
-		m_vecQueuedOutboungMsgs.push_back(std::string(send_payload));
-
-		ReleaseLock();
-		return;
-	}
-
-	size_t sent;
-	CURLcode result = curl_ws_send(m_pCurlWS, send_payload, strlen(send_payload), &sent, 0, CURLWS_BINARY);
-
-	if (result != CURLE_OK)
-	{
-		NetworkLog(ELogVerbosity::LOG_RELEASE, "curl_ws_send() failed: %s\n", curl_easy_strerror(result));
-	}
-
-	ReleaseLock();
+	m_vecQueuedOutboungMsgs.push_back(std::string(send_payload));
 }
 
 class WebSocketMessageBase
@@ -660,49 +649,176 @@ static bool JSONGetAsObject(nlohmann::json& jsonObject, T* outMsg)
 }
 
 //static std::string strSignal = "str:1 ";
-void WebSocket::Tick()
-{
-    if (!AcquireLock())
-    {
-        return;
-    }
 
-	// attempting to reconnect?
+// Idempotent: repeated drop signals must not reset the backoff.
+void WebSocket::BeginReconnect()
+{
 	if (m_bReconnecting)
 	{
-#ifdef __APPLE__
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-		int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
-
-		int maxReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
-		if (m_numReconnectAttempts >= maxReconnectAttempts)
-		{
-			// fully disconnect
-            NetworkLog(ELogVerbosity::LOG_RELEASE, "Going to teardown (reconnect 1)");
-            NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
-            m_bConnected = false;
-            m_vecWSPartialBuffer.clear();
-
-            // clear reconnection flags
-            m_bReconnecting = false;
-            m_numReconnectAttempts = 0;
-            m_lastReconnectAttempt = -1;
-		}
-		else
-		{
-			int timeBetweenReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? timeBetweenReconnectAttempts_Ingame : timeBetweenReconnectAttempts_Frontend;
-
-            if (currTime - m_lastReconnectAttempt >= timeBetweenReconnectAttempts)
-            {
-                m_lastReconnectAttempt = currTime;
-                ++m_numReconnectAttempts;
-
-				Connect(m_strWebsocketAddr.c_str(), true, nullptr);
-            }
-		}
+		return;
 	}
+
+	m_bReconnecting = true;
+	m_numReconnectAttempts = 0;
+	m_bFreshSession = false;
+	m_reconnectAttemptStarted = -1;
+	m_reconnectStartTime = NowMs();
+	m_nextReconnectAttempt = m_reconnectStartTime + ComputeReconnectDelay();
+}
+
+void WebSocket::EndReconnect()
+{
+	m_bReconnecting = false;
+	m_reconnectAttemptStarted = -1;
+}
+
+// First retry 0.5-3s, later ones 60-100% of the step (2s..10s cap), so clients that dropped together spread out.
+int64_t WebSocket::ComputeReconnectDelay() const
+{
+	static thread_local std::mt19937 rng{ std::random_device{}() };
+
+	int64_t lo = m_reconnectBackoffBase / 4;
+	int64_t hi = m_reconnectBackoffBase * 3 / 2;
+	if (m_numReconnectAttempts > 0)
+	{
+		int64_t step = m_reconnectBackoffBase;
+		for (int i = 1; i < m_numReconnectAttempts && step < m_reconnectBackoffCap; ++i)
+		{
+			step *= 2;
+		}
+		step = std::min<int64_t>(step, m_reconnectBackoffCap);
+		lo = step * 6 / 10;
+		hi = step;
+	}
+
+	return std::uniform_int_distribution<int64_t>(lo, hi)(rng);
+}
+
+// Restores what the old session had once a fresh one is connected.
+static void RestoreSessionState()
+{
+	NGMP_OnlineServices_SocialInterface* pSocial = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
+	if (pSocial == nullptr)
+	{
+		return;
+	}
+
+	pSocial->GetFriendsList(false, nullptr);
+	pSocial->GetBlockList(nullptr);
+	if (pSocial->IsOverlayActive())
+	{
+		pSocial->RegisterForRealtimeServiceUpdates();
+	}
+
+	// resolve the previous room by stable ID against a freshly fetched room list, not by index
+	NGMP_OnlineServices_RoomsInterface* pRooms = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_RoomsInterface>();
+	if (pRooms == nullptr)
+	{
+		return;
+	}
+
+	const std::vector<NetworkRoom>& roomsBeforeRefresh = pRooms->GetGroupRooms();
+	const int previousRoomIndex = pRooms->GetCurrentRoomIndex();
+	std::optional<int> previousRoomID;
+	UnicodeString strPreviousRoomName;
+	if (previousRoomIndex >= 0 && previousRoomIndex < (int)roomsBeforeRefresh.size())
+	{
+		previousRoomID = roomsBeforeRefresh[previousRoomIndex].GetRoomID();
+		strPreviousRoomName = roomsBeforeRefresh[previousRoomIndex].GetRoomDisplayName();
+	}
+
+	pRooms->GetRoomList([pRooms, previousRoomID, strPreviousRoomName](bool bSuccess)
+		{
+			const std::vector<NetworkRoom>& rooms = pRooms->GetGroupRooms();
+			if (!bSuccess || rooms.empty())
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] RestoreSessionState: failed to fetch room list, cannot rejoin a room");
+				return;
+			}
+
+			// fall back to the default room (index 0) if the room we were in no longer exists
+			int roomIndexToJoin = 0;
+			bool bFoundPreviousRoom = false;
+			if (previousRoomID.has_value())
+			{
+				for (size_t i = 0; i < rooms.size(); ++i)
+				{
+					if (rooms[i].GetRoomID() == *previousRoomID)
+					{
+						roomIndexToJoin = (int)i;
+						bFoundPreviousRoom = true;
+						break;
+					}
+				}
+			}
+
+			if (previousRoomID.has_value() && !bFoundPreviousRoom)
+			{
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] RestoreSessionState: room '%s' (id %d) no longer exists, joining the default room instead", to_utf8(strPreviousRoomName.str()).c_str(), *previousRoomID);
+			}
+
+			pRooms->JoinRoom(roomIndexToJoin);
+		});
+}
+
+void WebSocket::UpdateReconnect()
+{
+	if (!m_bReconnecting)
+	{
+		return;
+	}
+
+	// Teardown already pending (kick, ban, auth failure): stop reconnecting.
+	if (NGMP_OnlineServicesManager::GetInstance()->IsPendingFullTeardown())
+	{
+		EndReconnect();
+		return;
+	}
+
+	const int64_t currTime = NowMs();
+	const bool bGameInProgress = TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress();
+
+	// Session gone server-side: nothing to retry during a match, the window starts after it.
+	if (m_bFreshSession && bGameInProgress)
+	{
+		m_reconnectStartTime = currTime;
+		m_numReconnectAttempts = 0;
+		m_reconnectAttemptStarted = -1;
+		m_nextReconnectAttempt = currTime + ComputeReconnectDelay();
+		return;
+	}
+
+	// Connect() kills the previous handle: leave a pending attempt alone unless stuck.
+	if (m_reconnectAttemptStarted != -1 && (currTime - m_reconnectAttemptStarted) < m_reconnectAttemptTimeout)
+	{
+		return;
+	}
+
+	if (!bGameInProgress && (currTime - m_reconnectStartTime) >= m_reconnectMenuWindow)
+	{
+		NetworkLog(ELogVerbosity::LOG_RELEASE, "Going to teardown (%d reconnect attempts failed)", m_numReconnectAttempts);
+		NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
+		m_bConnected = false;
+		m_vecWSPartialBuffer.clear();
+		EndReconnect();
+		return;
+	}
+
+	// New session only once out of the lobby the server dropped us from.
+	if (currTime < m_nextReconnectAttempt || (m_bFreshSession && TheNGMPGame != nullptr))
+	{
+		return;
+	}
+
+	++m_numReconnectAttempts;
+	m_reconnectAttemptStarted = currTime;
+	Connect(m_strWebsocketAddr.c_str(), !m_bFreshSession, m_bFreshSession ? std::function<void()>(RestoreSessionState) : nullptr);
+}
+
+void WebSocket::Tick()
+{
+	// Main thread only; m_pCurlWS/m_vecWSPartialBuffer/m_bConnected are unlocked here.
+	UpdateReconnect();
 
 
 
@@ -727,11 +843,7 @@ void WebSocket::Tick()
 	*/
 
 	// ping?
-#ifdef __APPLE__
-	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-	int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+	int64_t currTime = NowMs();
 	if ((currTime - m_lastPing) > m_timeBetweenUserPings)
 	{
 		m_lastPing = currTime;
@@ -765,30 +877,21 @@ void WebSocket::Tick()
                         NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Failed to connect (%d - %s)", m->data.result, curl_easy_strerror(m->data.result));
                         LogConnectionDiagnostics("Failed to connect", httpResponseCode, true);
 
-                        // reconnecting? give up eventually
                         if (m_bReconnecting)
                         {
-                            int maxReconnectAttempts = (TheNGMPGame != nullptr && TheNGMPGame->isGameInProgress()) ? maxReconnectAttempts_Ingame : maxReconnectAttempts_Frontend;
-
-                            if (m_numReconnectAttempts >= maxReconnectAttempts || (m->data.result == CURLE_HTTP_RETURNED_ERROR && httpResponseCode == 205)) // 205 = need full teardown
+                            if (!m_bFreshSession && m->data.result == CURLE_HTTP_RETURNED_ERROR && httpResponseCode == 205) // 205: session gone, can't resume
                             {
-                                if (httpResponseCode == 205)
-                                {
-                                    NetworkLog(ELogVerbosity::LOG_RELEASE, "Going to teardown (reconnect 205)");
-                                }
-                                else
-                                {
-                                    NetworkLog(ELogVerbosity::LOG_RELEASE, "Going to teardown (reconnect 2)");
-                                }
-
-                                NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
-                                m_bConnected = false;
-                                m_vecWSPartialBuffer.clear();
-
-                                // clear reconnection flags
-                                m_bReconnecting = false;
+                                NetworkLog(ELogVerbosity::LOG_RELEASE, "[WebSocket] Server dropped our session (205), will reconnect as a new one");
+                                m_bFreshSession = true;
+                                m_reconnectAttemptStarted = -1;
+                                m_reconnectStartTime = NowMs();
                                 m_numReconnectAttempts = 0;
-                                m_lastReconnectAttempt = -1;
+                                m_nextReconnectAttempt = m_reconnectStartTime + ComputeReconnectDelay();
+                            }
+                            else
+                            {
+                                m_reconnectAttemptStarted = -1;
+                                m_nextReconnectAttempt = NowMs() + ComputeReconnectDelay();
                             }
                         }
                         else // give up immediately
@@ -797,11 +900,6 @@ void WebSocket::Tick()
                             NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::LOST_CONNECTION);
                             m_bConnected = false;
                             m_vecWSPartialBuffer.clear();
-
-                            // clear reconnection flags
-                            m_bReconnecting = false;
-                            m_numReconnectAttempts = 0;
-                            m_lastReconnectAttempt = -1;
                         }
                     }
                     else
@@ -821,17 +919,10 @@ void WebSocket::Tick()
                         m_bConnected = true;
                         m_vecWSPartialBuffer.clear();
 
-                        // clear reconnection flags
-                        m_bReconnecting = false;
-                        m_numReconnectAttempts = 0;
-                        m_lastReconnectAttempt = -1;
+                        EndReconnect();
 
                         // connecting is as good as a pong
-#ifdef __APPLE__
-                        m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-                        m_lastPong = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+                        m_lastPong = NowMs();
 
                         if (m_fnWebsocketConnectedCallback != nullptr)
                         {
@@ -845,12 +936,17 @@ void WebSocket::Tick()
 
     if (!m_bConnected)
     {
-        ReleaseLock();
         return;
     }
 
-	// send anything we have buffered (e.g. things that were queued while not connected)
-	for (std::string& strPayload : m_vecQueuedOutboungMsgs)
+	// send anything we have queued (things sent while not connected, or from any other thread)
+	std::vector<std::string> outboundBatch;
+	{
+		std::scoped_lock<std::mutex> lock(m_outboundQueueMutex);
+		outboundBatch.swap(m_vecQueuedOutboungMsgs);
+	}
+
+	for (std::string& strPayload : outboundBatch)
 	{
         size_t sent;
         CURLcode result = curl_ws_send(m_pCurlWS, strPayload.c_str(), strPayload.length(), &sent, 0, CURLWS_BINARY);
@@ -860,7 +956,6 @@ void WebSocket::Tick()
             NetworkLog(ELogVerbosity::LOG_RELEASE, "curl_ws_send() failed: %s\n", curl_easy_strerror(result));
         }
 	}
-	m_vecQueuedOutboungMsgs.clear();
 
 	// do recv
 	size_t rlen = 0;
@@ -881,6 +976,9 @@ void WebSocket::Tick()
 	{
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket msg: %s", bufferThisRecv);
 		NetworkLog(ELogVerbosity::LOG_DEBUG, "Got websocket len: %d", rlen);
+
+		// any server frame proves liveness, not just a JSON PONG
+		m_lastPong = NowMs();
 
 		// what type of message?
 		if (meta != nullptr)
@@ -985,11 +1083,7 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::PONG:
 									{
-#ifdef __APPLE__
-										int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-										int64_t currTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+										int64_t currTime = NowMs();
 										m_lastPong = currTime;
 									}
 									break;
@@ -1162,6 +1256,7 @@ void WebSocket::Tick()
 
 										// respond with our state
 										std::vector<int64_t> connectivityMap;
+										std::vector<int64_t> connectingMap;
 										NetworkMesh* pMesh = nullptr;
 										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 										if (pLobbyInterface != nullptr)
@@ -1184,6 +1279,11 @@ void WebSocket::Tick()
 														connectivityMap.push_back(userID);
 													}
 												}
+												else if (playerConn.GetState() == EConnectionState::CONNECTING_DIRECT || playerConn.GetState() == EConnectionState::FINDING_ROUTE)
+												{
+													// still negotiating: lets the service hold off restarting it
+													connectingMap.push_back(userID);
+												}
 											}
 										}
 
@@ -1193,6 +1293,7 @@ void WebSocket::Tick()
 										j["mesh_check_id"] = meshCheckID;
 										j["attempt"] = meshCheckAttempt;
 										j["connectivity_map"] = connectivityMap;
+										j["connecting_map"] = connectingMap;
 										std::string strBody = j.dump();
 
 										Send(strBody.c_str());
@@ -1203,16 +1304,31 @@ void WebSocket::Tick()
 									{
 										// all checks are done, process start for host
 
+										// stale reply for a lobby we've since left/changed
+										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+										int64_t currentLobbyID = pLobbyInterface != nullptr ? pLobbyInterface->GetCurrentLobby().lobbyID : -1;
+										if (currentLobbyID != m_connectivityCheckLobbyID)
+										{
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Ignoring stale reply for a previous lobby");
+											break;
+										}
+
 										bool bMeshComplete = false;
+										std::string strReason;
+										std::list<std::pair<int64_t, int64_t>> missingConnections;
 
 										try
 										{
 											jsonObject["mesh_complete"].get_to(bMeshComplete);
 
-											std::list<std::pair<int64_t, int64_t>> missingConnections;
+											if (jsonObject.contains("reason"))
+											{
+												jsonObject["reason"].get_to(strReason);
+											}
+
 											if (!bMeshComplete)
 											{
-												NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Mesh is not complete for someone");
+												NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Mesh is not complete for someone, reason: %s", strReason.c_str());
 												for (const auto& missingConnectionEntryIter : jsonObject["missing_connections"])
 												{
 													int64_t source_user_id = -1;
@@ -1228,20 +1344,22 @@ void WebSocket::Tick()
 											{
 												NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Mesh is fully complete");
 											}
-
-											// invoke callback
-											if (m_cbOnConnectivityCheckComplete != nullptr)
-											{
-												m_cbOnConnectivityCheckComplete(bMeshComplete, missingConnections);
-											}
-
-											m_cbOnConnectivityCheckComplete = NULL;
 										}
 										catch (...)
 										{
-											NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Error processing response");
-											break;
+											NetworkLog(ELogVerbosity::LOG_RELEASE, "[FULL_MESH_CONNECTIVITY_CHECK_RESPONSE_COMPLETE_TO_HOST] Error processing response, resolving as failure");
+											bMeshComplete = false;
+											missingConnections.clear();
+											strReason = "parse_error";
 										}
+
+										// invoke callback
+										if (m_cbOnConnectivityCheckComplete != nullptr)
+										{
+											m_cbOnConnectivityCheckComplete(bMeshComplete, missingConnections, strReason);
+										}
+
+										ClearConnectivityCheckCallback();
 
 										break;
 									}
@@ -1371,7 +1489,7 @@ void WebSocket::Tick()
 										{
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal User: %lld!", signalData.target_user_id);
 											NetworkLog(ELogVerbosity::LOG_RELEASE, "[SIGNAL] Signal Payload Size: %d!", (int)signalData.payload.size());
-											m_pendingSignals.push(signalData.payload);
+											PushPendingSignal(std::move(signalData.payload));
 										}
 									}
 									break;
@@ -1575,16 +1693,37 @@ void WebSocket::Tick()
 
 									case EWebSocketMessageID::MATCHMAKING_ACTION_SETUP_PROGRESS:
 									{
+										static constexpr int kMinMatchSetupTimeoutMs = 1000;
+										static constexpr int kMaxMatchSetupTimeoutMs = 120000;
+
 										int timeoutMs = 0;
 										if (jsonObject.contains("timeout_ms") && jsonObject["timeout_ms"].is_number_integer())
 										{
 											timeoutMs = jsonObject["timeout_ms"].get<int>();
+											if (timeoutMs > 0)
+											{
+												if (timeoutMs < kMinMatchSetupTimeoutMs)
+												{
+													timeoutMs = kMinMatchSetupTimeoutMs;
+												}
+												else if (timeoutMs > kMaxMatchSetupTimeoutMs)
+												{
+													timeoutMs = kMaxMatchSetupTimeoutMs;
+												}
+											}
+										}
+
+										// -1 = older service that doesn't say, the menu infers it
+										int countdownMs = -1;
+										if (jsonObject.contains("countdown_ms") && jsonObject["countdown_ms"].is_number_integer())
+										{
+											countdownMs = jsonObject["countdown_ms"].get<int>();
 										}
 
 										NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
 										if (pLobbyInterface != nullptr && timeoutMs > 0)
 										{
-											pLobbyInterface->InvokeMatchmakingSetupProgressCallback(timeoutMs);
+											pLobbyInterface->InvokeMatchmakingSetupProgressCallback(timeoutMs, countdownMs);
 										}
 									}
 									break;
@@ -1718,13 +1857,7 @@ void WebSocket::Tick()
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (ERROR: %s), Attempting reconnect", curl_easy_strerror(ret));
 
 		m_bConnected = false;
-		m_bReconnecting = true;
-        m_numReconnectAttempts = 0;
-#ifdef __APPLE__
-        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+		BeginReconnect();
 		m_vecWSPartialBuffer.clear();
 
 
@@ -1754,17 +1887,9 @@ void WebSocket::Tick()
 
 		NetworkLog(ELogVerbosity::LOG_RELEASE, "Got websocket disconnect (Timeout: %s), timeout is %lld, last pong was at %lld, current time is %lld, attempting reconnect", curl_easy_strerror(ret), currTime - m_lastPong, m_lastPong, currTime);
         m_bConnected = false;
-        m_bReconnecting = true;
-        m_numReconnectAttempts = 0;
-#ifdef __APPLE__
-        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-#else
-        m_lastReconnectAttempt = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
-#endif
+		BeginReconnect();
         m_vecWSPartialBuffer.clear();
 	};
-
-	ReleaseLock();
 }
 
 NGMP_OnlineServices_RoomsInterface::NGMP_OnlineServices_RoomsInterface()

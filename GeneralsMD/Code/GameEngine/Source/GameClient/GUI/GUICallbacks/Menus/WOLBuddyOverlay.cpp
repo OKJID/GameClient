@@ -566,11 +566,11 @@ void updateBuddyInfo( void )
 				{
                     // dont need to check self here as this is checked when populating the recently played list, but do need to check friend status as it could have changed since population
 
-                // dont show if already friends
-                    if (!pSocialInterface->IsUserFriend(profileID))
+                // dont show if already friends, or if they sent a request: the request row below covers them
+                    if (!pSocialInterface->IsUserFriend(profileID) && !pSocialInterface->IsUserPendingRequest(profileID))
                     {
                         UnicodeString strName;
-                        strName.format(L"%hs", friendsEntry.display_name.c_str());
+                        strName.format(L"%s", from_utf8(friendsEntry.display_name).c_str());
 
                         // insert name into box
                         int index = GadgetListBoxAddEntryText(buddyControls.listboxBuddies, strName, GameSpyColor[GSCOLOR_CHAT_EMOTE], -1, -1);
@@ -591,11 +591,8 @@ void updateBuddyInfo( void )
 			{
 				FriendsEntry friendsEntry = kvPair.second;
 				int64_t profileID = friendsEntry.user_id;
-				AsciiString strName = AsciiString(friendsEntry.display_name.c_str());
-
 				// insert name into box
-				UnicodeString formatStr;
-				formatStr.translate(strName.str());
+				UnicodeString formatStr(from_utf8(friendsEntry.display_name).c_str());
 				int index = GadgetListBoxAddEntryText(buddyControls.listboxBuddies, formatStr, GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
 				GadgetListBoxSetItemData(buddyControls.listboxBuddies, (void*)(profileID), index, 0);
 
@@ -637,11 +634,11 @@ void updateBuddyInfo( void )
                 UnicodeString strName;
                 if (friendsEntry.online)
                 {
-                    strName.format(L"\u25CF %hs", friendsEntry.display_name.c_str());
+                    strName.format(L"\u25CF %s", from_utf8(friendsEntry.display_name).c_str());
                 }
                 else
                 {
-                    strName.format(L"\u25CC %hs", friendsEntry.display_name.c_str());
+                    strName.format(L"\u25CC %s", from_utf8(friendsEntry.display_name).c_str());
                 }
 
                 if (numUnreadMessages > 0)
@@ -668,7 +665,7 @@ void updateBuddyInfo( void )
                 if (friendsEntry.online)
                 {
                     UnicodeString strGameState = TheGameText->fetch("Buddy:Online");
-                    formatStr.format(L"%s - %hs", strGameState.str(), friendsEntry.presence.c_str());
+                    formatStr.format(L"%s - %s", strGameState.str(), from_utf8(friendsEntry.presence).c_str());
                 }
                 else
                 {
@@ -994,7 +991,14 @@ void showNotificationBox(AsciiString nick, UnicodeString message)
 	}
 
 	if (nick.isNotEmpty())
+	{
+#if defined(GENERALS_ONLINE)
+		// Generals Online nicks are UTF-8 display names
+		message.format(WidenFormatSpecifiers(message.str()).c_str(), from_utf8(nick.str()).c_str());
+#else
 		message.format(message, nick.str());
+#endif
+	}
 	GadgetButtonSetText(win, message);
 	//GadgetStaticTextSetText(win, message);
 	noticeExpires = timeGetTime() + NOTIFICATION_EXPIRES;
@@ -1124,6 +1128,9 @@ void WOLBuddyOverlayInit( WindowLayout *layout, void *userData )
 	parentBuddies = TheWindowManager->winGetWindowFromId( parent,  parentBuddiesID);
 	parentIgnore = TheWindowManager->winGetWindowFromId( parent,  parentIgnoreID);
 	listboxIgnore = TheWindowManager->winGetWindowFromId( parent,  listboxIgnoreID);
+
+	if (radioButtonIgnore)
+		GadgetRadioSetText(radioButtonIgnore, UnicodeString(L"Blocked"));
 
 	InitBuddyControls(BUDDY_WINDOW_BUDDIES);
 
@@ -1296,7 +1303,7 @@ WindowMsgHandledType WOLBuddyOverlaySystem( GameWindow *window, UnsignedInt msg,
 						// If it's the "current lobby" list, the user wont be a friend, so we cant chat to them
 						if (!pSocialInterface->IsUserFriend(profileID) && !pSocialInterface->IsUserPendingRequest(profileID))
 						{
-                            Int index = GadgetListBoxAddEntryText(buddyControls.listboxChat, UnicodeString(L"This person is in your lobby or recently played with you but is not a friend yet and cannot be chatted with. You can right click them to add or ignore them."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
+                            Int index = GadgetListBoxAddEntryText(buddyControls.listboxChat, UnicodeString(L"This person is in your lobby or recently played with you but is not a friend yet and cannot be chatted with. You can right click them to add or block them."), GameSpyColor[GSCOLOR_DEFAULT], -1, -1);
                             GadgetListBoxAddEntryText(buddyControls.listboxChat, UnicodeString::TheEmptyString, GameSpyColor[GSCOLOR_DEFAULT], index, 1);
 						}
                         else if (pSocialInterface->IsUserPendingRequest(profileID))
@@ -2023,9 +2030,7 @@ void setUnignoreText( WindowLayout *layout, AsciiString nick, GPProfile id)
 			return;
 		}
 
-		bool bIgnored = pSocialInterface->IsUserIgnored(id);
-		if (bIgnored)
-			GadgetButtonSetText(win, TheGameText->fetch("GUI:Unignore"));
+		GadgetButtonSetText(win, UnicodeString(pSocialInterface->IsUserIgnored(id) ? L"Unblock" : L"Block"));
 #else
 		if(TheGameSpyInfo->isSavedIgnored(id) || TheGameSpyInfo->isIgnored(nick))
 			GadgetButtonSetText(win, TheGameText->fetch("GUI:Unignore"));
@@ -2054,10 +2059,7 @@ void refreshIgnoreList()
 
 			for (FriendsEntry& blockedEntry : blockResult.vecBlocked)
 			{
-				AsciiString strName = AsciiString(blockedEntry.display_name.c_str());
-
-				UnicodeString name;
-				name.translate(strName);
+				UnicodeString name(from_utf8(blockedEntry.display_name).c_str());
 				Int index = GadgetListBoxAddEntryText(listboxIgnore, name, GameMakeColor(255, 100, 100, 255), -1);
 				GadgetListBoxSetItemData(listboxIgnore, (void*)(blockedEntry.user_id), index, 0);
 			}

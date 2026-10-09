@@ -167,6 +167,7 @@ W3DView::W3DView()
 
 	m_3DCamera = nullptr;
 	m_2DCamera = nullptr;
+	m_defaultMaxHeightAboveGround = 0.0f;
 
 #if PRESERVE_RETAIL_SCRIPTED_CAMERA
 	m_initialGroundLevel = 10.0f;
@@ -203,6 +204,9 @@ W3DView::~W3DView()
 
 	REF_PTR_RELEASE( m_2DCamera );
 	REF_PTR_RELEASE( m_3DCamera );
+
+	// Empty the global shaker list while its pools are alive; its static destructor runs too late at exit.
+	CameraShakerSystem.Reset();
 
 }
 
@@ -726,6 +730,27 @@ Real W3DView::getDesiredZoom(Real x, Real y) const
 Real W3DView::getMaxZoom(Real x, Real y) const
 {
 	return getMaxHeight(x, y) / getCameraOffsetZ();
+}
+
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+Real W3DView::getDefaultMaxHeight(Real x, Real y) const
+{
+#if PRESERVE_RETAIL_SCRIPTED_CAMERA
+	if (!m_isUserControlled)
+	{
+		return getHeightAroundPos(x, y) + m_defaultMaxHeightAboveGround;
+	}
+#endif
+
+	return m_pos.z + m_defaultMaxHeightAboveGround;
+}
+
+//-------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------
+Real W3DView::getDefaultMaxZoom(Real x, Real y) const
+{
+	return getDefaultMaxHeight(x, y) / getCameraOffsetZ();
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2280,6 +2305,8 @@ void W3DView::setDefaultView(Real pitch, Real angle, Real maxHeight)
 	//m_maxHeightAboveGround = TheGlobalData->m_maxCameraHeight*maxHeight;
 	if (m_minHeightAboveGround > m_maxHeightAboveGround)
 		m_maxHeightAboveGround = m_minHeightAboveGround;
+
+	m_defaultMaxHeightAboveGround = m_maxHeightAboveGround;
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -2324,8 +2351,8 @@ void W3DView::setZoom(Real z)
 void W3DView::setZoomToDefault()
 {
 	// default zoom has to be max, otherwise players will just zoom to max always
-	m_heightAboveGround = m_maxHeightAboveGround;
-	m_zoom = getMaxZoom(m_pos.x, m_pos.y);
+	m_heightAboveGround = m_defaultMaxHeightAboveGround;
+	m_zoom = getDefaultMaxZoom(m_pos.x, m_pos.y);
 
 	stopDoingScriptedCamera();
 	m_CameraArrivedAtWaypointOnPathFlag = false;
@@ -2901,13 +2928,13 @@ void W3DView::cameraModFinalZoom( Real finalZoom, Real easeIn, Real easeOut )
 	if (hasScriptedState(Scripted_Rotate))
 	{
 		Real time = (m_rcInfo.numFrames + m_rcInfo.numHoldFrames - m_rcInfo.curFrame)*TheW3DFrameLengthInMsec;
-		zoomCamera( finalZoom*getMaxZoom(m_pos.x, m_pos.y), time, time*easeIn, time*easeOut );
+		zoomCamera( finalZoom*getDefaultMaxZoom(m_pos.x, m_pos.y), time, time*easeIn, time*easeOut );
 	}
 	if (hasScriptedState(Scripted_MoveOnWaypointPath))
 	{
 		Coord3D pos = m_mcwpInfo.waypoints[m_mcwpInfo.numWaypoints];
 		Real time = m_mcwpInfo.totalTimeMilliseconds - m_mcwpInfo.elapsedTimeMilliseconds;
-		zoomCamera( finalZoom*getMaxZoom(pos.x, pos.y), time, time*easeIn, time*easeOut );
+		zoomCamera( finalZoom*getDefaultMaxZoom(pos.x, pos.y), time, time*easeIn, time*easeOut );
 	}
 }
 
@@ -3142,7 +3169,7 @@ void W3DView::resetCamera(const Coord3D *location, Int milliseconds, Real easeIn
 	// m_mcwpInfo.cameraAngle[2] = m_defaultAngle;
 	View::setAngle(m_mcwpInfo.cameraAngle[0]);
 
-	zoomCamera( getMaxZoom(location->x, location->y), milliseconds, easeIn, easeOut );
+	zoomCamera( getDefaultMaxZoom(location->x, location->y), milliseconds, easeIn, easeOut );
 
 	pitchCamera( 1.0f, milliseconds, easeIn, easeOut );
 }

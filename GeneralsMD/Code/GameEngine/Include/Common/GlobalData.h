@@ -522,6 +522,8 @@ public:
 	UnsignedInt	m_networkDisconnectScreenNotifyTime;  ///< The number of milliseconds between when the disconnect screen comes up and when the other players are notified that we are on the disconnect screen.
 
 	Real				m_keyboardCameraRotateSpeed;    ///< How fast the camera rotates when rotated via keyboard controls.
+	Real				m_cameraRotateSpeedMultiplier;  ///< User scale for keyboard camera rotate speed, from Options.ini.
+	Real				m_cameraPitchSpeedMultiplier;   ///< User scale for keyboard camera pitch speed, from Options.ini.
   Int					m_playStats;									///< Int whether we want to log play stats or not, if <= 0 then we don't log
 
 #if defined(RTS_DEBUG) || defined(_ALLOW_DEBUG_CHEATS_IN_RELEASE)

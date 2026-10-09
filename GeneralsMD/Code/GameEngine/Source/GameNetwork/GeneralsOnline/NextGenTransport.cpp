@@ -6,7 +6,7 @@
 
 #include "GameNetwork/GeneralsOnline/ngmp_include.h"
 #include "GameNetwork/GeneralsOnline/ngmp_interfaces.h"
-#include "ValveNetworkingSockets/steam/steamnetworkingtypes.h"
+#include <steam/steamnetworkingtypes.h>
 #include "GameNetwork/GeneralsOnline/PluginInterfaces.h"
 
 #ifdef _INTERNAL
@@ -122,13 +122,23 @@ Bool NextGenTransport::doRecv(void)
             int64_t userID = -1; // TODO_EOS
             uint32_t numBytes = AnticheatPlugInterface::GetNextRecvPacketSize(static_cast<uint8_t>(ENetworkChannels::Game));
 
-            std::vector<uint8_t> vecPacketData;
-            vecPacketData.resize(numBytes);
-
-            uint8_t* pPacketData = vecPacketData.data();
+            // the plugin returns its own buffer through pPacketData, ours would just be leaked over
+            uint8_t* pPacketData = nullptr;
             bool bSuccess = AnticheatPlugInterface::RecvPacket(&pPacketData, static_cast<uint8_t>(ENetworkChannels::Game));
-            if (bSuccess && pPacketData != nullptr)
+            if (!bSuccess || pPacketData == nullptr)
             {
+                // nothing was dequeued, stop instead of spinning forever on the same pending packet
+                break;
+            }
+
+            {
+                // the buffer belongs to the plugin, make sure every exit path below releases it
+                struct ScopedPluginPacket
+                {
+                    uint8_t* m_pData;
+                    ~ScopedPluginPacket() { AnticheatPlugInterface::FreePacket(m_pData); }
+                } scopedPacket{ pPacketData };
+
                 // TODO_EOS: Impl
                 bool bIsACPacket = false;
 

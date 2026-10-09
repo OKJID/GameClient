@@ -70,6 +70,7 @@
 extern void GadgetStaticTextSetText( GameWindow *window, UnicodeString text );
 extern UnicodeString GadgetStaticTextGetText( GameWindow *window );
 extern void GadgetStaticTextSetFont( GameWindow *window, GameFont *font );
+extern Int GadgetStaticTextGetTextHeight( GameWindow *window, Int wrapWidth );	///< pixel height needed to render the control's current text wrapped to wrapWidth
 
 // text colors
 

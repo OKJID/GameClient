@@ -4,8 +4,6 @@
 #include <ctime>
 #include <mutex>
 #include <string>
-#include <locale>
-#include <codecvt>
 #include "../OnlineServices_Init.h"
 #include "../OnlineServices_Auth.h"
 #include "Common/System/NativeFileSystem.h"
@@ -29,21 +27,78 @@ std::mutex m_logMutex;
 
 extern NGMPGame* TheNGMPGame;
 
+// Win32 conversions handle surrogate pairs and substitute U+FFFD for invalid input instead of throwing,
+// so a malformed name from the server can't take down the UI
 std::string to_utf8(const std::wstring& wstr)
 {
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	return converter.to_bytes(wstr);
+	if (wstr.empty())
+		return std::string();
+
+	int len = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+	std::string result(len, '\0');
+	WideCharToMultiByte(CP_UTF8, 0, wstr.data(), (int)wstr.size(), result.data(), len, nullptr, nullptr);
+	return result;
 }
 
 std::wstring from_utf8(const std::string& utf8_str)
 {
-	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
-	std::wstring result = converter.from_bytes(utf8_str);
-	// DEBUG_INFO_MAC(("from_utf8 input='%s' (len %zu) -> output wlen=%zu", utf8_str.c_str(), utf8_str.length(), result.length()));
-	// if (result.length() > 0) {
-	// 	DEBUG_INFO_MAC(("from_utf8 first char: 0x%X", (unsigned int)result[0]));
-	// }
+	if (utf8_str.empty())
+		return std::wstring();
+
+	int len = MultiByteToWideChar(CP_UTF8, 0, utf8_str.data(), (int)utf8_str.size(), nullptr, 0);
+	std::wstring result(len, L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, utf8_str.data(), (int)utf8_str.size(), result.data(), len);
 	return result;
+}
+
+#ifndef WC_NO_BEST_FIT_CHARS
+#define WC_NO_BEST_FIT_CHARS 0x00000400
+#endif
+
+// Process code page text (paths from local file APIs) to UTF-8 for the wire
+std::string local_to_utf8(const std::string& local_str)
+{
+	if (local_str.empty() || GetACP() == CP_UTF8)
+		return local_str;
+
+	int wlen = MultiByteToWideChar(CP_ACP, 0, local_str.data(), (int)local_str.size(), nullptr, 0);
+	if (wlen <= 0)
+		return local_str;
+
+	std::wstring wide(wlen, L'\0');
+	MultiByteToWideChar(CP_ACP, 0, local_str.data(), (int)local_str.size(), wide.data(), wlen);
+	return to_utf8(wide);
+}
+
+// UTF-8 from the wire to the process code page that local file APIs expect; unrepresentable characters become '_'
+std::string utf8_to_local(const std::string& utf8_str)
+{
+	if (utf8_str.empty() || GetACP() == CP_UTF8)
+		return utf8_str;
+
+	std::wstring wide = from_utf8(utf8_str);
+	if (wide.empty())
+		return std::string();
+
+	int len = WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, wide.data(), (int)wide.size(), nullptr, 0, "_", nullptr);
+	if (len <= 0)
+		return utf8_str;
+
+	std::string result(len, '\0');
+	WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, wide.data(), (int)wide.size(), result.data(), len, "_", nullptr);
+	return result;
+}
+
+// Legacy format strings take player names as narrow %hs arguments, which get widened byte by byte and mangle UTF-8.
+// Rewriting %hs to %s lets callers pass a from_utf8() decoded name instead.
+std::wstring WidenFormatSpecifiers(const std::wstring& format)
+{
+	std::wstring widened = format;
+	for (size_t pos = widened.find(L"%hs"); pos != std::wstring::npos; pos = widened.find(L"%hs", pos + 2))
+	{
+		widened.erase(pos + 1, 1);
+	}
+	return widened;
 }
 
 std::wstring NormalizeSingleLineText(const std::wstring& text)

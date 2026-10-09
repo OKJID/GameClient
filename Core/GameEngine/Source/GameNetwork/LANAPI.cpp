@@ -780,7 +780,7 @@ void LANAPI::RequestHasMap()
 		}
 		else
 		{
-			mapDisplayName.format(L"%hs", TheGameState->getMapLeafName(m_currentGame->getMap()).str());
+			mapDisplayName.translate(TheGameState->getMapLeafName(m_currentGame->getMap()).str());
 			willTransfer = WouldMapTransfer(m_currentGame->getMap());
 		}
 		if (willTransfer)

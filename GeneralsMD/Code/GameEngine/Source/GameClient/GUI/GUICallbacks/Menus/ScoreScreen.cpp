@@ -411,7 +411,8 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
         pSocialInterface->RegisterForCallback_OnNumberGlobalNotificationsChanged([](int numNotifications)
             {
                 // update communicator button
-                if (buttonBuddies != nullptr)
+                GameWindow *currentButtonBuddies = TheWindowManager->winGetWindowFromId(nullptr, buttonBuddiesID);
+                if (currentButtonBuddies != nullptr)
                 {
                     UnicodeString buttonText;
 
@@ -423,7 +424,7 @@ void ScoreScreenInit( WindowLayout *layout, void *userData )
 					{
 						buttonText.format(L"%s", TheGameText->fetch("GUI:Buddies").str());
 					}
-					buttonBuddies->winSetText(buttonText);
+					currentButtonBuddies->winSetText(buttonText);
                 }
             });
 
@@ -452,6 +453,13 @@ void FixupScoreScreenMovieWindow( void )
 void ScoreScreenShutdown( WindowLayout *layout, void *userData )
 {
 	DontShowMainMenu = FALSE; //KRIS
+
+#if defined(GENERALS_ONLINE)
+	NGMP_OnlineServices_SocialInterface* pSocialInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_SocialInterface>();
+	if (pSocialInterface != nullptr)
+		pSocialInterface->RegisterForCallback_OnNumberGlobalNotificationsChanged(nullptr);
+#endif
+	buttonBuddies = nullptr;
 
 	// hide the layout
 	layout->hide( TRUE );
@@ -1186,7 +1194,7 @@ void initInternetMultiPlayer(void)
 
 	// attempt to register our outcome
     NGMP_OnlineServices_StatsInterface* pStatsInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_StatsInterface>();
-    if (pStatsInterface != nullptr)
+    if (pStatsInterface != nullptr && TheNGMPGame != nullptr)
     {
         Player* localPlayer = ThePlayerList->getLocalPlayer();
 
@@ -1832,7 +1840,10 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 		DEBUG_LOG(("populatePlayerInfo() - SCORESCREEN_INTERNET\n"));
 
 #if defined(GENERALS_ONLINE)
-		if (TheNGMPGame && !TheNGMPGame->getUseStats()
+		if (TheNGMPGame == nullptr)
+			return;
+
+		if (!TheNGMPGame->getUseStats()
 			&& !TheNGMPGame->isQMGame())  //QuickMatch games always record stats
 			return;	//the host has requested not to record stats for this game.
 #else
@@ -2301,17 +2312,14 @@ winName.format("ScoreScreen.wnd:StaticTextScore%d", pos);
 //-------------------------------------------------------------------------------------------------
 void grabMultiPlayerInfo( void )
 {
-	typedef std::map<Int, Player *> ScoreMap;
-	typedef ScoreMap::iterator ScoreMapIt;
+	typedef std::multimap<Int, Player *> ScoreMap;
 	typedef ScoreMap::reverse_iterator RevScoreMapIt;
 
 	Int playerCount = 0;
 	AsciiString playerName;
 	Player *player;
 	ScoreMap scores;
-	ScoreMapIt it;
 	scores.clear();
-	Int adder = 1; // Varible used to add on an offset to the score to make sure we don't add people to the same map
 
 	player = ThePlayerList->getLocalPlayer();
 	if (player && parent)
@@ -2332,10 +2340,7 @@ void grabMultiPlayerInfo( void )
 		if(player)
 		{
 			Int score = player->getScoreKeeper()->calculateScore();
-			it = scores.find( score );
-			if (it != scores.end())
-			score += adder++;			
-			scores[score] = player;
+			scores.emplace(score, player);
 			++playerCount;
 		}
 	}

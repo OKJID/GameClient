@@ -265,7 +265,8 @@ static void macosSignalHandler(int sig, siginfo_t* info, void* context) {
     logCrashLine(s_crashReportArgs);
     closeCrashReport();
 
-    _exit(1);
+    signal(sig, SIG_DFL);
+    raise(sig);
 }
 
 static void installCrashHandler(int sig) {

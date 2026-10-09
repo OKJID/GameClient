@@ -759,9 +759,16 @@ char* LocalFile::readEntireAndClose()
 	UnsignedInt fileSize = size();
 	char* buffer = NEW char[fileSize];
 
-	read(buffer, fileSize);
+	const Int bytesRead = read(buffer, fileSize);
 
 	close();
+
+	// a short read leaves uninitialized bytes in the buffer, which callers would parse as file content
+	if (bytesRead < 0 || (UnsignedInt)bytesRead != fileSize)
+	{
+		delete[] buffer;
+		return nullptr;
+	}
 
 	return buffer;
 }

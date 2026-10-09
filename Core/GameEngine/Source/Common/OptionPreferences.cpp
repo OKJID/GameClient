@@ -1024,3 +1024,23 @@ Real OptionPreferences::getGameWindowTransitionSpeedMultiplier() const
 	Real speed = (Real) atof(it->second.str());
 	return clamp(1.0f, speed, 1000.0f);
 }
+
+Real OptionPreferences::getCameraRotateSpeedMultiplier() const
+{
+	OptionPreferences::const_iterator it = find("CameraRotateSpeedMultiplier");
+	if (it == end())
+		return 1.0f;
+
+	Real multiplier = (Real) atof(it->second.str());
+	return clamp(0.1f, multiplier, 10.0f);
+}
+
+Real OptionPreferences::getCameraPitchSpeedMultiplier() const
+{
+	OptionPreferences::const_iterator it = find("CameraPitchSpeedMultiplier");
+	if (it == end())
+		return 1.0f;
+
+	Real multiplier = (Real) atof(it->second.str());
+	return clamp(0.1f, multiplier, 10.0f);
+}

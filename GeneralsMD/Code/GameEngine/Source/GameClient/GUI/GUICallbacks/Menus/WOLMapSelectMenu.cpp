@@ -457,7 +457,7 @@ WindowMsgHandledType WOLMapSelectMenuSystem( GameWindow *window, UnsignedInt msg
 						asciiMap.translate( map );
 
 					int newMaxPlayers = -1;
-					AsciiString strMapName;
+					UnicodeString strMapName;
 					bool bOfficialMap = false;
 
 					TheNGMPGame->setMap(asciiMap);
@@ -470,7 +470,7 @@ WindowMsgHandledType WOLMapSelectMenuSystem( GameWindow *window, UnsignedInt msg
 						TheNGMPGame->setMapSize( it->second.m_filesize );
 
 						newMaxPlayers = it->second.m_numPlayers;
-						strMapName.translate(it->second.m_displayName);
+						strMapName = it->second.m_displayName;
 
 						bOfficialMap = it->second.m_isOfficial;
 					}

@@ -539,11 +539,15 @@ public:  // ********************************************************************
 	void setCameraRotateRight( Bool set )		{ m_cameraRotatingRight = set; }
 	void setCameraZoomIn( Bool set )				{ m_cameraZoomingIn = set; }
 	void setCameraZoomOut( Bool set )				{ m_cameraZoomingOut = set; }
+	void setCameraPitchUp( Bool set )				{ m_cameraPitchingUp = set; }
+	void setCameraPitchDown( Bool set )			{ m_cameraPitchingDown = set; }
   void setCameraTrackingDrawable( Bool set ) { m_cameraTrackingDrawable = set; }
 	Bool isCameraRotatingLeft() const { return m_cameraRotatingLeft; }
 	Bool isCameraRotatingRight() const { return m_cameraRotatingRight; }
 	Bool isCameraZoomingIn() const { return m_cameraZoomingIn; }
 	Bool isCameraZoomingOut() const { return m_cameraZoomingOut; }
+	Bool isCameraPitchingUp() const { return m_cameraPitchingUp; }
+	Bool isCameraPitchingDown() const { return m_cameraPitchingDown; }
   Bool isCameraTrackingDrawable() const { return m_cameraTrackingDrawable; }
 	void resetCamera();
 
@@ -947,6 +951,8 @@ protected:
 	Bool 												m_cameraZoomingIn;
 	Bool 												m_cameraTrackingDrawable;
 	Bool 												m_cameraZoomingOut;
+	Bool 												m_cameraPitchingUp;
+	Bool 												m_cameraPitchingDown;
 
 	Bool												m_drawRMBScrollAnchor;
 	Bool												m_moveRMBScrollAnchor;

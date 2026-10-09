@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Common/GameAudio.h"
+#include "Common/AudioEventRTS.h"
+#include "WWLib/ref_ptr.h"
 #include "AVAudioBridge.h"
 #include <vector>
 #include <string>
@@ -18,7 +20,7 @@ enum SourceKind {
 struct PlayingAudio {
     int playerID = -1;
     Bool isPlaying = FALSE;
-    AudioEventRTS *eventRTS = nullptr;
+    RefCountPtr<DynamicAudioEventRTS> eventRTS;
     AudioHandle handle = 0;
     int priority = 0;
     SourceKind poolKind = SK_2D;   // fixed at init: which pool owns this slot
@@ -84,7 +86,6 @@ public:
   virtual void removePlayingAudio(AsciiString eventName) override;
   virtual void removeAllDisabledAudio() override;
 
-  virtual Bool has3DSensitiveStreamsPlaying() const override;
   virtual void *getHandleForBink() override;
   virtual void releaseHandleForBink() override;
 
@@ -105,7 +106,7 @@ public:
 
 protected:
   void processRequestList() override;
-  void playAudioEvent(AudioEventRTS *eventToPlay);
+  void playAudioEvent(const RefCountPtr<DynamicAudioEventRTS> &eventToPlay);
   void stopAudioEvent(AudioHandle handle);
   void stopMusic(Bool shouldFade);
   void stopAllSpeech();

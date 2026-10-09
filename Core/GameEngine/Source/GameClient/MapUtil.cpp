@@ -366,8 +366,12 @@ void MapCache::writeCacheINI( const AsciiString &mapDir )
 	TheFileSystem->createDirectory(mapDir);
 
 	filepath.concat(m_mapCacheName);
-	FILE *fp = NativeFileSystem::fopen(filepath, "w");
-	DEBUG_ASSERTCRASH(fp != nullptr, ("Failed to create %s", filepath.str()));
+
+	// write to a temp file and swap it in so a failed write never leaves a truncated MapCache.ini
+	AsciiString tempFilepath = filepath;
+	tempFilepath.concat(".tmp");
+	FILE *fp = NativeFileSystem::fopen(tempFilepath, "w");
+	DEBUG_ASSERTCRASH(fp != nullptr, ("Failed to create %s", tempFilepath.str()));
 	if (fp == nullptr) {
 		return;
 	}
@@ -430,7 +434,22 @@ void MapCache::writeCacheINI( const AsciiString &mapDir )
 		}
 	}
 
-	fclose(fp);
+	Bool ok = fflush(fp) == 0 && !ferror(fp);
+	if (fclose(fp) != 0)
+		ok = FALSE;
+
+#ifdef _WIN32
+	if (ok && !MoveFileExA(tempFilepath.str(), filepath.str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+		ok = FALSE;
+#else
+	if (ok && NativeFileSystem::rename(tempFilepath.str(), filepath.str()) != 0)
+		ok = FALSE;
+#endif
+	if (!ok)
+	{
+		DEBUG_LOG(("MapCache::writeCacheINI - failed to write '%s'", filepath.str()));
+		NativeFileSystem::remove(tempFilepath.str());
+	}
 }
 
 void MapCache::updateCache()
@@ -601,7 +620,7 @@ void MapCache::dropUserMapsMatchingOfficial(const AsciiString &userMapDir, const
 
 #endif
 
-void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
+Bool MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
 {
 	INI ini;
 	AsciiString fname;
@@ -609,8 +628,18 @@ void MapCache::loadMapsFromMapCacheINI( const AsciiString &mapDir )
 
 	if (TheFileSystem->doesFileExist(fname.str()))
 	{
-		ini.load( fname, INI_LOAD_OVERWRITE, nullptr );
+		// a partial or unreadable cache must not abort startup, the disk scan re-caches the maps and rewrites it
+		try
+		{
+			ini.load( fname, INI_LOAD_OVERWRITE, nullptr );
+		}
+		catch (...)
+		{
+			DEBUG_LOG(("MapCache::loadMapsFromMapCacheINI - ignoring unreadable '%s'", fname.str()));
+			return FALSE;
+		}
 	}
+	return TRUE;
 }
 
 Bool MapCache::loadMapsFromDisk( const AsciiString &mapDir, Bool isOfficial, Bool filterByAllowedMaps )
@@ -726,7 +755,25 @@ Bool MapCache::addMap(
 		}
 	}
 
-	loadMap(fname); // Just load for querying the data, since we aren't playing this map.
+	// Just load for querying the data, since we aren't playing this map.
+	Bool loaded = FALSE;
+	try
+	{
+		loaded = loadMap(fname);
+	}
+	catch (...)
+	{
+		loaded = FALSE;
+	}
+
+	const UnsignedInt mapCRC = loaded ? calcCRC(fname) : 0;
+	if (!loaded || mapCRC == 0)
+	{
+		// never cache a map we could not read; drop a stale entry so writeCacheINI does not persist it
+		DEBUG_LOG(("MapCache::addMap(): could not read '%s', not caching it", fname.str()));
+		resetMap();
+		return erase(lowerFname) > 0;
+	}
 
 	// The map is now loaded.  Pick out what we need.
 	MapMetaData md;
@@ -741,8 +788,8 @@ Bool MapCache::addMap(
 	md.m_timestamp.m_lowTimeStamp = fileInfo.timestampLow;
 	md.m_supplyPositions = m_supplyPositions;
 	md.m_techPositions = m_techPositions;
-	md.m_CRC = calcCRC(fname);
-	
+	md.m_CRC = mapCRC;
+
 	Bool exists = false;
 	AsciiString nameLookupTag = worldDict.getAsciiString(TheKey_mapName, &exists);
 	md.m_nameLookupTag = nameLookupTag;

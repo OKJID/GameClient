@@ -291,6 +291,19 @@ inline BOOL SHGetSpecialFolderPath(HWND, char* pszPath, int, BOOL) {
     return FALSE;
 }
 
+inline BOOL SHGetSpecialFolderPathW(HWND hwnd, wchar_t* pszPath, int csidl, BOOL fCreate) {
+    char narrowPath[MAX_PATH];
+    if (!pszPath || !SHGetSpecialFolderPath(hwnd, narrowPath, csidl, fCreate)) return FALSE;
+    return mbstowcs(pszPath, narrowPath, MAX_PATH) != (size_t)-1;
+}
+
+inline DWORD GetShortPathNameW(const wchar_t*, wchar_t*, DWORD) { return 0; }
+
+#ifndef CP_UTF8
+#define CP_UTF8 65001
+#endif
+inline UINT GetACP() { return CP_UTF8; }
+
 inline void ConvertToNativePath(char* path) {
     if (!path) return;
     for (char* p = path; *p; ++p) {
@@ -315,6 +328,27 @@ inline BOOL CreateDirectory(LPCSTR lpPathName, void*) {
     }
 
     return mkdir(native, 0755) == 0 || errno == EEXIST;
+}
+
+#define MOVEFILE_REPLACE_EXISTING 0x00000001
+#define MOVEFILE_WRITE_THROUGH 0x00000008
+
+inline BOOL MoveFileExA(LPCSTR lpExistingFileName, LPCSTR lpNewFileName, DWORD dwFlags) {
+    if (!lpExistingFileName || !lpNewFileName) return FALSE;
+
+    char nativeExisting[MAX_PATH];
+    strncpy(nativeExisting, lpExistingFileName, MAX_PATH - 1);
+    nativeExisting[MAX_PATH - 1] = '\0';
+    ConvertToNativePath(nativeExisting);
+
+    char nativeNew[MAX_PATH];
+    strncpy(nativeNew, lpNewFileName, MAX_PATH - 1);
+    nativeNew[MAX_PATH - 1] = '\0';
+    ConvertToNativePath(nativeNew);
+
+    if (!(dwFlags & MOVEFILE_REPLACE_EXISTING) && access(nativeNew, F_OK) == 0) return FALSE;
+
+    return rename(nativeExisting, nativeNew) == 0;
 }
 
 inline DWORD GetModuleFileName(HMODULE, char* lpFilename, DWORD nSize) {

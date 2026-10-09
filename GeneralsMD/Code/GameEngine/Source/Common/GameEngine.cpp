@@ -166,6 +166,11 @@ void TearDownGeneralsOnline()
             title = TheGameText->fetch("GUI:GSErrorTitle");
             body = L"Authentication with the Generals Online servers failed.";
         }
+		else if (teardownReason == EGOTearDownReason::MIDDLEWARE_LOGIN_FAILED)
+		{
+            title = TheGameText->fetch("GUI:GSErrorTitle");
+            body = L"Middleware Authentication failed.";
+		}
 		else
 		{
 			title = TheGameText->fetch("GUI:GSErrorTitle");

@@ -166,7 +166,7 @@
 
 | Status | Component | Note |
 |:---|:---|:---|
-| ✅ | `GameNetworkingSockets` | Compiled for macOS ARM64, bundled as `.dylib` |
+| ✅ | `GameNetworkingSockets` | From vcpkg (`tintinhamans/GNS` registry), static arm64 |
 | ✅ | `libcurl` | HTTP/WS for lobby, auth, stats |
 | ✅ | `OnlineServices_Auth` | `ShellExecuteA` → `system("open")`, token storage via file |
 | ✅ | `OnlineServices_Init` | `GetModuleFileName` → shim, `LoadLibraryA` → `dlopen` |

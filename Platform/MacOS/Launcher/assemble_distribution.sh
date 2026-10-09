@@ -63,7 +63,6 @@ RESOURCES_DIR="$CONTENTS_DIR/Resources"
 FRAMEWORKS_DIR="$CONTENTS_DIR/Frameworks"
 GAME_BINARY="$MACOS_DIR/GeneralsOnlineZH"
 VANILLA_BINARY="$MACOS_DIR/$VANILLA_BINARY_NAME"
-GNS_SEARCH_PATH="../../../build/macos/bin"
 
 # Both games share this shell: their Resources are byte-identical and classic
 # Generals carries no libraries of its own, so it needs only its binary here.
@@ -88,14 +87,12 @@ if [ -n "$VANILLA_BINARY" ]; then
         -x "$GAME_BINARY" \
         -x "$VANILLA_BINARY" \
         -d "$FRAMEWORKS_DIR" \
-        -p @executable_path/../Frameworks/ \
-        -s "$GNS_SEARCH_PATH"
+        -p @executable_path/../Frameworks/
 else
     dylibbundler -od -b \
         -x "$GAME_BINARY" \
         -d "$FRAMEWORKS_DIR" \
-        -p @executable_path/../Frameworks/ \
-        -s "$GNS_SEARCH_PATH"
+        -p @executable_path/../Frameworks/
 fi
 
 if [ $? -ne 0 ]; then

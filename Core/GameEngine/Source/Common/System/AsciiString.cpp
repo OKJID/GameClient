@@ -46,6 +46,9 @@
 
 #include "Common/CriticalSection.h"
 
+#if defined(_WIN32) && !defined(WC_NO_BEST_FIT_CHARS)
+#define WC_NO_BEST_FIT_CHARS 0x00000400
+#endif
 
 // -----------------------------------------------------
 
@@ -307,9 +310,43 @@ char* AsciiString::getBufferForRead(Int len)
 void AsciiString::translate(const UnicodeString& stringSrc)
 {
 	validate();
-	/// @todo srj put in a real translation here; this will only work for 7-bit ascii
-	clear();
 	Int len = stringSrc.getLength();
+#ifdef _WIN32
+	// non-ASCII text becomes process code page bytes (UTF-8 on modern Windows); pure ASCII takes the loop below
+	Bool isAscii = true;
+	for (Int i = 0; i < len; i++)
+	{
+		if (stringSrc.getCharAt(i) >= 0x80)
+		{
+			isAscii = false;
+			break;
+		}
+	}
+	if (!isAscii)
+	{
+		// a legacy code page can't hold everything; substitute '_' so generated file names stay valid
+		const Bool isUtf8 = GetACP() == CP_UTF8;
+		const UINT codePage = isUtf8 ? CP_UTF8 : CP_ACP;
+		const DWORD flags = isUtf8 ? 0 : WC_NO_BEST_FIT_CHARS;
+		const char* defaultChar = isUtf8 ? nullptr : "_";
+		const Int narrowLen = WideCharToMultiByte(codePage, flags, stringSrc.str(), len, nullptr, 0, defaultChar, nullptr);
+		if (narrowLen > 0)
+		{
+			char* narrowBuf = new char[narrowLen + 1];
+			const Int written = WideCharToMultiByte(codePage, flags, stringSrc.str(), len, narrowBuf, narrowLen, defaultChar, nullptr);
+			if (written > 0)
+			{
+				narrowBuf[written] = 0;
+				set(narrowBuf);
+				delete[] narrowBuf;
+				validate();
+				return;
+			}
+			delete[] narrowBuf;
+		}
+	}
+#endif
+	clear();
 	for (Int i = 0; i < len; i++)
 		concat((char)stringSrc.getCharAt(i));
 	validate();

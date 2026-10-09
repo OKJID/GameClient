@@ -221,9 +221,38 @@ WideChar* UnicodeString::getBufferForRead(Int len)
 void UnicodeString::translate(const AsciiString& stringSrc)
 {
 	validate();
-	/// @todo srj put in a real translation here; this will only work for 7-bit ascii
-	clear();
 	Int len = stringSrc.getLength();
+#ifdef _WIN32
+	// bytes >= 0x80 are process code page text (UTF-8 on modern Windows); pure ASCII takes the loop below
+	Bool isAscii = true;
+	for (Int i = 0; i < len; i++)
+	{
+		if ((unsigned char)stringSrc.getCharAt(i) >= 0x80)
+		{
+			isAscii = false;
+			break;
+		}
+	}
+	if (!isAscii)
+	{
+		const Int wideLen = MultiByteToWideChar(CP_ACP, 0, stringSrc.str(), len, nullptr, 0);
+		if (wideLen > 0)
+		{
+			WideChar* wideBuf = new WideChar[wideLen + 1];
+			const Int written = MultiByteToWideChar(CP_ACP, 0, stringSrc.str(), len, wideBuf, wideLen);
+			if (written > 0)
+			{
+				wideBuf[written] = 0;
+				set(wideBuf);
+				delete[] wideBuf;
+				validate();
+				return;
+			}
+			delete[] wideBuf;
+		}
+	}
+#endif
+	clear();
 	for (Int i = 0; i < len; i++)
 		concat((WideChar)stringSrc.getCharAt(i));
 	validate();

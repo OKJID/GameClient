@@ -620,7 +620,6 @@ public:
 	virtual void adjustVolumeOfPlayingAudio(AsciiString eventName, Real newVolume) override {}
 	virtual void removePlayingAudio(AsciiString eventName) override {}
 	virtual void removeAllDisabledAudio() override {}
-	virtual Bool has3DSensitiveStreamsPlaying() const override { return FALSE; }
 	virtual void* getHandleForBink() override { return nullptr; }
 	virtual void releaseHandleForBink() override {}
 	virtual void friend_forcePlayAudioEventRTS(const AudioEventRTS* eventToPlay) override {}

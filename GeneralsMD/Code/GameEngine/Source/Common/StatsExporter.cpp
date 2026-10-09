@@ -33,9 +33,16 @@
 #include "GameLogic/Module/BattlePlanUpdate.h"
 
 #include <stdio.h>
+#ifdef __APPLE__
 #define Byte ZlibByte
+#else
+// Keep zconf.h from redefining 'Byte' (BaseTypeCore.h) when using unprefixed zlib (vcpkg).
+#define __MACTYPES__
+#endif
 #include <zlib.h>
+#ifdef __APPLE__
 #undef Byte
+#endif
 
 #include "GameNetwork/GeneralsOnline/json.hpp"
 

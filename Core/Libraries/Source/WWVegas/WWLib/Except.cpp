@@ -181,6 +181,25 @@ private:
 };
 
 /*
+** Set once ThreadList has been destroyed during CRT shutdown. Threads that exit after
+** that point must not touch the list.
+*/
+static bool ThreadListDestroyed = false;
+
+/*
+** Defined after ThreadList, so it is destroyed first and marks the list as gone
+** before the list's own destructor runs.
+*/
+static struct ThreadListShutdownGuard
+{
+	~ThreadListShutdownGuard()
+	{
+		ScopedThreadListLock lock(GetThreadListCS());
+		ThreadListDestroyed = true;
+	}
+} ThreadListShutdownGuardInstance;
+
+/*
 ** Definitions to allow run-time linking to the Imagehlp.dll functions.
 **
 */
@@ -958,6 +977,9 @@ void Register_Thread_ID(unsigned long thread_id, char *thread_name, bool main_th
 	WWMEMLOG(MEM_GAMEDATA);
 	if (thread_name) {
 		ScopedThreadListLock lock(GetThreadListCS());
+		if (ThreadListDestroyed) {
+			return;
+		}
 
 		/*
 		** See if we already know about this thread. Maybe just the thread_id changed.
@@ -1069,6 +1091,9 @@ HANDLE Get_Thread_Handle(int thread_index)
 void Unregister_Thread_ID(unsigned long thread_id, char *thread_name)
 {
 	ScopedThreadListLock lock(GetThreadListCS());
+	if (ThreadListDestroyed) {
+		return;
+	}
 	
 	for (int i=0 ; i<ThreadList.Count() ; i++) {
 		if (strcmp(thread_name, ThreadList[i]->ThreadName) == 0) {
@@ -1099,6 +1124,9 @@ void Unregister_Thread_ID(unsigned long thread_id, char *thread_name)
 unsigned long Get_Main_Thread_ID()
 {
 	ScopedThreadListLock lock(GetThreadListCS());
+	if (ThreadListDestroyed) {
+		return(0);
+	}
 	
 	for (int i=0 ; i<ThreadList.Count() ; i++) {
 		if (ThreadList[i]->Main) {

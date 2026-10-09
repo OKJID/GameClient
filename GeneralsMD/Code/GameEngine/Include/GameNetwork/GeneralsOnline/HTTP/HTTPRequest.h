@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameNetwork/GeneralsOnline/Vendor/libcurl/curl.h"
+#include <curl/curl.h>
 #include <map>
 #include <string>
 #include <functional>

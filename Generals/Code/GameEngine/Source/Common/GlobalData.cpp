@@ -1050,6 +1050,8 @@ GlobalData::GlobalData()
 	m_forceBenchmark = FALSE;	///<forces running of CPU detection benchmark, even on known cpu's.
 
 	m_keyboardCameraRotateSpeed = 0.1f;
+	m_cameraRotateSpeedMultiplier = 1.0f;
+	m_cameraPitchSpeedMultiplier = 1.0f;
 
 	m_useAlternateMouse = FALSE;
 #if RTS_GENERALS
@@ -1238,6 +1240,8 @@ void GlobalData::parseGameDataDefinition( INI* ini )
 	TheWritableGlobalData->m_observerNotificationSpecialPowerPurchase = optionPref.getObserverNotificationSpecialPowerPurchase();
 	TheWritableGlobalData->m_observerNotificationMilestone = optionPref.getObserverNotificationMilestone();
 	TheWritableGlobalData->m_gameWindowTransitionSpeedMultiplier = optionPref.getGameWindowTransitionSpeedMultiplier();
+	TheWritableGlobalData->m_cameraRotateSpeedMultiplier = optionPref.getCameraRotateSpeedMultiplier();
+	TheWritableGlobalData->m_cameraPitchSpeedMultiplier = optionPref.getCameraPitchSpeedMultiplier();
 
 	TheWritableGlobalData->m_antiAliasLevel = optionPref.getAntiAliasing();
 	TheWritableGlobalData->m_textureFilteringMode = optionPref.getTextureFilterMode();

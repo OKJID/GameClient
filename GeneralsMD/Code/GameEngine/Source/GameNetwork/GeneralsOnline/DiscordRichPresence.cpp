@@ -219,16 +219,14 @@ GeneralsOnlineDiscordRPC::PresenceData GeneralsOnlineDiscordRPC::BuildPresence(
   data.largeImageKey = DEFAULT_IMAGE_KEY;
   data.largeImageText = DEFAULT_IMAGE_TEXT;
 
-  const GameInfo *game =
-      TheGameInfo != nullptr && TheGameInfo->isGameInProgress() ? TheGameInfo
-                                                                : nullptr;
-  if (game == nullptr) {
-    return data;
+  if (TheNGMPGame == nullptr || !TheNGMPGame->isGameInProgress())
+  {
+      return data;
   }
 
   const LobbyEntry *lobby = nullptr;
-  if (game == TheNGMPGame && lobbyInterface != nullptr &&
-      lobbyInterface->IsInLobby()) {
+  if (lobbyInterface != nullptr && lobbyInterface->IsInLobby())
+  {
     lobby = &lobbyInterface->GetCurrentLobby();
   }
 
@@ -243,27 +241,26 @@ GeneralsOnlineDiscordRPC::PresenceData GeneralsOnlineDiscordRPC::BuildPresence(
                     lobby->limit_superweapons ? "Limit SW" : "No SW Limit",
                     lobby->track_stats ? "Record Stats" : "No Stats");
   } else {
-    data.state = game == TheNGMPGame ? to_utf8(TheNGMPGame->getGameName().str())
-                                     : "In Match";
-    data.details = GetMapDisplayName(game->getMap());
-    data.partySize = game->getNumPlayers();
-    data.partyMax = game->getMaxPlayers();
+    data.state = to_utf8(TheNGMPGame->getGameName().str());
+    data.details = GetMapDisplayName(TheNGMPGame->getMap());
+    data.partySize = TheNGMPGame->getNumPlayers();
+    data.partyMax = TheNGMPGame->getMaxPlayers();
     data.smallImageText = std::format(
-        "{}$, {}, {}", game->getStartingCash().countMoney(),
-        game->getSuperweaponRestriction() ? "Limit SW" : "No SW Limit",
-        game->getUseStats() ? "Record Stats" : "No Stats");
+        "{}$, {}, {}", TheNGMPGame->getStartingCash().countMoney(),
+        TheNGMPGame->getSuperweaponRestriction() ? "Limit SW" : "No SW Limit",
+        TheNGMPGame->getUseStats() ? "Record Stats" : "No Stats");
   }
 
   data.state = ClampDiscordString(data.state.empty() ? "In Match" : data.state);
   data.details = ClampDiscordString(
-      data.details.empty() ? GetMapDisplayName(game->getMap()) : data.details);
+      data.details.empty() ? GetMapDisplayName(TheNGMPGame->getMap()) : data.details);
   data.smallImageText = ClampDiscordString(data.smallImageText);
   data.partyMax = (std::max)(data.partyMax, 0);
   data.partySize = std::clamp(data.partySize, 0, data.partyMax);
 
-  const Int localSlotIndex = game->getLocalSlotNum();
+  const Int localSlotIndex = TheNGMPGame->getLocalSlotNum();
   const GameSlot *localSlot =
-      localSlotIndex >= 0 ? game->getConstSlot(localSlotIndex) : nullptr;
+      localSlotIndex >= 0 ? TheNGMPGame->getConstSlot(localSlotIndex) : nullptr;
   if (localSlot == nullptr ||
       localSlot->getPlayerTemplate() == PLAYERTEMPLATE_OBSERVER) {
     return data;

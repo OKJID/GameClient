@@ -31,6 +31,7 @@ public:
 	~NGMP_OnlineServices_SocialInterface();
 
 	void GetFriendsList(bool bUseCache, std::function<void()> cb);
+	bool IsOverlayActive() const { return m_bOverlayActive; }
 
 	void GetBlockList(std::function<void(BlockedResult blockResult)> cb);
 

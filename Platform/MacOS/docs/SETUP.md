@@ -8,6 +8,7 @@
 | **Xcode Command Line Tools** | Latest | `xcode-select --install` |
 | **CMake** | 3.25+ | `brew install cmake` |
 | **Ninja** | Latest | `brew install ninja` |
+| **vcpkg** | Latest | `git clone https://github.com/microsoft/vcpkg ~/vcpkg && ~/vcpkg/bootstrap-vcpkg.sh`, then `export VCPKG_ROOT=~/vcpkg` |
 | **dylibbundler** | Latest | `brew install dylibbundler` (required for `--launcher`) |
 | **Game Data** | Generals: Zero Hour | `.big` files from a Windows installation |
 

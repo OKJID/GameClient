@@ -317,7 +317,7 @@ static void gameTooltip(GameWindow* window,
 		return;
 	}
 
-	LobbyEntry lobbyEntry = pLobbyInterface->GetLobbyFromID(gameID);
+	LobbyEntry lobbyEntry = pLobbyInterface->GetLobbyFromID(ResolveGameListLobbyID(gameID));
 	if (lobbyEntry.lobbyID == -1)
 	{
 		return;
@@ -658,6 +658,20 @@ static Bool lobbyHasBuddy(GameSpyStagingRoom *room)
 }
 #endif
 
+// Lobby IDs are 64-bit, but GadgetListBox item data is a 32-bit void* on this platform, so we
+// can't stash the ID itself there. Instead we store the row index and keep the real ID here,
+// rebuilt every time the game listbox is repopulated (see RefreshGameListBox/insertGame).
+static std::vector<int64_t> s_lobbyRowIDs;
+
+int64_t ResolveGameListLobbyID(Int rowItemData)
+{
+	if (rowItemData < 0 || (size_t)rowItemData >= s_lobbyRowIDs.size())
+	{
+		return -1;
+	}
+	return s_lobbyRowIDs[rowItemData];
+}
+
 #if defined(GENERALS_ONLINE) && defined(RTS_ZEROHOUR)
 static void populateBuddyGames(std::vector<LobbyEntry>& vecLobbies)
 #else
@@ -902,7 +916,6 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 	AsciiString lobbyMapName = AsciiString(lobbyInfo.map_name.c_str());
 	AsciiString ladder = AsciiString("TODO_NGMP");
 	USHORT ladderPort = 1;
-	int gameID = lobbyInfo.lobbyID; // TODO_NGMP: Downcast. We should use int64 everywhere, although its unlikely we actually need int64 for lobby since its reset regularly.
 
 	bool bHasPassword = lobbyInfo.passworded;
 
@@ -949,7 +962,12 @@ static Int insertGame(GameWindow* win, LobbyEntry& lobbyInfo, Bool showMap)
 		gameColor = GameMakeColor(191, 198, 201, 255);
 	}
 	Int index = GadgetListBoxAddEntryText(win, gameName, gameColor, -1, COLUMN_NAME);
-	GadgetListBoxSetItemData(win, (void*)(size_t)gameID, index);
+	if ((size_t)index >= s_lobbyRowIDs.size())
+	{
+		s_lobbyRowIDs.resize(index + 1);
+	}
+	s_lobbyRowIDs[index] = lobbyInfo.lobbyID;
+	GadgetListBoxSetItemData(win, (void*)(intptr_t)index, index);
 
 	UnicodeString s;
 
@@ -1407,11 +1425,11 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 
 	// save off selection
 	Int selectedIndex = -1;
-	Int selectedID = 0;
+	int64_t selectedID = -1;
 	GadgetListBoxGetSelected(win, &selectedIndex);
 	if (selectedIndex != -1)
 	{
-		selectedID = (Int)(size_t)GadgetListBoxGetItemData(win, selectedIndex);
+		selectedID = ResolveGameListLobbyID((Int)(intptr_t)GadgetListBoxGetItemData(win, selectedIndex));
 	}
 	int prevPos = GadgetListBoxGetTopVisibleEntry(win);
 
@@ -1429,6 +1447,7 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 		{
 			// empty listbox
 			GadgetListBoxReset(win);
+			s_lobbyRowIDs.clear();
 
 			size_t numResults = vecLobbies.size();
 
@@ -1511,7 +1530,7 @@ void RefreshGameListBox(GameWindow* win, Bool showMap)
 				//	if(prevPos > 10)
 				GadgetListBoxSetTopVisibleEntry(win, prevPos);//+ 1
 
-				if (indexToSelect < 0 && selectedID)
+				if (indexToSelect < 0 && selectedID >= 0)
 				{
 					TheWindowManager->winSetLoneWindow(NULL);
 				}

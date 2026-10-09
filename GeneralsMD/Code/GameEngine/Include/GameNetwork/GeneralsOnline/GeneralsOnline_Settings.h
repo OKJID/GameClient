@@ -33,7 +33,7 @@ public:
 
 	void Save_Camera_MaxHeight_WhenLobbyHost(float maxHeight)
 	{
-		if (maxHeight >= GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM || maxHeight <= GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM)
+		if (maxHeight >= GENERALS_ONLINE_MIN_LOBBY_CAMERA_ZOOM && maxHeight <= GENERALS_ONLINE_MAX_LOBBY_CAMERA_ZOOM)
 		{
 			m_Camera_MaxHeight_LobbyHost = maxHeight;
 			Save();
@@ -52,8 +52,7 @@ public:
 		return m_Render_FramerateLimit_FPSVal;
 	}
 
-    std::string GetAnticheatPlugin() const { return m_Plugins_Anticheat; }
-
+	std::string GetAnticheatPlugin() const;
 	bool Social_Notifications_FriendComesOnline_Menus() { return m_Social_Notification_FriendComesOnline_Menus; }
 	bool Social_Notifications_FriendComesOnline_Gameplay() { return m_Social_Notification_FriendComesOnline_Gameplay; }
 	bool Social_Notifications_FriendGoesOffline_Menus() { return m_Social_Notification_FriendGoesOffline_Menus; }

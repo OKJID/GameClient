@@ -1,5 +1,5 @@
 $patchDirectoryPath = "Patch"  
-$buildDir = "build\win32\GeneralsMD\Release";
+$buildDir = "build\win32-vcpkg\GeneralsMD\Release";
 $buildVer = 1;
 
 $crcFilesDir = "$patchDirectoryPath/private/genonlineserver/crcfiles"
@@ -25,8 +25,7 @@ New-Item -ItemType Directory -Path "$updaterDir"
 New-Item -ItemType Directory -Path "$workingDir"
 
 # Copy runtime libraries and release exe to working dir
-Copy-Item -Path "$buildDir\libcurl.dll" -Destination $workingDir
-Copy-Item -Path "$buildDir\zlib1.dll" -Destination $workingDir
+Copy-Item -Path "$buildDir\crashpad_handler.exe" -Destination $workingDir
 Copy-Item -Path "$buildDir\discord-rpc.dll" -Destination $workingDir
 Copy-Item -Path "$buildDir\discord-rpc-LICENSE.txt" -Destination $workingDir
 Copy-Item -Path "$buildDir\GeneralsOnlineZH.exe" -Destination $workingDir

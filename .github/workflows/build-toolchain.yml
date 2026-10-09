@@ -30,7 +30,8 @@ jobs:
   build:
     name: ${{ inputs.preset }}${{ inputs.tools && '+t' || '' }}${{ inputs.extras && '+e' || '' }}
     runs-on: windows-2022
-    timeout-minutes: 30
+    # A cold vcpkg binary cache builds all dependencies from source.
+    timeout-minutes: 120
 
     env:
       VCPKG_FILE_CACHE: ${{ github.workspace }}\vcpkg-bincache
@@ -115,6 +116,8 @@ jobs:
 
           $triplet = "x86-windows"
           if ("${{ inputs.preset }}" -like "x64*") { $triplet = "x64-windows" }
+          # Must match VCPKG_TARGET_TRIPLET in the win32-vcpkg presets.
+          if ("${{ inputs.preset }}" -like "win32-vcpkg*") { $triplet = "x86-windows-static-md" }
 
           "baseline=$baseline" >> $env:GITHUB_OUTPUT
           "triplet=$triplet" >> $env:GITHUB_OUTPUT
@@ -137,6 +140,8 @@ jobs:
         with:
           runVcpkgInstall: false
           doNotCache: true
+          # Only the root manifest; ports/ holds overlay port manifests without a baseline.
+          vcpkgJsonGlob: vcpkg.json
 
       - name: Configure vcpkg to use cached directory
         if: startsWith(inputs.preset, 'win32')
@@ -178,7 +183,7 @@ jobs:
 
       - name: Save vcpkg binary cache
         # Only one job should save to avoid "Unable to reserve cache" conflicts.
-        if: ${{ startsWith(inputs.preset, 'win32') && steps.vcpkg_cache.outputs.cache-hit != 'true' && inputs.game == 'Generals' && inputs.preset == 'win32-vcpkg-debug' }}
+        if: ${{ startsWith(inputs.preset, 'win32') && steps.vcpkg_cache.outputs.cache-hit != 'true' && inputs.game == 'GeneralsMD' && inputs.preset == 'win32-vcpkg' }}
         uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ github.workspace }}\vcpkg-bincache

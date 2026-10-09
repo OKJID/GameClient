@@ -1115,6 +1115,10 @@ void W3DTreeBuffer::unitMoved(Object* unit)
 	Int xMax = REAL_TO_INT_CEIL((x / (m_bounds.hi.x - m_bounds.lo.x)) * (PARTITION_WIDTH_HEIGHT - 0.1f));
 	Int yMax = REAL_TO_INT_CEIL((y / (m_bounds.hi.y - m_bounds.lo.y)) * (PARTITION_WIDTH_HEIGHT - 0.1f));
 	DEBUG_ASSERTCRASH(xMax >= 0 && yMax >= 0 && xMax <= PARTITION_WIDTH_HEIGHT && yMax <= PARTITION_WIDTH_HEIGHT, ("Invalid range."));
+	xIndex = clamp<Int>(0, xIndex, PARTITION_WIDTH_HEIGHT);
+	yIndex = clamp<Int>(0, yIndex, PARTITION_WIDTH_HEIGHT);
+	xMax = clamp<Int>(0, xMax, PARTITION_WIDTH_HEIGHT);
+	yMax = clamp<Int>(0, yMax, PARTITION_WIDTH_HEIGHT);
 	Int i, j;
 	for (i = xIndex; i < xMax; i++) {
 		for (j = yIndex; j < yMax; j++) {

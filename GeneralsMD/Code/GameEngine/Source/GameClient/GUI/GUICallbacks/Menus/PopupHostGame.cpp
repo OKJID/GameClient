@@ -393,6 +393,8 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
   // limit armies is disallowed in "use stats" games
 	checkBoxLimitArmies->winEnable(! usingStats );
   GadgetCheckBoxSetChecked( checkBoxLimitArmies, usingStats? FALSE : customPref.getFactionsLimited() );
+#else
+  GadgetCheckBoxSetChecked( checkBoxLimitArmies, customPref.getFactionsLimited() );
 #endif
 
 	TheWindowManager->winSetFocus(textEntryGameName);
@@ -409,7 +411,6 @@ void PopupHostGameInit( WindowLayout *layout, void *userData )
 
 	checkBoxAllowObservers->winSetPosition(xStats, yObs);
 	checkBoxAllowObservers->winHide(false);
-	GadgetCheckBoxSetChecked(checkBoxAllowObservers, true);
 
 	// hide password for streams
 	EntryData* e = (EntryData*)textEntryGamePassword->winGetUserData();
@@ -665,6 +666,14 @@ void createGame()
 	Bool limitArmies = GadgetCheckBoxIsChecked(checkBoxLimitArmies);
 	Bool useStats = GadgetCheckBoxIsChecked(checkBoxUseStats);
 	Bool bAllowObservers = GadgetCheckBoxIsChecked(checkBoxAllowObservers);
+
+	{
+		CustomMatchPreferences pref;
+		pref.setAllowsObserver(bAllowObservers);
+		pref.setFactionsLimited(limitArmies);
+		pref.setUseStats(useStats);
+		pref.write();
+	}
 
 	UnicodeString gameName = GadgetTextEntryGetText(textEntryGameName);
 

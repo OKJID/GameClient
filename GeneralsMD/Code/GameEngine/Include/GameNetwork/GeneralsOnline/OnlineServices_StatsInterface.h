@@ -504,5 +504,5 @@ private:
 	uint64_t m_nextStatsCacheRevision = 0;
 	uint64_t m_nextStatsUpdateRevision = 0;
 	static constexpr std::chrono::minutes STATS_CACHE_TTL{ 10 };
-	static constexpr std::size_t MAX_PLAYER_STATS_CACHE_ENTRIES = 128;
+	static constexpr std::size_t MAX_PLAYER_STATS_CACHE_ENTRIES = 256;
 };

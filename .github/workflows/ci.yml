@@ -135,24 +135,17 @@ jobs:
     strategy:
       matrix:
         include:
-          - preset: "win32"
+          # Generals Online networking deps (curl, GameNetworkingSockets, sentry) come from vcpkg,
+          # so only the vcpkg presets can build GeneralsMD.
+          - preset: "win32-vcpkg"
             tools: false
             extras: true
-          - preset: "win32-profile"
+          - preset: "win32-vcpkg-profile"
             tools: false
             extras: true
-          - preset: "win32-debug"
+          - preset: "win32-vcpkg-debug"
             tools: false
             extras: true
-          #- preset: "win32-vcpkg"
-          #  tools: true
-          #  extras: true
-          #- preset: "win32-vcpkg-profile"
-          #  tools: true
-          #  extras: true
-          #- preset: "win32-vcpkg-debug"
-          #  tools: true
-          #  extras: true
       fail-fast: false
     uses: ./.github/workflows/build-toolchain.yml
     with:

@@ -187,12 +187,16 @@ CameraShakeSystemClass::CameraShakeSystemClass()
 
 CameraShakeSystemClass::~CameraShakeSystemClass()
 {
+	Reset();
+}
+
+void CameraShakeSystemClass::Reset()
+{
 	/*
 	** delete all of the objects out of the list
 	*/
 	while (!CameraShakerList.Is_Empty()) {
 		CameraShakerClass * obj = CameraShakerList.Remove_Head();
-		CameraShakerList.Remove(obj);
 		delete obj;
 	}
 }

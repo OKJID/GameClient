@@ -675,14 +675,15 @@ Bool IMEManager::serviceIMEMessage(	void *windowsHandle, UnsignedInt message,	In
 			// --------------------------------------------------------------------
 			case WM_IME_CHAR:
 			{
-				WideChar wchar = convertCharToWide(wParam);
+				// Unicode windows get UTF-16, ANSI windows get the character in the ANSI code page
+				WideChar wchar = IsWindowUnicode( (HWND)windowsHandle ) ? (WideChar) (wParam & 0xffff) : convertCharToWide(wParam);
 				#ifdef DEBUG_IME
 				DEBUG_LOG(("IMM: WM_IME_CHAR - '%hc'0x%04x", wchar, wchar ));
 				#endif
 
 				if ( m_window && (wchar > 32 || wchar == VK_RETURN ))
 				{
-					TheWindowManager->winSendInputMsg( m_window, GWM_IME_CHAR, (wParam & 0xffff), lParam );
+					TheWindowManager->winSendInputMsg( m_window, GWM_IME_CHAR, wchar, lParam );
 					m_result = 0;
 					return TRUE;
 				}

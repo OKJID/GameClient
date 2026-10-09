@@ -68,6 +68,7 @@ public:
 
 protected:
 	AsciiString m_filename;
+	Bool m_loadFailed;	///< the file exists but could not be read; write() must not replace it
 };
 
 //-----------------------------------------------------------------------------

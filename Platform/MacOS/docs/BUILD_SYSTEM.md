@@ -38,7 +38,7 @@ cmake --build build/macos
   │  Miles (APPLE) ────────┼──► milesstub INTERFACE    │
   │  Bink (APPLE) ─────────┼──► binkstub INTERFACE     │
   │  Win32 libs (APPLE) ───┼──► INTERFACE dummies      │
-  │  zlib (APPLE) ─────────┼──► System zlib            │
+  │  zlib (APPLE) ─────────┼──► vcpkg zlib             │
   │                       │                           │
   ├───────────────────────┼───────────────────────────┤
   │     TARGETS           │                           │
@@ -86,37 +86,25 @@ cmake --build build/macos
 
 ## Vendor Libraries
 
-| Library | Linking | Purpose |
-|:---|:---|:---|
-| `libcurl` | Dynamic (`.dylib`) | HTTP/WebSocket for Generals Online |
-| `GameNetworkingSockets` | Dynamic (`.dylib`) | P2P networking (Valve) |
-| `libsodium` | Dynamic (`.dylib`) | Cryptography (GNS dependency) |
-| `protobuf` | Dynamic (`.dylib`) | Serialization (GNS dependency) |
-| `OpenSSL` | Dynamic (`.dylib`) | TLS (GNS dependency) |
-| `nlohmann/json` | Header-only | JSON parsing |
-| `stb_image_write` | Header-only | Screenshot capture |
-| `miniupnpc` | Source | UPnP port forwarding |
+Third-party libraries come from vcpkg (`vcpkg.json`), the same manifest the Windows build uses.
 
-> **Note:** Dynamic libraries must be bundled into `GeneralsOnlineZH.app/Contents/Frameworks/`
-> for distribution. Use `dylibbundler` or equivalent to rewrite `@rpath` references.
+| Library | Source | Linking | Purpose |
+|:---|:---|:---|:---|
+| `curl` | vcpkg | Static | HTTP/WebSocket for Generals Online |
+| `GameNetworkingSockets` | vcpkg, `tintinhamans/GNS` registry | Static | P2P networking (ICE + WebRTC) |
+| `sentry-native` | vcpkg | Static | Error and crash reporting |
+| `zlib`, `stb` | vcpkg | Static / header-only | Compression, screenshot capture |
+| FFmpeg (Bink only) | `cmake/ffmpeg_bink.cmake` | Static | Bink video decoding; vcpkg's `ffmpeg` is excluded on macOS |
+| `nlohmann/json` | In tree | Header-only | JSON parsing |
+| `miniupnpc` | In tree | Source | UPnP port forwarding |
 
 ---
 
 ## Preset Configuration
 
-`CMakePresets.json` defines the `macos` preset:
-
-```json
-{
-  "name": "macos",
-  "generator": "Ninja",
-  "binaryDir": "build/macos",
-  "cacheVariables": {
-    "CMAKE_BUILD_TYPE": "Debug",
-    "CMAKE_OSX_ARCHITECTURES": "arm64"
-  }
-}
-```
+The `macos` preset in `CMakePresets.json` builds Release with Ninja into `build/macos`, using the vcpkg toolchain
+(`$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake`) and the overlay triplet `triplets/arm64-osx-static.cmake`:
+static arm64 libraries built for the game's minimum macOS version.
 
 ---
 
@@ -124,6 +112,7 @@ cmake --build build/macos
 
 | Variable | Description | Default |
 |:---|:---|:---|
+| `VCPKG_ROOT` | vcpkg checkout used by the `macos` preset | (required) |
 | `GENERALS_INSTALL_PATH` | Root path to game installation | (required) |
 | `GENERALS_FPS_LIMIT` | FPS cap | 60 |
 | `GENERALS_MSAA` | MSAA sample count | 1 (off) |

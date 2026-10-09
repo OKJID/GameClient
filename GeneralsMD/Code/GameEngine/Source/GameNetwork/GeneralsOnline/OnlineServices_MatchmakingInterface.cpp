@@ -41,6 +41,7 @@ void NGMP_OnlineServices_MatchmakingInterface::RetrievePlaylists(std::function<v
 
 						mapEntryIter["Name"].get_to(mapEntry.Name);
 						mapEntryIter["Path"].get_to(mapEntry.Path);
+						mapEntry.Path = utf8_to_local(mapEntry.Path); // used as a local file path
 						mapEntryIter["Custom"].get_to(mapEntry.Custom);
 
 						playlistEntry.Maps.push_back(mapEntry);

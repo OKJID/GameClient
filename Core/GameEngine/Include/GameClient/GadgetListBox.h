@@ -98,6 +98,22 @@ extern void GadgetListBoxSetSelected( GameWindow *listbox, Int selectIndex );
 extern void GadgetListBoxSetSelected( GameWindow *listbox, const Int *selectList, Int selectCount = 1 );
 extern void GadgetListBoxGetSelected( GameWindow *listbox, Int *selectList );
 extern void GadgetListBoxReset( GameWindow *listbox );
+
+// Defers per-entry height/scrollbar recompute until End. Not nestable.
+extern void GadgetListBoxBeginBatchAdd( GameWindow *listbox );
+extern void GadgetListBoxEndBatchAdd( GameWindow *listbox );
+
+// RAII Begin/End pair.
+class GadgetListBoxBatchAddScope
+{
+public:
+	explicit GadgetListBoxBatchAddScope( GameWindow *listbox ) : m_listbox( listbox ) { GadgetListBoxBeginBatchAdd( m_listbox ); }
+	~GadgetListBoxBatchAddScope() { GadgetListBoxEndBatchAdd( m_listbox ); }
+	GadgetListBoxBatchAddScope( const GadgetListBoxBatchAddScope& ) = delete;
+	GadgetListBoxBatchAddScope& operator=( const GadgetListBoxBatchAddScope& ) = delete;
+private:
+	GameWindow *m_listbox;
+};
 extern void GadgetListBoxSetItemData( GameWindow *listbox,  void *data, Int row, Int column = 0);
 extern void *GadgetListBoxGetItemData( GameWindow *listbox, Int row, Int column = 0);
 

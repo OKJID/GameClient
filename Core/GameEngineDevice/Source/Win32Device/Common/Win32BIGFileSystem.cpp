@@ -115,9 +115,9 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 
 	AsciiString asciibuf;
 	char buffer[_MAX_PATH];
-	fp->read(buffer, 4); // read the "BIG" at the beginning of the file.
+	// read the "BIG" at the beginning of the file.
 	buffer[4] = 0;
-	if (strcmp(buffer, BIGFileIdentifier) != 0) {
+	if (fp->read(buffer, 4) != 4 || strcmp(buffer, BIGFileIdentifier) != 0) {
 		DEBUG_CRASH(("Error reading BIG file identifier in file %s", filename));
 		fp->close();
 		fp = nullptr;
@@ -125,7 +125,12 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 	}
 
 	// read in the file size.
-	fp->read(&archiveFileSize, 4);
+	if (fp->read(&archiveFileSize, 4) != 4) {
+		DEBUG_CRASH(("Error reading BIG file size in file %s", filename));
+		fp->close();
+		fp = nullptr;
+		return nullptr;
+	}
 
 	DEBUG_LOG(("Win32BIGFileSystem::openArchiveFile - size of archive file is %d bytes", archiveFileSize));
 
@@ -133,7 +138,12 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 
 	// read in the number of files contained in this BIG file.
 	// change the order of the bytes cause the file size is in reverse byte order for some reason.
-	fp->read(&numLittleFiles, 4);
+	if (fp->read(&numLittleFiles, 4) != 4) {
+		DEBUG_CRASH(("Error reading BIG file count in file %s", filename));
+		fp->close();
+		fp = nullptr;
+		return nullptr;
+	}
 	numLittleFiles = betoh(numLittleFiles);
 
 	DEBUG_LOG(("Win32BIGFileSystem::openArchiveFile - %d are contained in archive", numLittleFiles));
@@ -150,11 +160,14 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 	// TheSuperHackers @fix Mauller 23/04/2025 Create new file handle when necessary to prevent memory leak
 	ArchiveFile *archiveFile = NEW Win32BIGFile(filename, AsciiString::TheEmptyString);
 
+	Bool corrupt = FALSE;
 	for (Int i = 0; i < numLittleFiles; ++i) {
 		Int filesize = 0;
 		Int fileOffset = 0;
-		fp->read(&fileOffset, 4);
-		fp->read(&filesize, 4);
+		if (fp->read(&fileOffset, 4) != 4 || fp->read(&filesize, 4) != 4) {
+			corrupt = TRUE;
+			break;
+		}
 
 		filesize = betoh(filesize);
 		fileOffset = betoh(fileOffset);
@@ -164,11 +177,21 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 		fileInfo->m_size = filesize;
 
 		// read in the path name of the file.
+		// the name must terminate within the buffer
 		Int pathIndex = -1;
-		do {
-			++pathIndex;
-			fp->read(buffer + pathIndex, 1);
-		} while (buffer[pathIndex] != 0);
+		Bool terminated = FALSE;
+		while (++pathIndex < (Int)sizeof(buffer)) {
+			if (fp->read(buffer + pathIndex, 1) != 1)
+				break;
+			if (buffer[pathIndex] == 0) {
+				terminated = TRUE;
+				break;
+			}
+		}
+		if (!terminated) {
+			corrupt = TRUE;
+			break;
+		}
 
 		Int filenameIndex = pathIndex;
 		while ((filenameIndex >= 0) && (buffer[filenameIndex] != '\\') && (buffer[filenameIndex] != '/')) {
@@ -188,6 +211,15 @@ ArchiveFile * Win32BIGFileSystem::openArchiveFile(const Char *filename) {
 //		DEBUG_LOG(("Win32BIGFileSystem::openArchiveFile - adding file %s to archive file %s, file number %d", debugpath.str(), fileInfo->m_archiveFilename.str(), i));
 
 		archiveFile->addFile(path, fileInfo);
+	}
+
+	if (corrupt) {
+		DEBUG_CRASH(("Truncated or corrupt directory in BIG file %s", filename));
+		delete archiveFile;
+		delete fileInfo;
+		fp->close();
+		fp = nullptr;
+		return nullptr;
 	}
 
 	archiveFile->attachFile(fp);

@@ -1,4 +1,5 @@
 #include "GameNetwork/GeneralsOnline/NGMP_interfaces.h"
+#include "GameNetwork/GeneralsOnline/NetworkMesh.h"
 #include "GameNetwork/GeneralsOnline/HTTP/HTTPManager.h"
 #include "../json.hpp"
 #include "GameClient/MessageBox.h"
@@ -114,20 +115,14 @@ void NGMP_OnlineServicesManager::GetAndParseServiceConfig(std::function<void(voi
 				else
 				{
 					DEBUG_EAC_MAC(("[SVC_CFG] FAILED status=%d success=%d", statusCode, bSuccess));
-					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Status code: %d", statusCode);
-					pMgr->m_ServiceConfig = ServiceConfig();
+					// keep the last good config (defaults if there never was one); resetting would turn off retry_signalling
+					NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, keeping the current one. Status code: %d", statusCode);
 				}
 				
 			}
 			catch (...)
 			{
-				// It's OK to fail, we'll just use the sensible defaults
-				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to get service config, using defaults. Exception.");
-				NGMP_OnlineServicesManager* pMgr = NGMP_OnlineServicesManager::GetInstance();
-				if (pMgr != nullptr)
-				{
-					pMgr->m_ServiceConfig = ServiceConfig();
-				}
+				NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] Failed to parse service config, keeping the current one.");
 			}
 
 			if (cbOnDone != nullptr)
@@ -387,11 +382,13 @@ void NGMP_OnlineServicesManager::WaitForScreenshotThreads()
 void NGMP_OnlineServicesManager::Shutdown()
 {
 	NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] OnlineServicesManager shutdown initiated");
-	
+
 	// First, wait for all screenshot threads to complete
 	// This prevents race conditions where threads might still be using resources
 	WaitForScreenshotThreads();
-	
+
+	NetworkMeshLibrary::Shutdown();
+
 	// Shutdown and completely destroy WebSocket BEFORE cleaning up HTTPManager
 	// This is critical because WebSocket has curl handles that must be freed
 	// before curl_global_cleanup() is called by HTTPManager
@@ -529,6 +526,16 @@ void NGMP_OnlineServicesManager::StartVersionCheck(std::function<void(bool bSucc
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Needs Update");
 						DEBUG_NETWORK_MAC(("VERSION CHECK: Needs Update"));
 
+						// the name becomes a local path, so it must be a bare file name
+						const std::string& strName = authResp.patcher_name;
+						if (strName.empty() || strName.find_first_of("/\\:") != std::string::npos || strName.find("..") != std::string::npos)
+						{
+							NetworkLog(ELogVerbosity::LOG_RELEASE, "VERSION CHECK: Rejected invalid patcher name");
+							DEBUG_NETWORK_MAC(("VERSION CHECK: Rejected invalid patcher name"));
+							fnCallback(false, false);
+							return;
+						}
+
 						// cache the data
 						m_patcher_name = authResp.patcher_name;
 						m_patcher_path = authResp.patcher_path;
@@ -573,15 +580,20 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 		std::map<std::string, std::string> mapHeaders;
 		m_pHTTPManager->SendGETRequest(strDownloadPath.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 			{
+				auto fnShowUpdateFailed = []()
+					{
+						// show msg
+						ClearGSMessageBoxes();
+						MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not download the updater. Press below to exit."), []()
+							{
+								TheGameEngine->setQuitting(TRUE);
+							});
+						ShellExecuteA(NULL, "open", "https://www.playgenerals.online/updatefailed", NULL, NULL, SW_SHOWNORMAL);
+					};
+
 				if (statusCode != 200)
 				{
-					// show msg
-					ClearGSMessageBoxes();
-					MessageBoxOk(UnicodeString(L"Update Failed"), UnicodeString(L"Could not download the updater. Press below to exit."), []()
-						{
-							TheGameEngine->setQuitting(TRUE);
-						});
-					ShellExecuteA(NULL, "open", "https://www.playgenerals.online/updatefailed", NULL, NULL, SW_SHOWNORMAL);
+					fnShowUpdateFailed();
 				}
 				else
 				{
@@ -597,9 +609,8 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 					if (strPatchDir.empty())
 						return;
 
-					// Extract the filename with extension from strDownloadPath  
-					std::string strFileName = strDownloadPath.substr(strDownloadPath.find_last_of('/') + 1);
-					std::string strOutPath = std::format("{}/{}", strPatchDir, strFileName.c_str());
+					// save under the validated patcher name so LaunchPatcher runs this exact file
+					std::string strOutPath = std::format("{}/{}", strPatchDir, m_patcher_name);
 
 					std::vector<uint8_t> vecBuffer = pReq->GetBuffer();
 					size_t bufSize = pReq->GetBufferSize();
@@ -609,10 +620,20 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 						NativeFileSystem::create_directory(strPatchDir);
 					}
 
+					// a partially written updater must not be treated as downloaded
+					bool bSaved = false;
 					FILE* pFile = NativeFileSystem::fopen(strOutPath, "wb");
 					if (pFile != nullptr) {
-						fwrite(vecBuffer.data(), sizeof(uint8_t), bufSize, pFile);
-						fclose(pFile);
+						bSaved = fwrite(vecBuffer.data(), sizeof(uint8_t), bufSize, pFile) == bufSize;
+						if (fclose(pFile) != 0)
+							bSaved = false;
+					}
+
+					if (!bSaved)
+					{
+						NetworkLog(ELogVerbosity::LOG_RELEASE, "Failed to save downloaded file: %s", strOutPath.c_str());
+						fnShowUpdateFailed();
+						return;
 					}
 
 					// call continue update again, thisll check if we're done or have more work to do
@@ -629,7 +650,8 @@ void NGMP_OnlineServicesManager::ContinueUpdate()
 				{
 					TheDownloadManager->OnProgressUpdate(bytesReceived, downloadSize, -1, -1);
 				}
-			}
+			},
+			30 * 60 * 1000 // the 5s default aborts any real download
 			);
 	}
 	else if (m_vecFilesToDownload.size() == 0 && m_vecFilesDownloaded.size() > 0) // nothing left but we did download something
@@ -926,6 +948,22 @@ void NGMP_OnlineServicesManager::OnLogin(ELoginResult loginResult, const char* s
 {
 	if (loginResult == ELoginResult::Success)
 	{
+		NGMP_OnlineServices_AuthInterface* pAuthInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_AuthInterface>();
+		if (pAuthInterface != nullptr)
+		{
+			NetworkMeshLibrary::EnsureInitialized(pAuthInterface->GetUserID());
+		}
+
+		// Tear down any previous session's websocket before replacing it.
+		if (m_pWebSocket != nullptr)
+		{
+			NetworkLog(ELogVerbosity::LOG_RELEASE, "[NGMP] OnLogin: shutting down previous websocket before re-login");
+			m_pWebSocket->Shutdown();
+			m_pWebSocket->m_fnWebsocketConnectedCallback = nullptr;
+			m_pWebSocket->ClearConnectivityCheckCallback();
+			m_pWebSocket.reset();
+		}
+
 		// connect to WS
 		m_pWebSocket = std::make_shared<WebSocket>();
 
@@ -979,6 +1017,8 @@ void NGMP_OnlineServicesManager::Init()
     }
 #endif
 	DEBUG_EAC_MAC(("[EAC_INIT] GetAnticheatPlugin() = '%s'", strPlugin.c_str()));
+
+	// Empty name means no anticheat plugin configured; skip loading.
 	if (!strPlugin.empty())
 	{
 #ifdef __APPLE__
@@ -1150,6 +1190,8 @@ void NGMP_OnlineServicesManager::Tick()
 	{
 		m_pLobbyInterface->Tick();
 	}
+
+	NetworkMeshLibrary::Tick();
 }
 
 void NGMP_OnlineServicesManager::InitSentry()
@@ -1160,11 +1202,27 @@ void NGMP_OnlineServicesManager::InitSentry()
 	curl_global_init(CURL_GLOBAL_DEFAULT);
 
 #if !_DEBUG
+#ifdef __APPLE__
 	std::string strDumpPath = std::format("{}/GeneralsOnlineCrashData/", TheGlobalData->getPath_UserData().str());
 	if (!NativeFileSystem::exists(strDumpPath))
 	{
 		NativeFileSystem::create_directory(strDumpPath);
 	}
+#else
+	// game paths are in the process code page, sentry's char* API wants UTF-8, so hand it the wide path
+	std::wstring strDumpPath;
+	const AsciiString& strUserDataPath = TheGlobalData->getPath_UserData();
+	const int wideLen = MultiByteToWideChar(CP_ACP, 0, strUserDataPath.str(), -1, nullptr, 0);
+	if (!strUserDataPath.isEmpty() && wideLen > 1)
+	{
+		std::wstring strUserDataPathW(wideLen - 1, L'\0');
+		MultiByteToWideChar(CP_ACP, 0, strUserDataPath.str(), -1, strUserDataPathW.data(), wideLen);
+		strDumpPath = strUserDataPathW + L"GeneralsOnlineCrashData\\";
+
+		std::error_code ec;
+		std::filesystem::create_directories(strDumpPath, ec);
+	}
+#endif
 
 	sentry_options_t* options = sentry_options_new();
 
@@ -1172,7 +1230,10 @@ void NGMP_OnlineServicesManager::InitSentry()
 #ifdef __APPLE__
 	sentry_options_set_database_path(options, NativeFileSystem::get_safe_path(strDumpPath).c_str());
 #else
-	sentry_options_set_database_path(options, strDumpPath.c_str());
+	if (!strDumpPath.empty())
+	{
+		sentry_options_set_database_pathw(options, strDumpPath.c_str());
+	}
 #endif
 
 	std::string strVersionStr = std::format("generalsonline-client@{}", GENERALS_ONLINE_VERSION_STRING);
@@ -1218,13 +1279,6 @@ void NGMP_OnlineServicesManager::InitSentry()
 
 			NetworkLog(ELogVerbosity::LOG_RELEASE, "[Sentry] %s", buffer);
 	}, nullptr);
-#endif
-
-	// Disable the crash handler backend to prevent it from attempting to
-	// initialize Windows UI components (SystemNavigationManagerStatics::GetForCurrentView)
-	// on a non-UI thread during sentry_init(), which causes an access violation.
-#ifndef __APPLE__
-	sentry_options_set_backend(options, nullptr);
 #endif
 
 	sentry_init(options);
@@ -1423,9 +1477,12 @@ void WebSocket::SendData_CountdownStarted()
 }
 
 
-void WebSocket::SendData_StartFullMeshConnectivityCheck(std::function<void(bool, std::list<std::pair<int64_t, int64_t>>)> cbOnConnectivityCheckComplete)
+void WebSocket::SendData_StartFullMeshConnectivityCheck(std::function<void(bool, std::list<std::pair<int64_t, int64_t>>, std::string)> cbOnConnectivityCheckComplete)
 {
 	m_cbOnConnectivityCheckComplete = cbOnConnectivityCheckComplete;
+
+	NGMP_OnlineServices_LobbyInterface* pLobbyInterface = NGMP_OnlineServicesManager::GetInterface<NGMP_OnlineServices_LobbyInterface>();
+	m_connectivityCheckLobbyID = pLobbyInterface != nullptr ? pLobbyInterface->GetCurrentLobby().lobbyID : -1;
 
 	nlohmann::json j;
 	j["msg_id"] = EWebSocketMessageID::FULL_MESH_CONNECTIVITY_CHECK_HOST_REQUESTS_BEGIN;

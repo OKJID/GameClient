@@ -634,30 +634,18 @@ bool DX8Wrapper::Reset_Device(bool reload_assets)
 		memset(Vertex_Shader_Constants, 0, sizeof(Vector4) * MAX_VERTEX_SHADER_CONSTANTS);
 		memset(Pixel_Shader_Constants, 0, sizeof(Vector4) * MAX_PIXEL_SHADER_CONSTANTS);
 
-		// TheSuperHackers @bugfix Tin Tin Hamans - Release all surface references before Reset().
-		// D3D8 requires that no non-managed surfaces (render targets, depth buffers) have outstanding
-		// references when Reset() is called. Failing to do so causes a crash inside the Intel integrated
-		// graphics driver (igd9trinity32.dll) during DestroyResource inside CSwapChain::Reset.
-		if (DefaultRenderTarget != nullptr)
+		// Set_Vertex_Buffer/Set_Index_Buffer are deferred, so unbind on the device itself.
+		// Resources still bound during Reset() crash the runtime in DestroyResource.
+		for (unsigned i = 0; i < MAX_VERTEX_STREAMS; ++i)
 		{
-			DefaultRenderTarget->Release();
-			DefaultRenderTarget = nullptr;
+			DX8CALL(SetStreamSource(i, nullptr, 0));
 		}
-		if (DefaultDepthBuffer != nullptr)
-		{
-			DefaultDepthBuffer->Release();
-			DefaultDepthBuffer = nullptr;
-		}
-		if (CurrentRenderTarget != nullptr)
-		{
-			CurrentRenderTarget->Release();
-			CurrentRenderTarget = nullptr;
-		}
-		if (CurrentDepthBuffer != nullptr)
-		{
-			CurrentDepthBuffer->Release();
-			CurrentDepthBuffer = nullptr;
-		}
+		DX8CALL(SetIndices(nullptr, 0));
+		Invalidate_Cached_Render_States();
+
+		// Rebind the back buffer and release all surface
+		// references before Reset(), otherwise it crashes in DestroyResource.
+		Set_Render_Target((IDirect3DSurface8*)nullptr);
 
 		HRESULT hr = _Get_D3D_Device8()->TestCooperativeLevel();
 		if (hr != D3DERR_DEVICELOST)

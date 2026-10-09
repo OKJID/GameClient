@@ -7,6 +7,10 @@ option(RTS_BUILD_OPTION_PROFILE "Build code with the \"Profile\" configuration."
 option(RTS_BUILD_OPTION_PROFILE_TRACY "Build code with Tracy profiling enabled." OFF)
 option(RTS_BUILD_OPTION_DEBUG "Build code with the \"Debug\" configuration." OFF)
 option(RTS_BUILD_OPTION_ASAN "Build code with Address Sanitizer." OFF)
+option(RTS_BUILD_OPTION_OPTIMIZED "Enable aggressive MSVC Release optimizations." OFF)
+set(RTS_BUILD_OPTION_PGO "OFF" CACHE STRING "MSVC profile-guided optimization mode.")
+set_property(CACHE RTS_BUILD_OPTION_PGO PROPERTY STRINGS OFF GENERATE USE)
+set(RTS_PGO_FILE "${CMAKE_BINARY_DIR}/genzh.pgd" CACHE FILEPATH "MSVC PGO database path.")
 option(RTS_BUILD_OPTION_VC6_FULL_DEBUG "Build VC6 with full debug info." OFF)
 option(RTS_BUILD_OPTION_FFMPEG "Enable FFmpeg support" OFF)
 
@@ -32,6 +36,53 @@ add_feature_info(GeneralsStuff RTS_BUILD_GENERALS "Build Generals code")
 add_feature_info(ProfileBuild RTS_BUILD_OPTION_PROFILE "Building as a \"Profile\" build")
 add_feature_info(DebugBuild RTS_BUILD_OPTION_DEBUG "Building as a \"Debug\" build")
 add_feature_info(AddressSanitizer RTS_BUILD_OPTION_ASAN "Building with address sanitizer")
+add_feature_info(OptimizedBuild RTS_BUILD_OPTION_OPTIMIZED "Aggressive Release optimization")
+add_feature_info(PGO RTS_BUILD_OPTION_PGO "Profile-guided optimization mode")
+
+if(MSVC AND RTS_BUILD_OPTION_OPTIMIZED AND NOT IS_VS6_BUILD)
+    target_compile_options(core_config INTERFACE
+        $<$<CONFIG:Release>:/O2>
+        $<$<CONFIG:Release>:/Ob3>
+        $<$<CONFIG:Release>:/Oi>
+        $<$<CONFIG:Release>:/Ot>
+        $<$<CONFIG:Release>:/Gy>
+        $<$<CONFIG:Release>:/Gw>
+        $<$<CONFIG:Release>:/GL>
+        $<$<CONFIG:Release>:/arch:SSE2>
+    )
+    target_link_options(core_config INTERFACE
+        $<$<CONFIG:Release>:/LTCG>
+        $<$<CONFIG:Release>:/OPT:REF>
+        $<$<CONFIG:Release>:/OPT:ICF>
+    )
+endif()
+
+if(MSVC AND NOT IS_VS6_BUILD)
+    target_compile_options(core_config INTERFACE
+        $<$<CONFIG:Release>:/guard:cf>
+    )
+    target_link_options(core_config INTERFACE
+        $<$<CONFIG:Release>:/DYNAMICBASE>
+        $<$<CONFIG:Release>:/NXCOMPAT>
+        $<$<CONFIG:Release>:/guard:cf>
+    )
+endif()
+
+if(NOT "${RTS_BUILD_OPTION_PGO}" MATCHES "^(OFF|GENERATE|USE)$")
+    message(FATAL_ERROR "RTS_BUILD_OPTION_PGO must be OFF, GENERATE, or USE")
+elseif(MSVC AND NOT "${RTS_BUILD_OPTION_PGO}" STREQUAL "OFF" AND NOT IS_VS6_BUILD)
+    target_compile_options(core_config INTERFACE $<$<CONFIG:Release>:/GL>)
+    target_link_options(core_config INTERFACE $<$<CONFIG:Release>:/LTCG>)
+    if("${RTS_BUILD_OPTION_PGO}" STREQUAL "GENERATE")
+        target_link_options(core_config INTERFACE
+            $<$<CONFIG:Release>:/GENPROFILE:PGD=${RTS_PGO_FILE}>
+        )
+    else()
+        target_link_options(core_config INTERFACE
+            $<$<CONFIG:Release>:/USEPROFILE:PGD=${RTS_PGO_FILE}>
+        )
+    endif()
+endif()
 add_feature_info(Vc6FullDebug RTS_BUILD_OPTION_VC6_FULL_DEBUG "Building VC6 with full debug info")
 add_feature_info(FFmpegSupport RTS_BUILD_OPTION_FFMPEG "Building with FFmpeg support")
 

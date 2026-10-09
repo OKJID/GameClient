@@ -111,7 +111,7 @@ static AsciiString realAsStr(Real val)
 //-----------------------------------------------------------------------------
 #include "Common/System/NativeFileSystem.h"
 
-UserPreferences::UserPreferences()
+UserPreferences::UserPreferences() : m_loadFailed(FALSE)
 {
 }
 
@@ -127,8 +127,14 @@ Bool UserPreferences::load(AsciiString fname)
 
 	m_filename = TheGlobalData->getPath_UserData();
 	m_filename.concat(fname);
+	m_loadFailed = FALSE;
 
 	FILE *fp = NativeFileSystem::fopen(m_filename, "r");
+	if (fp == nullptr && errno != ENOENT)
+	{
+		DEBUG_LOG(("UserPreferences::load - could not open '%s', errno %d", m_filename.str(), errno));
+		m_loadFailed = TRUE;
+	}
 	if (fp)
 	{
 		char buf[LINE_LEN];
@@ -139,6 +145,8 @@ Bool UserPreferences::load(AsciiString fname)
 
 			AsciiString key, val;
 			line.nextToken(&key, "=");
+			if (line.isEmpty())	// no '=' in the line, nothing follows the key
+				continue;
 			val = line.str() + 1;
 
 			key.trim();
@@ -149,7 +157,14 @@ Bool UserPreferences::load(AsciiString fname)
 
 			(*this)[key] = val;
 		}
+		const Bool readFailed = ferror(fp) != 0;
 		fclose(fp);
+		if (readFailed)
+		{
+			DEBUG_LOG(("UserPreferences::load - read error in '%s'", m_filename.str()));
+			m_loadFailed = TRUE;
+			return false;
+		}
 		return true;
 	}
 	return false;
@@ -160,17 +175,43 @@ Bool UserPreferences::write()
 	if (m_filename.isEmpty())
 		return false;
 
-	FILE *fp = NativeFileSystem::fopen(m_filename, "w");
+	// the existing file is unreadable, replacing it with what we hold would lose the user's settings
+	if (m_loadFailed)
+		return false;
+
+	// write to a temp file and swap it in so a failed write never leaves a truncated preference file
+	AsciiString tempFilename = m_filename;
+	tempFilename.concat(".tmp");
+
+	FILE *fp = NativeFileSystem::fopen(tempFilename, "w");
 	if (fp)
 	{
+		Bool ok = TRUE;
 		PreferenceMap::const_iterator it = begin();
 		while (it != end())
 		{
-			fprintf(fp, "%s = %s\n", it->first.str(), it->second.str());
+			if (fprintf(fp, "%s = %s\n", it->first.str(), it->second.str()) < 0)
+				ok = FALSE;
 			++it;
 		}
-		fclose(fp);
-		return true;
+		if (fflush(fp) != 0 || ferror(fp))
+			ok = FALSE;
+		if (fclose(fp) != 0)
+			ok = FALSE;
+
+#ifdef _WIN32
+		if (ok && !MoveFileExA(tempFilename.str(), m_filename.str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))
+			ok = FALSE;
+#else
+		if (ok && NativeFileSystem::rename(tempFilename.str(), m_filename.str()) != 0)
+			ok = FALSE;
+#endif
+		if (!ok)
+		{
+			DEBUG_LOG(("UserPreferences::write - failed to write '%s'", m_filename.str()));
+			NativeFileSystem::remove(tempFilename.str());
+		}
+		return ok;
 	}
 	return false;
 }

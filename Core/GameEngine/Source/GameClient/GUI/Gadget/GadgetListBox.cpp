@@ -92,6 +92,14 @@ typedef struct _TextAndColor
 // PRIVATE DATA ///////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// Listbox inside a Begin/EndBatchAdd bracket; layout recompute is skipped until End.
+static GameWindow *s_batchAddListbox = nullptr;
+
+static inline Bool listboxLayoutDeferred( GameWindow *window )
+{
+	return s_batchAddListbox != nullptr && s_batchAddListbox == window;
+}
+
 static void doAudioFeedback(GameWindow *window)
 {
 	if (!window)
@@ -398,7 +406,8 @@ static Int addImageEntry( const Image *image, Color color, Int row, Int column, 
 	listRow->cell[column].height = height;
 	listRow->cell[column].width = width;
 
-	computeTotalHeight( window );
+	if( !listboxLayoutDeferred( window ) )
+		computeTotalHeight( window );
 
 	return (row);
 
@@ -540,12 +549,14 @@ static Int addEntry( UnicodeString *string, Int color, Int row, Int column, Game
 			listRow->height = rowHeight;
 			listRow->listHeight = totalHeight + rowsAdded;
 			list->totalHeight += (rowHeight - oldRowHeight) + rowsAdded;
-			adjustDisplay( window, 0, TRUE );
+			if( !listboxLayoutDeferred( window ) )
+				adjustDisplay( window, 0, TRUE );
 		}
 	}
 	else
 	{
-		computeTotalHeight( window );
+		if( !listboxLayoutDeferred( window ) )
+			computeTotalHeight( window );
 	}
 
 	return (row);
@@ -1517,7 +1528,7 @@ WindowMsgHandledType GadgetListBoxSystem( GameWindow *window, UnsignedInt msg,
 			if( success )
 			{
 
-				if( list->autoScroll )
+				if( list->autoScroll && !listboxLayoutDeferred( window ) )
 				{
 
 					while( TRUE )
@@ -2699,6 +2710,29 @@ void GadgetListBoxReset( GameWindow *listbox )
 	// reset via system message
 	TheWindowManager->winSendSystemMsg( listbox, GLM_DEL_ALL, 0, 0 );
 
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Suppress per-entry height/scrollbar recompute until GadgetListBoxEndBatchAdd. */
+//-------------------------------------------------------------------------------------------------
+void GadgetListBoxBeginBatchAdd( GameWindow *listbox )
+{
+	DEBUG_ASSERTCRASH( s_batchAddListbox == nullptr,
+		("GadgetListBoxBeginBatchAdd: a batch is already open - nesting is not supported") );
+
+	s_batchAddListbox = listbox;
+}
+
+//-------------------------------------------------------------------------------------------------
+/** End the batch and recompute layout once. */
+//-------------------------------------------------------------------------------------------------
+void GadgetListBoxEndBatchAdd( GameWindow *listbox )
+{
+	if( s_batchAddListbox == listbox )
+		s_batchAddListbox = nullptr;
+
+	if( listbox != nullptr && listbox->winGetUserData() != nullptr )
+		computeTotalHeight( listbox );
 }
 
 //-------------------------------------------------------------------------------------------------

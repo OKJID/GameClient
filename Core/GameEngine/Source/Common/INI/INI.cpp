@@ -297,6 +297,12 @@ void INI::prepFile( AsciiString filename, INILoadType loadType )
 	m_readBufferNext = 0;
 	m_readBufferUsed = file->size();
 	m_readBuffer = file->readEntireAndClose();
+	if (m_readBuffer == nullptr)
+	{
+		m_readBufferUsed = 0;
+		DEBUG_CRASH(( "INI::load, cannot read file '%s'", filename.str() ));
+		throw INI_CANT_OPEN_FILE;
+	}
 
 	// save our filename
 	m_filename = filename;
@@ -1183,23 +1189,22 @@ void INI::parseICoord2D( INI* ini, void * /*instance*/, void *store, const void*
 void INI::parseDynamicAudioEventRTS( INI *ini, void * /*instance*/, void *store, const void* userData )
 {
 	const char *token = ini->getNextToken();
-	DynamicAudioEventRTS** theSound = (DynamicAudioEventRTS**)store;
+	RefCountPtr<DynamicAudioEventRTS>* theSound = (RefCountPtr<DynamicAudioEventRTS>*)store;
 
 	// translate the string into a sound
 	if (stricmp(token, "NoSound") == 0)
 	{
-		deleteInstance(*theSound);
-		*theSound = nullptr;
+		theSound->Clear();
 	}
 	else
 	{
 		if (*theSound == nullptr)
-			*theSound = newInstance(DynamicAudioEventRTS);
-		(*theSound)->m_event.setEventName(AsciiString(token));
+			*theSound = Create_No_Add_Ref(newInstance(DynamicAudioEventRTS));
+		(*theSound)->setEventName(AsciiString(token));
 	}
 
 	if (*theSound)
-		TheAudio->getInfoForAudioEvent(&(*theSound)->m_event);
+		TheAudio->getInfoForAudioEvent(theSound->Peek());
 }
 
 //-------------------------------------------------------------------------------------------------

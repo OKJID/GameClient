@@ -329,7 +329,7 @@ void StartPressed()
 	}
 	else
 	{
-		mapDisplayName.format(L"%hs", myGame->getMap().str());
+		mapDisplayName.translate(myGame->getMap().str());
 		willTransfer = WouldMapTransfer(myGame->getMap());
 	}
 	for( i = 0; i < MAX_SLOTS; i++ )
@@ -955,7 +955,7 @@ void updateGameOptions()
 			{
 				s = s.reverseFind('\\') + 1;
 			}
-			mapDisplayName.format(L"%hs", s.str());
+			mapDisplayName.translate(s.str());
 		}
 		UnicodeString old = GadgetStaticTextGetText(textEntryMapDisplay);
 		if(old.compare(mapDisplayName) != 0)

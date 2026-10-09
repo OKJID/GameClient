@@ -148,11 +148,12 @@ void Win32GameEngine::serviceWindowsOS()
 	// see if we have any messages to process, a nullptr window handle tells the
 	// OS to look at the main window associated with the calling thread, us!
 	//
-	while( PeekMessage( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
+	// W variants: an A pump would convert the Unicode window's WM_CHAR back to the code page
+	while( PeekMessageW( &msg, nullptr, 0, 0, PM_NOREMOVE ) )
 	{
 
 		// get the message
-		returnValue = GetMessage( &msg, nullptr, 0, 0 );
+		returnValue = GetMessageW( &msg, nullptr, 0, 0 );
 
 		// this is one possible way to check for quitting conditions as a message
 		// of WM_QUIT will cause GetMessage() to return 0
@@ -169,7 +170,7 @@ void Win32GameEngine::serviceWindowsOS()
 		TheMessageTime = msg.time;
 		// translate and dispatch the message
 		TranslateMessage( &msg );
-		DispatchMessage( &msg );
+		DispatchMessageW( &msg );
 		TheMessageTime = 0;
 
 	}

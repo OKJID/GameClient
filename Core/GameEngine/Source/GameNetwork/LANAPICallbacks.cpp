@@ -155,7 +155,7 @@ void LANAPI::OnHasMap( UnsignedInt playerIP, Bool status )
 			}
 			else
 			{
-				mapDisplayName.format(L"%hs", m_currentGame->getMap().str());
+				mapDisplayName.translate(m_currentGame->getMap().str());
 				willTransfer = WouldMapTransfer(m_currentGame->getMap());
 			}
 			if (!status)

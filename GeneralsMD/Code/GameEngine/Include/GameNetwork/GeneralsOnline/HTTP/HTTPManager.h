@@ -1,7 +1,7 @@
 #pragma once
 
 #include "HTTPRequest.h"
-#include "GameNetwork/GeneralsOnline/Vendor/libcurl/multi.h"
+#include <curl/multi.h>
 #include <vector>
 #include <mutex>
 #include <thread>
@@ -38,17 +38,6 @@ public:
 
 	void Tick();
 
-
-
-	static void SetCACertStoreBad()
-	{
-		m_bCACertBad.store(true);
-	}
-
-	static bool IsCACertStoreBad()
-	{
-		return m_bCACertBad.load();
-	}
 
     void SetProtocolInUse(EIPProtocolVersion proto)
     {
@@ -88,8 +77,6 @@ private:
 
 	std::atomic<EIPProtocolVersion> m_sProtocolInUse = EIPProtocolVersion::DONT_CARE;
 
-	static std::atomic<bool> m_bCACertBad;
-
 	bool m_bProxyEnabled = false;
 	std::string m_strProxyAddr;
 	uint16_t m_proxyPort;
@@ -99,5 +86,4 @@ private:
 	std::vector<HTTPRequest*> m_vecRequestsPendingStart = std::vector<HTTPRequest*>();
 	std::vector<HTTPRequest*> m_vecRequestsInFlight = std::vector<HTTPRequest*>();
 };
-
 

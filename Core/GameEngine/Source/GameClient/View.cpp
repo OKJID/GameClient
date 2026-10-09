@@ -33,6 +33,7 @@
 #include "GameClient/Drawable.h"
 #include "GameClient/GameClient.h"
 #include "GameClient/View.h"
+#include "GameLogic/GameLogic.h"
 
 UnsignedInt View::m_idNext = 1;
 
@@ -166,7 +167,10 @@ void View::setAngle(Real radians)
 void View::setPitch(Real radians)
 {
 #if CLAMP_VIEW_PITCH
-	m_pitch = clamp(DEG_TO_RADF(0.1f), radians, DEG_TO_RADF(89.9f));
+	// Raised floor in matches prevents flat-camera sightlines; relaxed in replays.
+	const Bool inReplay = TheGameLogic != nullptr && TheGameLogic->isInReplayGame();
+	const Real minPitchDegrees = inReplay ? 16.5f : 37.5f;
+	m_pitch = clamp(DEG_TO_RADF(minPitchDegrees), radians, DEG_TO_RADF(89.9f));
 #else
 	m_pitch = WWMath::Normalize_Angle(radians);
 #endif
