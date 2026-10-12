@@ -28,6 +28,8 @@ set(MAIN_SRC
     Source/Main/MacOSGameEngine.h
     Source/Main/MacOSCrashTrail.cpp
     Source/Main/MacOSCrashTrail.h
+    Source/Main/MacOSHostServices.h
+    Source/Main/MacOSHostServices.mm
 )
 
 # ── Audio ──
@@ -224,6 +226,7 @@ set_source_files_properties(
 function(macos_platform_add_game_glue target)
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Audio/MacOSAudioManager.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
@@ -237,6 +240,7 @@ function(macos_platform_add_game_glue target)
     # precompiled header, so it is deliberately absent here.
     set_source_files_properties(
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
@@ -259,6 +263,7 @@ function(macos_platform_add_game_glue target)
     # applied to them; MacOSMain.mm never had either and still must not get them.
     set_source_files_properties(
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
