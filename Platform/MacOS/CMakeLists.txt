@@ -56,6 +56,8 @@ set(INPUT_SRC
 set(SYSTEM_SRC
     Source/System/MacOSLocalFileSystem.mm
     Source/System/MacOSLocalFileSystem.h
+    Source/System/MacOSGdi.cpp
+    Include/MacOSGdiBackend.h
 )
 
 # ── Stubs ──

@@ -226,20 +226,25 @@ typedef RECT* LPRECT;
 typedef const RECT* LPCRECT;
 
 // ============================================================================
-// MessageBox stubs
+// MessageBox — printed unless a host installs a message box handler
 // ============================================================================
 
-#ifndef MessageBox
-#define MessageBoxA(hwnd, text, caption, type) printf("[MessageBox] %s: %s\n", (caption), (text))
+typedef int (*MacOSMessageBoxHandler)(HWND hwnd, const char* text, const char* caption, UINT type);
+void MacOS_SetMessageBoxHandler(MacOSMessageBoxHandler handler);
+int MessageBoxA(HWND hwnd, const char* text, const char* caption, UINT type);
 #define MessageBox MessageBoxA
-#endif
 
 #define MB_OK           0x00000000
 #define MB_OKCANCEL     0x00000001
+#define MB_YESNOCANCEL  0x00000003
 #define MB_YESNO        0x00000004
 #define MB_ICONERROR    0x00000010
-#define MB_ICONWARNING  0x00000030
+#define MB_ICONHAND     MB_ICONERROR
 #define MB_ICONQUESTION 0x00000020
+#define MB_ICONWARNING  0x00000030
+#define MB_ICONEXCLAMATION MB_ICONWARNING
+#define MB_ICONINFORMATION 0x00000040
+#define MB_APPLMODAL    0x00000000
 
 #define IDOK     1
 #define IDCANCEL 2
@@ -610,22 +615,92 @@ typedef void* PAVISTREAM;
 typedef struct { DWORD fccType; DWORD fccHandler; DWORD dwFlags; DWORD dwCaps; WORD wPriority; WORD wLanguage; DWORD dwScale; DWORD dwRate; DWORD dwStart; DWORD dwLength; DWORD dwInitialFrames; DWORD dwSuggestedBufferSize; DWORD dwQuality; DWORD dwSampleSize; RECT rcFrame; DWORD dwEditCount; DWORD dwFormatChangeCount; char szName[64]; } AVISTREAMINFO;
 
 inline HFONT CreateFont(int,int,int,int,int,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,DWORD,LPCSTR) { return nullptr; }
-inline HDC GetDC(HWND) { return nullptr; }
-inline int ReleaseDC(HWND, HDC) { return 0; }
-inline HGDIOBJ SelectObject(HDC, HGDIOBJ) { return nullptr; }
-inline BOOL DeleteObject(HGDIOBJ) { return 0; }
 inline BOOL ExtTextOutW(HDC,int,int,UINT,const RECT*,const wchar_t*,UINT,const int*) { return 0; }
 inline BOOL GetTextExtentPoint32W(HDC,const wchar_t*,int,void*) { return 0; }
 inline void* CreateDIBSection(HDC,const BITMAPINFO*,UINT,void**,HANDLE,DWORD) { return nullptr; }
 inline HBITMAP CreateCompatibleBitmap(HDC,int,int) { return nullptr; }
 inline HDC CreateCompatibleDC(HDC) { return nullptr; }
 inline BOOL DeleteDC(HDC) { return 0; }
-inline int SetBkColor(HDC, DWORD) { return 0; }
-inline int SetTextColor(HDC, DWORD) { return 0; }
-inline int SetBkMode(HDC, int) { return 0; }
 #define OPAQUE 2
 #define TRANSPARENT 1
 #define RGB(r,g,b) ((DWORD)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
+#define GetRValue(rgb) ((BYTE)(rgb))
+#define GetGValue(rgb) ((BYTE)(((WORD)(rgb)) >> 8))
+#define GetBValue(rgb) ((BYTE)((rgb) >> 16))
+
+// ── GDI drawing — inert unless a host installs a backend (see MacOSGdiBackend.h) ──
+
+typedef DWORD COLORREF;
+typedef void* HPEN;
+
+#define PS_SOLID 0
+#define PS_DASH 1
+#define PS_DOT 2
+#define PS_NULL 5
+
+#define FW_DONTCARE 0
+#define FW_REGULAR FW_NORMAL
+#define ANSI_CHARSET 0
+#define DEFAULT_QUALITY 0
+#define DEFAULT_PITCH 0
+#define FF_DONTCARE 0
+#define LF_FACESIZE 32
+
+#define DT_TOP 0x00000000
+#define DT_LEFT 0x00000000
+#define DT_CENTER 0x00000001
+#define DT_RIGHT 0x00000002
+#define DT_VCENTER 0x00000004
+#define DT_BOTTOM 0x00000008
+#define DT_SINGLELINE 0x00000020
+#define DT_NOCLIP 0x00000100
+
+typedef struct tagLOGFONTA {
+	LONG lfHeight;
+	LONG lfWidth;
+	LONG lfEscapement;
+	LONG lfOrientation;
+	LONG lfWeight;
+	BYTE lfItalic;
+	BYTE lfUnderline;
+	BYTE lfStrikeOut;
+	BYTE lfCharSet;
+	BYTE lfOutPrecision;
+	BYTE lfClipPrecision;
+	BYTE lfQuality;
+	BYTE lfPitchAndFamily;
+	char lfFaceName[LF_FACESIZE];
+} LOGFONTA, LOGFONT;
+
+typedef struct tagPAINTSTRUCT {
+	HDC hdc;
+	BOOL fErase;
+	RECT rcPaint;
+	BOOL fRestore;
+	BOOL fIncUpdate;
+	BYTE rgbReserved[32];
+} PAINTSTRUCT;
+
+HDC GetDC(HWND hwnd);
+int ReleaseDC(HWND hwnd, HDC hdc);
+HDC BeginPaint(HWND hwnd, PAINTSTRUCT* paint);
+BOOL EndPaint(HWND hwnd, const PAINTSTRUCT* paint);
+HGDIOBJ SelectObject(HDC hdc, HGDIOBJ object);
+BOOL DeleteObject(HGDIOBJ object);
+HPEN CreatePen(int style, int width, COLORREF color);
+HBRUSH CreateSolidBrush(COLORREF color);
+HFONT CreateFontIndirect(const LOGFONT* font);
+COLORREF SetBkColor(HDC hdc, COLORREF color);
+COLORREF SetTextColor(HDC hdc, COLORREF color);
+int SetBkMode(HDC hdc, int mode);
+BOOL MoveToEx(HDC hdc, int x, int y, POINT* previous);
+BOOL LineTo(HDC hdc, int x, int y);
+BOOL Polyline(HDC hdc, const POINT* points, int count);
+BOOL TextOutA(HDC hdc, int x, int y, const char* text, int length);
+#define TextOut TextOutA
+int FrameRect(HDC hdc, const RECT* rect, HBRUSH brush);
+int FillRect(HDC hdc, const RECT* rect, HBRUSH brush);
+BOOL Ellipse(HDC hdc, int left, int top, int right, int bottom);
 
 typedef struct tagTEXTMETRICA {
   long tmHeight;
