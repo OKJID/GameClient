@@ -197,6 +197,11 @@ set(WORLDBUILDER_SRC
     "include/WorldBuilderView.h"
 )
 
+if(APPLE)
+    include(ImGui/WorldBuilderImGui.cmake)
+    return()
+endif()
+
 add_executable(z_worldbuilder WIN32)
 
 target_sources(z_worldbuilder PRIVATE ${WORLDBUILDER_SRC})

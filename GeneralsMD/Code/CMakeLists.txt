@@ -40,3 +40,7 @@ add_subdirectory(Main)
 if (RTS_BUILD_ZEROHOUR_TOOLS OR RTS_BUILD_ZEROHOUR_EXTRAS)
     add_subdirectory(Tools)
 endif()
+
+if(APPLE AND RTS_BUILD_ZEROHOUR_WORLDBUILDER)
+    add_subdirectory(Tools/WorldBuilder)
+endif()
