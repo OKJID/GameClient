@@ -197,8 +197,10 @@ Bool ProcessAnimateWindowSlideFromRight::updateAnimateWindow( wnd::AnimateWindow
 
 	if(curPos.x < endPos.x)
 	{
+		// TheSuperHackers @bugfix bobtista 05/08/2026 Apply the end position so the window does not stop short of it
 		curPos.x = endPos.x;
 		animWin->setFinished( TRUE );
+		win->winSetPosition(curPos.x, curPos.y);
 		return TRUE;
 	}
 	win->winSetPosition(curPos.x, curPos.y);
@@ -380,8 +382,10 @@ Bool ProcessAnimateWindowSlideFromLeft::updateAnimateWindow( wnd::AnimateWindow 
 
 	if(curPos.x > endPos.x)
 	{
+		// TheSuperHackers @bugfix bobtista 05/08/2026 Apply the end position so the window does not stop short of it
 		curPos.x = endPos.x;
 		animWin->setFinished( TRUE );
+		win->winSetPosition(curPos.x, curPos.y);
 		return TRUE;
 	}
 	win->winSetPosition(curPos.x, curPos.y);
@@ -1471,8 +1475,10 @@ Bool ProcessAnimateWindowSlideFromRightFast::updateAnimateWindow( wnd::AnimateWi
 
 	if(curPos.x < endPos.x)
 	{
+		// TheSuperHackers @bugfix bobtista 05/08/2026 Apply the end position so the window does not stop short of it
 		curPos.x = endPos.x;
 		animWin->setFinished( TRUE );
+		win->winSetPosition(curPos.x, curPos.y);
 		return TRUE;
 	}
 	win->winSetPosition(curPos.x, curPos.y);
