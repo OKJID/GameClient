@@ -198,9 +198,9 @@ typedef int32_t HRESULT;
 // Window message types
 // ============================================================================
 
-typedef UINT WPARAM;
-typedef LONG LPARAM;
-typedef LONG LRESULT;
+typedef uintptr_t WPARAM;
+typedef intptr_t LPARAM;
+typedef intptr_t LRESULT;
 
 #ifndef _RECT_DEFINED
 #define _RECT_DEFINED
@@ -628,79 +628,17 @@ inline BOOL DeleteDC(HDC) { return 0; }
 #define GetGValue(rgb) ((BYTE)(((WORD)(rgb)) >> 8))
 #define GetBValue(rgb) ((BYTE)((rgb) >> 16))
 
-// ── GDI drawing — inert unless a host installs a backend (see MacOSGdiBackend.h) ──
+// ── GDI device context — inert unless a host installs a backend (see MacOSGdiBackend.h) ──
 
 typedef DWORD COLORREF;
-typedef void* HPEN;
-
-#define PS_SOLID 0
-#define PS_DASH 1
-#define PS_DOT 2
-#define PS_NULL 5
-
-#define FW_DONTCARE 0
-#define FW_REGULAR FW_NORMAL
-#define ANSI_CHARSET 0
-#define DEFAULT_QUALITY 0
-#define DEFAULT_PITCH 0
-#define FF_DONTCARE 0
-#define LF_FACESIZE 32
-
-#define DT_TOP 0x00000000
-#define DT_LEFT 0x00000000
-#define DT_CENTER 0x00000001
-#define DT_RIGHT 0x00000002
-#define DT_VCENTER 0x00000004
-#define DT_BOTTOM 0x00000008
-#define DT_SINGLELINE 0x00000020
-#define DT_NOCLIP 0x00000100
-
-typedef struct tagLOGFONTA {
-	LONG lfHeight;
-	LONG lfWidth;
-	LONG lfEscapement;
-	LONG lfOrientation;
-	LONG lfWeight;
-	BYTE lfItalic;
-	BYTE lfUnderline;
-	BYTE lfStrikeOut;
-	BYTE lfCharSet;
-	BYTE lfOutPrecision;
-	BYTE lfClipPrecision;
-	BYTE lfQuality;
-	BYTE lfPitchAndFamily;
-	char lfFaceName[LF_FACESIZE];
-} LOGFONTA, LOGFONT;
-
-typedef struct tagPAINTSTRUCT {
-	HDC hdc;
-	BOOL fErase;
-	RECT rcPaint;
-	BOOL fRestore;
-	BOOL fIncUpdate;
-	BYTE rgbReserved[32];
-} PAINTSTRUCT;
 
 HDC GetDC(HWND hwnd);
 int ReleaseDC(HWND hwnd, HDC hdc);
-HDC BeginPaint(HWND hwnd, PAINTSTRUCT* paint);
-BOOL EndPaint(HWND hwnd, const PAINTSTRUCT* paint);
 HGDIOBJ SelectObject(HDC hdc, HGDIOBJ object);
 BOOL DeleteObject(HGDIOBJ object);
-HPEN CreatePen(int style, int width, COLORREF color);
-HBRUSH CreateSolidBrush(COLORREF color);
-HFONT CreateFontIndirect(const LOGFONT* font);
 COLORREF SetBkColor(HDC hdc, COLORREF color);
 COLORREF SetTextColor(HDC hdc, COLORREF color);
 int SetBkMode(HDC hdc, int mode);
-BOOL MoveToEx(HDC hdc, int x, int y, POINT* previous);
-BOOL LineTo(HDC hdc, int x, int y);
-BOOL Polyline(HDC hdc, const POINT* points, int count);
-BOOL TextOutA(HDC hdc, int x, int y, const char* text, int length);
-#define TextOut TextOutA
-int FrameRect(HDC hdc, const RECT* rect, HBRUSH brush);
-int FillRect(HDC hdc, const RECT* rect, HBRUSH brush);
-BOOL Ellipse(HDC hdc, int left, int top, int right, int bottom);
 
 typedef struct tagTEXTMETRICA {
   long tmHeight;

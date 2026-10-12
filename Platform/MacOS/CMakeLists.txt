@@ -58,6 +58,9 @@ set(SYSTEM_SRC
     Source/System/MacOSLocalFileSystem.h
     Source/System/MacOSGdi.cpp
     Include/MacOSGdiBackend.h
+    Source/System/MacOSNativeWindow.cpp
+    Include/MacOSNativeWindow.h
+    Include/MacOSSceneOverlay.h
 )
 
 # ── Stubs ──

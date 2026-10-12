@@ -42,6 +42,8 @@
 #include "MetalDevice8.h"
 #include "MetalInterface8.h"
 #include "MetalSurface8.h"
+#include "MacOSNativeWindow.h"
+#include "MacOSSceneOverlay.h"
 #include "../Utils/MacDebug.h"
 
 // ── Constants (mirrors dx8wrapper.cpp lines 91-95) ──
@@ -162,7 +164,7 @@ bool DX8Wrapper::Init(void* hwnd, bool lite)
 	memset(&render_state,0,sizeof(RenderStateStruct));
 	memset(Shadow_Map,0,sizeof(ZTextureClass*)*MAX_SHADOW_MAPS);
 
-	_Hwnd = (HWND)hwnd;
+	_Hwnd = (HWND)MacOS_ResolveNativeWindow((HWND)hwnd);
 	_MainThreadID=ThreadClass::_Get_Current_Thread_ID();
 	CurRenderDevice = -1;
 	ResolutionWidth = DEFAULT_RESOLUTION_WIDTH;
@@ -696,6 +698,13 @@ void DX8Wrapper::Resize_And_Position_Window()
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──
 
+static MacOSSceneOverlay s_sceneOverlay = nullptr;
+
+void MacOS_SetSceneOverlay(MacOSSceneOverlay overlay)
+{
+	s_sceneOverlay = overlay;
+}
+
 void DX8Wrapper::Begin_Scene()
 {
 	DX8_THREAD_ASSERT();
@@ -705,6 +714,11 @@ void DX8Wrapper::Begin_Scene()
 void DX8Wrapper::End_Scene(bool flip_frames)
 {
 	DX8_THREAD_ASSERT();
+
+	if (flip_frames && s_sceneOverlay != nullptr) {
+		s_sceneOverlay();
+	}
+
 	DX8CALL(EndScene());
 
 	if (flip_frames) {
