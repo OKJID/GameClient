@@ -21,8 +21,9 @@ REPLAY_NAME="00000000"
 # REPLAY_NAME="opponent_side_00000000"
 
 # ── Game Selection ──
-# Which game to launch. Both are always built; this picks the one that runs.
+# RUN_VANILLA picks the game, RUN_WB launches that game's WorldBuilder instead of the game.
 RUN_VANILLA=false
+RUN_WB=true
 
 # ── Game Command-Line Flags ──
 # Toggle on/off: true = pass to game, false = skip
@@ -104,6 +105,30 @@ else
     export GENERALS_MAC_DEBUG_CONSOLE=0
 fi
 
+if [ "$RUN_VANILLA" = true ]; then
+    GAME_BUILD_DIR="build/macos/Generals"
+    GAME_DATA_DIR="$HOME/Command and Conquer Generals Data"
+    GAME_EXECUTABLE="GeneralsVanilla"
+    WB_EXECUTABLE="WorldBuilderV"
+    WB_BUILD_OPTION="RTS_BUILD_GENERALS_WORLDBUILDER"
+else
+    GAME_BUILD_DIR="build/macos/GeneralsMD"
+    GAME_DATA_DIR="$HOME/Command and Conquer Generals Zero Hour Data"
+    GAME_EXECUTABLE="GeneralsOnlineZH"
+    WB_EXECUTABLE="WorldBuilderZH"
+    WB_BUILD_OPTION="RTS_BUILD_ZEROHOUR_WORLDBUILDER"
+fi
+
+if [ "$RUN_WB" = true ]; then
+    GAME_NAME="$WB_EXECUTABLE"
+    LOG_NAME="worldbuilder.log"
+else
+    GAME_NAME="$GAME_EXECUTABLE"
+    LOG_NAME="game.log"
+fi
+GAME_BUNDLE="$GAME_BUILD_DIR/$GAME_NAME.app"
+GAME_CMD="$GAME_BUNDLE/Contents/MacOS/$GAME_NAME"
+
 if [ "$DO_CLEAN" = true ]; then
     echo "Cleaning build directory..."
     rm -rf build
@@ -115,6 +140,17 @@ if [ ! -d "build/macos" ]; then
     if [ $? -ne 0 ]; then
         exit 1
     fi
+fi
+
+if [ "$RUN_WB" = true ]; then
+    WB_BUILD_VALUE="ON"
+else
+    WB_BUILD_VALUE="OFF"
+fi
+echo "WorldBuilder target ($WB_BUILD_OPTION): $WB_BUILD_VALUE"
+cmake -S . -B build/macos "-D$WB_BUILD_OPTION=$WB_BUILD_VALUE" > /dev/null
+if [ $? -ne 0 ]; then
+    exit 1
 fi
 
 echo "Building project..."
@@ -144,7 +180,7 @@ fi
 sleep 1
 
 LOG_DIR="Platform/MacOS/Build/Logs"
-LOG_FILE="$LOG_DIR/game.log"
+LOG_FILE="$LOG_DIR/$LOG_NAME"
 LOG_KEEP=5
 
 if [ -f "$LOG_FILE" ]; then
@@ -156,25 +192,19 @@ if [ -f "$LOG_FILE" ]; then
     [ -f "$LOG_FILE.bak" ] && mv "$LOG_FILE.bak" "$LOG_FILE.bak2"
     cp "$LOG_FILE" "$LOG_FILE.bak"
     rm -f "$LOG_FILE"
-    echo "Logs rotated: game.log → game.log.bak (keeping $LOG_KEEP runs)"
+    echo "Logs rotated: $LOG_NAME → $LOG_NAME.bak (keeping $LOG_KEEP runs)"
 fi
-
-if [ "$RUN_VANILLA" = true ]; then
-    GAME_NAME="GeneralsVanilla"
-    GAME_BUNDLE="build/macos/Generals/GeneralsVanilla.app"
-    GAME_DATA_DIR="$HOME/Command and Conquer Generals Data"
-else
-    GAME_NAME="GeneralsOnlineZH"
-    GAME_BUNDLE="build/macos/GeneralsMD/GeneralsOnlineZH.app"
-    GAME_DATA_DIR="$HOME/Command and Conquer Generals Zero Hour Data"
-fi
-GAME_CMD="$GAME_BUNDLE/Contents/MacOS/$GAME_NAME"
 
 echo "Selected game: $GAME_NAME"
 
-echo "Killing previous game instances..."
-killall -9 GeneralsOnlineZH 2>/dev/null
-killall -9 GeneralsVanilla 2>/dev/null
+echo "Killing previous $GAME_NAME instances..."
+if [ "$RUN_WB" = true ]; then
+    killall -9 WorldBuilderZH 2>/dev/null
+    killall -9 WorldBuilderV 2>/dev/null
+else
+    killall -9 GeneralsOnlineZH 2>/dev/null
+    killall -9 GeneralsVanilla 2>/dev/null
+fi
 killall -9 lldb 2>/dev/null
 
 sleep 1
@@ -205,14 +235,14 @@ fi
 
 # Copy splash screen into app bundle
 SPLASH_SRC="Platform/MacOS/Launcher/assets/Install_Final.bmp"
-if [ -f "$SPLASH_SRC" ]; then
+if [ "$RUN_WB" != true ] && [ -f "$SPLASH_SRC" ]; then
     mkdir -p "$GAME_BUNDLE/Contents/Resources"
     cp -f "$SPLASH_SRC" "$GAME_BUNDLE/Contents/Resources/Install_Final.bmp"
 fi
 
 # Copy intro port credit medallion into app bundle
 MEDALLION_SRC="Platform/MacOS/Launcher/assets/medallion_logo.png"
-if [ -f "$MEDALLION_SRC" ]; then
+if [ "$RUN_WB" != true ] && [ -f "$MEDALLION_SRC" ]; then
     mkdir -p "$GAME_BUNDLE/Contents/Resources"
     cp -f "$MEDALLION_SRC" "$GAME_BUNDLE/Contents/Resources/medallion_logo.png"
 fi
@@ -257,7 +287,7 @@ fi
 
 if [ ! -x "$GAME_CMD" ]; then
     echo "ERROR: $GAME_NAME executable not found at $GAME_CMD"
-    echo "       Set RUN_VANILLA=false to run Zero Hour, or finish the vanilla port first."
+    echo "       Check RUN_VANILLA and RUN_WB in the Game Selection section."
     exit 1
 fi
 
@@ -289,7 +319,7 @@ if [ "$DO_LLDB" = true ]; then
     fi
     wait $LLDB_PID
 elif [ "$DO_SCREENSHOT" = true ]; then
-    "$GAME_CMD" "${GAME_ARGS[@]}" > Platform/MacOS/Build/Logs/game.log 2>&1 &
+    "$GAME_CMD" "${GAME_ARGS[@]}" > "$LOG_FILE" 2>&1 &
     GAME_PID=$!
     echo "Waiting ${SCREENSHOT_DELAY}s for game to load..."
     sleep ${SCREENSHOT_DELAY}
@@ -299,9 +329,9 @@ elif [ "$DO_SCREENSHOT" = true ]; then
     wait $GAME_PID 2>/dev/null
 else
     if [ ${#GAME_ARGS[@]} -gt 0 ]; then
-        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" "${OPEN_ENV[@]}" --args "${GAME_ARGS[@]}"
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/$LOG_FILE" --stderr "$PWD/$LOG_FILE" "${OPEN_ENV[@]}" --args "${GAME_ARGS[@]}"
     else
-        open -W -n "$GAME_BUNDLE" --stdout "$PWD/Platform/MacOS/Build/Logs/game.log" --stderr "$PWD/Platform/MacOS/Build/Logs/game.log" "${OPEN_ENV[@]}"
+        open -W -n "$GAME_BUNDLE" --stdout "$PWD/$LOG_FILE" --stderr "$PWD/$LOG_FILE" "${OPEN_ENV[@]}"
     fi
 fi
 

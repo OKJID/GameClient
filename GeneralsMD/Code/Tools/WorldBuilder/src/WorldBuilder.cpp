@@ -74,12 +74,7 @@
 
 #include "W3DDevice/Common/W3DModuleFactory.h"
 #include "W3DDevice/GameClient/W3DParticleSys.h"
-#include "MilesAudioDevice/MilesAudioManager.h"
-
-#include <io.h>
-#include "Win32Device/GameClient/Win32Mouse.h"
-#include "Win32Device/Common/Win32LocalFileSystem.h"
-#include "Win32Device/Common/Win32BIGFileSystem.h"
+#include "WorldBuilderPlatform.h"
 
 
 static SubsystemInterfaceList TheSubsystemListRecord;
@@ -95,7 +90,6 @@ void initSubsystem(SUBSYSTEM*& sysref, SUBSYSTEM* sys, const char* path1 = nullp
 #define APP_SECTION "WorldbuilderApp"
 #define OPEN_FILE_DIR "OpenDirectory"
 
-Win32Mouse *TheWin32Mouse = nullptr;
 const char *gAppPrefix = "wb_"; /// So WB can have a different debug log file name.
 const Char *g_strFile = "data\\Generals.str";
 const Char *g_csfFile = "data\\%s\\Generals.csf";
@@ -260,15 +254,6 @@ CWorldBuilderApp::~CWorldBuilderApp()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Handler for unhandled win32 exceptions.
-
-static LONG WINAPI UnHandledExceptionFilter(struct _EXCEPTION_POINTERS* e_info)
-{
-	DumpExceptionInfo(e_info->ExceptionRecord->ExceptionCode, e_info);
-	return EXCEPTION_EXECUTE_HANDLER;
-}
-
-/////////////////////////////////////////////////////////////////////////////
 // CWorldBuilderApp initialization
 
 BOOL CWorldBuilderApp::InitInstance()
@@ -276,7 +261,7 @@ BOOL CWorldBuilderApp::InitInstance()
 	ApplicationHWnd = GetDesktopWindow();
 
 	// initialization
-	SetUnhandledExceptionFilter(UnHandledExceptionFilter);
+	WorldBuilderInstallCrashHandler();
 
 	// initialize the memory manager early
 	initMemoryManager();
@@ -315,18 +300,13 @@ BOOL CWorldBuilderApp::InitInstance()
 	Enable3dControlsStatic();	// Call this when linking to MFC statically
 #endif
 
-	// Set the current directory to the app directory.
 	char buf[_MAX_PATH];
-	GetModuleFileName(nullptr, buf, sizeof(buf));
-	if (char *pEnd = strrchr(buf, '\\')) {
-		*pEnd = 0;
-	}
-	::SetCurrentDirectory(buf);
+	WorldBuilderPrepareWorkingDirectory();
 
 	TheFileSystem = new FileSystem;
 
-	initSubsystem(TheLocalFileSystem, (LocalFileSystem*)new Win32LocalFileSystem);
-	initSubsystem(TheArchiveFileSystem, (ArchiveFileSystem*)new Win32BIGFileSystem);
+	initSubsystem(TheLocalFileSystem, WorldBuilderCreateLocalFileSystem());
+	initSubsystem(TheArchiveFileSystem, WorldBuilderCreateArchiveFileSystem());
 
 	// Just for kicks, get the HINSTANCE that WOL would need
 	// if we were going to use it, which we aren't.
@@ -383,7 +363,7 @@ BOOL CWorldBuilderApp::InitInstance()
 	//  [2/11/2003]
 	ini.loadFileDirectory( "Data\\Scripts\\Scripts", INI_LOAD_OVERWRITE, nullptr );
 
-	initSubsystem(TheAudio, (AudioManager*)new MilesAudioManager());
+	initSubsystem(TheAudio, WorldBuilderCreateAudioManager());
 	initSubsystem(TheVideoPlayer, (VideoPlayerInterface*)(new NullVideoPlayer()));
 	initSubsystem(TheModuleFactory, (ModuleFactory*)(new W3DModuleFactory()));
 	initSubsystem(TheSidesList, new SidesList());

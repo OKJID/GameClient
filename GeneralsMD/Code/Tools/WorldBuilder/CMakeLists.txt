@@ -194,6 +194,7 @@ set(WORLDBUILDER_SRC
     "include/WHeightMapEdit.h"
     "include/WorldBuilder.h"
     "include/WorldBuilderDoc.h"
+    "include/WorldBuilderPlatform.h"
     "include/WorldBuilderView.h"
 )
 
@@ -204,7 +205,10 @@ endif()
 
 add_executable(z_worldbuilder WIN32)
 
-target_sources(z_worldbuilder PRIVATE ${WORLDBUILDER_SRC})
+target_sources(z_worldbuilder PRIVATE
+    ${WORLDBUILDER_SRC}
+    src/WorldBuilderPlatformWin32.cpp
+)
 
 target_include_directories(z_worldbuilder PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

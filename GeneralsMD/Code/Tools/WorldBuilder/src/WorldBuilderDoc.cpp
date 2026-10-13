@@ -674,7 +674,7 @@ void CWorldBuilderDoc::OnJumpToGame()
 	try {
 		DoFileSave();
 		CString filename;
-		DEBUG_LOG(("strTitle=%s strPathName=%s", m_strTitle, m_strPathName));
+		DEBUG_LOG(("strTitle=%s strPathName=%s", static_cast<const char*>(m_strTitle), static_cast<const char*>(m_strPathName)));
 		if (strstr(m_strPathName, TheGlobalData->getPath_UserData().str()) != nullptr)
 			filename.Format("%sMaps\\%s", TheGlobalData->getPath_UserData().str(), static_cast<const char*>(m_strTitle));
 		else

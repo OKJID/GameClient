@@ -223,7 +223,11 @@ public:
 	virtual Bool isTimeFrozen() override { return false;}					///< Freezes time during the next camera movement.
 	virtual Int	 getTimeMultiplier() override {return 1;};				///< Get the time multiplier.
 	virtual void setTimeMultiplier(Int multiple) override {}; ///< Set the time multiplier.
+#if defined(GENERALS_ONLINE)
+	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight, bool bForceDefaultCam) override {};
+#else
 	virtual void setDefaultView(Real pitch, Real angle, Real maxHeight) override {};
+#endif
 	virtual void zoomCamera( Real finalZoom, Int milliseconds, Real easeIn, Real easeOut ) override {};
 	virtual void pitchCamera( Real finalPitch, Int milliseconds, Real easeIn, Real easeOut ) override {};
 
@@ -1028,7 +1032,7 @@ void WbView3d::updateTrees()
 					Coord3D pos = *pMapObj->getLocation();
 					if (m_heightMapRenderObj) {
 						pos.z += m_heightMapRenderObj->getHeightMapHeight(pos.x, pos.y, nullptr);
-						TheTerrainRenderObject->addTree((DrawableID)(Int)pMapObj, pos, scale, pMapObj->getAngle(),
+						TheTerrainRenderObject->addTree((DrawableID)(uintptr_t)pMapObj, pos, scale, pMapObj->getAngle(),
 							0.0f /*no random scaling*/, md);
 					}
 				}
@@ -1312,15 +1316,18 @@ AsciiString WbView3d::getModelNameAndScale(MapObject *pMapObj, Real *scale, Body
 			break;
 	}
 
-	AsciiString modelName("No Model Name");
+	AsciiString modelName;
 	*scale = 1.0f;
-	Int i;
+
+#ifdef LOAD_TEST_ASSETS
 	char buffer[ _MAX_PATH ];
+
 	if (strncmp(TEST_STRING, pMapObj->getName().str(), strlen(TEST_STRING)) == 0)
 	{
 		/* Handle test art models here */
 		strlcpy(buffer, pMapObj->getName().str(), ARRAY_SIZE(buffer));
 
+		Int i;
 		for (i=0; buffer[i]; i++) {
 			if (buffer[i] == '/') {
 				i++;
@@ -1329,7 +1336,9 @@ AsciiString WbView3d::getModelNameAndScale(MapObject *pMapObj, Real *scale, Body
 		}
 		modelName = buffer+i;
 	}
-	else
+#endif
+
+	if (modelName.isEmpty())
 	{
 		modelName = "No Model Name"; // must be this while GDF exists (it's the default)
 		const ThingTemplate *tTemplate;
@@ -1342,8 +1351,8 @@ AsciiString WbView3d::getModelNameAndScale(MapObject *pMapObj, Real *scale, Body
 			modelName = getBestModelName(tTemplate, state);
 			*scale = tTemplate->getAssetScale();
 
-		}  // end if
-	}  // end else
+		}
+	}
 	return modelName;
 }
 
@@ -1396,7 +1405,7 @@ void WbView3d::invalObjectInView(MapObject *pMapObjIn)
 
 		const ThingTemplate *tTemplate = pMapObj->getThingTemplate();
 		if (tTemplate && tTemplate->isKindOf(KINDOF_OPTIMIZED_TREE)) {
-			if (!m_heightMapRenderObj->updateTreePosition((DrawableID)(Int)pMapObj, loc, pMapObj->getAngle())) {
+			if (!m_heightMapRenderObj->updateTreePosition((DrawableID)(uintptr_t)pMapObj, loc, pMapObj->getAngle())) {
 				// Couldn't find it, so update them all. [5/27/2003]
 				updateAllTrees = true;
 			}
