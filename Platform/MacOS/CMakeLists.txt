@@ -228,14 +228,16 @@ set_source_files_properties(
 # field offsets and inline accessors differ between the games. Compiling them inside the
 # shared library would bind every game to whichever headers won the include order, so each
 # game target compiles its own copy against its own includes.
-function(macos_platform_add_game_glue target)
+#
+# The engine glue is what any program running the engine needs: crash reports, install
+# paths, audio and the Metal device. Tools such as WorldBuilder take only this part; the
+# game glue adds the game engine, its mouse and its client factory on top.
+function(macos_platform_add_engine_glue target)
     target_sources(${target} PRIVATE
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCrashHandler.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Audio/MacOSAudioManager.cpp
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
@@ -244,10 +246,9 @@ function(macos_platform_add_game_glue target)
     # MacOSMain.mm is added by each game's Main CMakeLists and keeps that target's
     # precompiled header, so it is deliberately absent here.
     set_source_files_properties(
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCrashHandler.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
@@ -257,23 +258,51 @@ function(macos_platform_add_game_glue target)
     )
 
     set_source_files_properties(
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Audio/MacOSAudioManager.cpp
         PROPERTIES
             SKIP_PRECOMPILE_HEADERS ON
     )
 
     # Apple framework headers collide with engine types (WideChar, RGBColor, Byte). The
-    # two glue sources moved out of the shared library keep the prefix header and ARC it
+    # glue sources moved out of the shared library keep the prefix header and ARC it
     # applied to them; MacOSMain.mm never had either and still must not get them.
     set_source_files_properties(
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSInstallPaths.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBundleImage.mm
-        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/dx8wrapper_metal.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalVertexBuffer8.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Metal/MetalIndexBuffer8.mm
+        PROPERTIES
+            COMPILE_OPTIONS "-fobjc-arc;-include;${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Include/metal_prefix.h"
+    )
+endfunction()
+
+function(macos_platform_add_game_glue target)
+    macos_platform_add_engine_glue(${target})
+
+    target_sources(${target} PRIVATE
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
+        PROPERTIES
+            SKIP_PRECOMPILE_HEADERS ON
+            LANGUAGE OBJCXX
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
+        PROPERTIES
+            SKIP_PRECOMPILE_HEADERS ON
+    )
+
+    set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         PROPERTIES
             COMPILE_OPTIONS "-fobjc-arc;-include;${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Include/metal_prefix.h"
     )
