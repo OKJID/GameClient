@@ -1,0 +1,140 @@
+#pragma once
+
+#include "WinGdi.h"
+#include "WinUser.h"
+
+#define RICHEDIT_CLASSA "RichEdit20A"
+#define RICHEDIT_CLASS RICHEDIT_CLASSA
+
+#define EM_CANPASTE (WM_USER + 50)
+#define EM_EXGETSEL (WM_USER + 52)
+#define EM_EXLIMITTEXT (WM_USER + 53)
+#define EM_EXLINEFROMCHAR (WM_USER + 54)
+#define EM_EXSETSEL (WM_USER + 55)
+#define EM_FINDTEXT (WM_USER + 56)
+#define EM_GETCHARFORMAT (WM_USER + 58)
+#define EM_GETEVENTMASK (WM_USER + 59)
+#define EM_GETPARAFORMAT (WM_USER + 61)
+#define EM_GETSELTEXT (WM_USER + 62)
+#define EM_HIDESELECTION (WM_USER + 63)
+#define EM_SELECTIONTYPE (WM_USER + 66)
+#define EM_SETBKGNDCOLOR (WM_USER + 67)
+#define EM_SETCHARFORMAT (WM_USER + 68)
+#define EM_SETEVENTMASK (WM_USER + 69)
+#define EM_SETPARAFORMAT (WM_USER + 71)
+#define EM_GETTEXTRANGE (WM_USER + 75)
+#define EM_SETOPTIONS (WM_USER + 77)
+#define EM_GETOPTIONS (WM_USER + 78)
+#define EM_AUTOURLDETECT (WM_USER + 91)
+
+#define EN_MSGFILTER 0x0700
+#define EN_REQUESTRESIZE 0x0701
+#define EN_SELCHANGE 0x0702
+#define EN_DROPFILES 0x0703
+#define EN_PROTECTED 0x0704
+#define EN_LINK 0x070B
+
+#define ENM_NONE 0x00000000
+#define ENM_CHANGE 0x00000001
+#define ENM_UPDATE 0x00000002
+#define ENM_SCROLL 0x00000004
+#define ENM_KEYEVENTS 0x00010000
+#define ENM_MOUSEEVENTS 0x00020000
+#define ENM_REQUESTRESIZE 0x00040000
+#define ENM_SELCHANGE 0x00080000
+#define ENM_DROPFILES 0x00100000
+#define ENM_PROTECTED 0x00200000
+#define ENM_LINK 0x04000000
+
+#define SCF_DEFAULT 0x0000
+#define SCF_SELECTION 0x0001
+#define SCF_WORD 0x0002
+#define SCF_ALL 0x0004
+
+#define CFM_BOLD 0x00000001
+#define CFM_ITALIC 0x00000002
+#define CFM_UNDERLINE 0x00000004
+#define CFM_STRIKEOUT 0x00000008
+#define CFM_PROTECTED 0x00000010
+#define CFM_LINK 0x00000020
+#define CFM_CHARSET 0x08000000
+#define CFM_OFFSET 0x10000000
+#define CFM_FACE 0x20000000
+#define CFM_COLOR 0x40000000
+#define CFM_SIZE 0x80000000
+#define CFM_EFFECTS (CFM_BOLD | CFM_ITALIC | CFM_UNDERLINE | CFM_COLOR | CFM_STRIKEOUT | CFE_PROTECTED | CFM_LINK)
+
+#define CFE_BOLD 0x00000001
+#define CFE_ITALIC 0x00000002
+#define CFE_UNDERLINE 0x00000004
+#define CFE_STRIKEOUT 0x00000008
+#define CFE_PROTECTED 0x00000010
+#define CFE_LINK 0x00000020
+#define CFE_AUTOCOLOR 0x40000000
+
+#define SEL_EMPTY 0x0000
+#define SEL_TEXT 0x0001
+
+typedef struct _charrange
+{
+	LONG cpMin;
+	LONG cpMax;
+} CHARRANGE;
+
+typedef struct _charformat
+{
+	UINT cbSize;
+	DWORD dwMask;
+	DWORD dwEffects;
+	LONG yHeight;
+	LONG yOffset;
+	COLORREF crTextColor;
+	BYTE bCharSet;
+	BYTE bPitchAndFamily;
+	char szFaceName[LF_FACESIZE];
+} CHARFORMATA, CHARFORMAT;
+
+struct CHARFORMAT2A : _charformat
+{
+	WORD wWeight;
+	SHORT sSpacing;
+	COLORREF crBackColor;
+	DWORD lcid;
+	DWORD dwReserved;
+	SHORT sStyle;
+	WORD wKerning;
+	BYTE bUnderlineType;
+	BYTE bAnimation;
+	BYTE bRevAuthor;
+};
+typedef CHARFORMAT2A CHARFORMAT2;
+
+typedef struct _enlink
+{
+	NMHDR nmhdr;
+	UINT msg;
+	WPARAM wParam;
+	LPARAM lParam;
+	CHARRANGE chrg;
+} ENLINK;
+
+typedef struct _msgfilter
+{
+	NMHDR nmhdr;
+	UINT msg;
+	WPARAM wParam;
+	LPARAM lParam;
+} MSGFILTER;
+
+typedef struct _selchange
+{
+	NMHDR nmhdr;
+	CHARRANGE chrg;
+	WORD seltyp;
+} SELCHANGE;
+
+typedef struct _textrange
+{
+	CHARRANGE chrg;
+	LPSTR lpstrText;
+} TEXTRANGEA, TEXTRANGE;

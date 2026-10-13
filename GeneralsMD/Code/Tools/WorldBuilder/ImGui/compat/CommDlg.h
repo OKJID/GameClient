@@ -1,0 +1,105 @@
+#pragma once
+
+#include "WinUser.h"
+
+#define OFN_READONLY 0x00000001
+#define OFN_OVERWRITEPROMPT 0x00000002
+#define OFN_HIDEREADONLY 0x00000004
+#define OFN_NOCHANGEDIR 0x00000008
+#define OFN_ALLOWMULTISELECT 0x00000200
+#define OFN_PATHMUSTEXIST 0x00000800
+#define OFN_FILEMUSTEXIST 0x00001000
+#define OFN_CREATEPROMPT 0x00002000
+#define OFN_EXPLORER 0x00080000
+#define OFN_ENABLESIZING 0x00800000
+
+#define CC_RGBINIT 0x00000001
+#define CC_FULLOPEN 0x00000002
+#define CC_PREVENTFULLOPEN 0x00000004
+#define CC_SHOWHELP 0x00000008
+#define CC_SOLIDCOLOR 0x00000080
+#define CC_ANYCOLOR 0x00000100
+
+typedef struct tagOFNA
+{
+	DWORD lStructSize;
+	HWND hwndOwner;
+	HINSTANCE hInstance;
+	LPCSTR lpstrFilter;
+	LPSTR lpstrCustomFilter;
+	DWORD nMaxCustFilter;
+	DWORD nFilterIndex;
+	LPSTR lpstrFile;
+	DWORD nMaxFile;
+	LPSTR lpstrFileTitle;
+	DWORD nMaxFileTitle;
+	LPCSTR lpstrInitialDir;
+	LPCSTR lpstrTitle;
+	DWORD Flags;
+	WORD nFileOffset;
+	WORD nFileExtension;
+	LPCSTR lpstrDefExt;
+} OPENFILENAMEA, OPENFILENAME, *LPOPENFILENAME;
+
+typedef struct tagCHOOSECOLORA
+{
+	DWORD lStructSize;
+	HWND hwndOwner;
+	HWND hInstance;
+	COLORREF rgbResult;
+	COLORREF* lpCustColors;
+	DWORD Flags;
+	LPARAM lCustData;
+} CHOOSECOLORA, CHOOSECOLOR, *LPCHOOSECOLOR;
+
+#define PD_ALLPAGES 0x00000000
+#define PD_SELECTION 0x00000001
+#define PD_PAGENUMS 0x00000002
+#define PD_NOSELECTION 0x00000004
+#define PD_NOPAGENUMS 0x00000008
+#define PD_COLLATE 0x00000010
+#define PD_PRINTTOFILE 0x00000020
+#define PD_PRINTSETUP 0x00000040
+#define PD_NOWARNING 0x00000080
+#define PD_RETURNDC 0x00000100
+#define PD_RETURNIC 0x00000200
+#define PD_RETURNDEFAULT 0x00000400
+#define PD_SHOWHELP 0x00000800
+#define PD_USEDEVMODECOPIES 0x00040000
+#define PD_HIDEPRINTTOFILE 0x00100000
+
+#define CDERR_DIALOGFAILURE 0xFFFF
+#define CDERR_STRUCTSIZE 0x0001
+#define FNERR_BUFFERTOOSMALL 0x3003
+#define PDERR_NODEVICES 0x1007
+#define PDERR_NODEFAULTPRN 0x1008
+
+typedef struct tagPDA
+{
+	DWORD lStructSize;
+	HWND hwndOwner;
+	HGLOBAL hDevMode;
+	HGLOBAL hDevNames;
+	HDC hDC;
+	DWORD Flags;
+	WORD nFromPage;
+	WORD nToPage;
+	WORD nMinPage;
+	WORD nMaxPage;
+	WORD nCopies;
+	HINSTANCE hInstance;
+	LPARAM lCustData;
+	LPCSTR lpPrintTemplateName;
+	LPCSTR lpSetupTemplateName;
+} PRINTDLGA, PRINTDLG, *LPPRINTDLG;
+
+BOOL PrintDlgA(LPPRINTDLG printDialog);
+DWORD CommDlgExtendedError();
+#define PrintDlg PrintDlgA
+
+BOOL GetOpenFileNameA(LPOPENFILENAME openFileName);
+BOOL GetSaveFileNameA(LPOPENFILENAME openFileName);
+BOOL ChooseColorA(LPCHOOSECOLOR chooseColor);
+#define GetOpenFileName GetOpenFileNameA
+#define GetSaveFileName GetSaveFileNameA
+#define ChooseColor ChooseColorA
