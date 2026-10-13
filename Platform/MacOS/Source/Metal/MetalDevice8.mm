@@ -21,6 +21,7 @@
 #include "MetalCubeTexture8.h"
 #include "MetalVertexBuffer8.h"
 #include "MacOSDebugLog.h"
+#include "MacOSNativeWindow.h"
 #include "../Utils/MacDebug.h"
 #include "MetalTextureCapture.h"
 #include <cstdio>
@@ -488,9 +489,10 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
     // (e.g. 800x600) and macOS scales it to fill the window on Retina displays.
     // This avoids the "squished to 1/4" problem on Retina screens.
     layer.contentsScale = 1.0;
-    layer.drawableSize = CGSizeMake(viewSize.width, viewSize.height);
-    m_ScreenWidth = viewSize.width;
-    m_ScreenHeight = viewSize.height;
+    const CGFloat backBufferScale = MacOS_BackBufferUsesBackingScale() ? scale : 1.0;
+    layer.drawableSize = CGSizeMake(viewSize.width * backBufferScale, viewSize.height * backBufferScale);
+    m_ScreenWidth = viewSize.width * backBufferScale;
+    m_ScreenHeight = viewSize.height * backBufferScale;
 
     // CRITICAL: Flush the layer transaction to the Window Server immediately.
     // Otherwise, the very first nextDrawable called in BeginScene() will block

@@ -493,6 +493,27 @@ bool DX8Wrapper::Set_Render_Device(const char* dev_name, int width, int height, 
 	return false;
 }
 
+static int s_requestedWidth = 0;
+static int s_requestedHeight = 0;
+
+static CGFloat Back_Buffer_Scale(HWND hwnd)
+{
+	if (!MacOS_BackBufferUsesBackingScale()) return 1.0;
+	NSWindow* win = (__bridge NSWindow*)hwnd;
+	return win != nil ? win.backingScaleFactor : 1.0;
+}
+
+static int Back_Buffer_Pixels(HWND hwnd, int points)
+{
+	return (int)lround(points * Back_Buffer_Scale(hwnd));
+}
+
+static void Remember_Requested_Resolution(int width, int height)
+{
+	if (width != -1) s_requestedWidth = width;
+	if (height != -1) s_requestedHeight = height;
+}
+
 bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits, int windowed, bool resize_window, bool reset_device, bool restore_assets)
 {
 	WWASSERT(IsInitted);
@@ -505,8 +526,9 @@ bool DX8Wrapper::Set_Render_Device(int dev, int width, int height, int bits, int
 		CurRenderDevice = dev;
 	}
 
-	if (width != -1) ResolutionWidth = width;
-	if (height != -1) ResolutionHeight = height;
+	Remember_Requested_Resolution(width, height);
+	if (width != -1) ResolutionWidth = Back_Buffer_Pixels(_Hwnd, width);
+	if (height != -1) ResolutionHeight = Back_Buffer_Pixels(_Hwnd, height);
 
 	Render2DClass::Set_Screen_Resolution( RectClass( 0, 0, ResolutionWidth, ResolutionHeight ) );
 	DEBUG_RENDERING_MAC(("Set_Render_Device: res=%dx%d Render2D set", ResolutionWidth, ResolutionHeight));
@@ -622,18 +644,34 @@ extern "C" bool MacOS_ToggleFullscreen() {
 	return true;
 }
 
+static void Resize_Back_Buffer(HWND hwnd, int width, int height)
+{
+	NSWindow* win = (__bridge NSWindow*)hwnd;
+	if (win == nil) return;
+
+	NSView* contentView = win.contentView;
+	if (contentView.layer && [contentView.layer isKindOfClass:[CAMetalLayer class]]) {
+		CAMetalLayer* layer = (CAMetalLayer*)contentView.layer;
+		layer.drawableSize = CGSizeMake(width, height);
+	}
+	MacOS_UpdateMetalDeviceScreenSize(width, height);
+}
+
 bool DX8Wrapper::Set_Device_Resolution(int width, int height, int bits, int windowed, bool resize_window)
 {
 	if (D3DDevice != nullptr) {
+		Remember_Requested_Resolution(width, height);
 		if (width != -1) {
-			_PresentParameters.BackBufferWidth = ResolutionWidth = width;
+			_PresentParameters.BackBufferWidth = ResolutionWidth = Back_Buffer_Pixels(_Hwnd, width);
 		}
 		if (height != -1) {
-			_PresentParameters.BackBufferHeight = ResolutionHeight = height;
+			_PresentParameters.BackBufferHeight = ResolutionHeight = Back_Buffer_Pixels(_Hwnd, height);
 		}
 		// Mirrors Windows dx8wrapper.cpp line 1367-1369
 		if (resize_window) {
 			Resize_And_Position_Window();
+		} else {
+			Resize_Back_Buffer(_Hwnd, ResolutionWidth, ResolutionHeight);
 		}
 		return Reset_Device();
 	}
@@ -652,6 +690,7 @@ void DX8Wrapper::Resize_And_Position_Window()
 	NSWindow* win = (__bridge NSWindow*)_Hwnd;
 	NSView* contentView = win.contentView;
 	CGFloat bsf = win.backingScaleFactor;
+	const CGFloat backBufferScale = Back_Buffer_Scale(_Hwnd);
 
 	printf("[DX8Wrapper] Resize_And_Position_Window: IsWindowed=%d, requested %dx%d\n",
 	       IsWindowed, ResolutionWidth, ResolutionHeight);
@@ -664,7 +703,7 @@ void DX8Wrapper::Resize_And_Position_Window()
 		[win setLevel:NSMainMenuWindowLevel + 1];
 	} else {
 		[win setLevel:NSNormalWindowLevel];
-		NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth, ResolutionHeight);
+		NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth / backBufferScale, ResolutionHeight / backBufferScale);
 		NSRect newFrame = [win frameRectForContentRect:contentRect];
 		NSRect visibleFrame = screen.visibleFrame;
 
@@ -688,12 +727,18 @@ void DX8Wrapper::Resize_And_Position_Window()
 		layer.contentsScale = bsf;
 		layer.contentsGravity = kCAGravityResizeAspect; 
 		CGSize logicalSize = win.contentView.bounds.size;
-		layer.drawableSize = CGSizeMake(logicalSize.width, logicalSize.height);
+		layer.drawableSize = CGSizeMake(logicalSize.width * backBufferScale, logicalSize.height * backBufferScale);
 	}
 
 	// 3. Update MetalDevice8 screen dimensions + depth texture + viewport (logical points)
 	CGSize logicalSize = win.contentView.bounds.size;
-	MacOS_UpdateMetalDeviceScreenSize((int)logicalSize.width, (int)logicalSize.height);
+	MacOS_UpdateMetalDeviceScreenSize((int)(logicalSize.width * backBufferScale), (int)(logicalSize.height * backBufferScale));
+}
+
+extern "C" void MacOS_RefreshBackBufferScale()
+{
+	if (!MacOS_BackBufferUsesBackingScale() || s_requestedWidth <= 0 || s_requestedHeight <= 0) return;
+	WW3D::Set_Device_Resolution(s_requestedWidth, s_requestedHeight, -1, -1, false);
 }
 
 // ── Scene / Frame (copied from dx8wrapper.cpp lines 1816-1984, DX8WebBrowser removed) ──

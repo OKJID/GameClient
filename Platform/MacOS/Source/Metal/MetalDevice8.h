@@ -118,7 +118,7 @@ public:
   // Non-override helpers
   void EnsureCurrentEncoder();
   HRESULT GetDirect3D(IDirect3D8 **ppD3D8);
-  HRESULT GetViewport(D3DVIEWPORT8 *pViewport);
+  HRESULT GetViewport(D3DVIEWPORT8 *pViewport) override;
   HRESULT GetMaterial(D3DMATERIAL8 *pMaterial);
   HRESULT GetLight(DWORD Index, D3DLIGHT8 *pLight);
   HRESULT GetLightEnable(DWORD Index, BOOL *pEnable);

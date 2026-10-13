@@ -120,6 +120,7 @@ struct IDirect3DDevice8 {
   virtual HRESULT GetTextureStageState(DWORD s, D3DTEXTURESTAGESTATETYPE t, DWORD *v) = 0;
   virtual HRESULT SetLight(DWORD i, const D3DLIGHT8 *l) = 0;
   virtual HRESULT SetViewport(const D3DVIEWPORT8 *v) = 0;
+  virtual HRESULT GetViewport(D3DVIEWPORT8 *v) = 0;
   virtual HRESULT Clear(DWORD c, const void *r, DWORD f, D3DCOLOR cl, float z, DWORD s) = 0;
   virtual HRESULT BeginScene() = 0;
   virtual HRESULT EndScene() = 0;

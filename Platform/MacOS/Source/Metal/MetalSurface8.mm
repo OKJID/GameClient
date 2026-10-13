@@ -97,6 +97,20 @@ STDMETHODIMP MetalSurface8::GetDesc(D3DSURFACE_DESC *pDesc) {
   return D3D_OK;
 }
 
+static UINT LockedRectOffset(D3DFORMAT format, UINT width, UINT pitch,
+                             CONST RECT *pRect) {
+  if (!pRect)
+    return 0;
+  const bool isCompressed = format == D3DFMT_DXT1 || format == D3DFMT_DXT2 ||
+                            format == D3DFMT_DXT3 || format == D3DFMT_DXT4 ||
+                            format == D3DFMT_DXT5;
+  if (isCompressed) {
+    const UINT bytesPerBlock = (format == D3DFMT_DXT1) ? 8 : 16;
+    return (pRect->top / 4) * pitch + (pRect->left / 4) * bytesPerBlock;
+  }
+  return pRect->top * pitch + pRect->left * (pitch / width);
+}
+
 STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
                                      CONST RECT *pRect, DWORD Flags) {
   if (!pLockedRect)
@@ -106,7 +120,8 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
     // D3D8 pattern: callers (W3DRadar, W3DShroud) do Lock/Write/Unlock
     // sequences on the same texture level. Re-lock must return the same
     // buffer with accumulated data, not a fresh zero-filled allocation.
-    pLockedRect->pBits = m_LockedData;
+    pLockedRect->pBits = static_cast<uint8_t *>(m_LockedData) +
+                         LockedRectOffset(m_Format, m_Width, m_LockedPitch, pRect);
     pLockedRect->Pitch = m_LockedPitch;
     m_LockedReadOnly = (Flags & D3DLOCK_READONLY) != 0;
     return D3D_OK;
@@ -173,7 +188,8 @@ STDMETHODIMP MetalSurface8::LockRect(D3DLOCKED_RECT *pLockedRect,
   m_LockedPitch = pitch;
   m_LockedReadOnly = (Flags & D3DLOCK_READONLY) != 0;
 
-  pLockedRect->pBits = m_LockedData;
+  pLockedRect->pBits = static_cast<uint8_t *>(m_LockedData) +
+                       LockedRectOffset(m_Format, m_Width, pitch, pRect);
   pLockedRect->Pitch = pitch;
 
   return D3D_OK;
