@@ -534,9 +534,23 @@ inline int GetDateFormat(DWORD, DWORD, const void*, const char* format, char* da
 #endif
 
 #define INVALID_FILE_ATTRIBUTES ((DWORD)-1)
+#define FILE_ATTRIBUTE_READONLY 0x01
 #define FILE_ATTRIBUTE_DIRECTORY 0x10
-inline DWORD GetFileAttributes(LPCSTR) { return INVALID_FILE_ATTRIBUTES; }
-inline DWORD GetFileAttributesA(LPCSTR p) { return GetFileAttributes(p); }
+#define FILE_ATTRIBUTE_NORMAL 0x80
+inline DWORD GetFileAttributesA(LPCSTR lpFileName) {
+    if (!lpFileName || !lpFileName[0]) return INVALID_FILE_ATTRIBUTES;
+
+    char native[MAX_PATH];
+    strncpy(native, lpFileName, MAX_PATH - 1);
+    native[MAX_PATH - 1] = '\0';
+    ConvertToNativePath(native);
+
+    struct stat info;
+    if (stat(native, &info) != 0) return INVALID_FILE_ATTRIBUTES;
+    if (S_ISDIR(info.st_mode)) return FILE_ATTRIBUTE_DIRECTORY;
+    return access(native, W_OK) == 0 ? FILE_ATTRIBUTE_NORMAL : FILE_ATTRIBUTE_READONLY;
+}
+#define GetFileAttributes GetFileAttributesA
 inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
     if (getcwd(buf, n)) {
         ConvertToEnginePath(buf);
@@ -545,6 +559,16 @@ inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
     return 0;
 }
 #define GetCurrentDirectory GetCurrentDirectoryA
+inline BOOL SetCurrentDirectoryA(LPCSTR lpPathName) {
+    if (!lpPathName || !lpPathName[0]) return FALSE;
+
+    char native[MAX_PATH];
+    strncpy(native, lpPathName, MAX_PATH - 1);
+    native[MAX_PATH - 1] = '\0';
+    ConvertToNativePath(native);
+    return chdir(native) == 0;
+}
+#define SetCurrentDirectory SetCurrentDirectoryA
 
 typedef void* LPDISPATCH;
 
