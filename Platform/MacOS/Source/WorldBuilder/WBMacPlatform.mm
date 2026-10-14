@@ -95,6 +95,11 @@ void configurePanel(NSSavePanel* panel, const Win32FileDialogRequest& request)
 
 }
 
+WBMacPlatform::WBMacPlatform(NSWindow* window)
+	: m_window(window)
+{
+}
+
 void* WBMacPlatform::createCursor(const Win32Image& image, POINT hotSpot)
 {
 	NSCursor* cursor = [[NSCursor alloc] initWithImage:imageFrom(image) hotSpot:NSMakePoint(hotSpot.x, hotSpot.y)];
@@ -196,4 +201,9 @@ std::string WBMacPlatform::fontFilePath(const std::string& faceName)
 		return std::string();
 	}
 	return url.path.UTF8String;
+}
+
+void WBMacPlatform::resizeHostWindow(int width, int height)
+{
+	[m_window setContentSize:NSMakeSize(width, height)];
 }

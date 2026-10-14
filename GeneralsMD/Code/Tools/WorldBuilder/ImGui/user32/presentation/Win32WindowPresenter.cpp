@@ -4,6 +4,7 @@
 #include "Win32ControlDrawing.h"
 #include "Win32Gdi.h"
 #include "Win32Messages.h"
+#include "Win32Platform.h"
 
 #include "imgui_internal.h"
 
@@ -178,16 +179,38 @@ void Win32WindowPresenter::synchronizeHost()
 	}
 	RECT target;
 	SetRect(&target, 0, 0, width, height);
-	Win32PresentedWindow& presented = m_presented[host->hwnd];
-	if (EqualRect(&host->rect, &target) || (presented.hasAppliedRect && EqualRect(&presented.appliedRect, &target)))
+	if (EqualRect(&host->rect, &target) || m_hostResizePending)
 	{
+		return;
+	}
+
+	Win32PresentedWindow& presented = m_presented[host->hwnd];
+	if (presented.hasAppliedRect && EqualRect(&presented.appliedRect, &target))
+	{
+		presented.appliedRect = host->rect;
+		resizeNativeHost(*host);
 		return;
 	}
 
 	presented.appliedRect = target;
 	presented.hasAppliedRect = true;
+	m_hostResizePending = true;
 	const HWND hwnd = host->hwnd;
-	Win32PostTask(hwnd, [hwnd, width, height]() { SetWindowPos(hwnd, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE); });
+	Win32PostTask(hwnd, [this, hwnd, width, height]()
+	{
+		m_hostResizePending = false;
+		SetWindowPos(hwnd, nullptr, 0, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+	});
+}
+
+void Win32WindowPresenter::resizeNativeHost(const Win32Window& host)
+{
+	Win32Platform* platform = Win32GetPlatform();
+	if (platform == nullptr)
+	{
+		return;
+	}
+	platform->resizeHostWindow(host.rect.right - host.rect.left, host.rect.bottom - host.rect.top);
 }
 
 void Win32WindowPresenter::presentHost(Win32Window* host)

@@ -43,6 +43,8 @@ public:
 	virtual bool chooseFile(const Win32FileDialogRequest& request, std::string& path) = 0;
 
 	virtual std::string fontFilePath(const std::string& faceName) = 0;
+
+	virtual void resizeHostWindow(int width, int height) = 0;
 };
 
 void Win32SetPlatform(Win32Platform* platform);

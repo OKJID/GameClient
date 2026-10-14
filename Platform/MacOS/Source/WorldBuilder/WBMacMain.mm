@@ -253,7 +253,7 @@ int main(int argc, char* argv[])
 		WBWindowDelegate* delegate = [[WBWindowDelegate alloc] init];
 		NSWindow* window = launchApplication(delegate);
 
-		WBMacPlatform platform;
+		WBMacPlatform platform(window);
 		WBMacFramePump framePump(window);
 		installWin32Host(platform, framePump);
 		if (!loadResources())

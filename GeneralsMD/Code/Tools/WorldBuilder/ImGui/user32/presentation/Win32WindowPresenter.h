@@ -24,6 +24,7 @@ public:
 
 private:
 	void synchronizeHost();
+	void resizeNativeHost(const Win32Window& host);
 	void presentHost(Win32Window* host);
 	void presentFloating(Win32Window* window);
 	void presentDetached(std::vector<Win32Window*>& detached);
@@ -43,4 +44,5 @@ private:
 	std::map<const ImGuiWindow*, Win32Window*> m_windowsByRoot;
 	HWND m_lastActive = nullptr;
 	const ImGuiWindow* m_lastFocusedRoot = nullptr;
+	bool m_hostResizePending = false;
 };
