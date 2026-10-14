@@ -511,9 +511,6 @@ typedef struct _WIN32_FIND_DATAA {
     char cFileName[260];
 } WIN32_FIND_DATAA, *PWIN32_FIND_DATAA, *LPWIN32_FIND_DATAA;
 typedef WIN32_FIND_DATAA WIN32_FIND_DATA;
-inline HANDLE FindFirstFile(const char* lpFileName, WIN32_FIND_DATA* lpFindFileData) { return INVALID_HANDLE_VALUE; }
-inline BOOL FindNextFile(HANDLE hFindFile, WIN32_FIND_DATA* lpFindFileData) { return FALSE; }
-inline BOOL FindClose(HANDLE hFindFile) { return TRUE; }
 
 typedef int (*FARPROC)();
 inline void* LoadLibrary(const char* lpFileName) { return NULL; }
@@ -551,6 +548,77 @@ inline DWORD GetFileAttributesA(LPCSTR lpFileName) {
     return access(native, W_OK) == 0 ? FILE_ATTRIBUTE_NORMAL : FILE_ATTRIBUTE_READONLY;
 }
 #define GetFileAttributes GetFileAttributesA
+
+#include <dirent.h>
+#include <fnmatch.h>
+
+struct MacOSFindHandle {
+    DIR* directory;
+    char directoryPath[MAX_PATH];
+    char pattern[MAX_PATH];
+};
+
+inline BOOL MacOSReadNextFindMatch(MacOSFindHandle* find, WIN32_FIND_DATA* lpFindFileData) {
+    for (struct dirent* entry = readdir(find->directory); entry != NULL; entry = readdir(find->directory)) {
+        if (fnmatch(find->pattern, entry->d_name, FNM_CASEFOLD | FNM_NOESCAPE) != 0) continue;
+
+        char enginePath[MAX_PATH];
+        snprintf(enginePath, sizeof(enginePath), "%s\\%s", find->directoryPath, entry->d_name);
+        lpFindFileData->dwFileAttributes = GetFileAttributesA(enginePath);
+        lstrcpyn(lpFindFileData->cFileName, entry->d_name, sizeof(lpFindFileData->cFileName));
+        return TRUE;
+    }
+    return FALSE;
+}
+
+inline void MacOSSplitFindPattern(const char* lpFileName, MacOSFindHandle* find) {
+    const char* backslash = strrchr(lpFileName, '\\');
+    const char* slash = strrchr(lpFileName, '/');
+    const char* separator = slash != NULL && (backslash == NULL || slash > backslash) ? slash : backslash;
+    if (separator == NULL) {
+        lstrcpyn(find->directoryPath, ".", MAX_PATH);
+        lstrcpyn(find->pattern, lpFileName, MAX_PATH);
+        return;
+    }
+
+    const size_t directoryLength = separator == lpFileName ? 1 : (size_t)(separator - lpFileName);
+    lstrcpyn(find->directoryPath, lpFileName, (int)(directoryLength < MAX_PATH ? directoryLength + 1 : MAX_PATH));
+    lstrcpyn(find->pattern, separator + 1, MAX_PATH);
+}
+
+inline BOOL FindClose(HANDLE hFindFile) {
+    if (hFindFile == NULL || hFindFile == INVALID_HANDLE_VALUE) return FALSE;
+
+    MacOSFindHandle* find = (MacOSFindHandle*)hFindFile;
+    if (find->directory != NULL) closedir(find->directory);
+    delete find;
+    return TRUE;
+}
+
+inline HANDLE FindFirstFile(const char* lpFileName, WIN32_FIND_DATA* lpFindFileData) {
+    if (!lpFileName || !lpFileName[0] || !lpFindFileData) return INVALID_HANDLE_VALUE;
+
+    MacOSFindHandle* find = new MacOSFindHandle();
+    MacOSSplitFindPattern(lpFileName, find);
+    if (strcmp(find->pattern, "*.*") == 0) lstrcpyn(find->pattern, "*", MAX_PATH);
+
+    char nativeDirectory[MAX_PATH];
+    lstrcpyn(nativeDirectory, find->directoryPath, MAX_PATH);
+    ConvertToNativePath(nativeDirectory);
+    find->directory = opendir(nativeDirectory);
+    if (find->directory == NULL || !MacOSReadNextFindMatch(find, lpFindFileData)) {
+        FindClose((HANDLE)find);
+        return INVALID_HANDLE_VALUE;
+    }
+    return (HANDLE)find;
+}
+
+inline BOOL FindNextFile(HANDLE hFindFile, WIN32_FIND_DATA* lpFindFileData) {
+    if (hFindFile == NULL || hFindFile == INVALID_HANDLE_VALUE || !lpFindFileData) return FALSE;
+
+    return MacOSReadNextFindMatch((MacOSFindHandle*)hFindFile, lpFindFileData);
+}
+
 inline DWORD GetCurrentDirectoryA(DWORD n, LPSTR buf) {
     if (getcwd(buf, n)) {
         ConvertToEnginePath(buf);
