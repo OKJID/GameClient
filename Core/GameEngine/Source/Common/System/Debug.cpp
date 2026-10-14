@@ -985,9 +985,8 @@ void MacDebugLogWrite(const char* tag, const char* fmt, ...)
 
 	if (s_macLogPath.empty())
 	{
-		s_macLogPath = s_macLogDir.empty()
-			? std::string("MacDebug.txt")
-			: s_macLogDir + "MacDebug.txt";
+		const std::string fileName = std::string(gAppPrefix) + "MacDebug.txt";
+		s_macLogPath = s_macLogDir.empty() ? fileName : s_macLogDir + fileName;
 	}
 
 	FILE* fp = NativeFileSystem::fopen(s_macLogPath, s_macLogTruncated ? "ab" : "wb");
