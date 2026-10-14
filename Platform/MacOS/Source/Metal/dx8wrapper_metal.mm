@@ -2210,7 +2210,14 @@ void DX8Wrapper::Get_Device_Resolution(int& set_w, int& set_h, int& set_bits, bo
 	set_w = ResolutionWidth; set_h = ResolutionHeight; set_bits = BitDepth; set_windowed = IsWindowed;
 }
 void DX8Wrapper::Get_Render_Target_Resolution(int& set_w, int& set_h, int& set_bits, bool& set_windowed) {
-	set_w = ResolutionWidth; set_h = ResolutionHeight; set_bits = BitDepth; set_windowed = IsWindowed;
+	set_bits = BitDepth; set_windowed = IsWindowed;
+	if (CurrentRenderTarget != nullptr) {
+		D3DSURFACE_DESC info;
+		CurrentRenderTarget->GetDesc(&info);
+		set_w = info.Width; set_h = info.Height;
+		return;
+	}
+	set_w = ResolutionWidth; set_h = ResolutionHeight;
 }
 WW3DFormat DX8Wrapper::getBackBufferFormat() { return WW3D_FORMAT_A8R8G8B8; }
 bool DX8Wrapper::Has_Stencil()
