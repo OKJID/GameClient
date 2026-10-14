@@ -14,6 +14,7 @@ struct ControlKind
 	DWORD defaultStyle;
 	bool hasText;
 	bool hasClassAndStyleFirst;
+	DWORD typeMask = 0;
 };
 
 const DWORD kPushBoxStyle = 0x0000000AL;
@@ -33,7 +34,7 @@ const ControlKind kControlKinds[] = {
 	{ "AUTO3STATE", "Button", BS_AUTO3STATE | WS_TABSTOP, true, false },
 	{ "GROUPBOX", "Button", BS_GROUPBOX, true, false },
 	{ "EDITTEXT", "Edit", ES_LEFT | WS_BORDER | WS_TABSTOP, false, false },
-	{ "COMBOBOX", "ComboBox", CBS_SIMPLE | WS_TABSTOP, false, false },
+	{ "COMBOBOX", "ComboBox", CBS_SIMPLE | WS_TABSTOP, false, false, CBS_DROPDOWNLIST },
 	{ "LISTBOX", "ListBox", LBS_NOTIFY | WS_BORDER, false, false },
 	{ "SCROLLBAR", "ScrollBar", SBS_HORZ, false, false },
 	{ "ICON", "Static", SS_ICON, true, false },
@@ -219,7 +220,12 @@ void Win32ResourceParser::parseDialogItem(Win32DialogTemplate& dialog, const std
 	}
 	else
 	{
+		item.style &= ~kind->typeMask;
 		parseItemTail(item, isExtended);
+		if ((item.style & kind->typeMask) == 0)
+		{
+			item.style |= kind->defaultStyle & kind->typeMask;
+		}
 	}
 	dialog.items.push_back(item);
 }
