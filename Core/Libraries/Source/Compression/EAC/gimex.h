@@ -374,7 +374,8 @@ static __inline unsigned int ggetm(const void *src, int bytes)
 {
     if (bytes==1)
         return (unsigned int) *(const unsigned char *) src;
-#if defined(__APPLE__) || (defined(__MWERKS__) && defined(__PPCGEKKO__))
+// TheSuperHackers @bugfix Okladnoj 14/10/2026 Only big-endian Apple hardware may read motorola values directly; Intel and Apple Silicon Macs are little-endian.
+#if (defined(__APPLE__) && defined(__BIG_ENDIAN__)) || (defined(__MWERKS__) && defined(__PPCGEKKO__))
     else if (bytes==2)
         return (unsigned int) *(const unsigned short *) src;
     else if (bytes==4)
@@ -420,7 +421,8 @@ static __inline void gputm(void *dst, unsigned int data, int bytes)
     {
         ((unsigned char *) dst)[0] = (unsigned char) data;
     }
-#if defined(__APPLE__) || (defined(__MWERKS__) && defined(__PPCGEKKO__))
+// TheSuperHackers @bugfix Okladnoj 14/10/2026 Only big-endian Apple hardware may write motorola values directly; Intel and Apple Silicon Macs are little-endian.
+#if (defined(__APPLE__) && defined(__BIG_ENDIAN__)) || (defined(__MWERKS__) && defined(__PPCGEKKO__))
     else if (bytes==2)
     {
         ((unsigned short *) dst)[0] = (unsigned short) data;
