@@ -808,12 +808,7 @@ class LauncherViewModel: ObservableObject {
         task.executableURL = executableURL
         task.currentDirectoryURL = executableURL.deletingLastPathComponent()
         task.arguments = arguments
-
-        var env = ProcessInfo.processInfo.environment
-        env["GENERALS_INSTALL_PATH"] = effectiveInstallPath
-        env[LauncherSession.startedAtEnvironmentKey] = String(Int(LauncherSession.startedAt.timeIntervalSince1970))
-        env[SupportIdentity.environmentKey] = SupportIdentity.current
-        task.environment = env
+        task.environment = _launchEnvironment()
 
         do {
             try task.run()
@@ -832,6 +827,44 @@ class LauncherViewModel: ObservableObject {
             alertMessage = String(format: L10n.alerts.launchFailed, error.localizedDescription)
             isLaunching = false
         }
+    }
+
+    var worldBuilderURL: URL? {
+        guard let name = selectedProfile.worldBuilderExecutableName,
+              let url = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent(name),
+              FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+
+        return url
+    }
+
+    func launchWorldBuilder() {
+        guard canLaunch, let executableURL = worldBuilderURL else { return }
+
+        let task = Process()
+        task.executableURL = executableURL
+        task.currentDirectoryURL = executableURL.deletingLastPathComponent()
+        task.environment = _launchEnvironment()
+
+        do {
+            try task.run()
+        } catch {
+            alertMessage = String(format: L10n.alerts.launchFailed, error.localizedDescription)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            NSRunningApplication(processIdentifier: task.processIdentifier)?.activate(options: .activateIgnoringOtherApps)
+        }
+    }
+
+    private func _launchEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env["GENERALS_INSTALL_PATH"] = effectiveInstallPath
+        env[LauncherSession.startedAtEnvironmentKey] = String(Int(LauncherSession.startedAt.timeIntervalSince1970))
+        env[SupportIdentity.environmentKey] = SupportIdentity.current
+        return env
     }
 
     func checkForCrash() {

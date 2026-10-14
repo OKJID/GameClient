@@ -8,19 +8,22 @@ enum LogsSharer {
     static let crashReportNames = ["MacCrash.txt", "MacCrash.txt.bak", "MacCrash.txt.bak2", "MacCrash.txt.bak3"]
 
     private static func candidateLogs(in base: URL) -> [URL] {
-        [
+        let worldBuilderPrefix = CrashSource.worldBuilder.fileNamePrefix
+        return [
             base.appendingPathComponent("MacDebug.txt"),
-            base.appendingPathComponent("GeneralsOnlineData/GeneralsOnline.log")
+            base.appendingPathComponent("GeneralsOnlineData/GeneralsOnline.log"),
+            base.appendingPathComponent(worldBuilderPrefix + "MacDebug.txt")
         ] + crashReportNames.map { base.appendingPathComponent($0) }
+          + crashReportNames.map { base.appendingPathComponent(worldBuilderPrefix + $0) }
     }
 
     static func existingLogs(in base: URL) -> [URL] {
         candidateLogs(in: base).filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    static func existingCrashReports(in base: URL) -> [URL] {
+    static func existingCrashReports(in base: URL, prefix: String) -> [URL] {
         crashReportNames
-            .map { base.appendingPathComponent($0) }
+            .map { base.appendingPathComponent(prefix + $0) }
             .filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 

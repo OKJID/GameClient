@@ -29,8 +29,8 @@ struct SupportRequest {
             telegram: "",
             discord: "",
             email: "",
-            game: crash.profile.displayName,
-            logFiles: LogsSharer.existingCrashReports(in: crash.profile.userDataDirURL),
+            game: crash.gameName,
+            logFiles: crash.reportURLs,
             logsArchivePrefix: crashArchivePrefix(of: crash.profile),
             replay: nil,
             attachment: nil

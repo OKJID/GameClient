@@ -869,7 +869,10 @@ struct MainView: View {
         } else if viewModel.selectedProfile.isMod {
             _buildModAction(viewModel.selectedProfile)
         } else if viewModel.canLaunch {
-            _buildLaunchButton()
+            HStack(spacing: 12) {
+                _buildLaunchButton()
+                _buildWorldBuilderButton()
+            }
         } else if viewModel.assetPatcher.state.isRunning {
             _buildPatchingProgressButton()
         } else if viewModel.needsPatching {
@@ -1126,6 +1129,23 @@ struct MainView: View {
         .buttonStyle(PlainButtonStyle())
         .disabled(viewModel.isLaunching || !viewModel.canLaunch)
         .opacity(viewModel.canLaunch ? 1.0 : 0.45)
+    }
+
+    @ViewBuilder
+    private func _buildWorldBuilderButton() -> some View {
+        if viewModel.worldBuilderURL != nil {
+            WorldBuilderButton(
+                accent: accent,
+                iconName: _worldBuilderIconName,
+                title: L10n.worldBuilder.title,
+                description: L10n.worldBuilder.description,
+                action: { viewModel.launchWorldBuilder() }
+            )
+        }
+    }
+
+    private var _worldBuilderIconName: String {
+        viewModel.selectedProfile.id == .zeroHour ? "worldbuilder_zh" : "worldbuilder_generals"
     }
 
     private func _buildTargetRequiredHint() -> some View {

@@ -112,6 +112,7 @@ struct GameProfile: Identifiable {
     let forbiddenArchive: String?
     let bundleName: String
     let executableName: String
+    let worldBuilderExecutableName: String?
     let patchAssetsDirName: String
     let patchMarkers: [String]
     let localeLanguages: [String]
@@ -295,6 +296,7 @@ extension GameProfile {
         forbiddenArchive: nil,
         bundleName: "GeneralsOnlineZH.app",
         executableName: "GeneralsOnlineZH",
+        worldBuilderExecutableName: "WorldBuilderZH",
         patchAssetsDirName: "Assets",
         patchMarkers: [
             "310_ExpandedLANLobbyMenu.big",
@@ -340,6 +342,7 @@ extension GameProfile {
         forbiddenArchive: "INIZH.big",
         bundleName: "GeneralsVanilla.app",
         executableName: "GeneralsVanilla",
+        worldBuilderExecutableName: "WorldBuilderV",
         patchAssetsDirName: "AssetsGenerals",
         patchMarkers: [
             "GenTool/fullviewport.dat",
@@ -382,6 +385,7 @@ extension GameProfile {
             forbiddenArchive: base.forbiddenArchive,
             bundleName: base.bundleName,
             executableName: base.executableName,
+            worldBuilderExecutableName: nil,
             patchAssetsDirName: base.patchAssetsDirName,
             patchMarkers: base.patchMarkers,
             localeLanguages: base.localeLanguages,

@@ -50,7 +50,7 @@ struct SupportSheet: View {
         }
 
         guard let crash else { return [] }
-        return LogsSharer.existingCrashReports(in: crash.profile.userDataDirURL)
+        return crash.reportURLs
     }
 
     private var request: SupportRequest {
@@ -60,7 +60,7 @@ struct SupportSheet: View {
             telegram: telegram.trimmingCharacters(in: .whitespacesAndNewlines),
             discord: discord.trimmingCharacters(in: .whitespacesAndNewlines),
             email: email.trimmingCharacters(in: .whitespacesAndNewlines),
-            game: logsProfile.displayName,
+            game: crash?.gameName ?? logsProfile.displayName,
             logFiles: logFiles,
             logsArchivePrefix: attachLogs ? logsProfile.logsArchivePrefix : SupportRequest.crashArchivePrefix(of: logsProfile),
             replay: attachReplay && lastReplayDate != nil ? lastReplayURL : nil,

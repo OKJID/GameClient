@@ -62,6 +62,7 @@ enum L10n {
     static let donate = Donate()
     static let sync = Sync()
     static let support = Support()
+    static let worldBuilder = WorldBuilder()
 
     struct App {
         var title: String { resolve("app.title") }
@@ -231,6 +232,11 @@ enum L10n {
         var statusStale: String { resolve("sync.statusStale") }
         var statusOffline: String { resolve("sync.statusOffline") }
         var statusLauncherOutdated: String { resolve("sync.statusLauncherOutdated") }
+    }
+
+    struct WorldBuilder {
+        var title: String { resolve("worldBuilder.title") }
+        var description: String { resolve("worldBuilder.description") }
     }
 
     struct Support {
@@ -557,6 +563,8 @@ enum L10n {
         "mod.author.sentTitle": "REQUEST SENT",
         "mod.author.sentMsg": "Thank you! We will contact you to confirm authorship.",
         "support.help": "Contact the developer",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Map editor. Opens next to the launcher; saved maps appear in Skirmish.",
         "support.title": "CONTACT THE DEVELOPER",
         "support.subtitle": "Describe the problem or ask a question. Contacts are optional: leave one if you want a reply.",
         "support.crashTitle": "THE GAME CRASHED LAST TIME",
@@ -775,6 +783,8 @@ enum L10n {
         "mod.author.sentTitle": "ЗАПРОС ОТПРАВЛЕН",
         "mod.author.sentMsg": "Спасибо! Мы свяжемся с вами, чтобы подтвердить авторство.",
         "support.help": "Связаться с разработчиком",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Редактор карт. Открывается рядом с лаунчером; сохранённые карты появляются в скирмише.",
         "support.title": "СВЯЗЬ С РАЗРАБОТЧИКОМ",
         "support.subtitle": "Опишите проблему или задайте вопрос. Контакты необязательны — оставьте, если ждёте ответа.",
         "support.crashTitle": "В ПРОШЛЫЙ РАЗ ИГРА ВЫЛЕТЕЛА",
@@ -993,6 +1003,8 @@ enum L10n {
         "mod.author.sentTitle": "ЗАПИТ НАДІСЛАНО",
         "mod.author.sentMsg": "Дякуємо! Ми зв'яжемося з вами, щоб підтвердити авторство.",
         "support.help": "Зв’язатися з розробником",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Редактор карт. Відкривається поруч із лаунчером; збережені карти з’являються у сутичці.",
         "support.title": "ЗВ’ЯЗОК З РОЗРОБНИКОМ",
         "support.subtitle": "Опишіть проблему або поставте запитання. Контакти необов’язкові — залиште, якщо чекаєте на відповідь.",
         "support.crashTitle": "МИНУЛОГО РАЗУ ГРА ВИЛЕТІЛА",
@@ -1211,6 +1223,8 @@ enum L10n {
         "mod.author.sentTitle": "अनुरोध भेजा गया",
         "mod.author.sentMsg": "धन्यवाद! लेखकत्व की पुष्टि के लिए हम आपसे संपर्क करेंगे।",
         "support.help": "डेवलपर से संपर्क करें",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "मैप एडिटर। लॉन्चर के साथ खुलता है; सेव किए गए मैप स्किर्मिश में दिखते हैं।",
         "support.title": "डेवलपर से संपर्क करें",
         "support.subtitle": "समस्या बताएं या सवाल पूछें। संपर्क वैकल्पिक है: जवाब चाहिए तो कोई एक छोड़ें।",
         "support.crashTitle": "पिछली बार गेम क्रैश हो गया था",
@@ -1429,6 +1443,8 @@ enum L10n {
         "mod.author.sentTitle": "申请已发送",
         "mod.author.sentMsg": "谢谢！我们会联系你以确认作者身份。",
         "support.help": "联系开发者",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "地图编辑器。与启动器同时打开；保存的地图会出现在遭遇战中。",
         "support.title": "联系开发者",
         "support.subtitle": "描述问题或提出疑问。联系方式可选：如需回复，请留下一个。",
         "support.crashTitle": "上次游戏崩溃了",
@@ -1647,6 +1663,8 @@ enum L10n {
         "mod.author.sentTitle": "تم إرسال الطلب",
         "mod.author.sentMsg": "شكرًا! سنتواصل معك لتأكيد ملكيتك للتعديل.",
         "support.help": "تواصل مع المطوّر",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "محرّر الخرائط. يُفتح بجانب المشغّل؛ تظهر الخرائط المحفوظة في وضع المناوشة.",
         "support.title": "التواصل مع المطوّر",
         "support.subtitle": "صف المشكلة أو اطرح سؤالًا. وسائل التواصل اختيارية: اترك واحدة إن أردت ردًا.",
         "support.crashTitle": "تعطّلت اللعبة في المرة السابقة",
@@ -1865,6 +1883,8 @@ enum L10n {
         "mod.author.sentTitle": "СҰРАУ ЖІБЕРІЛДІ",
         "mod.author.sentMsg": "Рақмет! Авторлықты растау үшін сізбен байланысамыз.",
         "support.help": "Әзірлеушімен байланысу",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Карта редакторы. Лаунчермен қатар ашылады; сақталған карталар Skirmish режимінде шығады.",
         "support.title": "ӘЗІРЛЕУШІМЕН БАЙЛАНЫС",
         "support.subtitle": "Мәселені сипаттаңыз немесе сұрақ қойыңыз. Байланыс деректері міндетті емес — жауап күтсеңіз, біреуін қалдырыңыз.",
         "support.crashTitle": "ӨТКЕН ЖОЛЫ ОЙЫН ҚҰЛАДЫ",
@@ -2083,6 +2103,8 @@ enum L10n {
         "mod.author.sentTitle": "ĐÃ GỬI YÊU CẦU",
         "mod.author.sentMsg": "Cảm ơn bạn! Chúng tôi sẽ liên hệ để xác nhận quyền tác giả.",
         "support.help": "Liên hệ nhà phát triển",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Trình chỉnh sửa bản đồ. Mở cạnh trình khởi chạy; bản đồ đã lưu sẽ xuất hiện trong Skirmish.",
         "support.title": "LIÊN HỆ NHÀ PHÁT TRIỂN",
         "support.subtitle": "Mô tả sự cố hoặc đặt câu hỏi. Thông tin liên hệ là tùy chọn: hãy để lại một cái nếu bạn muốn được phản hồi.",
         "support.crashTitle": "LẦN TRƯỚC TRÒ CHƠI ĐÃ BỊ SẬP",
@@ -2301,6 +2323,8 @@ enum L10n {
         "mod.author.sentTitle": "ZGŁOSZENIE WYSŁANE",
         "mod.author.sentMsg": "Dziękujemy! Skontaktujemy się z tobą, aby potwierdzić autorstwo.",
         "support.help": "Kontakt z deweloperem",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Edytor map. Otwiera się obok launchera; zapisane mapy pojawiają się w potyczce.",
         "support.title": "KONTAKT Z DEWELOPEREM",
         "support.subtitle": "Opisz problem lub zadaj pytanie. Kontakt jest opcjonalny — zostaw go, jeśli chcesz odpowiedzi.",
         "support.crashTitle": "OSTATNIM RAZEM GRA ULEGŁA AWARII",
@@ -2519,6 +2543,8 @@ enum L10n {
         "mod.author.sentTitle": "ANFRAGE GESENDET",
         "mod.author.sentMsg": "Danke! Wir melden uns, um die Urheberschaft zu bestätigen.",
         "support.help": "Den Entwickler kontaktieren",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Karteneditor. Öffnet sich neben dem Launcher; gespeicherte Karten erscheinen im Gefecht.",
         "support.title": "ENTWICKLER KONTAKTIEREN",
         "support.subtitle": "Beschreib das Problem oder stell eine Frage. Kontaktdaten sind optional — hinterlass eine, wenn du eine Antwort möchtest.",
         "support.crashTitle": "DAS SPIEL IST LETZTES MAL ABGESTÜRZT",
@@ -2737,6 +2763,8 @@ enum L10n {
         "mod.author.sentTitle": "SOLICITUD ENVIADA",
         "mod.author.sentMsg": "¡Gracias! Te contactaremos para confirmar la autoría.",
         "support.help": "Contactar con el desarrollador",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Editor de mapas. Se abre junto al lanzador; los mapas guardados aparecen en Escaramuza.",
         "support.title": "CONTACTAR CON EL DESARROLLADOR",
         "support.subtitle": "Describe el problema o haz una pregunta. Los contactos son opcionales: deja uno si quieres respuesta.",
         "support.crashTitle": "LA ÚLTIMA VEZ EL JUEGO FALLÓ",
@@ -2955,6 +2983,8 @@ enum L10n {
         "mod.author.sentTitle": "TALEP GÖNDERİLDİ",
         "mod.author.sentMsg": "Teşekkürler! Yazarlığı doğrulamak için sizinle iletişime geçeceğiz.",
         "support.help": "Geliştiriciyle iletişime geç",
+        "worldBuilder.title": "WorldBuilder · BETA",
+        "worldBuilder.description": "Harita düzenleyici. Başlatıcının yanında açılır; kaydedilen haritalar Çatışma modunda görünür.",
         "support.title": "GELİŞTİRİCİYLE İLETİŞİM",
         "support.subtitle": "Sorunu anlatın ya da bir soru sorun. İletişim bilgileri isteğe bağlıdır: yanıt istiyorsanız birini bırakın.",
         "support.crashTitle": "OYUN GEÇEN SEFER ÇÖKTÜ",

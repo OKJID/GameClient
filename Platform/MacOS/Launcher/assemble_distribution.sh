@@ -28,6 +28,9 @@ FINAL_APP_NAME="Generals Online"
 CMAKE_APP_DIR="../../../build/macos/GeneralsMD/GeneralsOnlineZH.app"
 CMAKE_VANILLA_APP_DIR="../../../build/macos/Generals/GeneralsVanilla.app"
 VANILLA_BINARY_NAME="GeneralsVanilla"
+CMAKE_WORLDBUILDER_APP_DIR="../../../build/macos/GeneralsMD/WorldBuilderZH.app"
+WORLDBUILDER_BINARY_NAME="WorldBuilderZH"
+WORLDBUILDER_RESOURCES_NAME="WorldBuilder"
 DIST_DIR="build/dist"
 OUTPUTS_DIR="outputs"
 FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
@@ -74,6 +77,18 @@ else
     VANILLA_BINARY=""
 fi
 
+# WorldBuilder runs from the same shell as the games; it needs its binary and
+# the dialog resources it loads from Resources/WorldBuilder.
+WORLDBUILDER_BINARY="$MACOS_DIR/$WORLDBUILDER_BINARY_NAME"
+if [ -f "$CMAKE_WORLDBUILDER_APP_DIR/Contents/MacOS/$WORLDBUILDER_BINARY_NAME" ]; then
+    echo "📂 Adding WorldBuilder..."
+    cp "$CMAKE_WORLDBUILDER_APP_DIR/Contents/MacOS/$WORLDBUILDER_BINARY_NAME" "$WORLDBUILDER_BINARY"
+    cp -R "$CMAKE_WORLDBUILDER_APP_DIR/Contents/Resources/$WORLDBUILDER_RESOURCES_NAME" "$RESOURCES_DIR/$WORLDBUILDER_RESOURCES_NAME"
+else
+    echo "⚠️ Warning: $CMAKE_WORLDBUILDER_APP_DIR not built, shipping without WorldBuilder."
+    WORLDBUILDER_BINARY=""
+fi
+
 echo "📦 [1/7] Bundling third-party dynamic libraries..."
 export PATH="/opt/homebrew/bin:$PATH"
 
@@ -82,18 +97,17 @@ if ! command -v dylibbundler &>/dev/null; then
     exit 1
 fi
 
+set -- -x "$GAME_BINARY"
 if [ -n "$VANILLA_BINARY" ]; then
-    dylibbundler -od -b \
-        -x "$GAME_BINARY" \
-        -x "$VANILLA_BINARY" \
-        -d "$FRAMEWORKS_DIR" \
-        -p @executable_path/../Frameworks/
-else
-    dylibbundler -od -b \
-        -x "$GAME_BINARY" \
-        -d "$FRAMEWORKS_DIR" \
-        -p @executable_path/../Frameworks/
+    set -- "$@" -x "$VANILLA_BINARY"
 fi
+if [ -n "$WORLDBUILDER_BINARY" ]; then
+    set -- "$@" -x "$WORLDBUILDER_BINARY"
+fi
+
+dylibbundler -od -b "$@" \
+    -d "$FRAMEWORKS_DIR" \
+    -p @executable_path/../Frameworks/
 
 if [ $? -ne 0 ]; then
     echo "❌ dylibbundler failed!"
@@ -123,6 +137,9 @@ retarget_rpaths "$GAME_BINARY"
 if [ -n "$VANILLA_BINARY" ]; then
     retarget_rpaths "$VANILLA_BINARY"
 fi
+if [ -n "$WORLDBUILDER_BINARY" ]; then
+    retarget_rpaths "$WORLDBUILDER_BINARY"
+fi
 
 echo "🔨 [3/7] Compiling Swift Launcher into the package..."
 swiftc $(find Sources -name "*.swift") \
@@ -142,6 +159,8 @@ cp assets/author_logo.png "$RESOURCES_DIR/author_logo.png" 2>/dev/null || true
 cp assets/medallion_logo.png "$RESOURCES_DIR/medallion_logo.png" 2>/dev/null || true
 cp assets/mod_banner_default.png "$RESOURCES_DIR/mod_banner_default.png" 2>/dev/null || true
 cp assets/hacker.png "$RESOURCES_DIR/hacker.png" 2>/dev/null || true
+cp assets/worldbuilder_zh.png "$RESOURCES_DIR/worldbuilder_zh.png" 2>/dev/null || true
+cp assets/worldbuilder_generals.png "$RESOURCES_DIR/worldbuilder_generals.png" 2>/dev/null || true
 cp assets/Install_Final.bmp "$RESOURCES_DIR/Install_Final.bmp" 2>/dev/null || true
 cp Generals.png "$RESOURCES_DIR/AppIcon.png" 2>/dev/null || true
 
