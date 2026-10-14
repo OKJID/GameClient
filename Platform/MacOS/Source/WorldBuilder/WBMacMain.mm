@@ -93,6 +93,19 @@ static void requestBackBufferScaleRefresh()
 }
 @end
 
+@interface WBContentView : NSView
+@end
+
+@implementation WBContentView
+- (void)keyDown:(NSEvent*)event
+{
+}
+
+- (void)keyUp:(NSEvent*)event
+{
+}
+@end
+
 static NSMenu* createEditMenu()
 {
 	NSMenu* editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
@@ -131,6 +144,7 @@ static NSWindow* createMainWindow(WBWindowDelegate* delegate)
 		| NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
 
 	NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
+	[window setContentView:[[WBContentView alloc] initWithFrame:frame]];
 	[window setTitle:@"WorldBuilder - Zero Hour"];
 	[window setReleasedWhenClosed:NO];
 	[window setDelegate:delegate];
