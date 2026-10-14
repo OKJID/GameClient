@@ -653,8 +653,41 @@ float4 resolveArg(uint argId,
     // Apply modifiers
     if (argId & D3DTA_COMPLEMENT)     val = 1.0 - val;
     if (argId & D3DTA_ALPHAREPLICATE) val = float4(val.a, val.a, val.a, val.a);
-    
+
     return val;
+}
+
+bool isTextureArg(uint argId) {
+    return (argId & 0xF) == D3DTA_TEXTURE;
+}
+
+bool isActiveOp(uint op) {
+    return op != 0 && op != D3DTOP_DISABLE;
+}
+
+bool opSamplesTexture(uint op, uint arg0, uint arg1, uint arg2) {
+    if (!isActiveOp(op)) {
+        return false;
+    }
+
+    if (op == D3DTOP_BLENDTEXTUREALPHA) {
+        return true;
+    }
+
+    const bool readsArg0 = op == D3DTOP_MULTIPLYADD || op == D3DTOP_LERP;
+    const bool readsArg1 = op != D3DTOP_SELECTARG2;
+    const bool readsArg2 = op != D3DTOP_SELECTARG1;
+
+    return (readsArg0 && isTextureArg(arg0)) || (readsArg1 && isTextureArg(arg1)) || (readsArg2 && isTextureArg(arg2));
+}
+
+bool stageSamplesMissingTexture(constant TextureStageConfig &stage, uint hasTexture) {
+    if (hasTexture != 0) {
+        return false;
+    }
+
+    return opSamplesTexture(stage.colorOp, stage.colorArg0, stage.colorArg1, stage.colorArg2)
+        || opSamplesTexture(stage.alphaOp, D3DTA_CURRENT, stage.alphaArg1, stage.alphaArg2);
 }
 
 // ─────────────────────────────────────────────────────
@@ -1062,6 +1095,7 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
     for (int i = 0; i < 4; i++) {
         uint colorOp = fragUniforms.stages[i].colorOp;
         if (colorOp == 0 || colorOp == D3DTOP_DISABLE) break;
+        if (i > 0 && stageSamplesMissingTexture(fragUniforms.stages[i], fragUniforms.hasTexture[i])) continue;
 
         // Determine current stage texture for BLENDTEXTUREALPHA
         float4 stageTexColor = (i == 0) ? texColor0 : (i == 1) ? texColor1 : (i == 2) ? texColor2 : texColor3;
