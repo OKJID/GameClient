@@ -35,6 +35,7 @@ void WBMacFramePump::install()
 
 void WBMacFramePump::runFrame()
 {
+	m_iterationPool.renew();
 	@autoreleasepool
 	{
 		if (!hasRenderDevice())

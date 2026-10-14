@@ -1,5 +1,6 @@
 #pragma once
 
+#include "WBMacIterationPool.h"
 #include "Win32Messages.h"
 
 @class NSWindow;
@@ -24,4 +25,5 @@ private:
 	NSWindow* m_window;
 	HWND m_deviceWindow = nullptr;
 	std::string m_title;
+	WBMacIterationPool m_iterationPool;
 };

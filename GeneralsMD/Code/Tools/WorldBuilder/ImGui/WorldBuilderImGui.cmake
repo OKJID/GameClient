@@ -230,10 +230,16 @@ set(WORLDBUILDER_MACOS_OBJCXX_SRC
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacPlatform.mm
 )
 
+set(WORLDBUILDER_MACOS_MANUAL_RETAIN_SRC
+    ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacIterationPool.mm
+)
+
 set(WORLDBUILDER_MACOS_SRC
     ${WORLDBUILDER_MACOS_OBJCXX_SRC}
+    ${WORLDBUILDER_MACOS_MANUAL_RETAIN_SRC}
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacCocoa.h
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacFramePump.h
+    ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacIterationPool.h
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacMessageBox.h
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacPlatform.h
     ${CMAKE_SOURCE_DIR}/Platform/MacOS/Source/WorldBuilder/WBMacWorldBuilderPlatform.cpp
@@ -255,6 +261,10 @@ set_source_files_properties(${WORLDBUILDER_BUNDLE_RESOURCES} PROPERTIES MACOSX_P
 set_source_files_properties(${WORLDBUILDER_MACOS_OBJCXX_SRC} PROPERTIES
     SKIP_PRECOMPILE_HEADERS ON
     COMPILE_OPTIONS "-fobjc-arc"
+)
+set_source_files_properties(${WORLDBUILDER_MACOS_MANUAL_RETAIN_SRC} PROPERTIES
+    SKIP_PRECOMPILE_HEADERS ON
+    COMPILE_OPTIONS "-fno-objc-arc"
 )
 
 target_include_directories(z_worldbuilder BEFORE PRIVATE
