@@ -93,6 +93,20 @@ static void requestBackBufferScaleRefresh()
 }
 @end
 
+static NSMenu* createEditMenu()
+{
+	NSMenu* editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
+	[editMenu addItemWithTitle:@"Undo" action:@selector(undo:) keyEquivalent:@"z"];
+	NSMenuItem* redoItem = [editMenu addItemWithTitle:@"Redo" action:@selector(redo:) keyEquivalent:@"z"];
+	[redoItem setKeyEquivalentModifierMask:NSEventModifierFlagCommand | NSEventModifierFlagShift];
+	[editMenu addItem:[NSMenuItem separatorItem]];
+	[editMenu addItemWithTitle:@"Cut" action:@selector(cut:) keyEquivalent:@"x"];
+	[editMenu addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
+	[editMenu addItemWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"];
+	[editMenu addItemWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
+	return editMenu;
+}
+
 static void installApplicationMenu()
 {
 	NSMenu* menuBar = [[NSMenu alloc] init];
@@ -102,6 +116,10 @@ static void installApplicationMenu()
 	NSMenu* appMenu = [[NSMenu alloc] init];
 	[appMenu addItemWithTitle:@"Quit WorldBuilder" action:@selector(terminate:) keyEquivalent:@"q"];
 	[appMenuItem setSubmenu:appMenu];
+
+	NSMenuItem* editMenuItem = [[NSMenuItem alloc] init];
+	[menuBar addItem:editMenuItem];
+	[editMenuItem setSubmenu:createEditMenu()];
 
 	[NSApp setMainMenu:menuBar];
 }
