@@ -45,6 +45,7 @@ public:
   void *GetMetalTexture() const { return m_Texture; }
   void MarkWritten() { m_HasBeenWritten = true; ++m_Generation; }
   bool HasBeenWritten() const { return m_HasBeenWritten; }
+  bool IsRenderTarget() const { return (m_Usage & D3DUSAGE_RENDERTARGET) != 0; }
   D3DFORMAT GetD3DFormat() const { return m_Format; }
   uint32_t GetGeneration() const { return m_Generation; }
 

@@ -1563,6 +1563,9 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
   // Read back GPU texture data into dst surface's locked buffer.
   // This is used by Recolor_Texture_One_Time to copy texture data before remapping.
   if (srcTex && srcTex->HasBeenWritten() && srcTex->GetMTLTexture() && !dstTex) {
+    if (srcTex->IsRenderTarget()) {
+      FlushPendingGPUWork();
+    }
     id<MTLTexture> mtlSrc = srcTex->GetMTLTexture();
     UINT srcW = (UINT)mtlSrc.width;
     UINT srcH = (UINT)mtlSrc.height;
@@ -1924,6 +1927,7 @@ STDMETHODIMP MetalDevice8::SetRenderTarget(IDirect3DSurface8 *s,
   m_RTTColorTexture = (__bridge void *)mtl;
   m_RTTWidth = surf->GetWidth();
   m_RTTHeight = surf->GetHeight();
+  tex->MarkWritten();
 
   // Depth target
   if (d) {
@@ -2647,6 +2651,21 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
 // ─────────────────────────────────────────────────────
 //  Drawing
 // ─────────────────────────────────────────────────────
+
+void MetalDevice8::FlushPendingGPUWork() {
+  if (!m_CurrentCommandBuffer)
+    return;
+
+  if (m_CurrentEncoder) {
+    [MTL_ENCODER endEncoding];
+    CLEAR_MTL(CurrentEncoder);
+  }
+  id<MTLCommandBuffer> pending = MTL_CMD_BUF;
+  [pending commit];
+  [pending waitUntilCompleted];
+  CLEAR_MTL(CurrentCommandBuffer);
+  SET_MTL(CurrentCommandBuffer, [MTL_QUEUE commandBuffer]);
+}
 
 void MetalDevice8::EnsureCurrentEncoder() {
   if (m_CurrentEncoder)

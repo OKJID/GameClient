@@ -117,6 +117,7 @@ public:
 
   // Non-override helpers
   void EnsureCurrentEncoder();
+  void FlushPendingGPUWork();
   HRESULT GetDirect3D(IDirect3D8 **ppD3D8);
   HRESULT GetViewport(D3DVIEWPORT8 *pViewport) override;
   HRESULT GetMaterial(D3DMATERIAL8 *pMaterial);
