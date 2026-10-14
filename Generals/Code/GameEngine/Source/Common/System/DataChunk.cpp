@@ -373,7 +373,18 @@ void DataChunkOutput::writeUnicodeString( UnicodeString theString )
 {
 	UnsignedShort len = theString.getLength();
 	::fwrite( (const char *)&len, sizeof(UnsignedShort) , 1, m_tmp_file );
+#ifdef __APPLE__
+	// TheSuperHackers @bugfix Okladnoj 14/10/2026 Map files store two bytes per character; narrow the four byte macOS WideChar the way readUnicodeString widens it.
+	UnsignedShort *tempBuffer = NEW UnsignedShort[len];
+	const WideChar *str = theString.str();
+	for (int i = 0; i < len; ++i) {
+		tempBuffer[i] = (UnsignedShort)str[i];
+	}
+	::fwrite( (const char *)tempBuffer, len*sizeof(UnsignedShort) , 1, m_tmp_file );
+	delete[] tempBuffer;
+#else
 	::fwrite( theString.str(), len*sizeof(WideChar) , 1, m_tmp_file );
+#endif
 }
 
 void DataChunkOutput::writeNameKey( const NameKeyType key )
