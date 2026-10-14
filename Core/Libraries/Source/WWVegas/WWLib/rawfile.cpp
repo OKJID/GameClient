@@ -61,6 +61,16 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+// TheSuperHackers @feature macOS: Engine paths use backslashes. They become native paths only at the fopen boundary.
+static StringClass Native_File_Name(const StringClass& filename)
+{
+	StringClass nativeName(filename);
+#ifdef __APPLE__
+	ConvertToNativePath(nativeName.Peek_Buffer());
+#endif
+	return nativeName;
+}
+
 
 #if 0		//#ifdef NEVER    (gth) the MAX sdk must #define NEVER! yikes :-)
 	/*
@@ -431,19 +441,19 @@ int RawFileClass::Open(int rights)
 				break;
 
 			case READ:
-				Handle = fopen(Filename, "rb");
+				Handle = fopen(Native_File_Name(Filename), "rb");
 				break;
 
 			case WRITE:
-				Handle = fopen(Filename, "wb");
+				Handle = fopen(Native_File_Name(Filename), "wb");
 				break;
 
 			case READ|WRITE:
 				// First try to open an existing file in read/write mode.
-				Handle = fopen(Filename, "rb+");
+				Handle = fopen(Native_File_Name(Filename), "rb+");
 				// If that fails, try to create a new file in read/write mode.
 				if(Handle == NULL_HANDLE) {
-					Handle = fopen(Filename, "wb+");
+					Handle = fopen(Native_File_Name(Filename), "wb+");
 				}
 				break;
 		}
@@ -517,7 +527,7 @@ bool RawFileClass::Is_Available(int forced)
 	*/
 	for (;;) {
 
-		Handle=fopen(Filename,"r");
+		Handle=fopen(Native_File_Name(Filename),"r");
 
 		if (Handle == NULL_HANDLE) {
 			return(false);
@@ -956,7 +966,7 @@ int RawFileClass::Delete()
 			return(false);
 		}
 
-		int deleteok=(unlink(Filename)==0)?true:false;
+		int deleteok=(unlink(Native_File_Name(Filename))==0)?true:false;
 
 		if (! deleteok) {
 			Error(errno, false, Filename);
@@ -996,14 +1006,14 @@ unsigned long RawFileClass::Get_Date_Time()
 	if (Is_Open()) {
 		// If file is open proceed normally
 		struct stat statbuf;
-		stat(Filename, &statbuf);
+		stat(Native_File_Name(Filename), &statbuf);
 		retval = statbuf.st_mtime;
 	} else {
 		// If file not open open it, if open succeeded proceed normally and then close to put
 		// everything back the way we found it.
 		if (Open()) {
 			struct stat statbuf;
-			stat(Filename, &statbuf);
+			stat(Native_File_Name(Filename), &statbuf);
 			retval = statbuf.st_mtime;
 			Close();
 
