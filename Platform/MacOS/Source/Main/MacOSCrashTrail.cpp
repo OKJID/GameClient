@@ -66,6 +66,17 @@ namespace
         return ticks * s_timebase.numer / s_timebase.denom / 1000000000ULL;
     }
 
+    uint64_t asleepSeconds()
+    {
+        const uint64_t awakeTicks = mach_absolute_time() - s_startAbsoluteTicks;
+        const uint64_t totalTicks = mach_continuous_time() - s_startContinuousTicks;
+        if (totalTicks <= awakeTicks) {
+            return 0;
+        }
+
+        return ticksToSeconds(totalTicks - awakeTicks);
+    }
+
     void replaceLineBreaks(char* text)
     {
         for (char* cursor = text; *cursor != '\0'; ++cursor) {
@@ -85,10 +96,8 @@ namespace
         snprintf(line, sizeof(line), "CRASH GAME STARTED: %s", s_gameStartedAt);
         logLine(line);
 
-        const uint64_t awakeTicks = mach_absolute_time() - s_startAbsoluteTicks;
-        const uint64_t totalTicks = mach_continuous_time() - s_startContinuousTicks;
         snprintf(line, sizeof(line), "CRASH RUN TIME: %ld s, asleep %llu s",
-            (long)(time(nullptr) - s_gameStartTime), (unsigned long long)ticksToSeconds(totalTicks - awakeTicks));
+            (long)(time(nullptr) - s_gameStartTime), (unsigned long long)asleepSeconds());
         logLine(line);
     }
 
