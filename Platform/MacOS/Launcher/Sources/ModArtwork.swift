@@ -7,6 +7,7 @@ final class ModArtwork: ObservableObject {
 
     static let defaultBanner = bundledImage("mod_banner_default")
     static let defaultMedallion = bundledImage("medallion_logo")
+    static let worldBuilderMedallionEnvironmentKey = "GENERALS_WB_MOD_MEDALLION"
 
     private static let pathPrefix = "mods/"
     private static let pathExtension = ".png"
@@ -30,6 +31,16 @@ final class ModArtwork: ObservableObject {
     func image(at path: String?) -> NSImage? {
         guard let path else { return nil }
         return images[path]
+    }
+
+    func medallionFilePath(for mod: ModSpec) -> String? {
+        guard let path = mod.medallionPath,
+              let url = Self.cacheURL(for: path),
+              FileManager.default.fileExists(atPath: url.path) else {
+            return Bundle.main.path(forResource: "medallion_logo", ofType: "png")
+        }
+
+        return url.path
     }
 
     func request(_ path: String?) {

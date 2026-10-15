@@ -49,7 +49,8 @@ fi
 
 echo "[2/3] Configuring CMake for Release (preset: macos)..."
 # The 'macos' preset in CMakePresets.json automatically sets CMAKE_BUILD_TYPE=Release
-cmake --preset macos
+# The distribution ships both WorldBuilders next to the games, so the release build always includes them.
+cmake --preset macos -DRTS_BUILD_ZEROHOUR_WORLDBUILDER=ON -DRTS_BUILD_GENERALS_WORLDBUILDER=ON
 
 echo "[3/3] Building the project..."
 # Ninja automatically parallelizes the build based on available CPU cores

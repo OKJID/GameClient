@@ -13,7 +13,7 @@ LAUNCHER_NAME="GeneralsLauncher"
 APP_DIR="build/dist/Generals Online.app"
 APP_PATH="$APP_DIR/Contents/MacOS/$LAUNCHER_NAME"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
-LAUNCHER_ASSETS="background.png background_mod.png dir_image.png author_logo.png medallion_logo.png mod_banner_default.png hacker.png worldbuilder_zh.png worldbuilder_generals.png Install_Final.bmp"
+LAUNCHER_ASSETS="background.png background_mod.png dir_image.png author_logo.png medallion_logo.png mod_banner_default.png hacker.png worldbuilder_zh.png worldbuilder_generals.png worldbuilder_mod.png Install_Final.bmp"
 API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
 REFRESH_SWIFT=0
 

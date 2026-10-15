@@ -1014,7 +1014,10 @@ struct MainView: View {
                     .foregroundColor(.white.opacity(0.75))
             }
 
-            _buildLaunchButton()
+            HStack(spacing: 12) {
+                _buildLaunchButton()
+                _buildWorldBuilderButton()
+            }
 
             HStack(spacing: 12) {
                 _buildModAboutButton(profile)
@@ -1030,8 +1033,7 @@ struct MainView: View {
         }
         .padding(.horizontal, 30)
         .padding(.vertical, 12)
-        .background(_buildModPanelBackground(profile))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(Color.clear.overlay(_buildModPanelBackground(profile)).clipShape(RoundedRectangle(cornerRadius: 8)))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(profile.theme.accent.opacity(0.35), lineWidth: 1))
     }
 
@@ -1145,7 +1147,11 @@ struct MainView: View {
     }
 
     private var _worldBuilderIconName: String {
-        viewModel.selectedProfile.id == .zeroHour ? "worldbuilder_zh" : "worldbuilder_generals"
+        if viewModel.selectedProfile.isMod {
+            return "worldbuilder_mod"
+        }
+
+        return viewModel.selectedProfile.id == .zeroHour ? "worldbuilder_zh" : "worldbuilder_generals"
     }
 
     private func _buildTargetRequiredHint() -> some View {

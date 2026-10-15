@@ -385,7 +385,7 @@ extension GameProfile {
             forbiddenArchive: base.forbiddenArchive,
             bundleName: base.bundleName,
             executableName: base.executableName,
-            worldBuilderExecutableName: nil,
+            worldBuilderExecutableName: base.worldBuilderExecutableName,
             patchAssetsDirName: base.patchAssetsDirName,
             patchMarkers: base.patchMarkers,
             localeLanguages: base.localeLanguages,

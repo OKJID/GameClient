@@ -783,25 +783,15 @@ class LauncherViewModel: ObservableObject {
             return
         }
 
-        var arguments: [String] = []
-        if profile.isMod {
-            guard let root = installRootURL,
-                  let modDir = profile.modDirectory(installRoot: root) else {
-                Analytics.logLaunchFailed(reason: "mod_folder_missing")
-                alertMessage = L10n.alerts.modFolderMissing
-                isLaunching = false
-                return
-            }
-
-            let configURL = modDir.appendingPathComponent(ModSpec.configFileName)
-            guard FileManager.default.fileExists(atPath: configURL.path) else {
-                Analytics.logLaunchFailed(reason: "mod_config_missing")
-                alertMessage = String(format: L10n.alerts.modConfigMissing, profile.displayName, ModSpec.configFileName)
-                isLaunching = false
-                return
-            }
-
-            arguments = ["-mod", configURL.path]
+        let arguments: [String]
+        switch _modArguments(for: profile) {
+        case .success(let modArguments):
+            arguments = modArguments
+        case .failure(let error):
+            Analytics.logLaunchFailed(reason: error.analyticsReason)
+            alertMessage = error.alertMessage(for: profile)
+            isLaunching = false
+            return
         }
 
         let task = Process()
@@ -842,10 +832,21 @@ class LauncherViewModel: ObservableObject {
     func launchWorldBuilder() {
         guard canLaunch, let executableURL = worldBuilderURL else { return }
 
+        let profile = selectedProfile
+        let arguments: [String]
+        switch _modArguments(for: profile) {
+        case .success(let modArguments):
+            arguments = modArguments
+        case .failure(let error):
+            alertMessage = error.alertMessage(for: profile)
+            return
+        }
+
         let task = Process()
         task.executableURL = executableURL
         task.currentDirectoryURL = executableURL.deletingLastPathComponent()
-        task.environment = _launchEnvironment()
+        task.arguments = arguments
+        task.environment = _worldBuilderEnvironment(for: profile)
 
         do {
             try task.run()
@@ -865,6 +866,49 @@ class LauncherViewModel: ObservableObject {
         env[LauncherSession.startedAtEnvironmentKey] = String(Int(LauncherSession.startedAt.timeIntervalSince1970))
         env[SupportIdentity.environmentKey] = SupportIdentity.current
         return env
+    }
+
+    private func _worldBuilderEnvironment(for profile: GameProfile) -> [String: String] {
+        var env = _launchEnvironment()
+        guard let mod = profile.mod else { return env }
+
+        env[ModArtwork.worldBuilderMedallionEnvironmentKey] = ModArtwork.shared.medallionFilePath(for: mod)
+        return env
+    }
+
+    private enum ModLaunchError: Error {
+        case folderMissing
+        case configMissing
+
+        var analyticsReason: String {
+            switch self {
+            case .folderMissing: return "mod_folder_missing"
+            case .configMissing: return "mod_config_missing"
+            }
+        }
+
+        func alertMessage(for profile: GameProfile) -> String {
+            switch self {
+            case .folderMissing: return L10n.alerts.modFolderMissing
+            case .configMissing: return String(format: L10n.alerts.modConfigMissing, profile.displayName, ModSpec.configFileName)
+            }
+        }
+    }
+
+    private func _modArguments(for profile: GameProfile) -> Result<[String], ModLaunchError> {
+        guard profile.isMod else { return .success([]) }
+
+        guard let root = installRootURL,
+              let modDir = profile.modDirectory(installRoot: root) else {
+            return .failure(.folderMissing)
+        }
+
+        let configURL = modDir.appendingPathComponent(ModSpec.configFileName)
+        guard FileManager.default.fileExists(atPath: configURL.path) else {
+            return .failure(.configMissing)
+        }
+
+        return .success(["-mod", configURL.path])
     }
 
     func checkForCrash() {
