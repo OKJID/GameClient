@@ -21,6 +21,7 @@
 
 #include "StdAfx.h"
 #include "WorldBuilder.h"
+#include "WorldBuilderCommandLineInfo.h"
 #include "MainFrm.h"
 #include "OpenMap.h"
 #include "SplashScreen.h"
@@ -39,6 +40,7 @@
 #include "Common/FileSystem.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/LocalFileSystem.h"
+#include "Common/CommandLine.h"
 #include "Common/Debug.h"
 #include "Common/StackDump.h"
 #include "Common/GameMemory.h"
@@ -303,10 +305,14 @@ BOOL CWorldBuilderApp::InitInstance()
 	char buf[_MAX_PATH];
 	WorldBuilderPrepareWorkingDirectory();
 
+	// TheSuperHackers @feature Okladnoj 15/10/2026 Parse the game command line as WinMain does, so -mod opens the editor on the mod's content.
+	CommandLine::parseCommandLineForStartup();
+
 	TheFileSystem = new FileSystem;
 
 	initSubsystem(TheLocalFileSystem, WorldBuilderCreateLocalFileSystem());
 	initSubsystem(TheArchiveFileSystem, WorldBuilderCreateArchiveFileSystem());
+	TheArchiveFileSystem->loadModPackages();
 
 	// Just for kicks, get the HINSTANCE that WOL would need
 	// if we were going to use it, which we aren't.
@@ -314,7 +320,7 @@ BOOL CWorldBuilderApp::InitInstance()
 
 	INI ini;
 
-	initSubsystem(TheWritableGlobalData, new GlobalData(), "Data\\INI\\Default\\GameData", "Data\\INI\\GameData");
+	initSubsystem(TheWritableGlobalData, TheWritableGlobalData, "Data\\INI\\Default\\GameData", "Data\\INI\\GameData");
 
 	TheFramePacer = new FramePacer();
 
@@ -424,7 +430,7 @@ BOOL CWorldBuilderApp::InitInstance()
 #endif
 
 	// Parse command line for standard shell commands, DDE, file open
-	CCommandLineInfo cmdInfo;
+	WorldBuilderCommandLineInfo cmdInfo;
 	ParseCommandLine(cmdInfo);
 
 	// Dispatch commands specified on the command line
