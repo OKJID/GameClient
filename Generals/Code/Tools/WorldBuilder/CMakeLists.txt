@@ -189,8 +189,20 @@ set(WORLDBUILDER_SRC
     "include/WHeightMapEdit.h"
     "include/WorldBuilder.h"
     "include/WorldBuilderDoc.h"
+    "include/WorldBuilderPlatform.h"
     "include/WorldBuilderView.h"
 )
+
+if(APPLE)
+    include(${CMAKE_SOURCE_DIR}/Core/Tools/WorldBuilder/ImGui/WorldBuilderImGui.cmake)
+    worldbuilder_add_macos_app(g
+        OUTPUT_NAME WorldBuilderV
+        BUNDLE_IDENTIFIER "com.playgenerals.worldbuilder.vanilla"
+        GAME_NAME "Generals"
+        ICON worldbuilder_generals
+    )
+    return()
+endif()
 
 add_executable(g_worldbuilder WIN32)
 
@@ -230,4 +242,7 @@ else()
     set_target_properties(g_worldbuilder PROPERTIES OUTPUT_NAME "worldbuilderv${RTS_BUILD_OUTPUT_SUFFIX}")
 endif()
 
-target_sources(g_worldbuilder PRIVATE ${WORLDBUILDER_SRC})
+target_sources(g_worldbuilder PRIVATE
+    ${WORLDBUILDER_SRC}
+    src/WorldBuilderPlatformWin32.cpp
+)

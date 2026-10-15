@@ -199,7 +199,15 @@ set(WORLDBUILDER_SRC
 )
 
 if(APPLE)
-    include(ImGui/WorldBuilderImGui.cmake)
+    include(${CMAKE_SOURCE_DIR}/Core/Tools/WorldBuilder/ImGui/WorldBuilderImGui.cmake)
+    worldbuilder_add_macos_app(z
+        OUTPUT_NAME WorldBuilderZH
+        BUNDLE_IDENTIFIER "com.playgenerals.worldbuilder"
+        GAME_NAME "Zero Hour"
+        ICON worldbuilder_zh
+        MODS
+        MOD_ICON worldbuilder_mod
+    )
     return()
 endif()
 

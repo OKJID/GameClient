@@ -6,8 +6,10 @@
 #include "MacOSHostServices.h"
 #include "MacOSNativeWindow.h"
 #include "WBMacFramePump.h"
+#include "WBMacIdentity.h"
 #include "WBMacMessageBox.h"
 #include "WBMacPlatform.h"
+#include "WBMacSplash.h"
 #include "Win32Controls.h"
 #include "Win32Gdi.h"
 #include "Win32Paths.h"
@@ -16,22 +18,21 @@
 #include "imgui.h"
 #include "imgui_impl_dx8wrapper.h"
 #include "imgui_impl_osx.h"
+#include "resource.h"
 
 #include <string>
 #include <vector>
 
 static const CGFloat kInitialWidth = 1280.0;
 static const CGFloat kInitialHeight = 800.0;
+static const char* const kInitialTitle = "WorldBuilder";
 
 extern "C" void MacOS_ApplyWorldBuilderViewSize(int width, int height);
 extern "C" void MacOS_RefreshBackBufferScale();
 
 extern "C" void MacOS_DismissSplash()
 {
-}
-
-static void MacOS_WBSplash()
-{
+	WBMacDismissSplash();
 }
 
 static void requestHostClose()
@@ -145,7 +146,7 @@ static NSWindow* createMainWindow(WBWindowDelegate* delegate)
 
 	NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
 	[window setContentView:[[WBContentView alloc] initWithFrame:frame]];
-	[window setTitle:@"WorldBuilder - Zero Hour"];
+	[window setTitle:@(WBMacWindowTitle(kInitialTitle).c_str())];
 	[window setReleasedWhenClosed:NO];
 	[window setDelegate:delegate];
 	[window center];
@@ -187,9 +188,20 @@ static bool hasMenuBar(const CREATESTRUCTA& create)
 
 static bool loadResources()
 {
-	NSString* directory = [[NSBundle mainBundle].resourcePath stringByAppendingPathComponent:@"WorldBuilder"];
+	NSString* directory = [[NSBundle mainBundle].resourcePath stringByAppendingPathComponent:@(WORLDBUILDER_RESOURCE_DIRECTORY)];
 	AfxRegisterStandardResources();
 	return Win32Resources::instance().load(Win32EnginePath(directory.UTF8String));
+}
+
+static void showSplash(NSWindow* window, bool isModLaunch)
+{
+	const std::string* splashFile = Win32Resources::instance().bitmapFile(IDB_WORLDBUILDERSPLASH);
+	if (splashFile == nullptr)
+	{
+		return;
+	}
+	const std::string splashPath = Win32NativePath(Win32Resources::instance().filePath(*splashFile));
+	WBMacShowSplash(WBMacSplashImage(splashPath, isModLaunch), window);
 }
 
 static void initializeImGui(NSWindow* window)
@@ -219,15 +231,14 @@ static void installWin32Host(WBMacPlatform& platform, WBMacFramePump& framePump)
 	framePump.install();
 }
 
-static NSWindow* launchApplication(WBWindowDelegate* delegate)
+static NSWindow* launchApplication(WBWindowDelegate* delegate, bool isModLaunch)
 {
 	[NSApplication sharedApplication];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp setDelegate:delegate];
 	installApplicationMenu();
 	[NSApp finishLaunching];
-
-	MacOS_WBSplash();
+	[NSApp setApplicationIconImage:WBMacApplicationIcon(isModLaunch)];
 
 	NSWindow* window = createMainWindow(delegate);
 	[NSApp activateIgnoringOtherApps:YES];
@@ -247,11 +258,12 @@ int main(int argc, char* argv[])
 	__argc = argc;
 	__argv = argumentPointers.data();
 
+	const bool isModLaunch = WBMacIsModLaunch(argc, argv);
 	int exitCode = 0;
 	@autoreleasepool
 	{
 		WBWindowDelegate* delegate = [[WBWindowDelegate alloc] init];
-		NSWindow* window = launchApplication(delegate);
+		NSWindow* window = launchApplication(delegate, isModLaunch);
 
 		WBMacPlatform platform(window);
 		WBMacFramePump framePump(window);
@@ -262,6 +274,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 
+		showSplash(window, isModLaunch);
 		initializeImGui(window);
 		exitCode = AfxWinMain(nullptr, commandLine.data(), SW_SHOWNORMAL);
 		shutdownImGui();

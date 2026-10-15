@@ -1,5 +1,7 @@
 # Fetch Dear ImGui (docking branch) for the macOS WorldBuilder.
 
+include_guard(GLOBAL)
+
 include(FetchContent)
 FetchContent_Declare(
     imgui

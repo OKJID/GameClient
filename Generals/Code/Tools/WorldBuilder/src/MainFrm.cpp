@@ -497,3 +497,18 @@ void CMainFrame::handleCameraChange()
 	m_cameraOptions.update();
 }
 
+#ifdef __APPLE__
+// TheSuperHackers @feature macOS: Bridge for the window delegate; a resized window becomes the 3D view size, as the view size menu does.
+extern "C" void MacOS_ApplyWorldBuilderViewSize(int width, int height)
+{
+	CMainFrame* frame = CMainFrame::GetMainFrame();
+	if (frame == nullptr)
+	{
+		return;
+	}
+	::AfxGetApp()->WriteProfileInt(MAIN_FRAME_SECTION, "Width", width);
+	::AfxGetApp()->WriteProfileInt(MAIN_FRAME_SECTION, "Height", height);
+	frame->adjustWindowSize();
+}
+#endif
+

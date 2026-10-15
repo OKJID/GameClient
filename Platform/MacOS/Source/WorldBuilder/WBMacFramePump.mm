@@ -1,6 +1,7 @@
 #include "WBMacCocoa.h"
 
 #include "WBMacFramePump.h"
+#include "WBMacIdentity.h"
 
 #include "MacOSNativeWindow.h"
 #include "MacOSSceneOverlay.h"
@@ -96,10 +97,15 @@ void WBMacFramePump::buildImGuiFrame() const
 void WBMacFramePump::synchronizeTitle()
 {
 	const Win32Window* host = Win32WindowManager::instance().hostWindow();
-	if (host == nullptr || host->text == m_title)
+	if (host == nullptr)
 	{
 		return;
 	}
-	m_title = host->text;
+	const std::string title = WBMacWindowTitle(host->text);
+	if (title == m_title)
+	{
+		return;
+	}
+	m_title = title;
 	m_window.title = [NSString stringWithUTF8String:m_title.c_str()];
 }

@@ -1,6 +1,7 @@
 #include "WBMacCocoa.h"
 
 #include "WBMacMessageBox.h"
+#include "WBMacIdentity.h"
 
 #include "Win32Api.h"
 
@@ -58,6 +59,15 @@ NSString* stringFrom(const char* text)
 	return result != nil ? result : [NSString stringWithCString:text encoding:NSWindowsCP1252StringEncoding];
 }
 
+NSString* captionFrom(const char* caption)
+{
+	if (caption == nullptr || caption[0] == '\0')
+	{
+		return @"";
+	}
+	return [NSString stringWithFormat:@"%@ — %@", stringFrom(caption), stringFrom(WBMacIdentityName().c_str())];
+}
+
 void addButtons(NSAlert* alert, const std::vector<MessageBoxButton>& buttons, UINT type)
 {
 	const size_t defaultIndex = std::min<size_t>((type & 0x00000F00) >> 8, buttons.size() - 1);
@@ -84,9 +94,10 @@ int WBMacMessageBox(HWND, const char* text, const char* caption, UINT type)
 	{
 		const std::vector<MessageBoxButton> buttons = buttonsFor(type);
 		NSAlert* alert = [[NSAlert alloc] init];
-		alert.messageText = stringFrom(caption);
+		alert.messageText = captionFrom(caption);
 		alert.informativeText = stringFrom(text);
 		alert.alertStyle = alertStyleFor(type);
+		alert.icon = NSApp.applicationIconImage;
 		addButtons(alert, buttons, type);
 
 		[NSApp activateIgnoringOtherApps:YES];
