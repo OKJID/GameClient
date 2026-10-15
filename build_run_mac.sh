@@ -23,7 +23,7 @@ REPLAY_NAME="00000000"
 # ── Game Selection ──
 # RUN_VANILLA picks the game, RUN_WB launches that game's WorldBuilder instead of the game.
 RUN_VANILLA=false
-RUN_WB=true
+RUN_WB=false
 
 # ── Game Command-Line Flags ──
 # Toggle on/off: true = pass to game, false = skip
