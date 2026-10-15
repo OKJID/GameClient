@@ -1071,6 +1071,36 @@ AsciiString GlobalData::getPath_UserData() const
 	return m_userDataDir;
 }
 
+#ifdef __APPLE__
+//-------------------------------------------------------------------------------------------------
+AsciiString GlobalData::getModUserDataSubdir() const
+{
+	AsciiString modDir = m_modDir;
+	while (modDir.endsWith("\\") || modDir.endsWith("/"))
+	{
+		modDir.removeLastChar();
+	}
+
+	if (modDir.isEmpty())
+	{
+		return AsciiString::TheEmptyString;
+	}
+
+	const char *modName = modDir.str();
+	for (const char *cursor = modDir.str(); *cursor != '\0'; ++cursor)
+	{
+		if (*cursor == '\\' || *cursor == '/')
+		{
+			modName = cursor + 1;
+		}
+	}
+
+	AsciiString subdir(modName);
+	subdir.concat('\\');
+	return subdir;
+}
+#endif
+
 //-------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------
 GlobalData::~GlobalData()

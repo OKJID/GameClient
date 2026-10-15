@@ -608,6 +608,9 @@ public:
 
 	// the trailing '\' is included!
   const AsciiString &getPath_UserData() const { return m_userDataDir; }
+#ifdef __APPLE__
+	AsciiString getModUserDataSubdir() const;
+#endif
 
 private:
 	AsciiString BuildUserDataPathFromRegistry();

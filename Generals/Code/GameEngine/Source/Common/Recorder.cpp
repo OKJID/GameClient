@@ -1568,6 +1568,9 @@ AsciiString RecorderClass::getReplayDir()
 {
 	AsciiString tmp = TheGlobalData->getPath_UserData();
 	tmp.concat("Replays\\");
+#ifdef __APPLE__
+	tmp.concat(TheGlobalData->getModUserDataSubdir());
+#endif
 	return tmp;
 }
 
@@ -1578,6 +1581,9 @@ AsciiString RecorderClass::getReplayArchiveDir()
 {
 	AsciiString tmp = TheGlobalData->getPath_UserData();
 	tmp.concat("ArchivedReplays\\");
+#ifdef __APPLE__
+	tmp.concat(TheGlobalData->getModUserDataSubdir());
+#endif
 	return tmp;
 }
 

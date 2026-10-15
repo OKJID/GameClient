@@ -347,7 +347,11 @@ if [ "$DO_CRC_LOGS" = true ]; then
         mv "$PWD/CRCLogs" "$PWD/.agent/$EXTRACT_FOLDER/"
     fi
 
-    REPLAY_FILE="$GAME_DATA_DIR/Replays/${REPLAY_NAME}.rep"
+    REPLAY_DIR="$GAME_DATA_DIR/Replays"
+    if [ -n "$MOD_PATH" ]; then
+        REPLAY_DIR="$REPLAY_DIR/$(basename "$(dirname "$MOD_PATH")")"
+    fi
+    REPLAY_FILE="$REPLAY_DIR/${REPLAY_NAME}.rep"
     if [ -f "$REPLAY_FILE" ]; then
         cp -f "$REPLAY_FILE" "$PWD/.agent/$EXTRACT_FOLDER/${REPLAY_NAME}.rep"
         echo "Copied last replay: ${REPLAY_NAME}.rep"

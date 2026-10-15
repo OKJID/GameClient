@@ -579,7 +579,11 @@ SaveCode GameState::saveGame( AsciiString filename, UnicodeString desc,
 	}
 
 	// make absolutely sure the save directory exists
+#ifdef __APPLE__
+	NativeFileSystem::create_directories( std::string(getSaveDirectory().str()) );
+#else
 	NativeFileSystem::create_directory( std::string(getSaveDirectory().str()) );
+#endif
 
 	// construct path to file
 	AsciiString filepath = getFilePathInSaveDirectory(filename);
@@ -854,6 +858,9 @@ AsciiString GameState::getSaveDirectory() const
 {
 	AsciiString tmp = TheGlobalData->getPath_UserData();
 	tmp.concat("Save\\");
+#ifdef __APPLE__
+	tmp.concat(TheGlobalData->getModUserDataSubdir());
+#endif
 	return tmp;
 }
 

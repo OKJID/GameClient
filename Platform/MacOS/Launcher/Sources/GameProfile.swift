@@ -140,6 +140,11 @@ struct GameProfile: Identifiable {
         userDataDirURL.appendingPathComponent("Options.ini")
     }
 
+    var replaysRelativePath: String {
+        guard let mod else { return "Replays" }
+        return "Replays/\(mod.dirName)"
+    }
+
     var onlineSettingsFileURL: URL? {
         guard let relativePath = onlineSettingsRelativePath else {
             return nil

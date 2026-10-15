@@ -27,13 +27,13 @@ struct SupportSheet: View {
     private let sheetWidth: CGFloat = 480
     private let bytesPerMegabyte = 1024 * 1024
     private let logFileNames = "MacDebug.txt · GeneralsOnline.log · MacCrash.txt"
-    private let lastReplayPath = "Replays/00000000.rep"
     private let recentWindow: TimeInterval = 12 * 60 * 60
     private let panelBackground = Color(red: 0.07, green: 0.07, blue: 0.08)
     private let errorColor = Color(red: 1.0, green: 0.4, blue: 0.35)
 
     private var isCrashReport: Bool { crash != nil }
     private var logsProfile: GameProfile { crash?.profile ?? GameProfile.current }
+    private var lastReplayPath: String { "\(logsProfile.replaysRelativePath)/00000000.rep" }
     private var lastReplayURL: URL { logsProfile.userDataDirURL.appendingPathComponent(lastReplayPath) }
     private var trimmedMessage: String { message.trimmingCharacters(in: .whitespacesAndNewlines) }
 

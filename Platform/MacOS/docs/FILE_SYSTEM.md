@@ -43,6 +43,8 @@ Example path: `~/Command and Conquer Generals Zero Hour Data/`
 
 Custom maps go into the `Maps/` subfolder. Cache files (`MapCache.ini`, `MapCacheGO.ini`) are auto-generated there.
 
+Saves and replays are kept per mod. With `-mod`, `Save/`, `Replays/` and `ArchivedReplays/` gain a subfolder named after the mod folder (`Save/ContraX/`, `Replays/ContraX/00000000.rep`); without a mod they stay at the root. A save or replay from one mod does not load under another — units and CRC differ — so each mod only lists its own. Custom maps and `MapCache.ini` stay shared. The subfolder comes from `GlobalData::getModUserDataSubdir()`; the launcher reads the crashed mod from `CRASH ARGS` in `MacCrash.txt` to attach the right last replay.
+
 > **Important:** The engine internally constructs this path with Windows-style backslashes `\`, which are translated to `/` only when reaching native macOS APIs through `MacOSLocalFileSystem` and the `fopen`/`CreateDirectory` interceptors.
 
 ### Data Structure

@@ -580,6 +580,9 @@ public:
 
 	// the trailing '\' is included!
 	AsciiString getPath_UserData() const;
+#ifdef __APPLE__
+	AsciiString getModUserDataSubdir() const;
+#endif
 
 private:
 
