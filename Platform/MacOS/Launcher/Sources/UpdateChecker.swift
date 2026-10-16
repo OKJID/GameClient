@@ -1,13 +1,15 @@
 import Foundation
 import Combine
 
-struct AppUpdate: Codable {
+struct AppUpdate: Codable, Equatable {
     let version: String
     let build: Int
     let downloadURL: String
     let releaseNotes: String
     let releaseDate: String
     let minOSVersion: String
+    let sha256: String?
+    let signature: String?
 }
 
 class UpdateChecker: ObservableObject, ApiResource {
@@ -35,10 +37,11 @@ class UpdateChecker: ObservableObject, ApiResource {
     }
 
     private func offer(_ update: AppUpdate?) {
-        guard update?.version != availableUpdate?.version else { return }
+        guard update != availableUpdate else { return }
 
+        let isNewVersion = update?.version != availableUpdate?.version
         availableUpdate = update
-        guard let update else { return }
+        guard let update, isNewVersion else { return }
         Analytics.logUpdateOffered(version: update.version)
     }
 

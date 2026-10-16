@@ -229,6 +229,14 @@ else
     echo "   Analytics: disabled (no .env keys)"
 fi
 
+/usr/libexec/PlistBuddy -c "Delete :GOUpdatePublicKey" "$PLIST_FILE" 2>/dev/null || true
+if [ -n "$GO_UPDATE_PUBLIC_KEY" ]; then
+    /usr/libexec/PlistBuddy -c "Add :GOUpdatePublicKey string $GO_UPDATE_PUBLIC_KEY" "$PLIST_FILE"
+    echo "   Self-update: enabled"
+else
+    echo "   Self-update: disabled (no GO_UPDATE_PUBLIC_KEY, the banner opens the browser)"
+fi
+
 echo "🔏 [5/7] Signing the finished bundle..."
 # Signing has to come last: compiling the launcher in and editing Info.plist
 # both invalidate an earlier seal.

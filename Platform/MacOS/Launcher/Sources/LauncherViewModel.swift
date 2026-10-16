@@ -152,6 +152,7 @@ class LauncherViewModel: ObservableObject {
     var modInstaller = ModInstaller()
     var localeInstaller = LocaleInstaller()
     var updateChecker = UpdateChecker()
+    var launcherUpdater = LauncherUpdater()
     var announcements = AnnouncementsFeed()
     lazy var apiSync = ApiSync(resources: [
         updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared,
@@ -195,6 +196,10 @@ class LauncherViewModel: ObservableObject {
             self?.objectWillChange.send()
         }.store(in: &cancellables)
 
+        launcherUpdater.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
         LocaleCatalog.shared.$packs
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -205,6 +210,7 @@ class LauncherViewModel: ObservableObject {
         updateChecker.$availableUpdate
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
+                self?.launcherUpdater.clearFailure()
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
@@ -709,6 +715,39 @@ class LauncherViewModel: ObservableObject {
             && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
         case .local: return isPathValid && isPatchReady && !assetPatcher.state.isRunning
         }
+    }
+
+    var hasRunningJobs: Bool {
+        modInstaller.isBusy || localeInstaller.isBusy || assetPatcher.state.isRunning || steamCMD.state.isRunning
+    }
+
+    func canInstallInPlace(_ update: AppUpdate) -> Bool {
+        guard launcherUpdater.state.acceptsInstall else { return false }
+        return launcherUpdater.canInstall(update)
+    }
+
+    var canRequestUpdateAccessAgain: Bool {
+        launcherUpdater.state == .accessDenied && LauncherBundle.canRequestAccessAgain
+    }
+
+    func installUpdate(_ update: AppUpdate) {
+        guard isReadyToReplaceBundle() else { return }
+        launcherUpdater.install(update)
+    }
+
+    func requestUpdateAccessAgain(_ update: AppUpdate) {
+        guard isReadyToReplaceBundle() else { return }
+        launcherUpdater.requestAccessAgain(update)
+    }
+
+    private func isReadyToReplaceBundle() -> Bool {
+        guard !hasRunningJobs else { return false }
+        guard !LauncherBundle.hasRunningSiblings else {
+            alertMessage = L10n.update.gameRunning
+            return false
+        }
+
+        return true
     }
 
     var effectiveInstallPath: String {

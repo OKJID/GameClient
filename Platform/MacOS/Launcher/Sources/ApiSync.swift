@@ -15,7 +15,8 @@ enum ApiSyncStatus {
 }
 
 final class ApiSync: ObservableObject {
-    private static let baseURL = URL(string: "https://general-online-zh.web.app/api/")!
+    private static let baseURL = ProcessInfo.processInfo.environment["GO_API_BASE_URL"].flatMap(URL.init(string:))
+        ?? URL(string: "https://general-online-zh.web.app/api/")!
     private static let tickInterval: TimeInterval = 5 * 60
     private static let requestTimeout: TimeInterval = 10
     private static let freshnessWindow: TimeInterval = 60 * 60

@@ -1285,15 +1285,17 @@ struct MainView: View {
 
                 Spacer()
 
-                Button(action: {
-                    Analytics.logUpdateDismissed(version: update.version)
-                    viewModel.isUpdateDismissed = true
-                }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
+                if !viewModel.launcherUpdater.state.isRunning {
+                    Button(action: {
+                        Analytics.logUpdateDismissed(version: update.version)
+                        viewModel.isUpdateDismissed = true
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .buttonStyle(PlainButtonStyle())
                 }
-                .buttonStyle(PlainButtonStyle())
             }
 
             Text(update.releaseNotes)
@@ -1301,55 +1303,165 @@ struct MainView: View {
                 .foregroundColor(.white.opacity(0.7))
                 .lineLimit(3)
 
-            HStack(spacing: 10) {
-                Button(action: {
-                    Analytics.logUpdateOpened(version: update.version)
-
-                    if let url = URL(string: update.downloadURL) {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.down.to.line")
-                            .font(.system(size: 11))
-                        Text(L10n.update.download)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .background(neonGreen.opacity(0.2))
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.6), lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-                .buttonStyle(PlainButtonStyle())
-
-                Button(action: {
-                    Analytics.logLinkOpened(target: "website", location: "update_banner")
-
-                    if let url = URL(string: "https://general-online-zh.web.app") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "safari")
-                            .font(.system(size: 11))
-                        Text(L10n.update.details)
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    }
-                    .foregroundColor(.white.opacity(0.7))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.2), lineWidth: 1))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
+            _buildUpdateActions(update)
         }
         .padding(14)
         .background(neonGreen.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).stroke(neonGreen.opacity(0.3), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func _buildUpdateActions(_ update: AppUpdate) -> some View {
+        let state = viewModel.launcherUpdater.state
+
+        if state.isRunning {
+            _buildUpdateProgress(state)
+        } else {
+            if state.isFailure {
+                Text(state.statusText)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.red)
+                    .lineLimit(3)
+            }
+
+            HStack(spacing: 10) {
+                if viewModel.canRequestUpdateAccessAgain {
+                    _buildUpdateAllowAccessButton(update)
+                } else if viewModel.canInstallInPlace(update) {
+                    _buildUpdateInstallButton(update)
+                } else {
+                    _buildUpdateDownloadButton(update)
+                }
+
+                if state == .accessDenied {
+                    _buildUpdatePrivacySettingsButton()
+                }
+
+                _buildUpdateDetailsButton()
+            }
+        }
+    }
+
+    private func _buildUpdateProgress(_ state: LauncherUpdateState) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ProgressView(value: state.fraction)
+                .progressViewStyle(LinearProgressViewStyle(tint: neonGreen))
+
+            Text(state.statusText)
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8))
+        }
+    }
+
+    private func _buildUpdateInstallButton(_ update: AppUpdate) -> some View {
+        Button(action: {
+            viewModel.installUpdate(update)
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 11))
+                Text(L10n.update.install)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(neonGreen.opacity(0.2))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(viewModel.hasRunningJobs)
+        .opacity(viewModel.hasRunningJobs ? 0.5 : 1)
+    }
+
+    private func _buildUpdateDownloadButton(_ update: AppUpdate) -> some View {
+        Button(action: {
+            Analytics.logUpdateOpened(version: update.version)
+
+            if let url = URL(string: update.downloadURL) {
+                NSWorkspace.shared.open(url)
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "arrow.down.to.line")
+                    .font(.system(size: 11))
+                Text(L10n.update.download)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(neonGreen.opacity(0.2))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func _buildUpdateAllowAccessButton(_ update: AppUpdate) -> some View {
+        Button(action: {
+            viewModel.requestUpdateAccessAgain(update)
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.open")
+                    .font(.system(size: 11))
+                Text(L10n.update.allowAccess)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .background(neonGreen.opacity(0.2))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(neonGreen.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(viewModel.hasRunningJobs)
+        .opacity(viewModel.hasRunningJobs ? 0.5 : 1)
+    }
+
+    private func _buildUpdatePrivacySettingsButton() -> some View {
+        Button(action: {
+            NSWorkspace.shared.open(LauncherBundle.privacySettingsURL)
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 11))
+                Text(L10n.update.openSettings)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(.red.opacity(0.6), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+
+    private func _buildUpdateDetailsButton() -> some View {
+        Button(action: {
+            Analytics.logLinkOpened(target: "website", location: "update_banner")
+
+            if let url = URL(string: "https://general-online-zh.web.app") {
+                NSWorkspace.shared.open(url)
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: "safari")
+                    .font(.system(size: 11))
+                Text(L10n.update.details)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+            }
+            .foregroundColor(.white.opacity(0.7))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(.white.opacity(0.2), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 4))
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Footer

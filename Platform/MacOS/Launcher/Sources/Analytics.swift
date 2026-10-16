@@ -130,6 +130,10 @@ enum Analytics {
     }
 
     static func logGameLaunched(then finish: @escaping () -> Void) {
+        logBeforeExit("game_launched", then: finish)
+    }
+
+    private static func logBeforeExit(_ name: String, _ params: [String: Any] = [:], then finish: @escaping () -> Void) {
         var isFinished = false
         let finishOnce = {
             guard !isFinished else { return }
@@ -137,7 +141,7 @@ enum Analytics {
             finish()
         }
 
-        log("game_launched", onDelivery: finishOnce)
+        log(name, params, onDelivery: finishOnce)
         DispatchQueue.main.asyncAfter(deadline: .now() + deliveryTimeout, execute: finishOnce)
     }
 
@@ -203,6 +207,21 @@ enum Analytics {
 
     static func logUpdateOpened(version: String) {
         log("update_opened", ["update_version": version])
+    }
+
+    static func logUpdateInstallStarted(version: String) {
+        log("update_install_started", ["update_version": version])
+    }
+
+    static func logUpdateInstallFailed(version: String, stage: String, reason: String) {
+        log("update_install_failed", ["update_version": version, "stage": stage, "reason": shortReason(reason)])
+    }
+
+    static func logUpdateInstallReady(version: String, seconds: Double, then finish: @escaping () -> Void) {
+        logBeforeExit("update_install_ready", [
+            "update_version": version,
+            "duration_sec": Int(seconds.rounded())
+        ], then: finish)
     }
 
     static func logAnnouncementShown(id: String) {
