@@ -41,10 +41,42 @@ INSTRUCTIONS_NAME="Instructions.html"
 INSTRUCTIONS_BUILDER="../../../Dependencies/general_online_zh/build.sh"
 API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
 DONATION_ICONS_INLINER="../../../Dependencies/general_online_zh/scripts/put_svg_string.sh"
+SECRET_READER="../../../Dependencies/general_online_zh/scripts/read_secret.sh"
+BUNDLE_SECRETS="GO_GA_MEASUREMENT_ID GO_GA_API_SECRET GO_UPDATE_PUBLIC_KEY"
+
+# A key missing from .env comes from the Firebase secrets of the private site
+# repository. Without that repository or without firebase login the build
+# goes on and the matching feature stays disabled.
+load_bundle_secret() {
+    name="$1"
+    eval "current=\${$name}"
+    if [ -n "$current" ]; then
+        echo "   🔑 $name ← .env"
+        return
+    fi
+
+    if [ ! -f "$SECRET_READER" ]; then
+        echo "   ⚠️ $name: not in .env and $SECRET_READER not found"
+        return
+    fi
+
+    if ! value=$(sh "$SECRET_READER" "$name"); then
+        echo "   ⚠️ $name: not in .env and not readable from Firebase"
+        return
+    fi
+
+    eval "$name=\$value"
+    echo "   🔑 $name ← Firebase"
+}
 
 echo "=========================================="
 echo "📦 Assembling Final Distribution Package"
 echo "=========================================="
+
+echo "🔑 Loading bundle secrets..."
+for name in $BUNDLE_SECRETS; do
+    load_bundle_secret "$name"
+done
 
 echo "🧹 Cleaning previous distribution..."
 killall "$LAUNCHER_NAME" 2>/dev/null || true
