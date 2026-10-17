@@ -173,6 +173,10 @@ EnumeratedIP * IPEnumeration::getAddresses()
 		}
 		freeifaddrs(ifaddrList);
 	}
+	if (m_IPlist == nullptr)
+	{
+		addNewIP(127, 0, 0, 1);
+	}
 #endif
 
 	return m_IPlist;
