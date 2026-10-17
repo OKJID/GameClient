@@ -203,14 +203,18 @@ static void playerTooltip(GameWindow *window,
 	if (idx == -1)
 		return;
 
-	LANGameSlot *slot = TheLAN->GetMyGame()->getLANSlot(idx);
+	LANGameInfo *myGame = TheLAN->GetMyGame();
+	if (!myGame)
+		return;
+
+	LANGameSlot *slot = myGame->getLANSlot(idx);
 	if (!slot)
 		return;
 
 	LANPlayer *player = slot->getUser();
 	if (!player)
 	{
-		DEBUG_ASSERTCRASH(TheLAN->GetMyGame()->getIP(idx) == 0, ("No player info in listbox!"));
+		DEBUG_ASSERTCRASH(myGame->getIP(idx) == 0, ("No player info in listbox!"));
 		TheMouse->setCursorTooltip( UnicodeString::TheEmptyString );
 		return;
 	}
