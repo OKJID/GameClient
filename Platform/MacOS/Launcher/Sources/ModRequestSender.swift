@@ -17,6 +17,7 @@ enum ModRequestSender {
         let launcherVersion: String
         let language: String
         let osVersion: String
+        let supportId: String
     }
 
     private struct AuthorPayload: Encodable {
@@ -28,6 +29,7 @@ enum ModRequestSender {
         let launcherVersion: String
         let language: String
         let osVersion: String
+        let supportId: String
     }
 
     static func send(name: String, link: String, completion: @escaping (SubmissionOutcome) -> Void) {
@@ -36,7 +38,8 @@ enum ModRequestSender {
             link: link,
             launcherVersion: Submission.launcherVersion,
             language: L10n.current,
-            osVersion: Submission.osVersion
+            osVersion: Submission.osVersion,
+            supportId: SupportIdentity.current
         )
 
         post(try? JSONEncoder().encode(payload), completion: completion)
@@ -57,7 +60,8 @@ enum ModRequestSender {
             message: message,
             launcherVersion: Submission.launcherVersion,
             language: L10n.current,
-            osVersion: Submission.osVersion
+            osVersion: Submission.osVersion,
+            supportId: SupportIdentity.current
         )
 
         post(try? JSONEncoder().encode(payload), completion: completion)
