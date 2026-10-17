@@ -112,6 +112,11 @@
 #include "GameNetwork/LANAPICallbacks.h"
 #include "GameNetwork/NetworkInterface.h"
 #include "GameNetwork/GameSpy/PersistentStorageThread.h"
+#ifdef __APPLE__
+#include "Common/INIException.h"
+#include "GameClient/MessageBox.h"
+#include <cwctype>
+#endif
 
 #include <rts/profile.h>
 
@@ -1238,6 +1243,109 @@ void GameLogic::setGameMode(GameMode mode)
 	updateDisplayBusyState();
 }
 
+#ifdef __APPLE__
+static std::string lastPathComponentMac(std::string path)
+{
+	while (!path.empty() && (path.back() == '\\' || path.back() == '/'))
+		path.pop_back();
+
+	const size_t nameStart = path.find_last_of("\\/");
+	if (nameStart == std::string::npos)
+		return path;
+
+	return path.substr(nameStart + 1);
+}
+
+static UnicodeString incompatibleMapNameMac()
+{
+	const MapMetaData *mapData = TheMapCache != nullptr ? TheMapCache->findMap(TheGlobalData->m_mapName) : nullptr;
+	if (mapData != nullptr && !mapData->m_displayName.isEmpty())
+	{
+		std::wstring displayName(mapData->m_displayName.str());
+		std::wstring lowercaseName(displayName);
+		for (wchar_t &c : lowercaseName)
+			c = towlower(c);
+
+		const size_t extensionStart = lowercaseName.find(L".map");
+		if (extensionStart != std::wstring::npos)
+			displayName.erase(extensionStart, 4);
+
+		return UnicodeString(displayName.c_str());
+	}
+
+	std::string name = lastPathComponentMac(TheGlobalData->m_mapName.str());
+	const size_t extensionStart = name.rfind('.');
+	if (extensionStart != std::string::npos)
+		name.erase(extensionStart);
+
+	UnicodeString displayName;
+	displayName.translate(AsciiString(name.c_str()));
+	return displayName;
+}
+
+static AsciiString currentGameDataNameMac()
+{
+	const std::string modName = lastPathComponentMac(TheGlobalData->m_modDir.str());
+	if (modName.empty())
+		return AsciiString("Zero Hour");
+
+	return AsciiString(modName.c_str());
+}
+
+static AsciiString failedMapIniBlockMac(const char *failureMessage)
+{
+	if (failureMessage == nullptr)
+		return AsciiString::TheEmptyString;
+
+	const std::string message(failureMessage);
+	const std::string blockPrefix = "(Line: '";
+	const size_t blockStart = message.find(blockPrefix);
+	if (blockStart == std::string::npos)
+		return AsciiString::TheEmptyString;
+
+	const size_t textStart = blockStart + blockPrefix.size();
+	const size_t textEnd = message.find("')", textStart);
+	std::string block = message.substr(textStart, textEnd == std::string::npos ? std::string::npos : textEnd - textStart);
+	while (!block.empty() && block.back() == ' ')
+		block.pop_back();
+
+	return AsciiString(block.c_str());
+}
+
+static UnicodeString incompatibleMapMessageMac(const char *failureMessage)
+{
+	UnicodeString part;
+	UnicodeString body(L"The map \"");
+	body.concat(incompatibleMapNameMac());
+	body.concat(L"\" can't be loaded with ");
+	part.translate(currentGameDataNameMac());
+	body.concat(part);
+	body.concat(L".");
+
+	const AsciiString block = failedMapIniBlockMac(failureMessage);
+	if (block.isNotEmpty())
+	{
+		body.concat(L"\n\nIts map.ini fails at: ");
+		part.translate(block);
+		body.concat(part);
+	}
+
+	return body;
+}
+
+static void abortStartWithIncompatibleMapMac(const char *failureMessage)
+{
+	DEBUG_INFO_MAC(("INCOMPATIBLE_MAP: %s", failureMessage != nullptr ? failureMessage : "unknown INI error"));
+	const UnicodeString message = incompatibleMapMessageMac(failureMessage);
+	TheGameLogic->deleteLoadScreen();
+	TheWritableGlobalData->m_loadScreenRender = FALSE;
+	TheGameLogic->setLoadingMap(FALSE);
+	TheGameLogic->clearGameData(FALSE);
+	TheShell->showShell(TRUE);
+	MessageBoxOk(UnicodeString(L"Incompatible Map"), message, nullptr);
+}
+#endif
+
 // ------------------------------------------------------------------------------------------------
 /** Entry point for starting a new game, the engine is already in clean state at this
 	* point and ready to load up with all the data */
@@ -1484,7 +1592,24 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 	DEBUG_ASSERTCRASH(m_frameLegacyLast == 0, ("framecounter expected to be 0 here\n"));
 #endif
 	// before loading the map, load the map.ini file in the same directory.
+#ifdef __APPLE__
+	try
+	{
+		loadMapINI(TheGlobalData->m_mapName);
+	}
+	catch (INIException &e)
+	{
+		abortStartWithIncompatibleMapMac(e.mFailureMessage);
+		return;
+	}
+	catch (...)
+	{
+		abortStartWithIncompatibleMapMac(nullptr);
+		return;
+	}
+#else
 	loadMapINI(TheGlobalData->m_mapName);
+#endif
 
 	// load a map
 	TheTerrainLogic->loadMap(TheGlobalData->m_mapName, false);
