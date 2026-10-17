@@ -45,9 +45,49 @@
 #include "GameNetwork/LANAPICallbacks.h"	// for testing packet size
 #include "WWLib/strtok_r.h"
 
+#ifdef __APPLE__
+#include <execinfo.h>
+#include "GameLogic/GameLogic.h"
+
+extern "C" void MacOS_CrashTrailMark(const char* text);
+#endif
+
 
 
 GameInfo *TheGameInfo = nullptr;
+
+#ifdef __APPLE__
+static const char *symbolWithOffsetMac(const char *frame)
+{
+	const char *address = strstr(frame, " 0x");
+	if (address == nullptr)
+		return frame;
+
+	const char *symbol = strchr(address + 1, ' ');
+	return symbol != nullptr ? symbol + 1 : frame;
+}
+
+static void markCurrentGameInfoDeletedMidMatchMac()
+{
+	if (TheGameLogic == nullptr || !TheGameLogic->isInGame() || TheGameLogic->isInShellGame())
+		return;
+
+	void *frames[8];
+	const int frameCount = backtrace(frames, ARRAY_SIZE(frames));
+	char **symbols = backtrace_symbols(frames, frameCount);
+	if (symbols == nullptr)
+		return;
+
+	MacOS_CrashTrailMark("current game info deleted mid-match, callers:");
+	for (int i = 1; i < frameCount; ++i)
+	{
+		AsciiString trailText;
+		trailText.format("  %s", symbolWithOffsetMac(symbols[i]));
+		MacOS_CrashTrailMark(trailText.str());
+	}
+	free(symbols);
+}
+#endif
 
 // GameSlot ----------------------------------------
 
@@ -297,7 +337,12 @@ GameInfo::GameInfo()
 GameInfo::~GameInfo()
 {
 	if (TheGameInfo == this)
+	{
+#ifdef __APPLE__
+		markCurrentGameInfoDeletedMidMatchMac();
+#endif
 		TheGameInfo = nullptr;
+	}
 }
 
 void GameInfo::init()
