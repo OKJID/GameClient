@@ -3,7 +3,7 @@ import Combine
 
 enum CommunityLinks {
     static let telegram = "https://t.me/GeneralsOnlineMacOS"
-    static let discord = "https://discord.gg/Mm3yjnv6V"
+    static let discord = "https://discord.gg/khSv8re5Hb"
 }
 
 struct Announcement: Codable, Equatable, Identifiable {
