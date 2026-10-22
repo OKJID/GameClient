@@ -12,6 +12,8 @@
 #   sh build_run_mac.sh --rep_def             # build + ran replay
 #   sh build_run_mac.sh --mod=Contra007       # build + run with a mod (see MOD_PATH) Silent_Death | Apocalptic | ShockWave | RotR
 #   sh build_run_mac.sh --mod=X --buildmapcache  # build + write <install>/Maps/MapCache.ini from every visible map, then quit
+#   sh build_run_mac.sh --dumphotkeys         # build + write Platform/MacOS/Build/Logs/hotkey-dump.json headless, then quit
+#   sh build_run_mac.sh --dumphotkeys=/abs/path.json  # same, custom dump path (combine with --mod=X for a mod's set)
 
 export PATH="/opt/homebrew/bin:$PATH"
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
@@ -43,6 +45,8 @@ DO_TEST=false
 DO_LLDB=false
 DO_CRC_LOGS=false
 DO_BUILD_MAP_CACHE=false
+DO_DUMP_HOTKEYS=false
+HOTKEY_DUMP_FILE=""
 DO_CONSOLE_LOGS=true
 DO_DEBUG=true
 TEST_FILTER=""
@@ -81,6 +85,13 @@ for arg in "$@"; do
             ;;
         --buildmapcache)
             DO_BUILD_MAP_CACHE=true
+            ;;
+        --dumphotkeys=*)
+            DO_DUMP_HOTKEYS=true
+            HOTKEY_DUMP_FILE="${arg#--dumphotkeys=}"
+            ;;
+        --dumphotkeys)
+            DO_DUMP_HOTKEYS=true
             ;;
         --mod=*)
             MOD_PATH="${arg#--mod=}"
@@ -183,6 +194,16 @@ LOG_DIR="Platform/MacOS/Build/Logs"
 LOG_FILE="$LOG_DIR/$LOG_NAME"
 LOG_KEEP=5
 
+if [ "$DO_DUMP_HOTKEYS" = true ]; then
+    [ -z "$HOTKEY_DUMP_FILE" ] && HOTKEY_DUMP_FILE="$LOG_DIR/hotkey-dump.json"
+    case "$HOTKEY_DUMP_FILE" in
+        /*) ;;
+        *) HOTKEY_DUMP_FILE="$PWD/$HOTKEY_DUMP_FILE" ;;
+    esac
+    mkdir -p "$(dirname "$HOTKEY_DUMP_FILE")"
+    rm -f "$HOTKEY_DUMP_FILE"
+fi
+
 if [ -f "$LOG_FILE" ]; then
     gen=$((LOG_KEEP - 1))
     while [ $gen -ge 3 ]; do
@@ -265,6 +286,7 @@ GAME_ARGS=()
 [ "$DO_REPLAY_DEF" = true ]        && GAME_ARGS+=(-headless -replay "${REPLAY_NAME}.rep")
 [ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
 [ "$DO_BUILD_MAP_CACHE" = true ]   && GAME_ARGS+=(-buildmapcache)
+[ "$DO_DUMP_HOTKEYS" = true ]      && GAME_ARGS+=(-headless -dumpHotkeys "$HOTKEY_DUMP_FILE")
 
 if [ -n "$MOD_PATH" ]; then
     case "$MOD_PATH" in
@@ -358,4 +380,12 @@ if [ "$DO_CRC_LOGS" = true ]; then
     fi
     
     echo "Logs successfully collected into .agent/$EXTRACT_FOLDER/"
+fi
+
+if [ "$DO_DUMP_HOTKEYS" = true ]; then
+    if [ -f "$HOTKEY_DUMP_FILE" ]; then
+        echo "Hotkey dump written: $HOTKEY_DUMP_FILE"
+    else
+        echo "ERROR: hotkey dump not written, see $LOG_FILE (grep 'HotkeyDump -')"
+    fi
 fi
