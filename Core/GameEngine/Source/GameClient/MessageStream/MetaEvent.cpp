@@ -837,6 +837,17 @@ MetaMapRec *MetaMap::getMetaMapRec(GameMessage::Type t)
 {
 	return findGameMessageNameByType(t);
 }
+
+//-------------------------------------------------------------------------------------------------
+MetaMapRec *MetaMap::findMetaMapRecByName(const char* name)
+{
+	for (MetaMapRec *map = m_metaMaps; map; map = map->m_next)
+	{
+		if (stricmp(getMetaName(map->m_meta), name) == 0)
+			return map;
+	}
+	return nullptr;
+}
 #endif
 
 //-------------------------------------------------------------------------------------------------

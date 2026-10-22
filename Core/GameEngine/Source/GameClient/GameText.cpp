@@ -56,6 +56,9 @@
 #include "Common/file.h"
 #include "Common/FileSystem.h"
 #include "Common/version.h"
+#ifdef __APPLE__
+#include "Common/System/NativeFileSystem.h"
+#endif
 
 
 
@@ -1769,7 +1772,7 @@ Bool GameTextManager::writeTable( const Char *path )
 	for ( size_t i = 0; i < m_fallbackTables.size(); ++i )
 		appendUniqueStrings( m_fallbackTables[i].info, m_fallbackTables[i].count, labels, entries );
 
-	FILE *file = fopen( path, "wb" );
+	FILE *file = NativeFileSystem::fopen( path, "wb" );
 	if ( file == nullptr )
 		return FALSE;
 

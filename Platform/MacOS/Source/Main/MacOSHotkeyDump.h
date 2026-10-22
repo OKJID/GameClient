@@ -8,6 +8,8 @@ namespace MacOSHotkeyDump
 {
 	constexpr const char* kFlag = "-dumpHotkeys";
 
-	bool write( const char* path );
+	bool write( const std::string& path );
+	std::string profileRoot();
 	std::string stringsTargetPath();
+	std::string defaultCommandMapPath();
 }

@@ -481,6 +481,7 @@ public:
 
 #ifdef __APPLE__
 	static const char* getMetaName(GameMessage::Type t);
+	MetaMapRec *findMetaMapRecByName(const char* name);
 #endif
 
 	// TheSuperHackers @feature Function to generate default key mappings

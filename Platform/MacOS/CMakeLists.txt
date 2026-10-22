@@ -282,6 +282,7 @@ function(macos_platform_add_game_glue target)
 
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCommandMapText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyApply.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyDump.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyEdits.mm
@@ -302,6 +303,7 @@ function(macos_platform_add_game_glue target)
     )
 
     set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCommandMapText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyApply.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyDump.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyText.cpp

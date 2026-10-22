@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include <string>
+
 namespace MacOSHotkeyApply
 {
 	constexpr const char* kFlag = "-applyHotkeys";
 
-	bool apply( const char* editPath );
+	bool apply( const std::string& editPath );
 }

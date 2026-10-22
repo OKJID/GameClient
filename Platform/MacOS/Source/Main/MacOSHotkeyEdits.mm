@@ -1,4 +1,4 @@
-// MacOSHotkeyEdits.mm — reads hotkey-dump-edit.json
+// MacOSHotkeyEdits.mm — parses hotkey-dump-edit.json
 
 #import <Foundation/Foundation.h>
 
@@ -41,14 +41,11 @@ namespace
 	}
 }
 
-bool MacOS_ReadHotkeyEdits( const char* path, MacOSHotkeyEdits& edits )
+bool MacOS_ParseHotkeyEdits( const std::string& json, MacOSHotkeyEdits& edits )
 {
 	@autoreleasepool
 	{
-		NSData* data = [NSData dataWithContentsOfFile:[NSString stringWithUTF8String:path]];
-		if ( data == nil )
-			return false;
-
+		NSData* data = [NSData dataWithBytes:json.data() length:json.size()];
 		id root = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
 		if ( ![root isKindOfClass:[NSDictionary class]] )
 			return false;

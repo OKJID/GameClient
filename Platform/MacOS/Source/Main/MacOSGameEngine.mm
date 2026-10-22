@@ -38,6 +38,7 @@ extern MacOSMouse *TheMacOSMouse;
 #include "GameClient/WindowLayout.h"
 #include "GameLogic/GameLogic.h"
 #include "Common/GlobalData.h"
+#include "Common/System/NativeFileSystem.h"
 
 extern HWND ApplicationHWnd;
 
@@ -145,10 +146,10 @@ void MacOSGameEngine::init()
 		return;
 
 	if (hotkeyEditPath != nullptr)
-		MacOSHotkeyApply::apply(hotkeyEditPath);
+		MacOSHotkeyApply::apply(NativeFileSystem::get_engine_path(hotkeyEditPath));
 
 	if (hotkeyDumpPath != nullptr)
-		MacOSHotkeyDump::write(hotkeyDumpPath);
+		MacOSHotkeyDump::write(NativeFileSystem::get_engine_path(hotkeyDumpPath));
 
 	setQuitting(TRUE);
 }

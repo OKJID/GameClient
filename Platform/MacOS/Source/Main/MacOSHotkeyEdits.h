@@ -1,4 +1,4 @@
-// MacOSHotkeyEdits.h — unsaved hotkey edits the launcher hands over (hotkey-dump-edit.json)
+// MacOSHotkeyEdits.h — parses the unsaved hotkey edits the launcher hands over (hotkey-dump-edit.json)
 
 #pragma once
 
@@ -17,4 +17,4 @@ struct MacOSHotkeyEdits
 	std::map<std::string, MacOSGlobalKeyEdit> globals;
 };
 
-bool MacOS_ReadHotkeyEdits( const char* path, MacOSHotkeyEdits& edits );
+bool MacOS_ParseHotkeyEdits( const std::string& json, MacOSHotkeyEdits& edits );

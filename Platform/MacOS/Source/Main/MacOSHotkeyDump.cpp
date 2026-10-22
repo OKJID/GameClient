@@ -12,6 +12,7 @@
 #include "Common/PlayerTemplate.h"
 #include "Common/Registry.h"
 #include "Common/SpecialPower.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/ThingFactory.h"
 #include "Common/ThingTemplate.h"
 #include "GameClient/ControlBar.h"
@@ -31,11 +32,9 @@
 #include <climits>
 #include <cmath>
 #include <cstdio>
-#include <dirent.h>
 #include <map>
 #include <set>
 #include <string>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
 
@@ -44,7 +43,7 @@ extern const Char *g_csfFile;
 namespace
 {
 	const Int kSchemaVersion = 1;
-	const char* const kCommandMapFile = "data\\%s\\CommandMap.ini";
+	const char* const kCommandMapFile = "Data\\%s\\CommandMap.ini";
 	const char* const kCommandSetUpgradeModule = "CommandSetUpgrade";
 	const char* const kIconDirectory = "hotkey-icons";
 	const char* const kIconExtension = ".png";
@@ -202,15 +201,9 @@ namespace
 		return toUtf8( toWide( value ) );
 	}
 
-	std::string nativePath( const AsciiString& enginePath )
+	std::string outboundPath( const std::string& enginePath )
 	{
-		std::string path( enginePath.str() );
-		for ( char& c : path )
-		{
-			if ( c == '\\' )
-				c = '/';
-		}
-		return path;
+		return NativeFileSystem::get_safe_path( enginePath );
 	}
 
 	std::string upperCase( const AsciiString& value )
@@ -231,46 +224,64 @@ namespace
 		return "";
 	}
 
-	AsciiString languagePath( const char* pattern )
+	std::string languagePath( const char* pattern )
 	{
 		AsciiString path;
 		path.format( pattern, GetRegistryLanguage().str() );
-		return path;
+		return NativeFileSystem::get_engine_path( path.str() );
 	}
 
-	std::string targetRoot()
+	std::string relativeProfileRoot()
+	{
+		return TheGlobalData->m_modDir.str();
+	}
+
+	std::string absoluteProfileRoot()
 	{
 		if ( TheGlobalData->m_modDir.isNotEmpty() )
-			return nativePath( TheGlobalData->m_modDir );
+			return TheGlobalData->m_modDir.str();
 
 		char workingDirectory[PATH_MAX];
 		if ( getcwd( workingDirectory, sizeof( workingDirectory ) ) == nullptr )
 			return "";
 
-		return std::string( workingDirectory ) + "/";
+		return NativeFileSystem::get_engine_path( workingDirectory ) + "\\";
 	}
 
-	std::string directoryOf( const std::string& path )
+	std::string directoryOf( const std::string& enginePath )
 	{
-		const size_t slash = path.find_last_of( '/' );
-		if ( slash == std::string::npos )
-			return ".";
+		const size_t separator = enginePath.find_last_of( '\\' );
+		if ( separator == std::string::npos )
+			return "";
 
-		return path.substr( 0, slash );
+		return enginePath.substr( 0, separator );
+	}
+
+	std::string childPath( const std::string& directory, const std::string& name )
+	{
+		if ( directory.empty() )
+			return name;
+
+		return directory + "\\" + name;
 	}
 
 	std::set<std::string> filesIn( const std::string& directory )
 	{
-		std::set<std::string> names;
-		DIR* listing = opendir( directory.c_str() );
-		if ( listing == nullptr )
-			return names;
+		std::vector<std::string> names;
+		NativeFileSystem::list_files( directory, "", false, names );
+		return std::set<std::string>( names.begin(), names.end() );
+	}
 
-		for ( dirent* entry = readdir( listing ); entry != nullptr; entry = readdir( listing ) )
-			names.insert( entry->d_name );
+	bool writeBytes( const std::string& enginePath, const std::vector<unsigned char>& bytes )
+	{
+		FILE* file = NativeFileSystem::fopen( enginePath, "wb" );
+		if ( file == nullptr )
+			return false;
 
-		closedir( listing );
-		return names;
+		fwrite( bytes.data(), 1, bytes.size(), file );
+		const bool isWritten = ferror( file ) == 0;
+		fclose( file );
+		return isWritten;
 	}
 
 	bool hasText( const AsciiString& label )
@@ -450,7 +461,12 @@ namespace
 			return false;
 
 		shrinkIcon( rgba, width, height );
-		return MacOS_WriteRgbaPng( path.c_str(), rgba.data(), width, height );
+
+		std::vector<unsigned char> png;
+		if ( !MacOS_EncodeRgbaPng( rgba.data(), width, height, png ) )
+			return false;
+
+		return writeBytes( path, png );
 	}
 
 	bool hasIconSource( const Image* image )
@@ -468,7 +484,7 @@ namespace
 
 	std::string iconPath( const std::string& fileName )
 	{
-		return std::string( kIconDirectory ) + "/" + fileName;
+		return childPath( kIconDirectory, fileName );
 	}
 
 	enum PanelKind
@@ -605,7 +621,7 @@ namespace
 
 		void exportIcons( const std::string& iconDirectory )
 		{
-			mkdir( iconDirectory.c_str(), 0755 );
+			NativeFileSystem::create_directories( iconDirectory );
 			const std::set<std::string> existingFiles = filesIn( iconDirectory );
 			std::map<std::string, std::vector<HotkeyString*>> missingByAtlas;
 
@@ -768,7 +784,7 @@ namespace
 			{
 				const std::string fileName = iconFileName( *hotkey->image );
 				const bool isWritten = writtenFiles.count( fileName ) > 0
-					|| writeIcon( atlas, *hotkey->image, iconDirectory + "/" + fileName );
+					|| writeIcon( atlas, *hotkey->image, childPath( iconDirectory, fileName ) );
 				if ( !isWritten )
 					continue;
 
@@ -813,7 +829,7 @@ namespace
 				return;
 			}
 
-			json.text( nativePath( TheGlobalData->m_modDir ).c_str() );
+			json.text( outboundPath( TheGlobalData->m_modDir.str() ).c_str() );
 		}
 
 		void writeTargets( JsonWriter& json ) const
@@ -821,11 +837,11 @@ namespace
 			json.key( "targets" );
 			json.beginObject();
 			json.key( "root" );
-			json.text( targetRoot().c_str() );
+			json.text( outboundPath( absoluteProfileRoot() ).c_str() );
 			json.key( "strings" );
-			json.text( nativePath( languagePath( g_csfFile ) ).c_str() );
+			json.text( outboundPath( languagePath( g_csfFile ) ).c_str() );
 			json.key( "globals" );
-			json.text( nativePath( languagePath( kCommandMapFile ) ).c_str() );
+			json.text( outboundPath( languagePath( kCommandMapFile ) ).c_str() );
 			json.endObject();
 		}
 
@@ -878,7 +894,7 @@ namespace
 
 			json.beginObject();
 			json.key( "file" );
-			json.text( nativePath( map.m_sourceFile ).c_str() );
+			json.text( outboundPath( map.m_sourceFile.str() ).c_str() );
 			json.endObject();
 		}
 
@@ -917,11 +933,11 @@ namespace
 			json.key( "description" );
 			json.text( toUtf8( hotkey.description ).c_str() );
 			json.key( "icon" );
-			writeOptionalText( json, hotkey.icon );
+			writeOptionalText( json, hotkey.icon.empty() ? hotkey.icon : outboundPath( hotkey.icon ) );
 			json.key( "source" );
 			json.beginObject();
 			json.key( "file" );
-			json.text( nativePath( hotkey.sourceFile ).c_str() );
+			json.text( outboundPath( hotkey.sourceFile.str() ).c_str() );
 			json.key( "layer" );
 			json.text( hotkey.sourceLayer.str() );
 			json.endObject();
@@ -1028,14 +1044,14 @@ namespace
 	};
 }
 
-bool MacOSHotkeyDump::write( const char* path )
+bool MacOSHotkeyDump::write( const std::string& path )
 {
 	HotkeyCatalog catalog;
 	catalog.collect();
-	catalog.exportIcons( directoryOf( path ) + "/" + kIconDirectory );
+	catalog.exportIcons( childPath( directoryOf( path ), kIconDirectory ) );
 
-	const std::string temporaryPath = std::string( path ) + ".tmp";
-	FILE* file = fopen( temporaryPath.c_str(), "wb" );
+	const std::string temporaryPath = path + ".tmp";
+	FILE* file = NativeFileSystem::fopen( temporaryPath, "wb" );
 	if ( file == nullptr )
 	{
 		DEBUG_INFO_MAC(( "HotkeyDump - cannot open %s", temporaryPath.c_str() ));
@@ -1047,17 +1063,27 @@ bool MacOSHotkeyDump::write( const char* path )
 	const bool isWritten = ferror( file ) == 0;
 	fclose( file );
 
-	if ( !isWritten || rename( temporaryPath.c_str(), path ) != 0 )
+	if ( !isWritten || NativeFileSystem::rename( temporaryPath, path ) != 0 )
 	{
-		DEBUG_INFO_MAC(( "HotkeyDump - failed to write %s", path ));
+		DEBUG_INFO_MAC(( "HotkeyDump - failed to write %s", path.c_str() ));
 		return false;
 	}
 
-	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys, %d icons written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), catalog.iconCount(), path ));
+	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys, %d icons written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), catalog.iconCount(), path.c_str() ));
 	return true;
+}
+
+std::string MacOSHotkeyDump::profileRoot()
+{
+	return relativeProfileRoot();
 }
 
 std::string MacOSHotkeyDump::stringsTargetPath()
 {
-	return targetRoot() + nativePath( languagePath( g_csfFile ) );
+	return relativeProfileRoot() + languagePath( g_csfFile );
+}
+
+std::string MacOSHotkeyDump::defaultCommandMapPath()
+{
+	return languagePath( kCommandMapFile );
 }

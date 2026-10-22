@@ -1,4 +1,4 @@
-// MacOSPngWriter.mm — writes an RGBA pixel buffer as a PNG file
+// MacOSPngWriter.mm — encodes an RGBA pixel buffer as PNG bytes
 
 #import <AppKit/AppKit.h>
 
@@ -6,7 +6,7 @@
 
 #include <cstring>
 
-bool MacOS_WriteRgbaPng( const char* path, const unsigned char* rgba, int width, int height )
+bool MacOS_EncodeRgbaPng( const unsigned char* rgba, int width, int height, std::vector<unsigned char>& png )
 {
 	if ( width <= 0 || height <= 0 )
 		return false;
@@ -30,7 +30,12 @@ bool MacOS_WriteRgbaPng( const char* path, const unsigned char* rgba, int width,
 
 		memcpy( [bitmap bitmapData], rgba, (size_t)width * (size_t)height * 4 );
 
-		NSData* png = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
-		return [png writeToFile:[NSString stringWithUTF8String:path] atomically:YES];
+		NSData* encoded = [bitmap representationUsingType:NSBitmapImageFileTypePNG properties:@{}];
+		if ( encoded == nil )
+			return false;
+
+		const unsigned char* bytes = (const unsigned char*)[encoded bytes];
+		png.assign( bytes, bytes + [encoded length] );
+		return true;
 	}
 }
