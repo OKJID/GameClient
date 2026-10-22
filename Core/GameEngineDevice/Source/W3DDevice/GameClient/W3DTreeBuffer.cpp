@@ -91,6 +91,13 @@ enum
 #include "d3dx8math.h"
 #include "GameClient/GameClient.h"
 
+#ifdef __APPLE__
+#include "Common/ThingTemplate.h"
+#include "GameClient/Drawable.h"
+
+extern "C" void MacOS_CrashTrailMark(const char* text);
+#endif
+
 
 // If TEST_AND_BLEND is defined, it will do an alpha test and blend.  Otherwise just alpha test. jba. [5/30/2003]
 #define dontTEST_AND_BLEND 1
@@ -100,6 +107,32 @@ enum
 #define END_OF_PARTITION (-1)
 
 #define DELETED_TREE_TYPE (-2)
+
+#ifdef __APPLE__
+static void markTreeProbeMac(const AsciiString& text)
+{
+	DEBUG_RENDER_CORE_MAC(("%s", text.str()));
+	MacOS_CrashTrailMark(text.str());
+}
+
+static void markTreeTypeNotAddedMac(const char* reason, const W3DTreeDrawModuleData* data, Int numTreeTypes)
+{
+	AsciiString text;
+	text.format("tree type not added (%s): model '%s', texture '%s', types %d",
+		reason, data->m_modelName.str(), data->m_textureName.str(), numTreeTypes);
+	markTreeProbeMac(text);
+}
+
+static void markTreeTypeWithoutDataMac(Int treeNdx, Int treeType, Int numTreeTypes, Int numTrees, DrawableID treeDrawableID, const Object* unit)
+{
+	const Drawable* treeDrawable = TheGameClient->findDrawableByID(treeDrawableID);
+	const char* treeName = treeDrawable != nullptr ? treeDrawable->getTemplate()->getName().str() : "?";
+	AsciiString text;
+	text.format("tree %d of type %d has no data (types %d, trees %d), tree '%s', unit '%s'",
+		treeNdx, treeType, numTreeTypes, numTrees, treeName, unit->getTemplate()->getName().str());
+	markTreeProbeMac(text);
+}
+#endif
 
 /******************************************************************************
 						W3DTreeTextureClass
@@ -1137,6 +1170,11 @@ void W3DTreeBuffer::unitMoved(Object* unit)
 				delta.set(m_trees[treeNdx].location.X, m_trees[treeNdx].location.Y, m_trees[treeNdx].location.Z);
 				delta.sub(pos);
 				if (radius * radius > delta.lengthSqr()) {
+#ifdef __APPLE__
+					if (m_treeTypes[m_trees[treeNdx].treeType].m_data == nullptr) {
+						markTreeTypeWithoutDataMac(treeNdx, m_trees[treeNdx].treeType, m_numTreeTypes, m_numTrees, m_trees[treeNdx].drawableID, unit);
+					}
+#endif
 					bool canTopple = unit->getCrusherLevel() > 1;
 					if (canTopple && m_treeTypes[m_trees[treeNdx].treeType].m_data->m_doTopple) {
 						// Give a vector with direction to thing.
@@ -1277,6 +1315,9 @@ Int W3DTreeBuffer::addTreeType(const W3DTreeDrawModuleData* data)
 {
 	if (m_numTreeTypes >= MAX_TYPES) {
 		DEBUG_CRASH(("Too many kinds of trees in map.  Reduce kinds of trees, or raise tree limit. jba."));
+#ifdef __APPLE__
+		markTreeTypeNotAddedMac("too many types", data, m_numTreeTypes);
+#endif
 		return 0;
 	}
 	m_needToUpdateTexture = true;
@@ -1287,6 +1328,9 @@ Int W3DTreeBuffer::addTreeType(const W3DTreeDrawModuleData* data)
 
 	if (robj == nullptr) {
 		DEBUG_CRASH(("Unable to find model for tree %s", data->m_modelName.str()));
+#ifdef __APPLE__
+		markTreeTypeNotAddedMac("model not found", data, m_numTreeTypes);
+#endif
 		return 0;
 	}
 	AABoxClass box;
@@ -1306,6 +1350,9 @@ Int W3DTreeBuffer::addTreeType(const W3DTreeDrawModuleData* data)
 
 	if (m_treeTypes[m_numTreeTypes].m_mesh == nullptr) {
 		DEBUG_CRASH(("Tree %s is not simple mesh. Tell artist to re-export. Don't Ignore!!!", data->m_modelName.str()));
+#ifdef __APPLE__
+		markTreeTypeNotAddedMac("not a simple mesh", data, m_numTreeTypes);
+#endif
 		return 0;
 	}
 
