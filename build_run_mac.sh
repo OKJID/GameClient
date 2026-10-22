@@ -14,6 +14,7 @@
 #   sh build_run_mac.sh --mod=X --buildmapcache  # build + write <install>/Maps/MapCache.ini from every visible map, then quit
 #   sh build_run_mac.sh --dumphotkeys         # build + write Platform/MacOS/Build/Logs/hotkey-dump.json headless, then quit
 #   sh build_run_mac.sh --dumphotkeys=/abs/path.json  # same, custom dump path (combine with --mod=X for a mod's set)
+#   sh build_run_mac.sh --applyhotkeys=/abs/edit.json --dumphotkeys=/abs/path.json  # apply hotkey edits, then write a fresh dump
 
 export PATH="/opt/homebrew/bin:$PATH"
 export GENERALS_INSTALL_PATH="/Users/okji/dev/games/General Online Common"
@@ -47,6 +48,7 @@ DO_CRC_LOGS=false
 DO_BUILD_MAP_CACHE=false
 DO_DUMP_HOTKEYS=false
 HOTKEY_DUMP_FILE=""
+HOTKEY_EDIT_FILE=""
 DO_CONSOLE_LOGS=true
 DO_DEBUG=true
 TEST_FILTER=""
@@ -92,6 +94,9 @@ for arg in "$@"; do
             ;;
         --dumphotkeys)
             DO_DUMP_HOTKEYS=true
+            ;;
+        --applyhotkeys=*)
+            HOTKEY_EDIT_FILE="${arg#--applyhotkeys=}"
             ;;
         --mod=*)
             MOD_PATH="${arg#--mod=}"
@@ -204,6 +209,17 @@ if [ "$DO_DUMP_HOTKEYS" = true ]; then
     rm -f "$HOTKEY_DUMP_FILE"
 fi
 
+if [ -n "$HOTKEY_EDIT_FILE" ]; then
+    case "$HOTKEY_EDIT_FILE" in
+        /*) ;;
+        *) HOTKEY_EDIT_FILE="$PWD/$HOTKEY_EDIT_FILE" ;;
+    esac
+    if [ ! -f "$HOTKEY_EDIT_FILE" ]; then
+        echo "ERROR: hotkey edit file not found: $HOTKEY_EDIT_FILE"
+        exit 1
+    fi
+fi
+
 if [ -f "$LOG_FILE" ]; then
     gen=$((LOG_KEEP - 1))
     while [ $gen -ge 3 ]; do
@@ -287,6 +303,7 @@ GAME_ARGS=()
 [ "$DO_CRC_LOGS" = true ]          && GAME_ARGS+=(-saveDebugCRCPerFrame "$PWD/.agent/$EXTRACT_FOLDER/CRCLogs" -keepCRCSave -logObjectCRCs -logRandom)
 [ "$DO_BUILD_MAP_CACHE" = true ]   && GAME_ARGS+=(-buildmapcache)
 [ "$DO_DUMP_HOTKEYS" = true ]      && GAME_ARGS+=(-headless -dumpHotkeys "$HOTKEY_DUMP_FILE")
+[ -n "$HOTKEY_EDIT_FILE" ]         && GAME_ARGS+=(-headless -applyHotkeys "$HOTKEY_EDIT_FILE")
 
 if [ -n "$MOD_PATH" ]; then
     case "$MOD_PATH" in
@@ -388,4 +405,8 @@ if [ "$DO_DUMP_HOTKEYS" = true ]; then
     else
         echo "ERROR: hotkey dump not written, see $LOG_FILE (grep 'HotkeyDump -')"
     fi
+fi
+
+if [ -n "$HOTKEY_EDIT_FILE" ]; then
+    grep -h "HotkeyApply -" "$LOG_FILE"
 fi
