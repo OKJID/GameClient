@@ -527,6 +527,7 @@ void NGMP_OnlineServices_AuthInterface::DoFullLoginFlow()
 
 						m_strCode = authResp.login_code;
 						NetworkLog(ELogVerbosity::LOG_DEBUG, "Login Code is %s", m_strCode.c_str());
+						DEBUG_AUTH_MAC(("LOGIN: waiting for browser login, code %s", m_strCode.c_str()));
 
 #if defined(USE_TEST_ENV)
                         std::string strURI = std::format("https://www.playgenerals.online/login/?gamecode={}&env=test", m_strCode.c_str());
@@ -537,6 +538,7 @@ void NGMP_OnlineServices_AuthInterface::DoFullLoginFlow()
                         ClearGSMessageBoxes();
                         GSMessageBoxCancel(UnicodeString(L"Logging In"), UnicodeString(L"Please continue in your web browser"), []()
                             {
+                                DEBUG_AUTH_MAC(("LOGIN: browser login cancelled by user"));
                                 if (NGMP_OnlineServicesManager::GetInstance() != nullptr)
                                 {
                                     NGMP_OnlineServicesManager::GetInstance()->SetPendingFullTeardown(EGOTearDownReason::USER_REQUESTED_SILENT);
@@ -647,6 +649,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 			NGMP_OnlineServicesManager::GetInstance()->GetHTTPManager()->SendPOSTRequest(strURI.c_str(), EIPProtocolVersion::DONT_CARE, mapHeaders, strPostData.c_str(), [=](bool bSuccess, int statusCode, std::string strBody, HTTPRequest* pReq)
 				{
+					DEBUG_AUTH_MAC(("LOGIN: CheckLogin response, success %d, status %d, waiting %d", bSuccess, statusCode, m_bWaitingLogin));
 					try
 					{
 						if (statusCode == 423)
@@ -658,6 +661,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 						nlohmann::json jsonObject = nlohmann::json::parse(strBody);
 						AuthResponse authResp = jsonObject.get<AuthResponse>();
+						DEBUG_AUTH_MAC(("LOGIN: CheckLogin result %d", (int)authResp.result));
 
 #if _DEBUG
 						NetworkLog(ELogVerbosity::LOG_RELEASE, "PageBody: %s", strBody.c_str());
@@ -697,6 +701,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 					}
 					catch (...)
 					{
+						DEBUG_AUTH_MAC(("LOGIN: CheckLogin response not parsed: %s", strBody.c_str()));
 
 					}
 
@@ -707,6 +712,7 @@ void NGMP_OnlineServices_AuthInterface::Tick()
 
 void NGMP_OnlineServices_AuthInterface::OnLoginComplete(ELoginResult loginResult, const char* szWSAddr)
 {
+	DEBUG_AUTH_MAC(("LOGIN: OnLoginComplete result %d, waiting %d", (int)loginResult, m_bWaitingLogin));
 	if (loginResult == ELoginResult::Success)
 	{
 		// TODO_AC: Consider chaining this

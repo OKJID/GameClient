@@ -336,6 +336,7 @@ GameInfo::GameInfo()
 // TheSuperHackers @fix arcticdolphin 19/09/2026 Clear TheGameInfo on destruction to prevent dangling pointer use.
 GameInfo::~GameInfo()
 {
+	DEBUG_NETWORK_MAC(("GAMEINFO: delete %p, current %p", (void*)this, (void*)TheGameInfo));
 	if (TheGameInfo == this)
 	{
 #ifdef __APPLE__

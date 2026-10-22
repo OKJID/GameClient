@@ -462,6 +462,7 @@ WindowMsgHandledType DiplomacySystem( GameWindow *window, UnsignedInt msg,
 
 void PopulateInGameDiplomacyPopup()
 {
+	DEBUG_NETWORK_MAC(("DIPLOMACY: populate, TheGameInfo %p", (void*)TheGameInfo));
 	if (!TheGameInfo)
 		return;
 

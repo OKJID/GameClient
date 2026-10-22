@@ -1496,6 +1496,7 @@ void GameLogic::tryStartNewGame( Bool loadingSaveGame )
 			TheGameInfo = game = TheChallengeGameInfo;
 		}
 	}
+	DEBUG_NETWORK_MAC(("GAMEINFO: match uses %p", (void*)TheGameInfo));
 
 	// On a NEW game, we need to copy the superweapon restrictions from the game info to here
 	// (because TheGameInfo is not always saved and doesn't carry over to replays). On a save

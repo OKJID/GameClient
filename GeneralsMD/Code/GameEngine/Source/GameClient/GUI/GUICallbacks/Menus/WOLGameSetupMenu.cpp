@@ -4133,6 +4133,8 @@ WindowMsgHandledType WOLGameSetupMenuSystem( GameWindow *window, UnsignedInt msg
 
 				if ( controlID == buttonBackID )
 				{
+					DEBUG_NETWORK_MAC(("WOL: back pressed, in game %d, shell active %d, window hidden %d",
+						TheGameLogic->isInGame(), TheShell->isShellActive(), window->winIsHidden()));
 					savePlayerInfo();
 					if( WOLMapSelectLayout )
 					{

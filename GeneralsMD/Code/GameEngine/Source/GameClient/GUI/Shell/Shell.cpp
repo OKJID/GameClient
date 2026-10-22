@@ -347,6 +347,9 @@ void Shell::pop()
 	if (screen == NULL)
 		return;
 
+	DEBUG_INFO_MAC(("SHELL: pop '%s', screens %d, in game %d, shell game %d", screen->getFilename().str(), m_screenCount,
+		TheGameLogic != nullptr && TheGameLogic->isInGame(), TheGameLogic != nullptr && TheGameLogic->isInShellGame()));
+
 #ifdef DEBUG_LOGGING
 	DEBUG_LOG(("Shell:pop() - stack was"));
 	for (Int i = 0; i < m_screenCount; ++i)

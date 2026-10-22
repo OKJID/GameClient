@@ -646,6 +646,7 @@ static void checkLogin()
 
 void NGMP_WOLLoginMenu_LoginCallback(ELoginResult loginResult)
 {
+	DEBUG_AUTH_MAC(("LOGIN: login menu callback result %d, buttonPushed %d", (int)loginResult, buttonPushed));
 	if (!buttonPushed)
 	{
 		// TODO_NGMP: Handle failure properly

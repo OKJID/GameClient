@@ -403,6 +403,7 @@ void LanLobbyMenuInit( WindowLayout *layout, void *userData )
 	// Show Menu
 	layout->hide( FALSE );
 
+	DEBUG_NETWORK_MAC(("LAN: lobby init, TheLAN %p, TheGameInfo %p, in game %d", (void*)TheLAN, (void*)TheGameInfo, TheGameLogic->isInGame()));
 	// Init LAN API Singleton
 	if (!TheLAN)
 	{
