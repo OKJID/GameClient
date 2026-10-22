@@ -1,5 +1,7 @@
 // MacOSHotkeyDump.cpp — factions, command panels, hotkey strings and global keys after engine init
 
+#define DEFINE_GUI_COMMAND_NAMES
+
 #include "MacOSHotkeyDump.h"
 #include "MacOSHotkeyText.h"
 #include "MacOSPngWriter.h"
@@ -42,12 +44,43 @@ extern const Char *g_csfFile;
 
 namespace
 {
-	const Int kSchemaVersion = 1;
+	const Int kSchemaVersion = 2;
 	const char* const kCommandMapFile = "Data\\%s\\CommandMap.ini";
 	const char* const kCommandSetUpgradeModule = "CommandSetUpgrade";
 	const char* const kIconDirectory = "hotkey-icons";
 	const char* const kIconExtension = ".png";
 	const Int kIconMaxWidth = 300;
+	const char* const kReplayOnly = "replay";
+	const char* const kOfflineOnly = "offline";
+
+	const KindOfType kGroupingKinds[] =
+	{
+		KINDOF_STRUCTURE,
+		KINDOF_INFANTRY,
+		KINDOF_VEHICLE,
+		KINDOF_AIRCRAFT,
+		KINDOF_HUGE_VEHICLE,
+		KINDOF_DOZER,
+		KINDOF_HERO,
+	};
+
+	struct HandlerLimit
+	{
+		GameMessage::Type meta;
+		const char* limitedTo;
+		bool keepsKey;
+	};
+
+	const HandlerLimit kHandlerLimits[] =
+	{
+		{ GameMessage::MSG_META_TOGGLE_FAST_FORWARD_REPLAY, kReplayOnly, true },
+		{ GameMessage::MSG_META_TOGGLE_PAUSE, kOfflineOnly, false },
+		{ GameMessage::MSG_META_TOGGLE_PAUSE_ALT, kOfflineOnly, false },
+		{ GameMessage::MSG_META_STEP_FRAME, kOfflineOnly, false },
+		{ GameMessage::MSG_META_STEP_FRAME_ALT, kOfflineOnly, false },
+		{ GameMessage::MSG_META_INCREASE_LOGIC_TIME_SCALE, kOfflineOnly, false },
+		{ GameMessage::MSG_META_DECREASE_LOGIC_TIME_SCALE, kOfflineOnly, false },
+	};
 
 	class JsonWriter
 	{
@@ -222,6 +255,30 @@ namespace
 				return entry->name;
 		}
 		return "";
+	}
+
+	const HandlerLimit* handlerLimitOf( GameMessage::Type meta )
+	{
+		for ( const HandlerLimit& limit : kHandlerLimits )
+		{
+			if ( limit.meta == meta )
+				return &limit;
+		}
+		return nullptr;
+	}
+
+	std::vector<std::string> groupingKindsOf( const ThingTemplate* thing )
+	{
+		std::vector<std::string> kinds;
+		if ( thing == nullptr )
+			return kinds;
+
+		for ( KindOfType kind : kGroupingKinds )
+		{
+			if ( thing->isKindOf( kind ) )
+				kinds.push_back( KindOfMaskType::getNameFromSingleBit( kind ) );
+		}
+		return kinds;
 	}
 
 	std::string languagePath( const char* pattern )
@@ -511,12 +568,16 @@ namespace
 		AsciiString button;
 		AsciiString label;
 		bool needsScience;
+		GUICommandType command;
+		CommandButtonMappedBorderType border;
+		std::vector<std::string> objectKinds;
 	};
 
 	struct CommandPanel
 	{
 		PanelKind kind;
 		std::set<std::string> owners;
+		std::set<std::string> ownerKinds;
 		std::vector<PanelSlot> slots;
 	};
 
@@ -682,10 +743,11 @@ namespace
 				if ( commandSets.empty() )
 					continue;
 
+				const std::vector<std::string> ownerKinds = groupingKindsOf( thing );
 				for ( PlayableSide& side : m_sides )
 				{
 					if ( side.playerTemplate->getSide() == thing->getDefaultOwningSide() )
-						addSidePanels( side, commandSets, PANEL_OBJECT, thing->getDisplayName() );
+						addSidePanels( side, commandSets, PANEL_OBJECT, thing->getDisplayName(), ownerKinds );
 				}
 			}
 		}
@@ -695,20 +757,30 @@ namespace
 			for ( PlayableSide& side : m_sides )
 			{
 				const PlayerTemplate* player = side.playerTemplate;
-				addSidePanel( side, player->getSpecialPowerShortcutCommandSet(), PANEL_SHORTCUT, player->getDisplayName() );
-				addSidePanel( side, player->getPurchaseScienceCommandSetRank1(), PANEL_SCIENCE, player->getDisplayName() );
-				addSidePanel( side, player->getPurchaseScienceCommandSetRank3(), PANEL_SCIENCE, player->getDisplayName() );
-				addSidePanel( side, player->getPurchaseScienceCommandSetRank8(), PANEL_SCIENCE, player->getDisplayName() );
+				addSidePanel( side, player->getSpecialPowerShortcutCommandSet(), PANEL_SHORTCUT, player->getDisplayName(), {} );
+				addSidePanel( side, player->getPurchaseScienceCommandSetRank1(), PANEL_SCIENCE, player->getDisplayName(), {} );
+				addSidePanel( side, player->getPurchaseScienceCommandSetRank3(), PANEL_SCIENCE, player->getDisplayName(), {} );
+				addSidePanel( side, player->getPurchaseScienceCommandSetRank8(), PANEL_SCIENCE, player->getDisplayName(), {} );
 			}
 		}
 
-		void addSidePanels( PlayableSide& side, const std::vector<AsciiString>& commandSets, PanelKind kind, const UnicodeString& owner )
+		void addSidePanels(
+			PlayableSide& side,
+			const std::vector<AsciiString>& commandSets,
+			PanelKind kind,
+			const UnicodeString& owner,
+			const std::vector<std::string>& ownerKinds )
 		{
 			for ( const AsciiString& commandSet : commandSets )
-				addSidePanel( side, commandSet, kind, owner );
+				addSidePanel( side, commandSet, kind, owner, ownerKinds );
 		}
 
-		void addSidePanel( PlayableSide& side, const AsciiString& commandSetName, PanelKind kind, const UnicodeString& owner )
+		void addSidePanel(
+			PlayableSide& side,
+			const AsciiString& commandSetName,
+			PanelKind kind,
+			const UnicodeString& owner,
+			const std::vector<std::string>& ownerKinds )
 		{
 			CommandPanel* panel = findOrCreatePanel( commandSetName, kind );
 			if ( panel == nullptr )
@@ -717,6 +789,7 @@ namespace
 			if ( !owner.isEmpty() )
 				panel->owners.insert( utf8Of( owner ) );
 
+			panel->ownerKinds.insert( ownerKinds.begin(), ownerKinds.end() );
 			side.panels.insert( commandSetName.str() );
 		}
 
@@ -748,7 +821,15 @@ namespace
 					continue;
 
 				const bool needsScience = panel.kind == PANEL_OBJECT && isHiddenUntilScience( button );
-				panel.slots.push_back( { i + 1, button->getName(), button->getTextLabel(), needsScience } );
+				panel.slots.push_back( {
+					i + 1,
+					button->getName(),
+					button->getTextLabel(),
+					needsScience,
+					button->getCommandType(),
+					button->getCommandButtonMappedBorderType(),
+					groupingKindsOf( button->getThingTemplate() ),
+				} );
 				recordHotkey( *button );
 			}
 		}
@@ -875,6 +956,7 @@ namespace
 			json.text( lookupName( CategoryListName, map.m_category ) );
 			json.key( "usableIn" );
 			writeUsableIn( json, map.m_usableIn );
+			writeHandlerLimit( json, map.m_meta );
 			json.key( "name" );
 			json.text( utf8Of( map.m_displayName ).c_str() );
 			json.key( "description" );
@@ -896,6 +978,15 @@ namespace
 			json.key( "file" );
 			json.text( outboundPath( map.m_sourceFile.str() ).c_str() );
 			json.endObject();
+		}
+
+		void writeHandlerLimit( JsonWriter& json, GameMessage::Type meta ) const
+		{
+			const HandlerLimit* limit = handlerLimitOf( meta );
+			json.key( "limitedTo" );
+			writeOptionalText( json, limit ? limit->limitedTo : "" );
+			json.key( "keepsKey" );
+			json.boolean( limit && limit->keepsKey );
 		}
 
 		void writeUsableIn( JsonWriter& json, Int usableIn ) const
@@ -962,10 +1053,9 @@ namespace
 			json.key( "kind" );
 			json.text( panelKindName( panel.kind ) );
 			json.key( "owners" );
-			json.beginArray();
-			for ( const std::string& owner : panel.owners )
-				json.text( owner.c_str() );
-			json.endArray();
+			writeTextArray( json, panel.owners );
+			json.key( "ownerKinds" );
+			writeTextArray( json, panel.ownerKinds );
 			json.key( "buttons" );
 			json.beginArray();
 			for ( const PanelSlot& slot : panel.slots )
@@ -985,7 +1075,22 @@ namespace
 			json.text( slot.label.str() );
 			json.key( "needsScience" );
 			json.boolean( slot.needsScience );
+			json.key( "command" );
+			json.text( TheGuiCommandNames[slot.command] );
+			json.key( "border" );
+			json.text( lookupName( CommandButtonMappedBorderTypeNames, slot.border ) );
+			json.key( "objectKinds" );
+			writeTextArray( json, slot.objectKinds );
 			json.endObject();
+		}
+
+		template <typename Container>
+		void writeTextArray( JsonWriter& json, const Container& values ) const
+		{
+			json.beginArray();
+			for ( const std::string& value : values )
+				json.text( value.c_str() );
+			json.endArray();
 		}
 
 		void writeFactions( JsonWriter& json ) const
