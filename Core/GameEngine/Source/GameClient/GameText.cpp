@@ -191,6 +191,8 @@ class GameTextManager : public GameTextInterface
 
 #ifdef __APPLE__
 		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) override;
+		virtual Bool					setLabelText( const Char *label, const UnicodeString &text ) override;
+		virtual Bool					writeTable( const Char *path ) override;
 #endif
 
 	protected:
@@ -1646,12 +1648,12 @@ UnicodeString GameTextManager::fetch( AsciiString label, Bool *exists )
 // GameTextManager::findLabelSource
 //============================================================================
 
-static Bool hasLabel( const StringLookUp *lut, Int count, const StringLookUp &key )
+static StringLookUp *lookUpLabel( StringLookUp *lut, Int count, const StringLookUp &key )
 {
 	if ( lut == nullptr || count == 0 )
-		return FALSE;
+		return nullptr;
 
-	return bsearch( &key, (void*) lut, count, sizeof(StringLookUp), compareLUT ) != nullptr;
+	return (StringLookUp *) bsearch( &key, (void*) lut, count, sizeof(StringLookUp), compareLUT );
 }
 
 Bool GameTextManager::findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer )
@@ -1666,10 +1668,10 @@ Bool GameTextManager::findLabelSource( const Char *label, AsciiString &filename,
 
 	const TextSourceSpec *spec = nullptr;
 
-	if ( hasLabel( m_stringLUT, m_textCount, key ) )
+	if ( lookUpLabel( m_stringLUT, m_textCount, key ) != nullptr )
 		spec = &m_tableSpecs[0];
 
-	if ( spec == nullptr && hasLabel( m_mapStringLUT, m_mapTextCount, key ) )
+	if ( spec == nullptr && lookUpLabel( m_mapStringLUT, m_mapTextCount, key ) != nullptr )
 	{
 		filename = "map.str";
 		layer = "map";
@@ -1678,7 +1680,7 @@ Bool GameTextManager::findLabelSource( const Char *label, AsciiString &filename,
 
 	for ( size_t i = 0; spec == nullptr && i < m_fallbackTables.size(); ++i )
 	{
-		if ( hasLabel( m_fallbackTables[i].lut, m_fallbackTables[i].count, key ) )
+		if ( lookUpLabel( m_fallbackTables[i].lut, m_fallbackTables[i].count, key ) != nullptr )
 			spec = &m_tableSpecs[i + 1];
 	}
 
@@ -1688,6 +1690,104 @@ Bool GameTextManager::findLabelSource( const Char *label, AsciiString &filename,
 	filename = spec->filename;
 	layer = textSourceName( spec->source );
 	return TRUE;
+}
+
+//============================================================================
+// GameTextManager::setLabelText
+//============================================================================
+
+Bool GameTextManager::setLabelText( const Char *label, const UnicodeString &text )
+{
+	AsciiString labelString( label );
+	StringLookUp key;
+	key.info = nullptr;
+	key.label = &labelString;
+
+	StringLookUp *lookUp = lookUpLabel( m_stringLUT, m_textCount, key );
+
+	if ( lookUp == nullptr )
+		lookUp = lookUpLabel( m_mapStringLUT, m_mapTextCount, key );
+
+	for ( size_t i = 0; lookUp == nullptr && i < m_fallbackTables.size(); ++i )
+		lookUp = lookUpLabel( m_fallbackTables[i].lut, m_fallbackTables[i].count, key );
+
+	if ( lookUp == nullptr )
+		return FALSE;
+
+	lookUp->info->text = text;
+	return TRUE;
+}
+
+//============================================================================
+// GameTextManager::writeTable
+//============================================================================
+
+static void writeCSFInt( FILE *file, Int value )
+{
+	fwrite( &value, sizeof(value), 1, file );
+}
+
+static void writeCSFEntry( FILE *file, const StringInfo &info )
+{
+	writeCSFInt( file, CSF_LABEL );
+	writeCSFInt( file, 1 );
+	writeCSFInt( file, info.label.getLength() );
+	fwrite( info.label.str(), 1, info.label.getLength(), file );
+
+	const Bool hasSpeech = info.speech.isNotEmpty();
+	writeCSFInt( file, hasSpeech ? CSF_STRINGWITHWAVE : CSF_STRING );
+	writeCSFInt( file, info.text.getLength() );
+	for ( Int i = 0; i < info.text.getLength(); ++i )
+	{
+		const uint16_t encoded = (uint16_t)~(uint16_t)info.text.getCharAt( i );
+		fwrite( &encoded, sizeof(encoded), 1, file );
+	}
+
+	if ( !hasSpeech )
+		return;
+
+	writeCSFInt( file, info.speech.getLength() );
+	fwrite( info.speech.str(), 1, info.speech.getLength(), file );
+}
+
+static void appendUniqueStrings( const StringInfo *info, Int count, std::set<AsciiString> &labels, std::vector<const StringInfo *> &entries )
+{
+	for ( Int i = 0; i < count; ++i )
+	{
+		AsciiString label = info[i].label;
+		label.toLower();
+		if ( labels.insert( label ).second )
+			entries.push_back( &info[i] );
+	}
+}
+
+Bool GameTextManager::writeTable( const Char *path )
+{
+	std::set<AsciiString> labels;
+	std::vector<const StringInfo *> entries;
+	appendUniqueStrings( m_stringInfo, m_textCount, labels, entries );
+	for ( size_t i = 0; i < m_fallbackTables.size(); ++i )
+		appendUniqueStrings( m_fallbackTables[i].info, m_fallbackTables[i].count, labels, entries );
+
+	FILE *file = fopen( path, "wb" );
+	if ( file == nullptr )
+		return FALSE;
+
+	CSFHeader header;
+	header.id = CSF_ID;
+	header.version = CSF_VERSION;
+	header.num_labels = (Int)entries.size();
+	header.num_strings = (Int)entries.size();
+	header.skip = 0;
+	header.langid = m_language;
+	fwrite( &header, sizeof(header), 1, file );
+
+	for ( size_t i = 0; i < entries.size(); ++i )
+		writeCSFEntry( file, *entries[i] );
+
+	const Bool isWritten = ferror( file ) == 0;
+	fclose( file );
+	return isWritten;
 }
 #endif
 

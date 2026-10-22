@@ -2,9 +2,12 @@
 
 #pragma once
 
+#include <string>
+
 namespace MacOSHotkeyDump
 {
 	constexpr const char* kFlag = "-dumpHotkeys";
 
 	bool write( const char* path );
+	std::string stringsTargetPath();
 }

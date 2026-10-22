@@ -1,6 +1,7 @@
 // MacOSHotkeyDump.cpp — factions, command panels, hotkey strings and global keys after engine init
 
 #include "MacOSHotkeyDump.h"
+#include "MacOSHotkeyText.h"
 #include "MacOSPngWriter.h"
 
 #include "Common/AsciiString.h"
@@ -199,24 +200,6 @@ namespace
 	std::string utf8Of( const UnicodeString& value )
 	{
 		return toUtf8( toWide( value ) );
-	}
-
-	std::wstring withoutHotkeyMarker( std::wstring value )
-	{
-		const size_t bracket = value.find( L"[&" );
-		const bool isBracketMarker = bracket != std::wstring::npos && bracket + 3 < value.size() && value[bracket + 3] == L']';
-		if ( isBracketMarker )
-		{
-			const size_t start = ( bracket > 0 && value[bracket - 1] == L' ' ) ? bracket - 1 : bracket;
-			value.erase( start, bracket + 4 - start );
-			return value;
-		}
-
-		const size_t ampersand = value.find( L'&' );
-		if ( ampersand != std::wstring::npos )
-			value.erase( ampersand, 1 );
-
-		return value;
 	}
 
 	std::string nativePath( const AsciiString& enginePath )
@@ -928,7 +911,7 @@ namespace
 			json.key( "key" );
 			json.text( hotkey.key.c_str() );
 			json.key( "name" );
-			json.text( toUtf8( withoutHotkeyMarker( hotkey.text ) ).c_str() );
+			json.text( toUtf8( MacOSHotkeyText::withoutMarker( hotkey.text ) ).c_str() );
 			json.key( "text" );
 			json.text( toUtf8( hotkey.text ).c_str() );
 			json.key( "description" );
@@ -1072,4 +1055,9 @@ bool MacOSHotkeyDump::write( const char* path )
 
 	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys, %d icons written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), catalog.iconCount(), path ));
 	return true;
+}
+
+std::string MacOSHotkeyDump::stringsTargetPath()
+{
+	return targetRoot() + nativePath( languagePath( g_csfFile ) );
 }

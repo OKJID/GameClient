@@ -88,6 +88,8 @@ class GameTextInterface : public SubsystemInterface
 
 #ifdef __APPLE__
 		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) { return FALSE; }
+		virtual Bool					setLabelText( const Char *label, const UnicodeString &text ) { return FALSE; }
+		virtual Bool					writeTable( const Char *path ) { return FALSE; }
 #endif
 
 #if __cplusplus < 201103L // TheSuperHackers @todo Remove function when abandoning VC6

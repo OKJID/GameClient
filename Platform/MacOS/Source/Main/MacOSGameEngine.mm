@@ -9,6 +9,7 @@
 #include "MacOSGameEngine.h"
 #include "MacOSCrashTrail.h"
 #include "MacOSHostServices.h"
+#include "MacOSHotkeyApply.h"
 #include "MacOSHotkeyDump.h"
 #include "MacOSInstallPaths.h"
 
@@ -138,11 +139,17 @@ void MacOSGameEngine::init()
 
 	GameEngine::init();
 
+	const char* hotkeyEditPath = MacOS_GetCommandLineValue(MacOSHotkeyApply::kFlag);
 	const char* hotkeyDumpPath = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag);
-	if (hotkeyDumpPath == nullptr)
+	if (hotkeyEditPath == nullptr && hotkeyDumpPath == nullptr)
 		return;
 
-	MacOSHotkeyDump::write(hotkeyDumpPath);
+	if (hotkeyEditPath != nullptr)
+		MacOSHotkeyApply::apply(hotkeyEditPath);
+
+	if (hotkeyDumpPath != nullptr)
+		MacOSHotkeyDump::write(hotkeyDumpPath);
+
 	setQuitting(TRUE);
 }
 

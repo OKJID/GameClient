@@ -45,6 +45,7 @@
 #include "MacOSCrashHandler.h"
 #include "MacOSCrashTrail.h"
 #include "MacOSHostServices.h"
+#include "MacOSHotkeyApply.h"
 #include "MacOSHotkeyDump.h"
 
 #if defined(RTS_ZEROHOUR)
@@ -357,8 +358,9 @@ int main(int argc, char* argv[]) {
     MacOS_StoreCommandLine(argc, argv);
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
-        const bool isHotkeyDump = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag) != nullptr;
-        [app setActivationPolicy:isHotkeyDump ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
+        const bool isHotkeyRun = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag) != nullptr
+            || MacOS_GetCommandLineValue(MacOSHotkeyApply::kFlag) != nullptr;
+        [app setActivationPolicy:isHotkeyRun ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
         
         GeneralsAppDelegate* delegate = [[GeneralsAppDelegate alloc] init];
         [app setDelegate:delegate];
