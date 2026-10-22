@@ -2064,6 +2064,7 @@ void WOLGameSetupMenuInit( WindowLayout *layout, void *userData )
 				if (ds3) DEBUG_INFO_MAC(("[GAME_START] TheNGMPGame slot[%d]: state=%d isHuman=%d hasMap=%d", di3, (int)ds3->getState(), ds3->isHuman(), ds3->hasMap()));
 			}
 
+			buttonPushed = true;
 			TheNGMPGame->startGame(0);
 		});
 
@@ -2881,6 +2882,7 @@ void WOLGameSetupMenuUpdate( WindowLayout * layout, void *userData)
 					GameSpyCloseOverlay(GSOVERLAY_BUDDY);
 
 					*TheNGMPGame = *myGame;
+					buttonPushed = true;
 					TheNGMPGame->startGame(0);
 				}
 				break;
