@@ -1,6 +1,7 @@
 // MacOSHotkeyDump.cpp — factions, command panels, hotkey strings and global keys after engine init
 
 #include "MacOSHotkeyDump.h"
+#include "MacOSPngWriter.h"
 
 #include "Common/AsciiString.h"
 #include "Common/UnicodeString.h"
@@ -15,17 +16,25 @@
 #include "GameClient/ControlBar.h"
 #include "GameClient/GameText.h"
 #include "GameClient/HotKey.h"
+#include "GameClient/Image.h"
 #include "GameClient/KeyDefs.h"
 #include "GameClient/MetaEvent.h"
 #include "GameLogic/Module/CommandSetUpgrade.h"
+#include "WW3D2/bitmaphandler.h"
+#include "WW3D2/ddsfile.h"
+#include "WW3D2/ww3dformat.h"
+#include "WWLib/TARGA.h"
 
 #include <algorithm>
 #include <cctype>
 #include <climits>
+#include <cmath>
 #include <cstdio>
+#include <dirent.h>
 #include <map>
 #include <set>
 #include <string>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <vector>
 
@@ -36,6 +45,9 @@ namespace
 	const Int kSchemaVersion = 1;
 	const char* const kCommandMapFile = "data\\%s\\CommandMap.ini";
 	const char* const kCommandSetUpgradeModule = "CommandSetUpgrade";
+	const char* const kIconDirectory = "hotkey-icons";
+	const char* const kIconExtension = ".png";
+	const Int kIconMaxWidth = 300;
 
 	class JsonWriter
 	{
@@ -255,6 +267,227 @@ namespace
 		return std::string( workingDirectory ) + "/";
 	}
 
+	std::string directoryOf( const std::string& path )
+	{
+		const size_t slash = path.find_last_of( '/' );
+		if ( slash == std::string::npos )
+			return ".";
+
+		return path.substr( 0, slash );
+	}
+
+	std::set<std::string> filesIn( const std::string& directory )
+	{
+		std::set<std::string> names;
+		DIR* listing = opendir( directory.c_str() );
+		if ( listing == nullptr )
+			return names;
+
+		for ( dirent* entry = readdir( listing ); entry != nullptr; entry = readdir( listing ) )
+			names.insert( entry->d_name );
+
+		closedir( listing );
+		return names;
+	}
+
+	bool hasText( const AsciiString& label )
+	{
+		if ( label.isEmpty() )
+			return false;
+
+		Bool exists = FALSE;
+		TheGameText->fetch( label, &exists );
+		return exists;
+	}
+
+	struct TextureAtlas
+	{
+		Int width = 0;
+		Int height = 0;
+		std::vector<unsigned char> bgra;
+	};
+
+	struct IconRect
+	{
+		Int left;
+		Int top;
+		Int right;
+		Int bottom;
+	};
+
+	bool loadDdsAtlas( const char* filename, TextureAtlas& atlas )
+	{
+		DDSFileClass dds( filename, 0 );
+		if ( !dds.Is_Available() || !dds.Load() )
+			return false;
+
+		atlas.width = (Int)dds.Get_Width( 0 );
+		atlas.height = (Int)dds.Get_Height( 0 );
+		atlas.bgra.assign( (size_t)atlas.width * (size_t)atlas.height * 4, 0 );
+		dds.Copy_Level_To_Surface( 0, WW3D_FORMAT_A8R8G8B8, atlas.width, atlas.height, atlas.bgra.data(), atlas.width * 4 );
+		return true;
+	}
+
+	bool loadTgaAtlas( const char* filename, TextureAtlas& atlas )
+	{
+		Targa targa;
+		if ( targa.Open( filename, TGA_READMODE ) != 0 )
+			return false;
+
+		targa.Header.ImageDescriptor ^= TGAIDF_YORIGIN;
+
+		WW3DFormat sourceFormat;
+		unsigned sourceBytesPerPixel = 0;
+		Get_WW3D_Format( sourceFormat, sourceBytesPerPixel, targa );
+
+		char palette[256 * 4];
+		targa.SetPalette( palette );
+		if ( targa.Load( filename, TGAF_IMAGE, false ) != 0 )
+			return false;
+
+		atlas.width = targa.Header.Width;
+		atlas.height = targa.Header.Height;
+		atlas.bgra.assign( (size_t)atlas.width * (size_t)atlas.height * 4, 0 );
+		BitmapHandlerClass::Copy_Image( atlas.bgra.data(), atlas.width, atlas.height, atlas.width * 4, WW3D_FORMAT_A8R8G8B8,
+			(unsigned char*)targa.GetImage(), atlas.width, atlas.height, atlas.width * sourceBytesPerPixel, sourceFormat,
+			(unsigned char*)targa.GetPalette(), targa.Header.CMapDepth >> 3, false );
+		return true;
+	}
+
+	bool loadAtlas( const std::string& filename, TextureAtlas& atlas )
+	{
+		if ( loadDdsAtlas( filename.c_str(), atlas ) )
+			return true;
+
+		return loadTgaAtlas( filename.c_str(), atlas );
+	}
+
+	Int scaledCoordinate( Real fraction, Int size )
+	{
+		const Int coordinate = (Int)std::lround( fraction * size );
+		return std::max( 0, std::min( coordinate, size ) );
+	}
+
+	IconRect iconRectOf( const Image& image, const TextureAtlas& atlas )
+	{
+		const Region2D* uv = image.getUV();
+		return {
+			scaledCoordinate( uv->lo.x, atlas.width ),
+			scaledCoordinate( uv->lo.y, atlas.height ),
+			scaledCoordinate( uv->hi.x, atlas.width ),
+			scaledCoordinate( uv->hi.y, atlas.height ),
+		};
+	}
+
+	void copyPixel( const TextureAtlas& atlas, Int x, Int y, unsigned char* rgba )
+	{
+		const unsigned char* bgra = &atlas.bgra[( (size_t)y * atlas.width + x ) * 4];
+		rgba[0] = bgra[2];
+		rgba[1] = bgra[1];
+		rgba[2] = bgra[0];
+		rgba[3] = bgra[3];
+	}
+
+	bool cropIcon( const TextureAtlas& atlas, const Image& image, std::vector<unsigned char>& rgba, Int& width, Int& height )
+	{
+		const IconRect rect = iconRectOf( image, atlas );
+		const Int sourceWidth = rect.right - rect.left;
+		const Int sourceHeight = rect.bottom - rect.top;
+		if ( sourceWidth <= 0 || sourceHeight <= 0 )
+			return false;
+
+		const bool isRotated = BitIsSet( image.getStatus(), IMAGE_STATUS_ROTATED_90_CLOCKWISE );
+		width = isRotated ? sourceHeight : sourceWidth;
+		height = isRotated ? sourceWidth : sourceHeight;
+		rgba.resize( (size_t)width * (size_t)height * 4 );
+
+		for ( Int y = 0; y < height; ++y )
+		{
+			for ( Int x = 0; x < width; ++x )
+			{
+				const Int sourceX = isRotated ? rect.right - 1 - y : rect.left + x;
+				const Int sourceY = isRotated ? rect.top + x : rect.top + y;
+				copyPixel( atlas, sourceX, sourceY, &rgba[( (size_t)y * width + x ) * 4] );
+			}
+		}
+
+		return true;
+	}
+
+	void averageBlock( const std::vector<unsigned char>& source, Int sourceWidth, const IconRect& block, unsigned char* rgba )
+	{
+		unsigned sums[4] = { 0, 0, 0, 0 };
+		for ( Int y = block.top; y < block.bottom; ++y )
+		{
+			const unsigned char* pixel = &source[( (size_t)y * sourceWidth + block.left ) * 4];
+			for ( Int x = block.left; x < block.right; ++x, pixel += 4 )
+			{
+				for ( Int channel = 0; channel < 4; ++channel )
+					sums[channel] += pixel[channel];
+			}
+		}
+
+		const unsigned count = (unsigned)( ( block.right - block.left ) * ( block.bottom - block.top ) );
+		for ( Int channel = 0; channel < 4; ++channel )
+			rgba[channel] = (unsigned char)( sums[channel] / count );
+	}
+
+	void shrinkIcon( std::vector<unsigned char>& rgba, Int& width, Int& height )
+	{
+		if ( width <= kIconMaxWidth )
+			return;
+
+		const Int fittedWidth = kIconMaxWidth;
+		const Int fittedHeight = std::max( 1, (Int)std::lround( (double)height * kIconMaxWidth / width ) );
+
+		std::vector<unsigned char> shrunk( (size_t)fittedWidth * (size_t)fittedHeight * 4 );
+		for ( Int y = 0; y < fittedHeight; ++y )
+		{
+			const Int top = y * height / fittedHeight;
+			const Int bottom = std::max( top + 1, ( y + 1 ) * height / fittedHeight );
+			for ( Int x = 0; x < fittedWidth; ++x )
+			{
+				const Int left = x * width / fittedWidth;
+				const Int right = std::max( left + 1, ( x + 1 ) * width / fittedWidth );
+				averageBlock( rgba, width, { left, top, right, bottom }, &shrunk[( (size_t)y * fittedWidth + x ) * 4] );
+			}
+		}
+
+		rgba.swap( shrunk );
+		width = fittedWidth;
+		height = fittedHeight;
+	}
+
+	bool writeIcon( const TextureAtlas& atlas, const Image& image, const std::string& path )
+	{
+		std::vector<unsigned char> rgba;
+		Int width = 0;
+		Int height = 0;
+		if ( !cropIcon( atlas, image, rgba, width, height ) )
+			return false;
+
+		shrinkIcon( rgba, width, height );
+		return MacOS_WriteRgbaPng( path.c_str(), rgba.data(), width, height );
+	}
+
+	bool hasIconSource( const Image* image )
+	{
+		if ( image == nullptr || image->getFilename().isEmpty() )
+			return false;
+
+		return !BitIsSet( image->getStatus(), IMAGE_STATUS_RAW_TEXTURE );
+	}
+
+	std::string iconFileName( const Image& image )
+	{
+		return std::string( image.getName().str() ) + kIconExtension;
+	}
+
+	std::string iconPath( const std::string& fileName )
+	{
+		return std::string( kIconDirectory ) + "/" + fileName;
+	}
+
 	enum PanelKind
 	{
 		PANEL_OBJECT,
@@ -295,6 +528,8 @@ namespace
 		std::wstring description;
 		AsciiString sourceFile;
 		AsciiString sourceLayer;
+		const Image* image = nullptr;
+		std::string icon;
 	};
 
 	struct PlayableSide
@@ -385,9 +620,43 @@ namespace
 			json.endObject();
 		}
 
+		void exportIcons( const std::string& iconDirectory )
+		{
+			mkdir( iconDirectory.c_str(), 0755 );
+			const std::set<std::string> existingFiles = filesIn( iconDirectory );
+			std::map<std::string, std::vector<HotkeyString*>> missingByAtlas;
+
+			for ( std::pair<const std::string, HotkeyString>& entry : m_hotkeys )
+			{
+				HotkeyString& hotkey = entry.second;
+				if ( !hasIconSource( hotkey.image ) )
+					continue;
+
+				const std::string fileName = iconFileName( *hotkey.image );
+				if ( existingFiles.count( fileName ) > 0 )
+				{
+					hotkey.icon = iconPath( fileName );
+					continue;
+				}
+
+				missingByAtlas[hotkey.image->getFilename().str()].push_back( &hotkey );
+			}
+
+			for ( const std::pair<const std::string, std::vector<HotkeyString*>>& atlas : missingByAtlas )
+				exportAtlasIcons( iconDirectory, atlas.first, atlas.second );
+		}
+
 		Int sideCount() const { return (Int)m_sides.size(); }
 		Int panelCount() const { return (Int)m_panels.size(); }
 		Int hotkeyCount() const { return (Int)m_hotkeys.size(); }
+
+		Int iconCount() const
+		{
+			Int count = 0;
+			for ( const std::pair<const std::string, HotkeyString>& entry : m_hotkeys )
+				count += entry.second.icon.empty() ? 0 : 1;
+			return count;
+		}
 
 	private:
 		std::vector<PlayableSide> m_sides;
@@ -476,33 +745,53 @@ namespace
 			for ( Int i = 0; i < MAX_COMMANDS_PER_SET; ++i )
 			{
 				const CommandButton* button = commandSet.getCommandButton( i );
-				if ( !isRegisteredOnPanel( button ) )
-					continue;
-
-				const AsciiString key = TheHotKeyManager->searchHotKey( button->getTextLabel() );
-				if ( key.isEmpty() )
+				if ( !isRegisteredOnPanel( button ) || !hasText( button->getTextLabel() ) )
 					continue;
 
 				const bool needsScience = panel.kind == PANEL_OBJECT && isHiddenUntilScience( button );
 				panel.slots.push_back( { i + 1, button->getName(), button->getTextLabel(), needsScience } );
-				recordHotkey( *button, key );
+				recordHotkey( *button );
 			}
 		}
 
-		void recordHotkey( const CommandButton& button, const AsciiString& key )
+		void recordHotkey( const CommandButton& button )
 		{
 			const std::string label( button.getTextLabel().str() );
 			if ( m_hotkeys.count( label ) > 0 )
 				return;
 
 			HotkeyString hotkey;
-			hotkey.key = upperCase( key );
+			hotkey.key = upperCase( TheHotKeyManager->searchHotKey( button.getTextLabel() ) );
 			hotkey.text = toWide( TheGameText->fetch( button.getTextLabel() ) );
 			if ( button.getDescriptionLabel().isNotEmpty() )
 				hotkey.description = toWide( TheGameText->fetch( button.getDescriptionLabel() ) );
 
+			hotkey.image = button.getButtonImage();
 			TheGameText->findLabelSource( label.c_str(), hotkey.sourceFile, hotkey.sourceLayer );
 			m_hotkeys[label] = hotkey;
+		}
+
+		void exportAtlasIcons( const std::string& iconDirectory, const std::string& atlasName, const std::vector<HotkeyString*>& hotkeys )
+		{
+			TextureAtlas atlas;
+			if ( !loadAtlas( atlasName, atlas ) )
+			{
+				DEBUG_INFO_MAC(( "HotkeyDump - atlas '%s' not loaded, %d icons skipped", atlasName.c_str(), (Int)hotkeys.size() ));
+				return;
+			}
+
+			std::set<std::string> writtenFiles;
+			for ( HotkeyString* hotkey : hotkeys )
+			{
+				const std::string fileName = iconFileName( *hotkey->image );
+				const bool isWritten = writtenFiles.count( fileName ) > 0
+					|| writeIcon( atlas, *hotkey->image, iconDirectory + "/" + fileName );
+				if ( !isWritten )
+					continue;
+
+				writtenFiles.insert( fileName );
+				hotkey->icon = iconPath( fileName );
+			}
 		}
 
 		void writeProfile( JsonWriter& json ) const
@@ -520,6 +809,17 @@ namespace
 			json.key( "language" );
 			json.text( GetRegistryLanguage().str() );
 			json.endObject();
+		}
+
+		void writeOptionalText( JsonWriter& json, const std::string& value ) const
+		{
+			if ( value.empty() )
+			{
+				json.null();
+				return;
+			}
+
+			json.text( value.c_str() );
 		}
 
 		void writeModDirectory( JsonWriter& json ) const
@@ -633,6 +933,8 @@ namespace
 			json.text( toUtf8( hotkey.text ).c_str() );
 			json.key( "description" );
 			json.text( toUtf8( hotkey.description ).c_str() );
+			json.key( "icon" );
+			writeOptionalText( json, hotkey.icon );
 			json.key( "source" );
 			json.beginObject();
 			json.key( "file" );
@@ -747,6 +1049,7 @@ bool MacOSHotkeyDump::write( const char* path )
 {
 	HotkeyCatalog catalog;
 	catalog.collect();
+	catalog.exportIcons( directoryOf( path ) + "/" + kIconDirectory );
 
 	const std::string temporaryPath = std::string( path ) + ".tmp";
 	FILE* file = fopen( temporaryPath.c_str(), "wb" );
@@ -767,6 +1070,6 @@ bool MacOSHotkeyDump::write( const char* path )
 		return false;
 	}
 
-	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), path ));
+	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys, %d icons written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), catalog.iconCount(), path ));
 	return true;
 }

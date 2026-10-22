@@ -283,12 +283,14 @@ function(macos_platform_add_game_glue target)
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyDump.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSPngWriter.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
     )
 
     set_source_files_properties(
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSPngWriter.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         PROPERTIES
             SKIP_PRECOMPILE_HEADERS ON
@@ -304,6 +306,7 @@ function(macos_platform_add_game_glue target)
 
     set_source_files_properties(
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSPngWriter.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         PROPERTIES
             COMPILE_OPTIONS "-fobjc-arc;-include;${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Include/metal_prefix.h"
