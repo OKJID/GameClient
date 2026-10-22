@@ -11,6 +11,7 @@ class LauncherViewModel: ObservableObject {
     enum Route {
         case home
         case settings
+        case hotkeys
     }
 
     struct ModConfirmation: Identifiable {
@@ -948,6 +949,38 @@ class LauncherViewModel: ObservableObject {
         }
 
         return .success(["-mod", configURL.path])
+    }
+
+    func hotkeyFiles(for profile: GameProfile) -> HotkeyFiles? {
+        guard let root = _hotkeyProfileRoot(for: profile) else { return nil }
+
+        let directory = root
+            .appendingPathComponent(profile.localeDirName)
+            .appendingPathComponent(gameLanguage)
+        return HotkeyFiles(directory: directory)
+    }
+
+    func hotkeyEngineLaunch(for profile: GameProfile) -> HotkeyEngineLaunch? {
+        guard let executableURL = Bundle.main.executableURL?
+            .deletingLastPathComponent()
+            .appendingPathComponent(profile.executableName),
+              FileManager.default.fileExists(atPath: executableURL.path),
+              case .success(let modArguments) = _modArguments(for: profile) else {
+            return nil
+        }
+
+        return HotkeyEngineLaunch(
+            executable: executableURL,
+            arguments: ["-headless"] + modArguments,
+            environment: _launchEnvironment()
+        )
+    }
+
+    private func _hotkeyProfileRoot(for profile: GameProfile) -> URL? {
+        guard profile.isMod else { return installDirectory(for: profile) }
+        guard let installRoot = installRootURL else { return nil }
+
+        return profile.modDirectory(installRoot: installRoot)
     }
 
     func checkForCrash() {

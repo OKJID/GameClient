@@ -76,7 +76,10 @@ struct SettingRow: View {
         case .windowedEdgeScroll:
             _buildToggle(L10n.settings.windowedEdgeScroll, L10n.settings.windowedEdgeScrollDesc, $viewModel.isWindowedEdgeScrollEnabled)
         case .showHotkeyLabels:
-            _buildToggle(L10n.settings.showHotkeyLabels, L10n.settings.showHotkeyLabelsDesc, $viewModel.showHotkeyLabels)
+            _buildToggle(
+                L10n.settings.showHotkeyLabels, L10n.settings.showHotkeyLabelsDesc, $viewModel.showHotkeyLabels,
+                action: SettingCardAction(title: L10n.hotkeys.modify, systemImage: "keyboard") { viewModel.route = .hotkeys }
+            )
         case .wasdMapScroll:
             _buildToggle(L10n.settings.wasdMapScroll, L10n.settings.wasdMapScrollDesc, $viewModel.wasdMapScroll)
         case .cameraMaxHeight:
@@ -124,14 +127,20 @@ struct SettingRow: View {
         }
     }
 
-    private func _buildToggle(_ title: String, _ description: String, _ isOn: Binding<Bool>) -> some View {
+    private func _buildToggle(
+        _ title: String,
+        _ description: String,
+        _ isOn: Binding<Bool>,
+        action: SettingCardAction? = nil
+    ) -> some View {
         SettingToggleCard(
             title: title,
             description: description,
             isOn: isOn,
             scope: key.scope,
             accent: accent,
-            showsScope: showsScope
+            showsScope: showsScope,
+            action: action
         )
     }
 
@@ -186,6 +195,12 @@ struct SettingsSectionHeader: View {
     }
 }
 
+struct SettingCardAction {
+    let title: String
+    let systemImage: String
+    let perform: () -> Void
+}
+
 struct SettingToggleCard: View {
     let title: String
     let description: String
@@ -193,6 +208,7 @@ struct SettingToggleCard: View {
     let scope: SettingScope
     let accent: Color
     var showsScope: Bool = true
+    var action: SettingCardAction? = nil
 
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
 
@@ -223,6 +239,10 @@ struct SettingToggleCard: View {
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+
+                    if let action {
+                        _buildActionButton(action)
+                    }
                 }
                 Spacer()
             }
@@ -238,6 +258,27 @@ struct SettingToggleCard: View {
         .onHover { inside in
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
+    }
+
+    private func _buildActionButton(_ action: SettingCardAction) -> some View {
+        Button(action: action.perform) {
+            HStack(spacing: 5) {
+                Image(systemName: action.systemImage)
+                    .font(.system(size: 10, weight: .bold))
+                Text(action.title.uppercased())
+                    .font(.system(size: 9, weight: .black, design: .monospaced))
+            }
+            .foregroundColor(accent)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(accent.opacity(0.45), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 5))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .padding(.top, 4)
     }
 }
 

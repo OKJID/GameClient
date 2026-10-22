@@ -103,6 +103,8 @@ struct MainView: View {
 
                     if viewModel.route == .settings {
                         SettingsPageView(viewModel: viewModel)
+                    } else if viewModel.route == .hotkeys {
+                        HotkeysPageView(viewModel: viewModel)
                     } else {
                         _buildHome()
                     }

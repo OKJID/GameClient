@@ -46,27 +46,7 @@ struct SettingsPageView: View {
 
     private func _buildHeader() -> some View {
         HStack(spacing: 16) {
-            Button(action: { viewModel.route = .home }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 11, weight: .bold))
-                    Text(L10n.settings.back.uppercased())
-                        .font(.system(size: 11, weight: .black, design: .monospaced))
-                }
-                .foregroundColor(accent)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(accent.opacity(0.45), lineWidth: 1)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 6))
-            }
-            .buttonStyle(PlainButtonStyle())
-            .keyboardShortcut(.cancelAction)
-            .onHover { inside in
-                if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-            }
+            PageBackButton(accent: accent) { viewModel.route = .home }
 
             Image(systemName: "slider.horizontal.3")
                 .foregroundColor(accent)
@@ -147,5 +127,34 @@ struct SettingsPageView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(scope.color.opacity(0.2), lineWidth: 1)
         )
+    }
+}
+
+struct PageBackButton: View {
+    let accent: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 11, weight: .bold))
+                Text(L10n.settings.back.uppercased())
+                    .font(.system(size: 11, weight: .black, design: .monospaced))
+            }
+            .foregroundColor(accent)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(accent.opacity(0.45), lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(PlainButtonStyle())
+        .keyboardShortcut(.cancelAction)
+        .onHover { inside in
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
