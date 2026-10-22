@@ -181,7 +181,7 @@ void ArchiveFileSystem::loadIntoDirectoryTree(ArchiveFile *archiveFile, Bool ove
 		else if (overwrite)
 		{
 			// When overwriting, try place the new value at the beginning of the key list.
-			fileIt = dirInfo->m_files.find(token);
+			fileIt = dirInfo->m_files.lower_bound(token);
 		}
 		else
 		{
