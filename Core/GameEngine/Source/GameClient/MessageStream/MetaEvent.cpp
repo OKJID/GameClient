@@ -826,7 +826,18 @@ MetaMapRec *MetaMap::getMetaMapRec(GameMessage::Type t)
 		throw INI_INVALID_DATA;
 
 	ini->initFromINI(map, TheMetaMapFieldParseTable);
+#ifdef __APPLE__
+	map->m_sourceFile = ini->getFilename();
+#endif
 }
+
+#ifdef __APPLE__
+//-------------------------------------------------------------------------------------------------
+/*static */ const char* MetaMap::getMetaName(GameMessage::Type t)
+{
+	return findGameMessageNameByType(t);
+}
+#endif
 
 //-------------------------------------------------------------------------------------------------
 void MetaMap::generateMetaMap()

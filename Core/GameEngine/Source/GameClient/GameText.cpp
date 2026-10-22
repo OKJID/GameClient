@@ -189,6 +189,10 @@ class GameTextManager : public GameTextInterface
 
 		virtual void					initMapStringFile( const AsciiString& filename ) override;
 
+#ifdef __APPLE__
+		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) override;
+#endif
+
 	protected:
 
 		Int							m_textCount;
@@ -201,6 +205,9 @@ class GameTextManager : public GameTextInterface
 		StringInfo			*m_stringInfo;
 		StringLookUp		*m_stringLUT;
 		std::vector<FallbackStringTable>	m_fallbackTables;
+#ifdef __APPLE__
+		std::vector<TextSourceSpec>	m_tableSpecs;
+#endif
 		TextFileSource	m_textSource;
 		Bool						m_initialized;
 #if defined(RTS_DEBUG)
@@ -505,6 +512,9 @@ void GameTextManager::init()
 
 	std::vector<LoadedStringTable> tables;
 	tables.push_back( { chain[primaryIndex], m_stringInfo, m_stringLUT, m_textCount } );
+#ifdef __APPLE__
+	m_tableSpecs.push_back( chain[primaryIndex] );
+#endif
 
 	for ( size_t i = primaryIndex + 1; i < chain.size(); ++i )
 	{
@@ -513,6 +523,9 @@ void GameTextManager::init()
 
 		const FallbackStringTable &fallback = m_fallbackTables.back();
 		tables.push_back( { chain[i], fallback.info, fallback.lut, fallback.count } );
+#ifdef __APPLE__
+		m_tableSpecs.push_back( chain[i] );
+#endif
 	}
 
 	adoptModWording( csfFile, tables );
@@ -677,6 +690,9 @@ void GameTextManager::deinit()
 	}
 
 	m_fallbackTables.clear();
+#ifdef __APPLE__
+	m_tableSpecs.clear();
+#endif
 
 	m_textCount = 0;
 
@@ -1624,6 +1640,56 @@ UnicodeString GameTextManager::fetch( AsciiString label, Bool *exists )
 {
 	return fetch(label.str(), exists);
 }
+
+#ifdef __APPLE__
+//============================================================================
+// GameTextManager::findLabelSource
+//============================================================================
+
+static Bool hasLabel( const StringLookUp *lut, Int count, const StringLookUp &key )
+{
+	if ( lut == nullptr || count == 0 )
+		return FALSE;
+
+	return bsearch( &key, (void*) lut, count, sizeof(StringLookUp), compareLUT ) != nullptr;
+}
+
+Bool GameTextManager::findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer )
+{
+	if ( m_stringInfo == nullptr || m_tableSpecs.empty() )
+		return FALSE;
+
+	AsciiString labelString( label );
+	StringLookUp key;
+	key.info = nullptr;
+	key.label = &labelString;
+
+	const TextSourceSpec *spec = nullptr;
+
+	if ( hasLabel( m_stringLUT, m_textCount, key ) )
+		spec = &m_tableSpecs[0];
+
+	if ( spec == nullptr && hasLabel( m_mapStringLUT, m_mapTextCount, key ) )
+	{
+		filename = "map.str";
+		layer = "map";
+		return TRUE;
+	}
+
+	for ( size_t i = 0; spec == nullptr && i < m_fallbackTables.size(); ++i )
+	{
+		if ( hasLabel( m_fallbackTables[i].lut, m_fallbackTables[i].count, key ) )
+			spec = &m_tableSpecs[i + 1];
+	}
+
+	if ( spec == nullptr )
+		return FALSE;
+
+	filename = spec->filename;
+	layer = textSourceName( spec->source );
+	return TRUE;
+}
+#endif
 
 //============================================================================
 // *GameTextManager::fetchFormat

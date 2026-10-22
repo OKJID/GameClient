@@ -8,6 +8,8 @@
 
 #include "MacOSGameEngine.h"
 #include "MacOSCrashTrail.h"
+#include "MacOSHostServices.h"
+#include "MacOSHotkeyDump.h"
 #include "MacOSInstallPaths.h"
 
 #include "Utility/time_compat.h"
@@ -135,6 +137,13 @@ void MacOSGameEngine::init()
 	MacOS_PrepareInstallPaths();
 
 	GameEngine::init();
+
+	const char* hotkeyDumpPath = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag);
+	if (hotkeyDumpPath == nullptr)
+		return;
+
+	MacOSHotkeyDump::write(hotkeyDumpPath);
+	setQuitting(TRUE);
 }
 
 void MacOSGameEngine::reset()

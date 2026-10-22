@@ -6,12 +6,18 @@
 
 #include <cstdio>
 #include <cstring>
+#include <strings.h>
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
 char MacOSCommandLineString[4096] = "";
 
+static int s_argc = 0;
+static char** s_argv = nullptr;
+
 void MacOS_StoreCommandLine(int argc, char* argv[]) {
+    s_argc = argc;
+    s_argv = argv;
     MacOSCommandLineString[0] = '\0';
     for (int i=0; i<argc; ++i) {
         if (i>0) strncat(MacOSCommandLineString, " ", sizeof(MacOSCommandLineString)-1 - strlen(MacOSCommandLineString));
@@ -22,6 +28,15 @@ void MacOS_StoreCommandLine(int argc, char* argv[]) {
     }
     printf("[DIAG] MacOSMain: Built cmd line: %s\n", MacOSCommandLineString);
     fflush(stdout);
+}
+
+const char* MacOS_GetCommandLineValue(const char* flag) {
+    for (int i = 1; i + 1 < s_argc; ++i) {
+        if (strcasecmp(s_argv[i], flag) == 0) {
+            return s_argv[i + 1];
+        }
+    }
+    return nullptr;
 }
 
 extern "C" unsigned long long MacOS_GetTotalPhysicalMemory() {

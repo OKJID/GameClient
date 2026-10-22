@@ -86,6 +86,10 @@ class GameTextInterface : public SubsystemInterface
 
 		virtual void					initMapStringFile( const AsciiString& filename ) = 0;
 
+#ifdef __APPLE__
+		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) { return FALSE; }
+#endif
+
 #if __cplusplus < 201103L // TheSuperHackers @todo Remove function when abandoning VC6
 		inline UnicodeString FETCH_OR_SUBSTITUTE_FORMAT( const Char *label, const WideChar *substituteFormat, ... )
 		{

@@ -45,6 +45,7 @@
 #include "MacOSCrashHandler.h"
 #include "MacOSCrashTrail.h"
 #include "MacOSHostServices.h"
+#include "MacOSHotkeyDump.h"
 
 #if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
@@ -356,7 +357,8 @@ int main(int argc, char* argv[]) {
     MacOS_StoreCommandLine(argc, argv);
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
-        [app setActivationPolicy:NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
+        const bool isHotkeyDump = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag) != nullptr;
+        [app setActivationPolicy:isHotkeyDump ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
         
         GeneralsAppDelegate* delegate = [[GeneralsAppDelegate alloc] init];
         [app setDelegate:delegate];

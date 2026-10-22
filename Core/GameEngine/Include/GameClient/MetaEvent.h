@@ -346,6 +346,9 @@ public:
 	MappableKeyCategories		m_category;				///< This is the category the key falls under
 	UnicodeString						m_description;		///< The description string for the keys
 	UnicodeString						m_displayName;		///< The display name of our command
+#ifdef __APPLE__
+	AsciiString							m_sourceFile;
+#endif
 };
 EMPTY_DTOR(MetaMapRec)
 
@@ -475,6 +478,10 @@ public:
 	virtual void update() override { }
 
 	static void parseMetaMap(INI* ini);
+
+#ifdef __APPLE__
+	static const char* getMetaName(GameMessage::Type t);
+#endif
 
 	// TheSuperHackers @feature Function to generate default key mappings
 	// for actions that were not found in a CommandMap.ini
