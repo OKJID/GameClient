@@ -6,6 +6,8 @@ final class HotkeyEditorModel: ObservableObject {
         case idle
         case refreshing
         case applying
+        case importing
+        case exporting
         case failed
     }
 
@@ -15,6 +17,7 @@ final class HotkeyEditorModel: ObservableObject {
     }
 
     let files: HotkeyFiles
+    let presetsFolder: URL
     private let launch: HotkeyEngineLaunch?
     private let isMapScrollOnWASD: Bool
 
@@ -26,16 +29,23 @@ final class HotkeyEditorModel: ObservableObject {
     @Published private(set) var phase: Phase = .idle
     @Published private(set) var hasOriginals = false
     @Published private(set) var capturingTarget: Target?
+    @Published private(set) var presets: [HotkeyPresetEntry] = []
+    @Published private(set) var presetOutcome: HotkeyPresetOutcome?
+    @Published private(set) var draftPresetName: String?
     @Published var selectedSectionID: String?
     @Published var searchText = ""
 
     private var keyMonitor: Any?
+    private var presetDraftEdits: HotkeyEdits?
+    private var savedPresetState: HotkeyPresetState?
 
-    init(files: HotkeyFiles, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool) {
+    init(files: HotkeyFiles, presetsFolder: URL, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool) {
         self.files = files
+        self.presetsFolder = presetsFolder
         self.launch = launch
         self.isMapScrollOnWASD = isMapScrollOnWASD
         self.edits = files.loadEdits()
+        self.savedPresetState = files.loadPresetState()
         reloadDump()
     }
 
@@ -45,10 +55,22 @@ final class HotkeyEditorModel: ObservableObject {
     }
 
     var hasEdits: Bool { !edits.isEmpty }
-    var isBusy: Bool { phase == .refreshing || phase == .applying }
+    var isBusy: Bool { phase != .idle && phase != .failed }
+    var shippedPresets: [HotkeyPresetEntry] { presets.filter(\.isShipped) }
+    var ownPresets: [HotkeyPresetEntry] { presets.filter { !$0.isShipped } }
+    var presetName: String? { draftPresetName ?? appliedPreset.name }
+
+    var isPresetModified: Bool {
+        guard draftPresetName != nil else { return hasEdits || appliedPreset.isModified }
+        return edits != presetDraftEdits
+    }
 
     var keymap: HotkeyKeymap? {
         dump.map { HotkeyKeymap(dump: $0, edits: edits) }
+    }
+
+    private var appliedPreset: HotkeyPresetState {
+        savedPresetState ?? HotkeyPresetState(name: nil, isModified: hasOriginals)
     }
 
     func select(_ section: HotkeySection) {
@@ -73,14 +95,24 @@ final class HotkeyEditorModel: ObservableObject {
         guard hasEdits, !isBusy, let launch else { return }
 
         stopCapture()
+        let appliedState = HotkeyPresetState(name: presetName, isModified: isPresetModified)
         phase = .applying
         HotkeyEngineRunner.apply(launch, files: files) { [weak self] isDumpFresh in
             guard let self else { return }
             if isDumpFresh {
                 self.replaceEdits(with: HotkeyEdits())
+                self.rememberAppliedPreset(appliedState)
             }
             self.finishEngineRun(isDumpFresh: isDumpFresh)
         }
+    }
+
+    func discardEdits() {
+        guard !isBusy else { return }
+
+        stopCapture()
+        replaceEdits(with: HotkeyEdits())
+        forgetDraftPreset()
     }
 
     func reset() {
@@ -90,8 +122,58 @@ final class HotkeyEditorModel: ObservableObject {
         if let dump {
             files.restoreOriginals(of: dump)
         }
+        files.removePresetState()
+        savedPresetState = nil
         replaceEdits(with: HotkeyEdits())
+        forgetDraftPreset()
         refresh()
+    }
+
+    func applyPreset(_ entry: HotkeyPresetEntry) {
+        guard !isBusy else { return }
+
+        stopCapture()
+        switch entry.kind {
+        case .shipped(let preset):
+            mergeIntoDraft(preset, named: entry.name)
+        case .own:
+            readOwnPreset(entry)
+        }
+    }
+
+    func importPreset(from source: URL) {
+        guard !isBusy else { return }
+
+        guard let copy = HotkeyPresetStore.addOwn(source, to: presetsFolder) else {
+            presetOutcome = .importFailed(fileName: source.lastPathComponent)
+            return
+        }
+
+        reloadPresets()
+        applyPreset(HotkeyPresetEntry(url: copy, kind: .own))
+    }
+
+    func exportApplied(to destination: URL) {
+        guard !isBusy else { return }
+        guard let launch else {
+            presetOutcome = .saveFailed(fileName: destination.lastPathComponent)
+            return
+        }
+
+        stopCapture()
+        phase = .exporting
+        HotkeyEngineRunner.export(launch, to: destination) { [weak self] isWritten in
+            guard let self else { return }
+            self.phase = .idle
+            self.reloadPresets()
+            self.presetOutcome = isWritten
+                ? .saved(fileName: destination.lastPathComponent)
+                : .saveFailed(fileName: destination.lastPathComponent)
+        }
+    }
+
+    func reloadPresets() {
+        presets = dump.map { HotkeyPresetStore.entries(in: presetsFolder, for: $0.profile) } ?? []
     }
 
     func setLetter(_ letter: String, forLabel label: String) {
@@ -195,10 +277,56 @@ final class HotkeyEditorModel: ObservableObject {
         reloadDump()
     }
 
+    private func mergeIntoDraft(_ preset: HotkeyPreset, named name: String) {
+        guard let dump else { return }
+
+        let merged = HotkeyPresetMatcher.merged(preset, into: edits, against: dump)
+        replaceEdits(with: merged)
+        draftPresetName = name
+        presetDraftEdits = merged
+    }
+
+    private func readOwnPreset(_ entry: HotkeyPresetEntry) {
+        guard let launch else {
+            presetOutcome = .importFailed(fileName: entry.title)
+            return
+        }
+
+        phase = .importing
+        HotkeyEngineRunner.importPreset(launch, from: entry.url, to: files.importURL) { [weak self] isPresetFresh in
+            self?.finishOwnPreset(entry, isPresetFresh: isPresetFresh)
+        }
+    }
+
+    private func finishOwnPreset(_ entry: HotkeyPresetEntry, isPresetFresh: Bool) {
+        phase = .idle
+        let preset = isPresetFresh ? HotkeyPresetStore.load(files.importURL) : nil
+        try? FileManager.default.removeItem(at: files.importURL)
+
+        guard let preset else {
+            presetOutcome = .importFailed(fileName: entry.title)
+            return
+        }
+
+        mergeIntoDraft(preset, named: entry.name)
+    }
+
     private func replaceEdits(with updated: HotkeyEdits) {
         edits = updated
+        presetOutcome = nil
         files.saveEdits(updated)
         rebuildReport()
+    }
+
+    private func rememberAppliedPreset(_ state: HotkeyPresetState) {
+        savedPresetState = state
+        files.savePresetState(state)
+        forgetDraftPreset()
+    }
+
+    private func forgetDraftPreset() {
+        draftPresetName = nil
+        presetDraftEdits = nil
     }
 
     private func reloadDump() {
@@ -207,6 +335,7 @@ final class HotkeyEditorModel: ObservableObject {
         labelUsage = dump.map(HotkeyLabelUsage.init(dump:))
         sections = buildSections()
         selectFirstSectionIfNeeded()
+        reloadPresets()
         rebuildReport()
     }
 

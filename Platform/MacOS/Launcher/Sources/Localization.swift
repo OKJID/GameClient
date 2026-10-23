@@ -394,7 +394,7 @@ enum L10n {
         var modify: String { resolve("hotkeys.modify") }
         var title: String { resolve("hotkeys.title") }
         var apply: String { resolve("hotkeys.apply") }
-        var reset: String { resolve("hotkeys.reset") }
+        var restoreOriginal: String { resolve("hotkeys.restoreOriginal") }
         var resetTitle: String { resolve("hotkeys.resetTitle") }
         var resetMsg: String { resolve("hotkeys.resetMsg") }
         var search: String { resolve("hotkeys.search") }
@@ -444,6 +444,22 @@ enum L10n {
         var groupOrders: String { resolve("hotkeys.group.orders") }
         var groupSciences: String { resolve("hotkeys.group.sciences") }
         var groupOther: String { resolve("hotkeys.group.other") }
+        var importing: String { resolve("hotkeys.importing") }
+        var saving: String { resolve("hotkeys.saving") }
+        var preset: String { resolve("hotkeys.preset") }
+        var presetStandard: String { resolve("hotkeys.preset.standard") }
+        var presetsShipped: String { resolve("hotkeys.presets.shipped") }
+        var presetsMine: String { resolve("hotkeys.presets.mine") }
+        var presetImport: String { resolve("hotkeys.preset.import") }
+        var presetImportMessage: String { resolve("hotkeys.preset.importMessage") }
+        var presetSaveCsf: String { resolve("hotkeys.preset.saveCsf") }
+        var presetSaveBig: String { resolve("hotkeys.preset.saveBig") }
+        var presetSaveNote: String { resolve("hotkeys.preset.saveNote") }
+        var presetFolder: String { resolve("hotkeys.preset.folder") }
+        var presetDefaultName: String { resolve("hotkeys.preset.defaultName") }
+        var presetSaved: String { resolve("hotkeys.preset.saved") }
+        var presetSaveFailed: String { resolve("hotkeys.preset.saveFailed") }
+        var presetImportFailed: String { resolve("hotkeys.preset.importFailed") }
 
         func faction(_ baseSide: String) -> String {
             let key = "hotkeys.faction.\(baseSide)"
@@ -697,7 +713,7 @@ enum L10n {
         "hotkeys.modify": "Modify",
         "hotkeys.title": "HOTKEYS",
         "hotkeys.apply": "Apply",
-        "hotkeys.reset": "Reset",
+        "hotkeys.restoreOriginal": "Restore original",
         "hotkeys.resetTitle": "Restore the original hotkeys?",
         "hotkeys.resetMsg": "The string table and CommandMap.ini will be restored from their backups. Unapplied changes will be discarded.",
         "hotkeys.search": "Search",
@@ -749,7 +765,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Unit abilities",
         "hotkeys.group.orders": "Orders",
         "hotkeys.group.sciences": "Promotions",
-        "hotkeys.group.other": "Other"
+        "hotkeys.group.other": "Other",
+        "hotkeys.importing": "Importing…",
+        "hotkeys.preset": "Preset",
+        "hotkeys.preset.standard": "Standard",
+        "hotkeys.saving": "Saving…",
+        "hotkeys.presets.shipped": "Shipped",
+        "hotkeys.presets.mine": "My presets",
+        "hotkeys.preset.import": "Import… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Choose a hotkey file: generals.csf or a .big that holds it",
+        "hotkeys.preset.saveCsf": "Save as .csf…",
+        "hotkeys.preset.saveBig": "Save as .big…",
+        "hotkeys.preset.saveNote": "The applied hotkeys are saved. Unapplied changes are not included.",
+        "hotkeys.preset.saveFailed": "Could not save %@",
+        "hotkeys.preset.folder": "Open presets folder",
+        "hotkeys.preset.defaultName": "My hotkeys",
+        "hotkeys.preset.saved": "Saved: %@",
+        "hotkeys.preset.importFailed": "Could not import %@"
     ]
 
     static let ru: [String: String] = [
@@ -991,7 +1023,7 @@ enum L10n {
         "hotkeys.modify": "Модифицировать",
         "hotkeys.title": "ХОТКЕИ",
         "hotkeys.apply": "Применить",
-        "hotkeys.reset": "Сбросить",
+        "hotkeys.restoreOriginal": "Вернуть оригинал",
         "hotkeys.resetTitle": "Вернуть исходные хоткеи?",
         "hotkeys.resetMsg": "Таблица строк и CommandMap.ini будут восстановлены из резервных копий. Неприменённые правки пропадут.",
         "hotkeys.search": "Поиск",
@@ -1043,7 +1075,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Способности юнитов",
         "hotkeys.group.orders": "Приказы",
         "hotkeys.group.sciences": "Повышения генерала",
-        "hotkeys.group.other": "Прочее"
+        "hotkeys.group.other": "Прочее",
+        "hotkeys.importing": "Импорт…",
+        "hotkeys.preset": "Набор",
+        "hotkeys.preset.standard": "Стандартный",
+        "hotkeys.saving": "Сохранение…",
+        "hotkeys.presets.shipped": "Поставляемые",
+        "hotkeys.presets.mine": "Мои наборы",
+        "hotkeys.preset.import": "Импорт… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Выберите файл раскладки: generals.csf или .big, в котором он лежит",
+        "hotkeys.preset.saveCsf": "Сохранить как .csf…",
+        "hotkeys.preset.saveBig": "Сохранить как .big…",
+        "hotkeys.preset.saveNote": "Сохраняется применённая раскладка. Неприменённые правки не войдут.",
+        "hotkeys.preset.saveFailed": "Не удалось сохранить %@",
+        "hotkeys.preset.folder": "Открыть папку наборов",
+        "hotkeys.preset.defaultName": "Мои хоткеи",
+        "hotkeys.preset.saved": "Сохранено: %@",
+        "hotkeys.preset.importFailed": "Не удалось импортировать %@"
     ]
 
     static let uk: [String: String] = [
@@ -1285,7 +1333,7 @@ enum L10n {
         "hotkeys.modify": "Модифікувати",
         "hotkeys.title": "ГАРЯЧІ КЛАВІШІ",
         "hotkeys.apply": "Застосувати",
-        "hotkeys.reset": "Скинути",
+        "hotkeys.restoreOriginal": "Повернути оригінал",
         "hotkeys.resetTitle": "Повернути початкові гарячі клавіші?",
         "hotkeys.resetMsg": "Таблицю рядків і CommandMap.ini буде відновлено з резервних копій. Незастосовані зміни буде втрачено.",
         "hotkeys.search": "Пошук",
@@ -1337,7 +1385,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Здібності юнітів",
         "hotkeys.group.orders": "Накази",
         "hotkeys.group.sciences": "Підвищення генерала",
-        "hotkeys.group.other": "Інше"
+        "hotkeys.group.other": "Інше",
+        "hotkeys.importing": "Імпорт…",
+        "hotkeys.preset": "Набір",
+        "hotkeys.preset.standard": "Стандартний",
+        "hotkeys.saving": "Збереження…",
+        "hotkeys.presets.shipped": "Постачені",
+        "hotkeys.presets.mine": "Мої набори",
+        "hotkeys.preset.import": "Імпорт… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Виберіть файл розкладки: generals.csf або .big, у якому він лежить",
+        "hotkeys.preset.saveCsf": "Зберегти як .csf…",
+        "hotkeys.preset.saveBig": "Зберегти як .big…",
+        "hotkeys.preset.saveNote": "Зберігається застосована розкладка. Незастосовані зміни не ввійдуть.",
+        "hotkeys.preset.saveFailed": "Не вдалося зберегти %@",
+        "hotkeys.preset.folder": "Відкрити теку наборів",
+        "hotkeys.preset.defaultName": "Мої гарячі клавіші",
+        "hotkeys.preset.saved": "Збережено: %@",
+        "hotkeys.preset.importFailed": "Не вдалося імпортувати %@"
     ]
 
     static let hi: [String: String] = [
@@ -1579,7 +1643,7 @@ enum L10n {
         "hotkeys.modify": "संशोधित करें",
         "hotkeys.title": "हॉटकी",
         "hotkeys.apply": "लागू करें",
-        "hotkeys.reset": "रीसेट",
+        "hotkeys.restoreOriginal": "मूल बहाल करें",
         "hotkeys.resetTitle": "मूल हॉटकी बहाल करें?",
         "hotkeys.resetMsg": "स्ट्रिंग तालिका और CommandMap.ini उनकी बैकअप प्रतियों से बहाल की जाएँगी। लागू न किए गए बदलाव हटा दिए जाएँगे।",
         "hotkeys.search": "खोजें",
@@ -1631,7 +1695,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "यूनिट की क्षमताएँ",
         "hotkeys.group.orders": "आदेश",
         "hotkeys.group.sciences": "जनरल पदोन्नति",
-        "hotkeys.group.other": "अन्य"
+        "hotkeys.group.other": "अन्य",
+        "hotkeys.importing": "आयात हो रहा है…",
+        "hotkeys.preset": "प्रीसेट",
+        "hotkeys.preset.standard": "मानक",
+        "hotkeys.saving": "सहेजा जा रहा है…",
+        "hotkeys.presets.shipped": "आपूर्ति किए गए",
+        "hotkeys.presets.mine": "मेरे प्रीसेट",
+        "hotkeys.preset.import": "आयात करें… (.csf, .big)",
+        "hotkeys.preset.importMessage": "हॉटकी फ़ाइल चुनें: generals.csf या उसे रखने वाली .big",
+        "hotkeys.preset.saveCsf": ".csf के रूप में सहेजें…",
+        "hotkeys.preset.saveBig": ".big के रूप में सहेजें…",
+        "hotkeys.preset.saveNote": "लागू किया गया लेआउट सहेजा जाता है। जो बदलाव लागू नहीं हुए, वे शामिल नहीं होंगे।",
+        "hotkeys.preset.saveFailed": "%@ सहेजा नहीं जा सका",
+        "hotkeys.preset.folder": "प्रीसेट फ़ोल्डर खोलें",
+        "hotkeys.preset.defaultName": "मेरी हॉटकी",
+        "hotkeys.preset.saved": "सहेजा गया: %@",
+        "hotkeys.preset.importFailed": "%@ आयात नहीं हो सका"
     ]
 
     static let zh: [String: String] = [
@@ -1873,7 +1953,7 @@ enum L10n {
         "hotkeys.modify": "修改",
         "hotkeys.title": "快捷键",
         "hotkeys.apply": "应用",
-        "hotkeys.reset": "重置",
+        "hotkeys.restoreOriginal": "恢复原始设置",
         "hotkeys.resetTitle": "恢复原始快捷键？",
         "hotkeys.resetMsg": "字符串表和 CommandMap.ini 将从备份中恢复，未应用的更改将被丢弃。",
         "hotkeys.search": "搜索",
@@ -1925,7 +2005,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "单位技能",
         "hotkeys.group.orders": "指令",
         "hotkeys.group.sciences": "将军晋升",
-        "hotkeys.group.other": "其他"
+        "hotkeys.group.other": "其他",
+        "hotkeys.importing": "正在导入…",
+        "hotkeys.preset": "预设",
+        "hotkeys.preset.standard": "标准",
+        "hotkeys.saving": "正在保存…",
+        "hotkeys.presets.shipped": "官方提供",
+        "hotkeys.presets.mine": "我的预设",
+        "hotkeys.preset.import": "导入… (.csf, .big)",
+        "hotkeys.preset.importMessage": "选择热键文件：generals.csf 或包含它的 .big",
+        "hotkeys.preset.saveCsf": "另存为 .csf…",
+        "hotkeys.preset.saveBig": "另存为 .big…",
+        "hotkeys.preset.saveNote": "保存的是已应用的热键，未应用的更改不会包含在内。",
+        "hotkeys.preset.saveFailed": "无法保存 %@",
+        "hotkeys.preset.folder": "打开预设文件夹",
+        "hotkeys.preset.defaultName": "我的热键",
+        "hotkeys.preset.saved": "已保存：%@",
+        "hotkeys.preset.importFailed": "无法导入 %@"
     ]
 
     static let ar: [String: String] = [
@@ -2167,7 +2263,7 @@ enum L10n {
         "hotkeys.modify": "تعديل",
         "hotkeys.title": "مفاتيح الاختصار",
         "hotkeys.apply": "تطبيق",
-        "hotkeys.reset": "إعادة تعيين",
+        "hotkeys.restoreOriginal": "استعادة الأصل",
         "hotkeys.resetTitle": "استعادة مفاتيح الاختصار الأصلية؟",
         "hotkeys.resetMsg": "سيُستعاد جدول النصوص و CommandMap.ini من نسخهما الاحتياطية. ستُلغى التغييرات غير المطبّقة.",
         "hotkeys.search": "بحث",
@@ -2219,7 +2315,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "قدرات الوحدات",
         "hotkeys.group.orders": "الأوامر",
         "hotkeys.group.sciences": "رتب الجنرال",
-        "hotkeys.group.other": "أخرى"
+        "hotkeys.group.other": "أخرى",
+        "hotkeys.importing": "جارٍ الاستيراد…",
+        "hotkeys.preset": "المجموعة",
+        "hotkeys.preset.standard": "القياسية",
+        "hotkeys.saving": "جارٍ الحفظ…",
+        "hotkeys.presets.shipped": "المرفقة",
+        "hotkeys.presets.mine": "مجموعاتي",
+        "hotkeys.preset.import": "استيراد… (.csf, .big)",
+        "hotkeys.preset.importMessage": "اختر ملف مفاتيح: generals.csf أو ملف .big يحتويه",
+        "hotkeys.preset.saveCsf": "حفظ بصيغة .csf…",
+        "hotkeys.preset.saveBig": "حفظ بصيغة .big…",
+        "hotkeys.preset.saveNote": "يُحفظ التخطيط المطبَّق. التغييرات غير المطبقة لن تُضمَّن.",
+        "hotkeys.preset.saveFailed": "تعذّر حفظ %@",
+        "hotkeys.preset.folder": "فتح مجلد المجموعات",
+        "hotkeys.preset.defaultName": "مفاتيحي",
+        "hotkeys.preset.saved": "تم الحفظ: %@",
+        "hotkeys.preset.importFailed": "تعذّر استيراد %@"
     ]
 
     static let kk: [String: String] = [
@@ -2461,7 +2573,7 @@ enum L10n {
         "hotkeys.modify": "Өзгерту",
         "hotkeys.title": "ЖЫЛДАМ ПЕРНЕЛЕР",
         "hotkeys.apply": "Қолдану",
-        "hotkeys.reset": "Ысыру",
+        "hotkeys.restoreOriginal": "Түпнұсқаны қайтару",
         "hotkeys.resetTitle": "Бастапқы жылдам пернелерді қайтару керек пе?",
         "hotkeys.resetMsg": "Жолдар кестесі мен CommandMap.ini сақтық көшірмелерден қалпына келтіріледі. Қолданылмаған өзгерістер жойылады.",
         "hotkeys.search": "Іздеу",
@@ -2513,7 +2625,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Бөлім қабілеттері",
         "hotkeys.group.orders": "Бұйрықтар",
         "hotkeys.group.sciences": "Генерал атақтары",
-        "hotkeys.group.other": "Басқа"
+        "hotkeys.group.other": "Басқа",
+        "hotkeys.importing": "Импорттау…",
+        "hotkeys.preset": "Жинақ",
+        "hotkeys.preset.standard": "Стандартты",
+        "hotkeys.saving": "Сақталуда…",
+        "hotkeys.presets.shipped": "Жеткізілетін",
+        "hotkeys.presets.mine": "Менің жинақтарым",
+        "hotkeys.preset.import": "Импорттау… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Перне файлын таңдаңыз: generals.csf немесе оны сақтайтын .big",
+        "hotkeys.preset.saveCsf": ".csf ретінде сақтау…",
+        "hotkeys.preset.saveBig": ".big ретінде сақтау…",
+        "hotkeys.preset.saveNote": "Қолданылған пернелер сақталады. Қолданылмаған өзгерістер кірмейді.",
+        "hotkeys.preset.saveFailed": "%@ сақталмады",
+        "hotkeys.preset.folder": "Жинақтар қалтасын ашу",
+        "hotkeys.preset.defaultName": "Менің пернелерім",
+        "hotkeys.preset.saved": "Сақталды: %@",
+        "hotkeys.preset.importFailed": "%@ импортталмады"
     ]
 
     static let vi: [String: String] = [
@@ -2755,7 +2883,7 @@ enum L10n {
         "hotkeys.modify": "Chỉnh sửa",
         "hotkeys.title": "PHÍM TẮT",
         "hotkeys.apply": "Áp dụng",
-        "hotkeys.reset": "Đặt lại",
+        "hotkeys.restoreOriginal": "Khôi phục bản gốc",
         "hotkeys.resetTitle": "Khôi phục phím tắt gốc?",
         "hotkeys.resetMsg": "Bảng chuỗi và CommandMap.ini sẽ được khôi phục từ bản sao lưu. Các thay đổi chưa áp dụng sẽ bị hủy.",
         "hotkeys.search": "Tìm kiếm",
@@ -2807,7 +2935,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Kỹ năng đơn vị",
         "hotkeys.group.orders": "Mệnh lệnh",
         "hotkeys.group.sciences": "Thăng cấp tướng",
-        "hotkeys.group.other": "Khác"
+        "hotkeys.group.other": "Khác",
+        "hotkeys.importing": "Đang nhập…",
+        "hotkeys.preset": "Bộ phím",
+        "hotkeys.preset.standard": "Tiêu chuẩn",
+        "hotkeys.saving": "Đang lưu…",
+        "hotkeys.presets.shipped": "Được cung cấp",
+        "hotkeys.presets.mine": "Bộ phím của tôi",
+        "hotkeys.preset.import": "Nhập… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Chọn tệp phím tắt: generals.csf hoặc tệp .big chứa nó",
+        "hotkeys.preset.saveCsf": "Lưu thành .csf…",
+        "hotkeys.preset.saveBig": "Lưu thành .big…",
+        "hotkeys.preset.saveNote": "Bộ phím đã áp dụng sẽ được lưu. Các thay đổi chưa áp dụng không được đưa vào.",
+        "hotkeys.preset.saveFailed": "Không thể lưu %@",
+        "hotkeys.preset.folder": "Mở thư mục bộ phím",
+        "hotkeys.preset.defaultName": "Phím tắt của tôi",
+        "hotkeys.preset.saved": "Đã lưu: %@",
+        "hotkeys.preset.importFailed": "Không thể nhập %@"
     ]
 
     static let pl: [String: String] = [
@@ -3049,7 +3193,7 @@ enum L10n {
         "hotkeys.modify": "Modyfikuj",
         "hotkeys.title": "SKRÓTY KLAWISZOWE",
         "hotkeys.apply": "Zastosuj",
-        "hotkeys.reset": "Resetuj",
+        "hotkeys.restoreOriginal": "Przywróć oryginał",
         "hotkeys.resetTitle": "Przywrócić oryginalne skróty?",
         "hotkeys.resetMsg": "Tabela tekstów i CommandMap.ini zostaną przywrócone z kopii zapasowych. Niezastosowane zmiany zostaną odrzucone.",
         "hotkeys.search": "Szukaj",
@@ -3101,7 +3245,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Zdolności jednostek",
         "hotkeys.group.orders": "Rozkazy",
         "hotkeys.group.sciences": "Awanse generała",
-        "hotkeys.group.other": "Inne"
+        "hotkeys.group.other": "Inne",
+        "hotkeys.importing": "Importowanie…",
+        "hotkeys.preset": "Zestaw",
+        "hotkeys.preset.standard": "Standardowy",
+        "hotkeys.saving": "Zapisywanie…",
+        "hotkeys.presets.shipped": "Dostarczane",
+        "hotkeys.presets.mine": "Moje zestawy",
+        "hotkeys.preset.import": "Importuj… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Wybierz plik skrótów: generals.csf albo .big, który go zawiera",
+        "hotkeys.preset.saveCsf": "Zapisz jako .csf…",
+        "hotkeys.preset.saveBig": "Zapisz jako .big…",
+        "hotkeys.preset.saveNote": "Zapisywany jest zastosowany układ. Niezastosowane zmiany nie zostaną uwzględnione.",
+        "hotkeys.preset.saveFailed": "Nie udało się zapisać %@",
+        "hotkeys.preset.folder": "Otwórz folder zestawów",
+        "hotkeys.preset.defaultName": "Moje skróty",
+        "hotkeys.preset.saved": "Zapisano: %@",
+        "hotkeys.preset.importFailed": "Nie udało się zaimportować %@"
     ]
 
     static let de: [String: String] = [
@@ -3343,7 +3503,7 @@ enum L10n {
         "hotkeys.modify": "Anpassen",
         "hotkeys.title": "TASTENKÜRZEL",
         "hotkeys.apply": "Übernehmen",
-        "hotkeys.reset": "Zurücksetzen",
+        "hotkeys.restoreOriginal": "Original wiederherstellen",
         "hotkeys.resetTitle": "Ursprüngliche Tastenkürzel wiederherstellen?",
         "hotkeys.resetMsg": "Die Texttabelle und CommandMap.ini werden aus ihren Sicherungen wiederhergestellt. Nicht übernommene Änderungen gehen verloren.",
         "hotkeys.search": "Suchen",
@@ -3395,7 +3555,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Einheitenfähigkeiten",
         "hotkeys.group.orders": "Befehle",
         "hotkeys.group.sciences": "Beförderungen",
-        "hotkeys.group.other": "Sonstiges"
+        "hotkeys.group.other": "Sonstiges",
+        "hotkeys.importing": "Importiere…",
+        "hotkeys.preset": "Set",
+        "hotkeys.preset.standard": "Standard",
+        "hotkeys.saving": "Speichere…",
+        "hotkeys.presets.shipped": "Mitgeliefert",
+        "hotkeys.presets.mine": "Meine Sets",
+        "hotkeys.preset.import": "Importieren… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Wähle eine Hotkey-Datei: generals.csf oder eine .big, die sie enthält",
+        "hotkeys.preset.saveCsf": "Als .csf speichern…",
+        "hotkeys.preset.saveBig": "Als .big speichern…",
+        "hotkeys.preset.saveNote": "Gespeichert wird die angewendete Belegung. Nicht angewendete Änderungen sind nicht enthalten.",
+        "hotkeys.preset.saveFailed": "%@ konnte nicht gespeichert werden",
+        "hotkeys.preset.folder": "Set-Ordner öffnen",
+        "hotkeys.preset.defaultName": "Meine Hotkeys",
+        "hotkeys.preset.saved": "Gespeichert: %@",
+        "hotkeys.preset.importFailed": "%@ konnte nicht importiert werden"
     ]
 
     static let es: [String: String] = [
@@ -3637,7 +3813,7 @@ enum L10n {
         "hotkeys.modify": "Modificar",
         "hotkeys.title": "ATAJOS",
         "hotkeys.apply": "Aplicar",
-        "hotkeys.reset": "Restablecer",
+        "hotkeys.restoreOriginal": "Restaurar original",
         "hotkeys.resetTitle": "¿Restaurar los atajos originales?",
         "hotkeys.resetMsg": "La tabla de textos y CommandMap.ini se restaurarán desde sus copias de seguridad. Los cambios no aplicados se descartarán.",
         "hotkeys.search": "Buscar",
@@ -3689,7 +3865,23 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Habilidades de unidades",
         "hotkeys.group.orders": "Órdenes",
         "hotkeys.group.sciences": "Ascensos del general",
-        "hotkeys.group.other": "Otros"
+        "hotkeys.group.other": "Otros",
+        "hotkeys.importing": "Importando…",
+        "hotkeys.preset": "Perfil",
+        "hotkeys.preset.standard": "Estándar",
+        "hotkeys.saving": "Guardando…",
+        "hotkeys.presets.shipped": "Incluidos",
+        "hotkeys.presets.mine": "Mis perfiles",
+        "hotkeys.preset.import": "Importar… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Elige un archivo de atajos: generals.csf o un .big que lo contenga",
+        "hotkeys.preset.saveCsf": "Guardar como .csf…",
+        "hotkeys.preset.saveBig": "Guardar como .big…",
+        "hotkeys.preset.saveNote": "Se guarda la configuración aplicada. Los cambios sin aplicar no se incluyen.",
+        "hotkeys.preset.saveFailed": "No se pudo guardar %@",
+        "hotkeys.preset.folder": "Abrir la carpeta de perfiles",
+        "hotkeys.preset.defaultName": "Mis atajos",
+        "hotkeys.preset.saved": "Guardado: %@",
+        "hotkeys.preset.importFailed": "No se pudo importar %@"
     ]
 
     static let tr: [String: String] = [
@@ -3931,7 +4123,7 @@ enum L10n {
         "hotkeys.modify": "Düzenle",
         "hotkeys.title": "KISAYOLLAR",
         "hotkeys.apply": "Uygula",
-        "hotkeys.reset": "Sıfırla",
+        "hotkeys.restoreOriginal": "Orijinale dön",
         "hotkeys.resetTitle": "Orijinal kısayollar geri yüklensin mi?",
         "hotkeys.resetMsg": "Metin tablosu ve CommandMap.ini yedeklerinden geri yüklenecek. Uygulanmamış değişiklikler silinecek.",
         "hotkeys.search": "Ara",
@@ -3983,6 +4175,22 @@ enum L10n {
         "hotkeys.group.unitAbilities": "Birim yetenekleri",
         "hotkeys.group.orders": "Emirler",
         "hotkeys.group.sciences": "General terfileri",
-        "hotkeys.group.other": "Diğer"
+        "hotkeys.group.other": "Diğer",
+        "hotkeys.importing": "İçe aktarılıyor…",
+        "hotkeys.preset": "Set",
+        "hotkeys.preset.standard": "Standart",
+        "hotkeys.saving": "Kaydediliyor…",
+        "hotkeys.presets.shipped": "Hazır setler",
+        "hotkeys.presets.mine": "Setlerim",
+        "hotkeys.preset.import": "İçe aktar… (.csf, .big)",
+        "hotkeys.preset.importMessage": "Bir kısayol dosyası seç: generals.csf veya onu içeren bir .big",
+        "hotkeys.preset.saveCsf": ".csf olarak kaydet…",
+        "hotkeys.preset.saveBig": ".big olarak kaydet…",
+        "hotkeys.preset.saveNote": "Uygulanmış kısayollar kaydedilir. Uygulanmamış değişiklikler dahil edilmez.",
+        "hotkeys.preset.saveFailed": "%@ kaydedilemedi",
+        "hotkeys.preset.folder": "Set klasörünü aç",
+        "hotkeys.preset.defaultName": "Kısayollarım",
+        "hotkeys.preset.saved": "Kaydedildi: %@",
+        "hotkeys.preset.importFailed": "%@ içe aktarılamadı"
     ]
 }

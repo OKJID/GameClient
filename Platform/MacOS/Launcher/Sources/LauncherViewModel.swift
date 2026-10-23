@@ -152,12 +152,13 @@ class LauncherViewModel: ObservableObject {
     var assetPatcher = AssetPatcher()
     var modInstaller = ModInstaller()
     var localeInstaller = LocaleInstaller()
+    var hotkeyPresetInstaller = HotkeyPresetInstaller()
     var updateChecker = UpdateChecker()
     var launcherUpdater = LauncherUpdater()
     var announcements = AnnouncementsFeed()
     lazy var apiSync = ApiSync(resources: [
         updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared,
-        DonationsCatalog.shared
+        DonationsCatalog.shared, HotkeyPresetCatalog.shared
     ])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
@@ -238,6 +239,13 @@ class LauncherViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        HotkeyPresetCatalog.shared.$package
+            .receive(on: RunLoop.main)
+            .sink { [weak self] package in
+                self?.syncHotkeyPresets(package)
+            }
+            .store(in: &cancellables)
+
         apiSync.$status
             .receive(on: RunLoop.main)
             .sink { [weak self] status in
@@ -287,6 +295,7 @@ class LauncherViewModel: ObservableObject {
         }
 
         loadSettings()
+        _removeLegacyHotkeyFiles()
 
         self.isInitializing = false
         apiSync.start()
@@ -952,12 +961,12 @@ class LauncherViewModel: ObservableObject {
     }
 
     func hotkeyFiles(for profile: GameProfile) -> HotkeyFiles? {
-        guard let root = _hotkeyProfileRoot(for: profile) else { return nil }
+        guard _hotkeyProfileRoot(for: profile) != nil else { return nil }
+        return HotkeyFiles(directory: profile.hotkeyWorkDirURL(language: gameLanguage))
+    }
 
-        let directory = root
-            .appendingPathComponent(profile.localeDirName)
-            .appendingPathComponent(gameLanguage)
-        return HotkeyFiles(directory: directory)
+    func syncHotkeyPresets(_ package: HotkeyPresetPackage?) {
+        hotkeyPresetInstaller.syncIfNeeded(package, targets: patchTargets)
     }
 
     func hotkeyEngineLaunch(for profile: GameProfile) -> HotkeyEngineLaunch? {
@@ -981,6 +990,17 @@ class LauncherViewModel: ObservableObject {
         guard let installRoot = installRootURL else { return nil }
 
         return profile.modDirectory(installRoot: installRoot)
+    }
+
+    private func _removeLegacyHotkeyFiles() {
+        guard !HotkeyLegacyFiles.isRemoved, let installRoot = installRootURL else { return }
+
+        let baseDataDirs = patchTargets.map { $0.directory.appendingPathComponent($0.profile.localeDirName) }
+        let modsRoot = installRoot.appendingPathComponent(ModSpec.modsDirName)
+        let modDirs = (try? FileManager.default.contentsOfDirectory(at: modsRoot, includingPropertiesForKeys: nil)) ?? []
+        let modDataDirs = modDirs.map { $0.appendingPathComponent(GameProfile.zeroHour.localeDirName) }
+
+        HotkeyLegacyFiles.remove(fromDataDirectories: baseDataDirs + modDataDirs)
     }
 
     func checkForCrash() {
