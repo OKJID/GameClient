@@ -55,7 +55,7 @@ struct HotkeyPresetEntry: Identifiable {
     var name: String {
         switch kind {
         case .shipped(let preset): return preset.name
-        case .own: return url.deletingPathExtension().lastPathComponent
+        case .own: return url.lastPathComponent
         }
     }
 
