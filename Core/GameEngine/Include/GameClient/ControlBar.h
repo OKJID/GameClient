@@ -785,7 +785,17 @@ public:
 
 	void drawSpecialPowerShortcutMultiplierText();
 
+#ifdef __APPLE__
+	DisplayString *findSpecialPowerShortcutHotKeyLabel( const GameWindow *button ) const;
+#endif
+
 protected:
+#ifdef __APPLE__
+	Int findSpecialPowerShortcutSlot( const GameWindow *button ) const;
+	void applyHotKeyLabel( GameWindow *button, const AsciiString &hotKey );
+	void applySpecialPowerShortcutHotKeyLabel( GameWindow *button, Int slot, const AsciiString &hotKey );
+#endif
+
 	void updateRadarAttackGlow ();
 
 	void setDefaultControlBarConfig();
@@ -919,6 +929,9 @@ protected:
 	GameWindow *m_specialPowerShortcutButtons[ MAX_SPECIAL_POWER_SHORTCUTS ];
 	GameWindow *m_specialPowerShortcutButtonParents[ MAX_SPECIAL_POWER_SHORTCUTS ];
 	DisplayString *m_shortcutDisplayStrings[ MAX_SPECIAL_POWER_SHORTCUTS ];
+#ifdef __APPLE__
+	DisplayString *m_specialPowerShortcutHotKeyLabels[ MAX_SPECIAL_POWER_SHORTCUTS ];
+#endif
 	Int m_currentlyUsedSpecialPowersButtons; ///< Value will be <= MAX_SPECIAL_POWER_SHORTCUTS;
 
 

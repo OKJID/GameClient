@@ -935,6 +935,9 @@ ControlBar::ControlBar()
 	{
 		m_specialPowerShortcutButtons[i] = nullptr;
 		m_specialPowerShortcutButtonParents[i] = nullptr;
+#ifdef __APPLE__
+		m_specialPowerShortcutHotKeyLabels[i] = nullptr;
+#endif
 	}
 
 	m_specialPowerShortcutParent = nullptr;
@@ -1056,6 +1059,15 @@ ControlBar::~ControlBar()
 		delete m_rightHUDCameoWindow->winGetUserData();
 		m_rightHUDCameoWindow->winSetUserData(nullptr);
 	}
+
+#ifdef __APPLE__
+	for( Int i = 0; i < MAX_SPECIAL_POWER_SHORTCUTS; i++ )
+	{
+		if( m_specialPowerShortcutHotKeyLabels[i] && TheDisplayStringManager )
+			TheDisplayStringManager->freeDisplayString( m_specialPowerShortcutHotKeyLabels[i] );
+		m_specialPowerShortcutHotKeyLabels[i] = nullptr;
+	}
+#endif
 
 }
 void ControlBarPopupDescriptionUpdateFunc( WindowLayout *layout, void *param );
@@ -2459,6 +2471,64 @@ static UnicodeString toUpperHotKeyLabel( const AsciiString &hotKey )
 		label.concat( (WideChar)toupper( (unsigned char)*c ) );
 	return label;
 }
+
+//-------------------------------------------------------------------------------------------------
+Int ControlBar::findSpecialPowerShortcutSlot( const GameWindow *button ) const
+{
+	for( Int i = 0; i < MAX_SPECIAL_POWER_SHORTCUTS; ++i )
+	{
+		if( m_specialPowerShortcutButtons[i] == button )
+			return i;
+	}
+	return -1;
+}
+
+//-------------------------------------------------------------------------------------------------
+DisplayString *ControlBar::findSpecialPowerShortcutHotKeyLabel( const GameWindow *button ) const
+{
+	const Int slot = findSpecialPowerShortcutSlot( button );
+	if( slot < 0 )
+		return nullptr;
+	return m_specialPowerShortcutHotKeyLabels[slot];
+}
+
+//-------------------------------------------------------------------------------------------------
+void ControlBar::applySpecialPowerShortcutHotKeyLabel( GameWindow *button, Int slot, const AsciiString &hotKey )
+{
+	if( hotKey.isEmpty() )
+	{
+		button->winClearStatus( WIN_STATUS_HOTKEY_LABEL );
+		return;
+	}
+
+	if( m_specialPowerShortcutHotKeyLabels[slot] == nullptr )
+		m_specialPowerShortcutHotKeyLabels[slot] = TheDisplayStringManager->newDisplayString();
+
+	m_specialPowerShortcutHotKeyLabels[slot]->setText( toUpperHotKeyLabel( hotKey ) );
+	button->winSetStatus( WIN_STATUS_HOTKEY_LABEL );
+}
+
+//-------------------------------------------------------------------------------------------------
+void ControlBar::applyHotKeyLabel( GameWindow *button, const AsciiString &hotKey )
+{
+	const Int shortcutSlot = findSpecialPowerShortcutSlot( button );
+	if( shortcutSlot >= 0 )
+	{
+		applySpecialPowerShortcutHotKeyLabel( button, shortcutSlot, hotKey );
+		return;
+	}
+
+	if( hotKey.isEmpty() )
+	{
+		if( BitIsSet( button->winGetStatus(), WIN_STATUS_HOTKEY_LABEL ) )
+			GadgetButtonSetText( button, L"" );
+		button->winClearStatus( WIN_STATUS_HOTKEY_LABEL );
+		return;
+	}
+
+	GadgetButtonSetText( button, toUpperHotKeyLabel( hotKey ) );
+	button->winSetStatus( WIN_STATUS_HOTKEY_LABEL );
+}
 #endif
 
 //-------------------------------------------------------------------------------------------------
@@ -2541,16 +2611,7 @@ void ControlBar::setControlCommand( GameWindow *button, const CommandButton *com
 
 #ifdef __APPLE__
 		static const Bool s_showHotKeyLabels = OptionPreferences().getShowHotKeyLabels();
-
-		Bool isSpecialPowerShortcutButton = FALSE;
-		for (Int i = 0; i < MAX_SPECIAL_POWER_SHORTCUTS; ++i)
-			isSpecialPowerShortcutButton |= (m_specialPowerShortcutButtons[i] == button);
-
-		if (s_showHotKeyLabels && hotKey.isNotEmpty() && !isSpecialPowerShortcutButton)
-		{
-			GadgetButtonSetText(button, toUpperHotKeyLabel(hotKey));
-			button->winSetStatus(WIN_STATUS_HOTKEY_LABEL);
-		}
+		applyHotKeyLabel(button, s_showHotKeyLabels ? hotKey : AsciiString::TheEmptyString);
 #endif
 	}
 

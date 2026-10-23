@@ -59,6 +59,8 @@
 #ifdef __APPLE__
 #include "GameClient/GameFont.h"
 #include "GameClient/Color.h"
+#include "Common/Player.h"
+#include "GameClient/ControlBar.h"
 #endif
 
 
@@ -78,6 +80,70 @@ void W3DGadgetPushButtonImageDrawThree(GameWindow *window, WinInstanceData *inst
 void W3DGadgetPushButtonImageDrawOne(GameWindow *window, WinInstanceData *instData );
 
 // PRIVATE FUNCTIONS //////////////////////////////////////////////////////////
+
+#ifdef __APPLE__
+static void drawHotKeyBadge( GameWindow *window, DisplayString *text, Color textColor, Color dropColor )
+{
+	ICoord2D origin, size;
+	Int width, height;
+
+	window->winGetScreenPosition( &origin.x, &origin.y );
+	window->winGetSize( &size.x, &size.y );
+
+	const Int badgeSize = ( (size.x < size.y) ? size.x : size.y ) / 4;
+
+	if( TheFontLibrary )
+	{
+		GameFont *winFont = window->winGetFont();
+		AsciiString fontName = winFont ? winFont->nameString : AsciiString( "Arial" );
+		Int fontSize = ( badgeSize * 3 ) / 4;
+		if( fontSize < 8 )
+			fontSize = 8;
+		GameFont *badgeFont = TheFontLibrary->getFont( fontName, fontSize, TRUE );
+		if( badgeFont )
+			text->setFont( badgeFont );
+	}
+
+	text->getSize( &width, &height );
+
+	ICoord2D badgeOrigin;
+	badgeOrigin.x = origin.x;
+	badgeOrigin.y = origin.y + size.y - badgeSize;
+
+	TheDisplay->drawFillRect( badgeOrigin.x, badgeOrigin.y, badgeSize, badgeSize, GameMakeColor( 0, 0, 0, 160 ) );
+
+	UnsignedByte red, green, blue, alpha;
+	GameGetColorComponents( textColor, &red, &green, &blue, &alpha );
+	if( alpha == 0 )
+	{
+		textColor = GameMakeColor( 254, 254, 254, 255 );
+		dropColor = GameMakeColor( 0, 0, 0, 255 );
+	}
+
+	ICoord2D letterPos;
+	letterPos.x = badgeOrigin.x + ( badgeSize - width ) / 2;
+	letterPos.y = badgeOrigin.y + ( badgeSize - height ) / 2;
+	text->draw( letterPos.x, letterPos.y, textColor, dropColor );
+}
+
+static void drawSpecialPowerShortcutHotKeyBadge( GameWindow *window )
+{
+	if( !BitIsSet( window->winGetStatus(), WIN_STATUS_SHORTCUT_BUTTON ) )
+		return;
+
+	if( !BitIsSet( window->winGetStatus(), WIN_STATUS_HOTKEY_LABEL ) )
+		return;
+
+	if( TheControlBar == nullptr )
+		return;
+
+	DisplayString *hotKeyLabel = TheControlBar->findSpecialPowerShortcutHotKeyLabel( window );
+	if( hotKeyLabel == nullptr )
+		return;
+
+	drawHotKeyBadge( window, hotKeyLabel, GameMakeColor( 254, 254, 254, 255 ), GameMakeColor( 0, 0, 0, 255 ) );
+}
+#endif
 
 // drawButtonText =============================================================
 /** Draw button text to the screen */
@@ -122,42 +188,9 @@ static void drawButtonText( GameWindow *window, WinInstanceData *instData )
 		text->setFont( window->winGetFont() );
 
 #ifdef __APPLE__
-	if( BitIsSet( window->winGetStatus(), WIN_STATUS_HOTKEY_LABEL ) )
+	if( BitIsSet( window->winGetStatus(), WIN_STATUS_HOTKEY_LABEL ) && !BitIsSet( window->winGetStatus(), WIN_STATUS_SHORTCUT_BUTTON ) )
 	{
-		const Int badgeSize = ( (size.x < size.y) ? size.x : size.y ) / 4;
-
-		if( TheFontLibrary )
-		{
-			GameFont *winFont = window->winGetFont();
-			AsciiString fontName = winFont ? winFont->nameString : AsciiString( "Arial" );
-			Int fontSize = ( badgeSize * 3 ) / 4;
-			if( fontSize < 8 )
-				fontSize = 8;
-			GameFont *badgeFont = TheFontLibrary->getFont( fontName, fontSize, TRUE );
-			if( badgeFont )
-				text->setFont( badgeFont );
-		}
-
-		text->getSize( &width, &height );
-
-		ICoord2D badgeOrigin;
-		badgeOrigin.x = origin.x;
-		badgeOrigin.y = origin.y + size.y - badgeSize;
-
-		TheDisplay->drawFillRect( badgeOrigin.x, badgeOrigin.y, badgeSize, badgeSize, GameMakeColor( 0, 0, 0, 160 ) );
-
-		UnsignedByte red, green, blue, alpha;
-		GameGetColorComponents( textColor, &red, &green, &blue, &alpha );
-		if( alpha == 0 )
-		{
-			textColor = GameMakeColor( 254, 254, 254, 255 );
-			dropColor = GameMakeColor( 0, 0, 0, 255 );
-		}
-
-		ICoord2D letterPos;
-		letterPos.x = badgeOrigin.x + ( badgeSize - width ) / 2;
-		letterPos.y = badgeOrigin.y + ( badgeSize - height ) / 2;
-		text->draw( letterPos.x, letterPos.y, textColor, dropColor );
+		drawHotKeyBadge( window, text, textColor, dropColor );
 		return;
 	}
 #endif
@@ -444,6 +477,10 @@ void W3DGadgetPushButtonImageDrawOne( GameWindow *window,
 	// draw the button text
 	if( instData->getTextLength() )
 		drawButtonText( window, instData );
+
+#ifdef __APPLE__
+	drawSpecialPowerShortcutHotKeyBadge( window );
+#endif
 
 	// get window position
 	window->winGetScreenPosition( &start.x, &start.y );
