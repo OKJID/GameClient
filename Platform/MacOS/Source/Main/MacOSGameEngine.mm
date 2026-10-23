@@ -11,6 +11,8 @@
 #include "MacOSHostServices.h"
 #include "MacOSHotkeyApply.h"
 #include "MacOSHotkeyDump.h"
+#include "MacOSHotkeyExport.h"
+#include "MacOSHotkeyImport.h"
 #include "MacOSInstallPaths.h"
 
 #include "Utility/time_compat.h"
@@ -142,8 +144,17 @@ void MacOSGameEngine::init()
 
 	const char* hotkeyEditPath = MacOS_GetCommandLineValue(MacOSHotkeyApply::kFlag);
 	const char* hotkeyDumpPath = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag);
-	if (hotkeyEditPath == nullptr && hotkeyDumpPath == nullptr)
+	const char* hotkeyImportPath = MacOS_GetCommandLineValue(MacOSHotkeyImport::kFlag);
+	const char* hotkeyPresetPath = MacOS_GetCommandLineValue(MacOSHotkeyImport::kOutputFlag);
+	const char* hotkeyExportPath = MacOS_GetCommandLineValue(MacOSHotkeyExport::kFlag);
+	if (hotkeyEditPath == nullptr && hotkeyDumpPath == nullptr && hotkeyImportPath == nullptr && hotkeyExportPath == nullptr)
 		return;
+
+	if (hotkeyImportPath != nullptr && hotkeyPresetPath != nullptr)
+		MacOSHotkeyImport::write(NativeFileSystem::get_engine_path(hotkeyImportPath), NativeFileSystem::get_engine_path(hotkeyPresetPath));
+
+	if (hotkeyExportPath != nullptr)
+		MacOSHotkeyExport::write(NativeFileSystem::get_engine_path(hotkeyExportPath));
 
 	if (hotkeyEditPath != nullptr)
 		MacOSHotkeyApply::apply(NativeFileSystem::get_engine_path(hotkeyEditPath));

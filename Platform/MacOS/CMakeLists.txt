@@ -282,10 +282,13 @@ function(macos_platform_add_game_glue target)
 
     target_sources(${target} PRIVATE
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSGameEngine.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBigWriter.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCommandMapText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyApply.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyDump.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyEdits.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyExport.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyImport.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSPngWriter.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
@@ -303,9 +306,12 @@ function(macos_platform_add_game_glue target)
     )
 
     set_source_files_properties(
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSBigWriter.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSCommandMapText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyApply.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyDump.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyExport.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyImport.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
         PROPERTIES

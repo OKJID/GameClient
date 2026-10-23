@@ -196,6 +196,7 @@ class GameTextManager : public GameTextInterface
 		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) override;
 		virtual Bool					setLabelText( const Char *label, const UnicodeString &text ) override;
 		virtual Bool					writeTable( const Char *path ) override;
+		virtual Bool					readTable( const Char *path, AsciiStringVec &labels, std::vector<UnicodeString> &texts ) override;
 #endif
 
 	protected:
@@ -1791,6 +1792,35 @@ Bool GameTextManager::writeTable( const Char *path )
 	const Bool isWritten = ferror( file ) == 0;
 	fclose( file );
 	return isWritten;
+}
+
+//============================================================================
+// GameTextManager::readTable
+//============================================================================
+
+Bool GameTextManager::readTable( const Char *path, AsciiStringVec &labels, std::vector<UnicodeString> &texts )
+{
+	StringInfo *activeStringInfo = m_stringInfo;
+	Int activeTextCount = m_textCount;
+	LanguageID activeLanguage = m_language;
+
+	m_stringInfo = nullptr;
+
+	const TextSourceSpec spec = { AsciiString( path ), TEXT_FILE_ANY, FALSE };
+	const Bool loaded = loadPrimaryTable( spec );
+
+	for ( Int i = 0; loaded && i < m_textCount; ++i )
+	{
+		labels.push_back( m_stringInfo[i].label );
+		texts.push_back( m_stringInfo[i].text );
+	}
+
+	delete [] m_stringInfo;
+	m_stringInfo = activeStringInfo;
+	m_textCount = activeTextCount;
+	m_language = activeLanguage;
+
+	return loaded;
 }
 #endif
 

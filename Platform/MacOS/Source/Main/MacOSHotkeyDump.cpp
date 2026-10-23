@@ -4,6 +4,7 @@
 
 #include "MacOSHotkeyDump.h"
 #include "MacOSHotkeyText.h"
+#include "MacOSJsonWriter.h"
 #include "MacOSPngWriter.h"
 
 #include "Common/AsciiString.h"
@@ -82,110 +83,7 @@ namespace
 		{ GameMessage::MSG_META_DECREASE_LOGIC_TIME_SCALE, kOfflineOnly, false },
 	};
 
-	class JsonWriter
-	{
-		FILE* m_file;
-
-	public:
-		explicit JsonWriter( FILE* file ) : m_file( file ) {}
-
-		void beginObject() { openScope( '{' ); }
-		void endObject() { closeScope( '}' ); }
-		void beginArray() { openScope( '[' ); }
-		void endArray() { closeScope( ']' ); }
-
-		void key( const char* name )
-		{
-			separate();
-			writeQuoted( name );
-			fputc( ':', m_file );
-			m_isAfterKey = true;
-		}
-
-		void text( const char* value )
-		{
-			separate();
-			writeQuoted( value );
-		}
-
-		void number( Int value )
-		{
-			separate();
-			fprintf( m_file, "%d", value );
-		}
-
-		void boolean( bool value )
-		{
-			separate();
-			fputs( value ? "true" : "false", m_file );
-		}
-
-		void null()
-		{
-			separate();
-			fputs( "null", m_file );
-		}
-
-	private:
-		std::vector<bool> m_scopeHasItems;
-		bool m_isAfterKey = false;
-
-		void openScope( char bracket )
-		{
-			separate();
-			fputc( bracket, m_file );
-			m_scopeHasItems.push_back( false );
-		}
-
-		void closeScope( char bracket )
-		{
-			m_scopeHasItems.pop_back();
-			fputc( bracket, m_file );
-		}
-
-		void separate()
-		{
-			if ( m_isAfterKey )
-			{
-				m_isAfterKey = false;
-				return;
-			}
-
-			if ( m_scopeHasItems.empty() )
-				return;
-
-			if ( m_scopeHasItems.back() )
-				fputc( ',', m_file );
-
-			m_scopeHasItems.back() = true;
-		}
-
-		void writeQuoted( const char* value )
-		{
-			fputc( '"', m_file );
-			for ( const unsigned char* c = (const unsigned char*)value; *c; ++c )
-				writeEscaped( *c );
-			fputc( '"', m_file );
-		}
-
-		void writeEscaped( unsigned char c )
-		{
-			if ( c == '"' || c == '\\' )
-			{
-				fputc( '\\', m_file );
-				fputc( c, m_file );
-				return;
-			}
-
-			if ( c < 0x20 )
-			{
-				fprintf( m_file, "\\u%04x", c );
-				return;
-			}
-
-			fputc( c, m_file );
-		}
-	};
+	using JsonWriter = MacOSJsonWriter;
 
 	void appendUtf8( std::string& out, UnsignedInt codePoint )
 	{
@@ -710,6 +608,14 @@ namespace
 		Int panelCount() const { return (Int)m_panels.size(); }
 		Int hotkeyCount() const { return (Int)m_hotkeys.size(); }
 
+		std::vector<std::string> labels() const
+		{
+			std::vector<std::string> names;
+			for ( const std::pair<const std::string, HotkeyString>& entry : m_hotkeys )
+				names.push_back( entry.first );
+			return names;
+		}
+
 		Int iconCount() const
 		{
 			Int count = 0;
@@ -1176,6 +1082,13 @@ bool MacOSHotkeyDump::write( const std::string& path )
 
 	DEBUG_INFO_MAC(( "HotkeyDump - %d sides, %d panels, %d hotkeys, %d icons written to %s", catalog.sideCount(), catalog.panelCount(), catalog.hotkeyCount(), catalog.iconCount(), path.c_str() ));
 	return true;
+}
+
+std::vector<std::string> MacOSHotkeyDump::buttonLabels()
+{
+	HotkeyCatalog catalog;
+	catalog.collect();
+	return catalog.labels();
 }
 
 std::string MacOSHotkeyDump::profileRoot()

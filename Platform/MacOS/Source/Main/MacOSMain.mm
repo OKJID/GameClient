@@ -47,6 +47,8 @@
 #include "MacOSHostServices.h"
 #include "MacOSHotkeyApply.h"
 #include "MacOSHotkeyDump.h"
+#include "MacOSHotkeyExport.h"
+#include "MacOSHotkeyImport.h"
 
 #if defined(RTS_ZEROHOUR)
 #include "GameNetwork/GeneralsOnline/OnlineServices_Init.h"
@@ -359,7 +361,9 @@ int main(int argc, char* argv[]) {
     @autoreleasepool {
         NSApplication* app = [NSApplication sharedApplication];
         const bool isHotkeyRun = MacOS_GetCommandLineValue(MacOSHotkeyDump::kFlag) != nullptr
-            || MacOS_GetCommandLineValue(MacOSHotkeyApply::kFlag) != nullptr;
+            || MacOS_GetCommandLineValue(MacOSHotkeyApply::kFlag) != nullptr
+            || MacOS_GetCommandLineValue(MacOSHotkeyImport::kFlag) != nullptr
+            || MacOS_GetCommandLineValue(MacOSHotkeyExport::kFlag) != nullptr;
         [app setActivationPolicy:isHotkeyRun ? NSApplicationActivationPolicyAccessory : NSApplicationActivationPolicyRegular]; // Force foreground application even from terminal
         
         GeneralsAppDelegate* delegate = [[GeneralsAppDelegate alloc] init];

@@ -90,6 +90,7 @@ class GameTextInterface : public SubsystemInterface
 		virtual Bool					findLabelSource( const Char *label, AsciiString &filename, AsciiString &layer ) { return FALSE; }
 		virtual Bool					setLabelText( const Char *label, const UnicodeString &text ) { return FALSE; }
 		virtual Bool					writeTable( const Char *path ) { return FALSE; }
+		virtual Bool					readTable( const Char *path, AsciiStringVec &labels, std::vector<UnicodeString> &texts ) { return FALSE; }
 #endif
 
 #if __cplusplus < 201103L // TheSuperHackers @todo Remove function when abandoning VC6
