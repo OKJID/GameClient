@@ -18,6 +18,7 @@ final class HotkeyEditorModel: ObservableObject {
 
     let files: HotkeyFiles
     let presetsFolder: URL
+    private let installRoot: String
     private let launch: HotkeyEngineLaunch?
     private let isMapScrollOnWASD: Bool
 
@@ -39,9 +40,10 @@ final class HotkeyEditorModel: ObservableObject {
     private var presetDraftEdits: HotkeyEdits?
     private var savedPresetState: HotkeyPresetState?
 
-    init(files: HotkeyFiles, presetsFolder: URL, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool) {
+    init(files: HotkeyFiles, presetsFolder: URL, installRoot: String, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool) {
         self.files = files
         self.presetsFolder = presetsFolder
+        self.installRoot = installRoot
         self.launch = launch
         self.isMapScrollOnWASD = isMapScrollOnWASD
         self.edits = files.loadEdits()
@@ -70,7 +72,11 @@ final class HotkeyEditorModel: ObservableObject {
     }
 
     private var appliedPreset: HotkeyPresetState {
-        savedPresetState ?? HotkeyPresetState(name: nil, isModified: hasOriginals)
+        guard let savedPresetState, savedPresetState.belongs(to: installRoot) else {
+            return HotkeyPresetState(name: nil, isModified: hasOriginals)
+        }
+
+        return savedPresetState
     }
 
     func select(_ section: HotkeySection) {
@@ -95,7 +101,7 @@ final class HotkeyEditorModel: ObservableObject {
         guard hasEdits, !isBusy, let launch else { return }
 
         stopCapture()
-        let appliedState = HotkeyPresetState(name: presetName, isModified: isPresetModified)
+        let appliedState = HotkeyPresetState(name: presetName, isModified: isPresetModified, root: installRoot)
         phase = .applying
         HotkeyEngineRunner.apply(launch, files: files) { [weak self] isDumpFresh in
             guard let self else { return }
@@ -122,8 +128,9 @@ final class HotkeyEditorModel: ObservableObject {
         if let dump {
             files.restoreOriginals(of: dump)
         }
-        files.removePresetState()
-        savedPresetState = nil
+        let standardState = HotkeyPresetState(name: nil, isModified: false, root: installRoot)
+        files.savePresetState(standardState)
+        savedPresetState = standardState
         replaceEdits(with: HotkeyEdits())
         forgetDraftPreset()
         refresh()
@@ -170,6 +177,18 @@ final class HotkeyEditorModel: ObservableObject {
                 ? .saved(fileName: destination.lastPathComponent)
                 : .saveFailed(fileName: destination.lastPathComponent)
         }
+    }
+
+    @discardableResult
+    func deleteOwnPreset(_ entry: HotkeyPresetEntry) -> Bool {
+        guard !entry.isShipped, !isBusy else { return false }
+        guard HotkeyPresetStore.moveOwnToTrash(entry.url) else {
+            presetOutcome = .deleteFailed(fileName: entry.title)
+            return false
+        }
+
+        reloadPresets()
+        return true
     }
 
     func reloadPresets() {

@@ -56,11 +56,15 @@ class LauncherViewModel: ObservableObject {
         didSet {
             UserDefaults.standard.set(activeTab.rawValue, forKey: LauncherViewModel.activeTabKey)
             invalidateValidation()
+            syncHotkeyPresetsToInstall()
         }
     }
     @Published var selectedGameID: GameID = GameProfile.selectedID
     @Published var installPath: String = UserDefaults.standard.string(forKey: "GENERALS_INSTALL_PATH") ?? "" {
-        didSet { invalidateValidation() }
+        didSet {
+            invalidateValidation()
+            syncHotkeyPresetsToInstall()
+        }
     }
     @Published var isLaunching: Bool = false
     @Published var alertMessage: String? = nil
@@ -153,6 +157,7 @@ class LauncherViewModel: ObservableObject {
     var modInstaller = ModInstaller()
     var localeInstaller = LocaleInstaller()
     var hotkeyPresetInstaller = HotkeyPresetInstaller()
+    var hotkeyPresetReapplier = HotkeyPresetReapplier()
     var updateChecker = UpdateChecker()
     var launcherUpdater = LauncherUpdater()
     var announcements = AnnouncementsFeed()
@@ -269,6 +274,7 @@ class LauncherViewModel: ObservableObject {
             .sink { [weak self] state in
                 guard !state.isRunning else { return }
                 self?.invalidateValidation()
+                self?.syncHotkeyPresetsToInstall()
             }
             .store(in: &cancellables)
 
@@ -299,6 +305,7 @@ class LauncherViewModel: ObservableObject {
 
         self.isInitializing = false
         apiSync.start()
+        syncHotkeyPresetsToInstall()
 
         Analytics.logOpen(
             uiLanguage: selectedLanguage,
@@ -967,6 +974,28 @@ class LauncherViewModel: ObservableObject {
 
     func syncHotkeyPresets(_ package: HotkeyPresetPackage?) {
         hotkeyPresetInstaller.syncIfNeeded(package, targets: patchTargets)
+    }
+
+    func hotkeyInstallRoot(for profile: GameProfile) -> URL? {
+        _hotkeyProfileRoot(for: profile)?.resolvingSymlinksInPath()
+    }
+
+    func syncHotkeyPresetsToInstall() {
+        guard !isInitializing else { return }
+
+        let profiles = GameProfile.baseGames + GameProfile.mods
+        hotkeyPresetReapplier.sync(profiles.compactMap(_hotkeyReapplyJob(for:)))
+    }
+
+    private func _hotkeyReapplyJob(for profile: GameProfile) -> HotkeyReapplyJob? {
+        guard let installRoot = hotkeyInstallRoot(for: profile),
+              FileManager.default.fileExists(atPath: installRoot.path),
+              let files = hotkeyFiles(for: profile),
+              let launch = hotkeyEngineLaunch(for: profile) else {
+            return nil
+        }
+
+        return HotkeyReapplyJob(profile: profile, files: files, launch: launch, installRoot: installRoot)
     }
 
     func hotkeyEngineLaunch(for profile: GameProfile) -> HotkeyEngineLaunch? {

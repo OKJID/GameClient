@@ -68,16 +68,29 @@ struct HotkeyPresetEntry: Identifiable {
 struct HotkeyPresetState: Codable, Equatable {
     var name: String?
     var isModified: Bool
+    var root: String?
+
+    func belongs(to installRoot: String) -> Bool {
+        root == installRoot
+    }
 }
 
 enum HotkeyPresetOutcome: Equatable {
     case saved(fileName: String)
     case saveFailed(fileName: String)
     case importFailed(fileName: String)
+    case deleteFailed(fileName: String)
 }
 
 enum HotkeyPresetMatcher {
     private static let buttonLetters = Set("ABCDEFGHIJKLMNOPQRSTUVWXYZ".map(String.init))
+
+    static func edits(of preset: HotkeyPreset) -> HotkeyEdits {
+        var edits = HotkeyEdits()
+        edits.hotkeys = preset.hotkeys.filter { isButtonLetter($0.value) }
+        edits.globals = preset.globals
+        return edits
+    }
 
     static func merged(_ preset: HotkeyPreset, into edits: HotkeyEdits, against dump: HotkeyDump) -> HotkeyEdits {
         var merged = edits

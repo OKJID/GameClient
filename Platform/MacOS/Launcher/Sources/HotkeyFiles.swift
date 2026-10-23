@@ -9,6 +9,7 @@ struct HotkeyFiles {
     var editURL: URL { directory.appendingPathComponent("hotkey-dump-edit.json") }
     var presetStateURL: URL { directory.appendingPathComponent("hotkey-preset.json") }
     var importURL: URL { directory.appendingPathComponent("hotkey-import.json") }
+    var reapplyURL: URL { directory.appendingPathComponent("hotkey-reapply.json") }
 
     func iconURL(_ relativePath: String) -> URL {
         directory.appendingPathComponent(relativePath)
@@ -49,21 +50,28 @@ struct HotkeyFiles {
         try? data.write(to: presetStateURL, options: .atomic)
     }
 
-    func removePresetState() {
-        try? FileManager.default.removeItem(at: presetStateURL)
+    func saveReapplyEdits(_ edits: HotkeyEdits) -> Bool {
+        guard let data = try? JSONEncoder().encode(edits) else { return false }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return (try? data.write(to: reapplyURL, options: .atomic)) != nil
     }
 
     func hasOriginals(of dump: HotkeyDump) -> Bool {
-        targets(of: dump).contains { FileManager.default.fileExists(atPath: originalURL(of: $0).path) }
+        targets(of: dump, root: URL(fileURLWithPath: dump.targets.root))
+            .contains { FileManager.default.fileExists(atPath: originalURL(of: $0).path) }
     }
 
     @discardableResult
     func restoreOriginals(of dump: HotkeyDump) -> Int {
-        targets(of: dump).filter { restoreOriginal(of: $0) }.count
+        restoreOriginals(of: dump, root: URL(fileURLWithPath: dump.targets.root))
     }
 
-    private func targets(of dump: HotkeyDump) -> [URL] {
-        let root = URL(fileURLWithPath: dump.targets.root)
+    @discardableResult
+    func restoreOriginals(of dump: HotkeyDump, root: URL) -> Int {
+        targets(of: dump, root: root).filter { restoreOriginal(of: $0) }.count
+    }
+
+    private func targets(of dump: HotkeyDump, root: URL) -> [URL] {
         let sourceFiles = dump.globals.values.compactMap { $0.source?.file }
         let files = Set([dump.targets.strings, dump.targets.globals] + sourceFiles)
 

@@ -12,7 +12,11 @@ enum HotkeyEngineRunner {
     }
 
     static func apply(_ launch: HotkeyEngineLaunch, files: HotkeyFiles, completion: @escaping (Bool) -> Void) {
-        let arguments = ["-applyHotkeys", files.editURL.path, "-dumpHotkeys", files.dumpURL.path]
+        apply(launch, edits: files.editURL, files: files, completion: completion)
+    }
+
+    static func apply(_ launch: HotkeyEngineLaunch, edits: URL, files: HotkeyFiles, completion: @escaping (Bool) -> Void) {
+        let arguments = ["-applyHotkeys", edits.path, "-dumpHotkeys", files.dumpURL.path]
         run(launch, extraArguments: arguments, output: files.dumpURL, completion: completion)
     }
 

@@ -24,6 +24,7 @@ struct HotkeyEditorPage: View {
         _editor = StateObject(wrappedValue: HotkeyEditorModel(
             files: files,
             presetsFolder: viewModel.selectedProfile.hotkeyPresetsDirURL,
+            installRoot: viewModel.hotkeyInstallRoot(for: viewModel.selectedProfile)?.path ?? "",
             launch: viewModel.hotkeyEngineLaunch(for: viewModel.selectedProfile),
             isMapScrollOnWASD: viewModel.wasdMapScroll
         ))
@@ -66,6 +67,13 @@ struct HotkeyEditorPage: View {
 
     private func _requestRestoreOriginal() {
         isConfirmingReset = true
+    }
+
+    private func _deletePreset(_ entry: HotkeyPresetEntry) {
+        let isCurrent = entry.name == editor.presetName
+        guard editor.deleteOwnPreset(entry), isCurrent else { return }
+
+        _selectStandardPreset()
     }
 
     private var ownPresetTypes: [UTType] {
@@ -170,6 +178,7 @@ struct HotkeyEditorPage: View {
                     ownPresets: editor.ownPresets,
                     onStandard: _selectStandardPreset,
                     onPreset: { entry in _closePresetPicker { editor.applyPreset(entry) } },
+                    onDelete: _deletePreset,
                     onImport: { _closePresetPicker(then: _chooseImportFile) },
                     onExport: { fileExtension in _closePresetPicker { _chooseExportDestination(fileExtension: fileExtension) } },
                     onOpenFolder: { _closePresetPicker(then: _openPresetFolder) }
@@ -250,6 +259,8 @@ struct HotkeyEditorPage: View {
             _buildOutcomeText(String(format: L10n.hotkeys.presetSaveFailed, fileName), color: warning)
         case .importFailed(let fileName):
             _buildOutcomeText(String(format: L10n.hotkeys.presetImportFailed, fileName), color: warning)
+        case .deleteFailed(let fileName):
+            _buildOutcomeText(String(format: L10n.hotkeys.presetDeleteFailed, fileName), color: warning)
         case nil:
             EmptyView()
         }

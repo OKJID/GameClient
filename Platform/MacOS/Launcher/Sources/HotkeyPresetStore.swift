@@ -20,6 +20,17 @@ enum HotkeyPresetStore {
         return (shipped + own).sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    static func entry(named name: String, in folder: URL) -> HotkeyPresetEntry? {
+        files(in: folder).lazy.compactMap { url -> HotkeyPresetEntry? in
+            let extensionName = url.pathExtension.lowercased()
+            if extensionName == shippedExtension {
+                return load(url).map { HotkeyPresetEntry(url: url, kind: .shipped($0)) }
+            }
+            return ownExtensions.contains(extensionName) ? HotkeyPresetEntry(url: url, kind: .own) : nil
+        }
+        .first { $0.name == name }
+    }
+
     static func load(_ url: URL) -> HotkeyPreset? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(HotkeyPreset.self, from: data)
@@ -55,6 +66,11 @@ enum HotkeyPresetStore {
         } catch {
             return nil
         }
+    }
+
+    static func moveOwnToTrash(_ url: URL) -> Bool {
+        guard ownExtensions.contains(url.pathExtension.lowercased()) else { return false }
+        return (try? FileManager.default.trashItem(at: url, resultingItemURL: nil)) != nil
     }
 
     static func shippedFiles(in folder: URL) -> [URL] {

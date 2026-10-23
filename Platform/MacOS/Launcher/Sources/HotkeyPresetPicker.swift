@@ -64,11 +64,12 @@ struct HotkeyPresetDropdown: View {
     let ownPresets: [HotkeyPresetEntry]
     let onStandard: () -> Void
     let onPreset: (HotkeyPresetEntry) -> Void
+    let onDelete: (HotkeyPresetEntry) -> Void
     let onImport: () -> Void
     let onExport: (String) -> Void
     let onOpenFolder: () -> Void
 
-    private let width: CGFloat = 320
+    private let width: CGFloat = 360
     private let panelColor = Color(red: 0.07, green: 0.08, blue: 0.1)
 
     var body: some View {
@@ -80,8 +81,8 @@ struct HotkeyPresetDropdown: View {
                 accent: accent,
                 action: onStandard
             )
-            _buildSection(L10n.hotkeys.presetsShipped, entries: shippedPresets)
-            _buildSection(L10n.hotkeys.presetsMine, entries: ownPresets)
+            _buildSection(L10n.hotkeys.presetsShipped, entries: shippedPresets, isDeletable: false)
+            _buildSection(L10n.hotkeys.presetsMine, entries: ownPresets, isDeletable: true)
             _buildDivider()
             HotkeyPresetRow(title: L10n.hotkeys.presetImport, systemImage: "square.and.arrow.down", isCurrent: false, accent: accent, action: onImport)
             HotkeyPresetRow(title: L10n.hotkeys.presetSaveCsf, systemImage: "square.and.arrow.up", isCurrent: false, accent: accent) {
@@ -103,7 +104,7 @@ struct HotkeyPresetDropdown: View {
     }
 
     @ViewBuilder
-    private func _buildSection(_ title: String, entries: [HotkeyPresetEntry]) -> some View {
+    private func _buildSection(_ title: String, entries: [HotkeyPresetEntry], isDeletable: Bool) -> some View {
         if !entries.isEmpty {
             _buildDivider()
             Text(title.uppercased())
@@ -117,7 +118,8 @@ struct HotkeyPresetDropdown: View {
                     title: entry.title,
                     systemImage: nil,
                     isCurrent: entry.name == currentName,
-                    accent: accent
+                    accent: accent,
+                    onDelete: isDeletable ? { onDelete(entry) } : nil
                 ) {
                     onPreset(entry)
                 }
@@ -138,26 +140,36 @@ private struct HotkeyPresetRow: View {
     let systemImage: String?
     let isCurrent: Bool
     let accent: Color
+    var onDelete: (() -> Void)? = nil
     let action: () -> Void
 
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                _buildLeadingMark()
-                Text(title)
-                    .font(.system(size: 12, weight: isCurrent ? .black : .semibold, design: .monospaced))
-                    .foregroundColor(isCurrent ? accent : .white.opacity(0.85))
-                    .lineLimit(1)
-                Spacer(minLength: 0)
+        HStack(spacing: 0) {
+            Button(action: action) {
+                HStack(spacing: 8) {
+                    _buildLeadingMark()
+                    Text(title)
+                        .font(.system(size: 12, weight: isCurrent ? .black : .semibold, design: .monospaced))
+                        .foregroundColor(isCurrent ? accent : .white.opacity(0.85))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Spacer(minLength: 0)
+                }
+                .padding(.leading, 10)
+                .padding(.trailing, onDelete == nil ? 10 : 4)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 5).fill(isHovered ? accent.opacity(0.16) : Color.clear))
-            .contentShape(RoundedRectangle(cornerRadius: 5))
+            .buttonStyle(PlainButtonStyle())
+
+            if let onDelete {
+                HotkeyPresetDeleteButton(action: onDelete)
+            }
         }
-        .buttonStyle(PlainButtonStyle())
+        .background(RoundedRectangle(cornerRadius: 5).fill(isHovered ? accent.opacity(0.16) : Color.clear))
+        .contentShape(RoundedRectangle(cornerRadius: 5))
         .onHover { inside in
             isHovered = inside
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
@@ -170,5 +182,29 @@ private struct HotkeyPresetRow: View {
             .foregroundColor(systemImage == nil ? accent : .white.opacity(0.6))
             .opacity(systemImage != nil || isCurrent ? 1 : 0)
             .frame(width: 14)
+    }
+}
+
+private struct HotkeyPresetDeleteButton: View {
+    let action: () -> Void
+
+    @State private var isHovered = false
+
+    private let danger = Color(red: 1.0, green: 0.38, blue: 0.38)
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "trash")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(isHovered ? danger : .white.opacity(0.4))
+                .frame(width: 30, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PlainButtonStyle())
+        .help(L10n.hotkeys.presetDelete)
+        .onHover { inside in
+            isHovered = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
     }
 }
