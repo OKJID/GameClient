@@ -9,6 +9,7 @@
 #include "Common/ArchiveFile.h"
 #include "Common/ArchiveFileSystem.h"
 #include "Common/Debug.h"
+#include "Common/FileSystem.h"
 #include "Common/Registry.h"
 #include "Common/System/NativeFileSystem.h"
 #include "Common/file.h"
@@ -27,6 +28,7 @@ namespace
 	const char* const kArchiveExtension = ".big";
 	const char* const kExtractedTableSuffix = ".csf";
 	const char* const kArchivedTablePattern = "data\\%s\\generals.csf";
+	const char* const kTableFileName = "generals.csf";
 	const char* const kFallbackLanguage = "english";
 
 	using TextsByLabel = std::map<std::string, UnicodeString>;
@@ -84,6 +86,16 @@ namespace
 		return lowerCase( name.str() );
 	}
 
+	File* openAnyArchivedTable( ArchiveFile& archive, Int access )
+	{
+		FilenameList tables;
+		archive.getFileListInDirectory( AsciiString::TheEmptyString, AsciiString::TheEmptyString, AsciiString( kTableFileName ), tables, TRUE );
+		if ( tables.empty() )
+			return nullptr;
+
+		return archive.openFile( tables.begin()->str(), access );
+	}
+
 	File* openArchivedTable( ArchiveFile& archive )
 	{
 		const Int access = File::READ | File::BINARY;
@@ -93,7 +105,11 @@ namespace
 		if ( table != nullptr )
 			return table;
 
-		return archive.openFile( archivedTableName( kFallbackLanguage ).c_str(), access );
+		table = archive.openFile( archivedTableName( kFallbackLanguage ).c_str(), access );
+		if ( table != nullptr )
+			return table;
+
+		return openAnyArchivedTable( archive, access );
 	}
 
 	bool copyToFile( File& source, const std::string& enginePath )
