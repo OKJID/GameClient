@@ -31,7 +31,7 @@ extension SettingKey {
 
     var topic: SettingTopic {
         switch self {
-        case .gameLanguage, .windowedEdgeScroll, .showHotkeyLabels, .wasdMapScroll: return .interface
+        case .gameLanguage, .windowedEdgeScroll, .showHotkeyLabels, .wasdMapScroll, .commandAsControl: return .interface
         case .cameraMaxHeight, .cameraMaxHeightLocal, .cameraMinHeight, .cameraSpeed: return .camera
         case .limitFramerate, .fpsLimit, .statsOverlay: return .performance
         case .altEndpoint: return .network
@@ -82,6 +82,8 @@ struct SettingRow: View {
             )
         case .wasdMapScroll:
             _buildToggle(L10n.settings.wasdMapScroll, L10n.settings.wasdMapScrollDesc, $viewModel.wasdMapScroll)
+        case .commandAsControl:
+            _buildToggle(L10n.settings.commandAsControl, L10n.settings.commandAsControlDesc, $viewModel.commandAsControl)
         case .cameraMaxHeight:
             _buildSlider(
                 L10n.settings.cameraMaxHeight, $viewModel.cameraMaxHeight,

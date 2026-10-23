@@ -4,6 +4,7 @@ struct SettingsDefaults {
     static let isWindowedEdgeScrollEnabled = false
     static let showHotkeyLabels = false
     static let wasdMapScroll = false
+    static let commandAsControl = false
     static let gameLanguage = "english"
     
     static let cameraMinHeight: Double = 210.0

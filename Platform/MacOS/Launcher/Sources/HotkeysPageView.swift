@@ -26,7 +26,8 @@ struct HotkeyEditorPage: View {
             presetsFolder: viewModel.selectedProfile.hotkeyPresetsDirURL,
             installRoot: viewModel.hotkeyInstallRoot(for: viewModel.selectedProfile)?.path ?? "",
             launch: viewModel.hotkeyEngineLaunch(for: viewModel.selectedProfile),
-            isMapScrollOnWASD: viewModel.wasdMapScroll
+            isMapScrollOnWASD: viewModel.wasdMapScroll,
+            isCommandControl: viewModel.commandAsControl
         ))
     }
 

@@ -21,6 +21,7 @@ final class HotkeyEditorModel: ObservableObject {
     private let installRoot: String
     private let launch: HotkeyEngineLaunch?
     private let isMapScrollOnWASD: Bool
+    let isCommandControl: Bool
 
     @Published private(set) var dump: HotkeyDump?
     @Published private(set) var labelUsage: HotkeyLabelUsage?
@@ -40,12 +41,13 @@ final class HotkeyEditorModel: ObservableObject {
     private var presetDraftEdits: HotkeyEdits?
     private var savedPresetState: HotkeyPresetState?
 
-    init(files: HotkeyFiles, presetsFolder: URL, installRoot: String, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool) {
+    init(files: HotkeyFiles, presetsFolder: URL, installRoot: String, launch: HotkeyEngineLaunch?, isMapScrollOnWASD: Bool, isCommandControl: Bool) {
         self.files = files
         self.presetsFolder = presetsFolder
         self.installRoot = installRoot
         self.launch = launch
         self.isMapScrollOnWASD = isMapScrollOnWASD
+        self.isCommandControl = isCommandControl
         self.edits = files.loadEdits()
         self.savedPresetState = files.loadPresetState()
         reloadDump()
@@ -281,7 +283,7 @@ final class HotkeyEditorModel: ObservableObject {
     private func captureChord(_ event: NSEvent, forGlobal id: String) {
         guard let key = HotkeyKeyNames.engineKey(of: event) else { return }
 
-        let modifiers = HotkeyKeyNames.modifiers(of: event.modifierFlags)
+        let modifiers = HotkeyKeyNames.modifiers(of: event.modifierFlags, isCommandControl: isCommandControl)
         setChord(HotkeyEdits.GlobalKeyEdit(key: key, modifiers: modifiers), forGlobal: id)
         stopCapture()
     }

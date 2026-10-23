@@ -67,7 +67,7 @@ extension HotkeyEditorModel {
 
         switch target {
         case .label(let label): return keymap.key(ofLabel: label)
-        case .global(let id): return HotkeyKeyNames.title(ofChord: keymap.chord(ofGlobal: id))
+        case .global(let id): return HotkeyKeyNames.title(ofChord: keymap.chord(ofGlobal: id), isCommandControl: isCommandControl)
         }
     }
 
@@ -77,7 +77,7 @@ extension HotkeyEditorModel {
             return dump?.hotkeys[label]?.key ?? ""
         case .global(let id):
             guard let global = dump?.globals[id] else { return "" }
-            return HotkeyKeyNames.title(ofChord: HotkeyEdits.GlobalKeyEdit(key: global.key, modifiers: global.modifiers))
+            return HotkeyKeyNames.title(ofChord: HotkeyEdits.GlobalKeyEdit(key: global.key, modifiers: global.modifiers), isCommandControl: isCommandControl)
         }
     }
 

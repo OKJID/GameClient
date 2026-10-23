@@ -101,6 +101,12 @@ class LauncherViewModel: ObservableObject {
             reportSettingChange("wasd_map_scroll", wasdMapScroll)
         }
     }
+    @Published var commandAsControl: Bool = SettingsDefaults.commandAsControl {
+        didSet {
+            OptionsIniHelper.writeValue(value: commandAsControl ? "yes" : "no", forKey: "CommandAsControl")
+            reportSettingChange("command_as_control", commandAsControl)
+        }
+    }
     @Published var gameLanguage: String = SettingsDefaults.gameLanguage {
         didSet {
             guard !isInitializing else { return }
@@ -327,6 +333,7 @@ class LauncherViewModel: ObservableObject {
         isWindowedEdgeScrollEnabled = OptionsIniHelper.readValue(forKey: "ScreenEdgeScrollEnabledInWindowedApp") == "yes"
         showHotkeyLabels = OptionsIniHelper.readValue(forKey: "ShowHotKeyLabels") == "yes"
         wasdMapScroll = OptionsIniHelper.readValue(forKey: "WASDMapScroll") == "yes"
+        commandAsControl = OptionsIniHelper.readValue(forKey: "CommandAsControl") == "yes"
         verboseLogging = OptionsIniHelper.readValue(forKey: "VerboseEngineLogging") == "yes"
         gameLanguage = OptionsIniHelper.readValue(forKey: "Language") ?? SettingsDefaults.gameLanguage
 
@@ -439,6 +446,7 @@ class LauncherViewModel: ObservableObject {
         isWindowedEdgeScrollEnabled = SettingsDefaults.isWindowedEdgeScrollEnabled
         showHotkeyLabels = SettingsDefaults.showHotkeyLabels
         wasdMapScroll = SettingsDefaults.wasdMapScroll
+        commandAsControl = SettingsDefaults.commandAsControl
         gameLanguage = SettingsDefaults.gameLanguage
         cameraMinHeight = SettingsDefaults.cameraMinHeight
         cameraMaxHeight = SettingsDefaults.cameraMaxHeight

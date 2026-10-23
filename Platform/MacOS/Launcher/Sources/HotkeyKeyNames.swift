@@ -41,6 +41,8 @@ enum HotkeyKeyNames {
     private static let modifierTitles: [String: String] = [
         "CTRL": "Ctrl", "ALT": "Alt", "SHIFT": "Shift"
     ]
+    private static let controlModifier = "CTRL"
+    private static let commandTitle = "⌘"
 
     static func isEscape(_ event: NSEvent) -> Bool {
         event.keyCode == escapeKeyCode
@@ -63,8 +65,10 @@ enum HotkeyKeyNames {
         return letter
     }
 
-    static func modifiers(of flags: NSEvent.ModifierFlags) -> String {
-        switch (flags.contains(.shift), flags.contains(.option), flags.contains(.control)) {
+    static func modifiers(of flags: NSEvent.ModifierFlags, isCommandControl: Bool) -> String {
+        let isControl = isCommandControl ? flags.contains(.command) : flags.contains(.control)
+
+        switch (flags.contains(.shift), flags.contains(.option), isControl) {
         case (false, false, false): return noModifiers
         case (true, false, false): return "SHIFT"
         case (false, true, false): return "ALT"
@@ -76,10 +80,18 @@ enum HotkeyKeyNames {
         }
     }
 
-    static func title(ofChord chord: HotkeyEdits.GlobalKeyEdit) -> String {
+    static func title(ofChord chord: HotkeyEdits.GlobalKeyEdit, isCommandControl: Bool) -> String {
         let modifiers = chord.modifiers == noModifiers ? [] : chord.modifiers.split(separator: "_").map(String.init)
-        let parts = modifiers.map { modifierTitles[$0] ?? $0 } + [title(ofKey: chord.key)]
+        let parts = modifiers.map { title(ofModifier: $0, isCommandControl: isCommandControl) } + [title(ofKey: chord.key)]
         return parts.joined(separator: separator)
+    }
+
+    private static func title(ofModifier modifier: String, isCommandControl: Bool) -> String {
+        if isCommandControl && modifier == controlModifier {
+            return commandTitle
+        }
+
+        return modifierTitles[modifier] ?? modifier
     }
 
     static func title(ofKey key: String) -> String {
