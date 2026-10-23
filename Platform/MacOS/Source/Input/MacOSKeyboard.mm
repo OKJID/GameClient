@@ -1,6 +1,10 @@
 #include "MacOSKeyboard.h"
+#include "Common/OptionPreferences.h"
 #include "GameClient/KeyDefs.h"
 #include "WWLib/always.h"
+
+static const unsigned long ControlModifierFlag = 1 << 18;
+static const unsigned long CommandModifierFlag = 1 << 20;
 
 // Simple mapping from macOS virtual key codes to DIK codes
 static unsigned char MacOSVirtualKeyToDIK(unsigned short keyCode) {
@@ -184,6 +188,7 @@ MacOSKeyboard::MacOSKeyboard(void) {
   m_nextFreeIndex = 0;
   m_nextGetIndex = 0;
   m_lastFlags = 0;
+  m_isCommandControl = false;
 }
 
 MacOSKeyboard::~MacOSKeyboard(void) {}
@@ -191,6 +196,7 @@ MacOSKeyboard::~MacOSKeyboard(void) {}
 void MacOSKeyboard::init(void) {
   Keyboard::init();
   reset();
+  m_isCommandControl = OptionPreferences().getCommandAsControl();
 }
 
 void MacOSKeyboard::reset(void) {
@@ -248,7 +254,22 @@ void MacOSKeyboard::addEvent(unsigned char keyCode, bool isDown,
   m_nextFreeIndex = nextIndex;
 }
 
-void MacOSKeyboard::setModifiers(unsigned long flags, unsigned int time) {
+unsigned long MacOSKeyboard::withCommandAsControl(unsigned long flags) const {
+  if (!m_isCommandControl) {
+    return flags;
+  }
+
+  const unsigned long withoutControl = flags & ~ControlModifierFlag;
+  if ((flags & CommandModifierFlag) == 0) {
+    return withoutControl;
+  }
+
+  return withoutControl | ControlModifierFlag;
+}
+
+void MacOSKeyboard::setModifiers(unsigned long systemFlags, unsigned int time) {
+  const unsigned long flags = withCommandAsControl(systemFlags);
+
   // Translate macOS modifier flags to Keyboard m_modifiers mask
   UnsignedShort newModifiers = 0;
   

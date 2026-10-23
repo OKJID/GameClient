@@ -31,6 +31,9 @@ protected:
   unsigned int m_nextFreeIndex;
   unsigned int m_nextGetIndex;
   unsigned long m_lastFlags;
+  bool m_isCommandControl;
+
+  unsigned long withCommandAsControl(unsigned long flags) const;
 
 public:
   void addEvent(unsigned char keyCode, bool isDown, unsigned int time);

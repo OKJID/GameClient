@@ -89,6 +89,7 @@ public:
 	Bool getVerboseEngineLogging() const;
 #ifdef __APPLE__
 	Real getMaxCameraHeight(Real iniHeight) const;
+	Bool getCommandAsControl() const;
 #endif
 	Bool getSendDelay();
 	Int getFirewallBehavior();
