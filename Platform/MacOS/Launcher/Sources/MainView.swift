@@ -55,6 +55,7 @@ struct MainView: View {
     @ObservedObject private var donations = DonationsCatalog.shared
     @State private var isDonatePanelOpen = false
     @State private var isModScrollRestored = false
+    @AppStorage("ModListSearchQuery") private var modSearchQuery = ""
 
     private static let modScrollAnchorKey = "ModListScrollAnchor"
     private let modScrollSpace = "modListScroll"
@@ -381,21 +382,24 @@ struct MainView: View {
         }
     }
 
+    private func matchesModSearch(_ profile: GameProfile) -> Bool {
+        let names = "\(profile.shortName) \(profile.displayName)"
+        return modSearchQuery
+            .split(whereSeparator: \.isWhitespace)
+            .allSatisfy { names.localizedStandardContains($0) }
+    }
+
     @ViewBuilder
     private func _buildModSwitcherSection() -> some View {
         let mods = viewModel.availableMods
 
         if !mods.isEmpty {
-            Text(L10n.mod.section)
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.35))
-                .padding(.leading, 8)
-                .padding(.top, 10)
+            _buildModSectionHeader()
 
             ScrollViewReader { proxy in
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: switcherSpacing) {
-                        ForEach(mods) { profile in
+                        ForEach(mods.filter(matchesModSearch)) { profile in
                             _buildGameButton(profile, isEnabled: true)
                                 .id(profile.id.rawValue)
                                 .background(_buildModOffsetReader(profile.id.rawValue))
@@ -412,6 +416,46 @@ struct MainView: View {
             }
             .frame(width: switcherButtonWidth + 2, alignment: .leading)
         }
+    }
+
+    private func _buildModSectionHeader() -> some View {
+        HStack(spacing: 6) {
+            Text(L10n.mod.section)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.35))
+
+            _buildModSearchField()
+        }
+        .padding(.leading, 8)
+        .padding(.top, 10)
+        .frame(width: switcherButtonWidth, alignment: .leading)
+    }
+
+    private func _buildModSearchField() -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 8, weight: .bold))
+
+            TextField("", text: $modSearchQuery)
+                .textFieldStyle(PlainTextFieldStyle())
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.white)
+                .onExitCommand { modSearchQuery = "" }
+
+            if !modSearchQuery.isEmpty {
+                Button(action: { modSearchQuery = "" }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 9))
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+        }
+        .foregroundColor(.white.opacity(0.5))
+        .padding(.horizontal, 6)
+        .frame(height: 18)
+        .background(Color.black.opacity(0.45))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(accent.opacity(0.3), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     private func _buildModOffsetReader(_ rowID: String) -> some View {
