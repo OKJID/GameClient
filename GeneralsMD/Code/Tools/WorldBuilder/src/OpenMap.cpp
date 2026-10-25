@@ -22,6 +22,8 @@
 #include "StdAfx.h"
 #include "WorldBuilder.h"
 #include "OpenMap.h"
+#include "SaveMap.h"
+#include "SystemMaps.h"
 #include "Common/GlobalData.h"
 
 /////////////////////////////////////////////////////////////////////////////
@@ -33,6 +35,7 @@ OpenMap::OpenMap(TOpenMapInfo *pInfo, CWnd* pParent /*=nullptr*/)
 	m_pInfo(pInfo)
 {
 	m_pInfo->browse = false;
+	m_pInfo->systemMapCopy = false;
 	m_usingSystemDir = ::AfxGetApp()->GetProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", TRUE);
 
 	//{{AFX_DATA_INIT(OpenMap)
@@ -93,7 +96,12 @@ void OpenMap::OnOK()
 		CString newName;
 		pList->GetText(sel, newName );
 		if (m_usingSystemDir)
+		{
 			m_pInfo->filename = ".\\Maps\\" + newName + "\\" + newName + ".map";
+			// TheSuperHackers @feature Okladnoj 25/10/2026 A system map that is not a loose install file is edited as a copy in User Maps.
+			if (!isOnDisk(m_pInfo->filename) && !copySystemMap(newName))
+				return;
+		}
 		else
 		{
 			m_pInfo->filename = TheGlobalData->getPath_UserData().str();
@@ -103,10 +111,77 @@ void OpenMap::OnOK()
 	CDialog::OnOK();
 }
 
+Bool OpenMap::isOnDisk(const CString &path)
+{
+	CFileStatus status;
+	return CFile::GetStatus(path, status) && !(status.m_attribute & CFile::directory);
+}
+
+Bool OpenMap::chooseCopyName(CString &copyName)
+{
+	TSaveMapInfo info;
+	info.filename = copyName;
+	SaveMap saveDlg(&info, this, TRUE);
+	if (saveDlg.DoModal() != IDOK)
+		return false;
+
+	if (info.filename.IsEmpty())
+		return false;
+
+	copyName = info.filename;
+	return true;
+}
+
+Bool OpenMap::copySystemMap(const CString &systemName)
+{
+	const AsciiString name((const char *)systemName);
+	CString copyName = SystemMaps::getCopyName(name).str();
+	if (isOnDisk(SystemMaps::getUserMapPath(AsciiString((const char *)copyName)).str()) && !chooseCopyName(copyName))
+		return false;
+
+	const AsciiString copyMapName((const char *)copyName);
+	if (!SystemMaps::copyToUserMaps(name, copyMapName)) {
+		CString error = "Error: could not copy '" + systemName + "' to User Maps as '" + copyName + "'.";
+		::AfxMessageBox(error);
+		return false;
+	}
+
+	m_pInfo->filename = SystemMaps::getUserMapPath(copyMapName).str();
+	m_pInfo->systemMapCopy = true;
+	return true;
+}
+
+void OpenMap::selectFirstMap(CListBox *pList, Bool found)
+{
+	CWnd *pOk = GetDlgItem(IDOK);
+	if (pOk) pOk->EnableWindow(found);
+	if (found) pList->SetCurSel(0);
+}
+
+void OpenMap::populateSystemMapListbox()
+{
+	CListBox *pList = (CListBox *)this->GetDlgItem(IDC_OPEN_LIST);
+	if (pList == nullptr) return;
+	pList->ResetContent();
+
+	FilenameList names;
+	SystemMaps::getNames(names);
+	for (FilenameListIter it = names.begin(); it != names.end(); ++it)
+		pList->AddString(it->str());
+
+	selectFirstMap(pList, !names.empty());
+}
+
 void OpenMap::populateMapListbox( Bool systemMaps )
 {
 	m_usingSystemDir = systemMaps;
 	::AfxGetApp()->WriteProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", m_usingSystemDir);
+
+	// TheSuperHackers @feature Okladnoj 25/10/2026 System Maps lists the maps the game offers as official: loose install files, mod files and archives.
+	if (systemMaps) {
+		populateSystemMapListbox();
+		return;
+	}
 
 	HANDLE			hFindFile = nullptr;
 	WIN32_FIND_DATA			findData;
@@ -114,12 +189,7 @@ void OpenMap::populateMapListbox( Bool systemMaps )
 	char				findBuf[_MAX_PATH];
 	char				fileBuf[_MAX_PATH];
 
-	if (systemMaps)
-		strcpy(dirBuf, "Maps\\");
-	else
-	{
-		snprintf(dirBuf, ARRAY_SIZE(dirBuf), "%sMaps\\", TheGlobalData->getPath_UserData().str());
-	}
+	snprintf(dirBuf, ARRAY_SIZE(dirBuf), "%sMaps\\", TheGlobalData->getPath_UserData().str());
 	CListBox *pList = (CListBox *)this->GetDlgItem(IDC_OPEN_LIST);
 	if (pList == nullptr) return;
 	pList->ResetContent();
@@ -151,12 +221,7 @@ void OpenMap::populateMapListbox( Bool systemMaps )
 
 		if (hFindFile) FindClose(hFindFile);
  	}
-	if (found) {
-		pList->SetCurSel(0);
-	} else {
-		CWnd *pOk = GetDlgItem(IDOK);
-		if (pOk) pOk->EnableWindow(false);
-	}
+	selectFirstMap(pList, found);
 }
 
 BOOL OpenMap::OnInitDialog()

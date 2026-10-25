@@ -759,6 +759,9 @@
 #define IDS_DUPLICATE_TEAM_REMOVED      61483
 #define IDS_PLAYERLESS_TEAM_REMOVED     61484
 #define IDS_NEED_TO_FIX_TEAMS           61485
+#define IDS_OFFICIAL_NAME_HIDDEN        61486
+#define IDS_OFFICIAL_NAME_REPLACED      61487
+#define IDS_OFFICIAL_TITLE_HIDDEN       61488
 
 // Next default values for new objects
 //

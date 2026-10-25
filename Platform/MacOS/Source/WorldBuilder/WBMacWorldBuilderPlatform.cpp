@@ -8,6 +8,9 @@
 #include "MacOSInstallPaths.h"
 #include "MacOSLocalFileSystem.h"
 
+#include <cstdlib>
+#include <unistd.h>
+
 extern const char* gAppPrefix;
 
 void WorldBuilderInstallCrashHandler()
@@ -18,6 +21,15 @@ void WorldBuilderInstallCrashHandler()
 void WorldBuilderPrepareWorkingDirectory()
 {
 	MacOS_PrepareInstallPaths();
+}
+
+void WorldBuilderRestoreWorkingDirectory()
+{
+	const char* gamePath = getenv("GENERALS_ACTIVE_INSTALL_PATH");
+	if (gamePath == nullptr || gamePath[0] == '\0')
+		return;
+
+	chdir(gamePath);
 }
 
 LocalFileSystem* WorldBuilderCreateLocalFileSystem()
@@ -33,4 +45,9 @@ ArchiveFileSystem* WorldBuilderCreateArchiveFileSystem()
 AudioManager* WorldBuilderCreateAudioManager()
 {
 	return new MacOSAudioManager;
+}
+
+Bool WorldBuilderGameHidesUserMapsWithOfficialNames()
+{
+	return TRUE;
 }

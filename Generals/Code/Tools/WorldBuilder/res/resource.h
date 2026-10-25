@@ -689,6 +689,9 @@
 #define IDS_EULA_AGREEMENT3             61478
 #define IDS_EULA_AGREEMENT4             61479
 #define IDS_EULA_AGREEMENT5             61480
+#define IDS_OFFICIAL_NAME_HIDDEN        61486
+#define IDS_OFFICIAL_NAME_REPLACED      61487
+#define IDS_OFFICIAL_TITLE_HIDDEN       61488
 
 // Next default values for new objects
 //

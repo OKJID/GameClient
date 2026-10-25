@@ -67,6 +67,7 @@
 #include "GameLogic/ScriptActions.h"
 #include "GameClient/Anim2D.h"
 #include "GameClient/GameText.h"
+#include "GameClient/MapUtil.h"
 #include "GameClient/ParticleSys.h"
 #include "GameClient/Water.h"
 #include "GameClient/TerrainRoads.h"
@@ -193,6 +194,7 @@ CWorldBuilderApp::CWorldBuilderApp() :
 	m_curTool(nullptr),
 	m_selTool(nullptr),
 	m_lockCurTool(0),
+	m_openingSystemMapCopy(false),
 	m_3dtemplate(nullptr),
 	m_pasteMapObjList(nullptr)
 {
@@ -403,6 +405,10 @@ BOOL CWorldBuilderApp::InitInstance()
 #endif
 
 	TheWritableGlobalData->m_isWorldBuilder = TRUE;
+
+	// TheSuperHackers @feature Okladnoj 25/10/2026 Know the official maps the way the game lists them, so saving can warn about a map name that hides a map.
+	TheMapCache = new MapCache;
+	TheMapCache->updateCache();
 
 	// Change the registry key under which our settings are stored.
 	// TODO: You should modify this string to be something appropriate
@@ -623,6 +629,9 @@ int CWorldBuilderApp::ExitInstance()
 
 	WorldHeightMapEdit::shutdown();
 
+	delete TheMapCache;
+	TheMapCache = nullptr;
+
 	delete TheFramePacer;
 	TheFramePacer = nullptr;
 
@@ -664,7 +673,9 @@ void CWorldBuilderApp::OnFileOpen()
 	OpenMap mapDlg(&info);
 	if (mapDlg.DoModal() == IDOK) {
 		if (!info.browse) {
+			m_openingSystemMapCopy = info.systemMapCopy;
 			OpenDocumentFile(info.filename);
+			m_openingSystemMapCopy = false;
 			return;
 		}
 	}	else {

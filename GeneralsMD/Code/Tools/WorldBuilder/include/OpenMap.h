@@ -26,6 +26,7 @@
 typedef struct {
 	CString filename;
 	Bool		browse;
+	Bool		systemMapCopy;
 } TOpenMapInfo;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -55,6 +56,11 @@ public:
 protected:
 	TOpenMapInfo *m_pInfo;
 	void populateMapListbox( Bool systemMaps );
+	void populateSystemMapListbox();
+	void selectFirstMap(CListBox *pList, Bool found);
+	Bool isOnDisk(const CString &path);
+	Bool chooseCopyName(CString &copyName);
+	Bool copySystemMap(const CString &systemName);
 	Bool m_usingSystemDir;
 protected:
 

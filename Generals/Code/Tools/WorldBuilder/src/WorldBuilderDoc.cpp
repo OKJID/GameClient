@@ -56,6 +56,8 @@
 #include "wbview.h"
 #include "WHeightMapEdit.h"
 #include "WorldBuilderDoc.h"
+#include "SystemMaps.h"
+#include "WorldBuilderPlatform.h"
 #include "WorldBuilderView.h"
 #include "MapPreview.h"
 
@@ -657,6 +659,18 @@ BOOL CWorldBuilderDoc::DoFileSave()
 	return TRUE;
 }
 
+static Bool confirmOfficialMapName()
+{
+	const AsciiString mapName = MapObject::getWorldDict()->getAsciiString(TheKey_mapName);
+	const AsciiString officialName = SystemMaps::getOfficialGameName(mapName);
+	if (officialName.isEmpty())
+		return true;
+
+	CString warn;
+	warn.Format(IDS_OFFICIAL_TITLE_HIDDEN, mapName.str(), officialName.str());
+	return ::AfxMessageBox(warn, MB_YESNO) == IDYES;
+}
+
 BOOL CWorldBuilderDoc::DoSave(LPCTSTR lpszPathName, BOOL bReplace)
 	// Save the document data to a file
 	// lpszPathName = path name where to save document file
@@ -665,6 +679,10 @@ BOOL CWorldBuilderDoc::DoSave(LPCTSTR lpszPathName, BOOL bReplace)
 	// if 'bReplace' is TRUE will change file name if successful (SaveAs)
 	// if 'bReplace' is FALSE will not change path name (SaveCopyAs)
 {
+	// TheSuperHackers @feature Okladnoj 25/10/2026 Every save first warns when the map name hides the map behind an official one.
+	if (!confirmOfficialMapName())
+		return FALSE;
+
 	CString newName = lpszPathName;
 	if (newName.IsEmpty())
 	{
@@ -1358,16 +1376,18 @@ BOOL CWorldBuilderDoc::OnOpenDocument(LPCTSTR lpszPathName)
 	TheGameText->initMapStringFile(s);
 
 	WbApp()->setCurrentDirectory(AsciiString(buf));
-	::GetModuleFileName(nullptr, buf, sizeof(buf));
-	if (char *pEnd = strrchr(buf, '\\')) {
-		*pEnd = 0;
-	}
-	::SetCurrentDirectory(buf);
+	WorldBuilderRestoreWorkingDirectory();
 
 	if (!CDocument::OnOpenDocument(lpszPathName))
 		return FALSE;
 
 	Create3DView();
+
+	// TheSuperHackers @feature Okladnoj 25/10/2026 A fresh copy of a system map drops the official map name, so the game lists it under its file name.
+	if (WbApp()->isOpeningSystemMapCopy()) {
+		MapObject::getWorldDict()->setAsciiString(TheKey_mapName, AsciiString::TheEmptyString);
+		OnSaveDocument(lpszPathName);
+	}
 
 	return TRUE;
 }

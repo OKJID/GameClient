@@ -127,6 +127,8 @@ protected:
 
 	AsciiString				m_currentDirectory; ///< Current directory for open file.
 
+	Bool							m_openingSystemMapCopy;
+
 	CDocTemplate			*m_3dtemplate;
 
 	MapObject					*m_pasteMapObjList;	///< List of copied/cut map objects.
@@ -156,6 +158,8 @@ public:
 
 	/// Sets the current directry for file opens.
 	void setCurrentDirectory(AsciiString dir) {m_currentDirectory = dir;};
+
+	Bool isOpeningSystemMapCopy() const { return m_openingSystemMapCopy; }
 
 	Tool *getCurTool() { return m_curTool; }
 

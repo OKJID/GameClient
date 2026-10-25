@@ -24,6 +24,8 @@ class LocalFileSystem;
 
 void WorldBuilderInstallCrashHandler();
 void WorldBuilderPrepareWorkingDirectory();
+void WorldBuilderRestoreWorkingDirectory();
 LocalFileSystem* WorldBuilderCreateLocalFileSystem();
 ArchiveFileSystem* WorldBuilderCreateArchiveFileSystem();
 AudioManager* WorldBuilderCreateAudioManager();
+Bool WorldBuilderGameHidesUserMapsWithOfficialNames();

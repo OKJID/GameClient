@@ -22,17 +22,20 @@
 #include "StdAfx.h"
 #include "WorldBuilder.h"
 #include "SaveMap.h"
+#include "SystemMaps.h"
+#include "WorldBuilderPlatform.h"
 #include "Common/GlobalData.h"
 
 /////////////////////////////////////////////////////////////////////////////
 // SaveMap dialog
 
 
-SaveMap::SaveMap(TSaveMapInfo *pInfo, CWnd* pParent /*=nullptr*/)
+SaveMap::SaveMap(TSaveMapInfo *pInfo, CWnd* pParent /*=nullptr*/, Bool userMapsOnly /*=FALSE*/)
 	: CDialog(SaveMap::IDD, pParent),
-	m_pInfo(pInfo)
+	m_pInfo(pInfo),
+	m_userMapsOnly(userMapsOnly)
 {
-	m_pInfo->usingSystemDir = m_usingSystemDir = ::AfxGetApp()->GetProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", TRUE);
+	m_pInfo->usingSystemDir = m_usingSystemDir = !m_userMapsOnly && ::AfxGetApp()->GetProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", TRUE);
 
 	//{{AFX_DATA_INIT(SaveMap)
 		// NOTE: the ClassWizard will add member initialization here
@@ -91,6 +94,10 @@ void SaveMap::OnOK()
 		testName = testName + "Maps\\";
 	}
 	testName += m_pInfo->filename + "\\" + m_pInfo->filename + ".map"	;
+	// TheSuperHackers @feature Okladnoj 25/10/2026 Warn before a map takes the name of an official one.
+	if (!confirmOfficialName(testName)) {
+		return;
+	}
 	CFileStatus status;
 	if (CFile::GetStatus(testName, status)) {
 		CString warn;
@@ -101,6 +108,34 @@ void SaveMap::OnOK()
 		}
 	}
 	CDialog::OnOK();
+}
+
+Bool SaveMap::confirmOfficialName(const CString &path)
+{
+	if (!SystemMaps::isOfficialName(AsciiString((const char *)m_pInfo->filename)))
+		return true;
+
+	CFileStatus status;
+	if (m_usingSystemDir && CFile::GetStatus(path, status))
+		return true;
+
+	if (!m_usingSystemDir && !WorldBuilderGameHidesUserMapsWithOfficialNames())
+		return true;
+
+	CString warn;
+	warn.Format(m_usingSystemDir ? IDS_OFFICIAL_NAME_REPLACED : IDS_OFFICIAL_NAME_HIDDEN, LPCTSTR(m_pInfo->filename));
+	return ::AfxMessageBox(warn, MB_YESNO) == IDYES;
+}
+
+void SaveMap::lockToUserMaps()
+{
+	CWnd *pSystemMaps = GetDlgItem(IDC_SYSTEMMAPS);
+	if (pSystemMaps != nullptr)
+		pSystemMaps->EnableWindow(false);
+
+	CWnd *pBrowse = GetDlgItem(IDC_BROWSE);
+	if (pBrowse != nullptr)
+		pBrowse->EnableWindow(false);
 }
 
 void SaveMap::OnCancel()
@@ -117,7 +152,8 @@ void SaveMap::OnBrowse()
 void SaveMap::populateMapListbox( Bool systemMaps )
 {
 	m_pInfo->usingSystemDir = m_usingSystemDir = systemMaps;
-	::AfxGetApp()->WriteProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", m_usingSystemDir);
+	if (!m_userMapsOnly)
+		::AfxGetApp()->WriteProfileInt(MAP_OPENSAVE_PANEL_SECTION, "UseSystemDir", m_usingSystemDir);
 
 	HANDLE			hFindFile = nullptr;
 	WIN32_FIND_DATA			findData;
@@ -217,6 +253,10 @@ BOOL SaveMap::OnInitDialog()
 	// TheSuperHackers @tweak Originally World Builder has hidden the System Maps tab button in Release builds,
 	// perhaps with the intention to only show User Maps to community users. However, World Builder did release
 	// as a Debug build and always had the System Maps tab, therefore this now shows it always for simplicity.
+
+	// TheSuperHackers @feature Okladnoj 25/10/2026 A copy of a system map is only ever saved to User Maps.
+	if (m_userMapsOnly)
+		lockToUserMaps();
 
 	populateMapListbox( m_usingSystemDir );
 

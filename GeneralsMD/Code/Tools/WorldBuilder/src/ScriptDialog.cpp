@@ -22,6 +22,7 @@
 #include "StdAfx.h"
 #include "WorldBuilder.h"
 #include "WorldBuilderDoc.h"
+#include "WorldBuilderPlatform.h"
 #include "CUndoable.h"
 #include "ScriptDialog.h"
 #include "GameLogic/ScriptEngine.h"
@@ -1289,12 +1290,7 @@ void ScriptDialog::OnSave()
 
 	// Open document dialog may change working directory,
 	// change it back.
-	char buf[_MAX_PATH];
-	::GetModuleFileName(nullptr, buf, sizeof(buf));
-	if (char *pEnd = strrchr(buf, '\\')) {
-		*pEnd = 0;
-	}
-	::SetCurrentDirectory(buf);
+	WorldBuilderRestoreWorkingDirectory();
 	if (IDCANCEL==result) {
 		return;
 	}
@@ -1508,13 +1504,8 @@ void ScriptDialog::OnLoad()
 
 	// Open document dialog may change working directory,
 	// change it back.
-	char buf[_MAX_PATH];
-	::GetModuleFileName(nullptr, buf, sizeof(buf));
-	if (char *pEnd = strrchr(buf, '\\')) {
-		*pEnd = 0;
-	}
 	CWorldBuilderDoc* pDoc = CWorldBuilderDoc::GetActiveDoc();
-	::SetCurrentDirectory(buf);
+	WorldBuilderRestoreWorkingDirectory();
 	if (IDCANCEL==result) {
 		return;
 	}

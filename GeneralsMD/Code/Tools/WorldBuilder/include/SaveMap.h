@@ -36,7 +36,7 @@ class SaveMap : public CDialog
 {
 // Construction
 public:
-	SaveMap(TSaveMapInfo *pInfo, CWnd* pParent = nullptr);   // standard constructor
+	SaveMap(TSaveMapInfo *pInfo, CWnd* pParent = nullptr, Bool userMapsOnly = FALSE);   // standard constructor
 
 // Dialog Data
 	//{{AFX_DATA(SaveMap)
@@ -56,7 +56,10 @@ public:
 protected:
 	TSaveMapInfo *m_pInfo;
 	void populateMapListbox( Bool systemMaps );
+	void lockToUserMaps();
+	Bool confirmOfficialName(const CString &path);
 	Bool m_usingSystemDir;
+	Bool m_userMapsOnly;
 protected:
 
 	// Generated message map functions

@@ -55,6 +55,11 @@ void WorldBuilderPrepareWorkingDirectory()
 	::SetCurrentDirectory(buf);
 }
 
+void WorldBuilderRestoreWorkingDirectory()
+{
+	WorldBuilderPrepareWorkingDirectory();
+}
+
 LocalFileSystem* WorldBuilderCreateLocalFileSystem()
 {
 	return new Win32LocalFileSystem;
@@ -68,4 +73,9 @@ ArchiveFileSystem* WorldBuilderCreateArchiveFileSystem()
 AudioManager* WorldBuilderCreateAudioManager()
 {
 	return new MilesAudioManager();
+}
+
+Bool WorldBuilderGameHidesUserMapsWithOfficialNames()
+{
+	return FALSE;
 }

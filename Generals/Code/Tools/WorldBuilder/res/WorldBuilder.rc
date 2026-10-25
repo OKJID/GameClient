@@ -2704,6 +2704,12 @@ BEGIN
     IDS_SINGLE_SELECTION_ONLY "Single Selection Only"
     IDS_NO_UPGRADES         "No Upgrades Available"
     IDS_TEAMS_FIXED         "All Teams have been fixed."
+    IDS_OFFICIAL_NAME_HIDDEN
+                            """%s"" is the name of an official map.\n\nThe game does not list user maps named like an official map, so this one will not appear in Skirmish until it is accepted into the official maps.\n\nTo test it in the game now, save it under a different name.\n\nSave anyway?"
+    IDS_OFFICIAL_NAME_REPLACED
+                            """%s"" is the name of an official map.\n\nA map saved here replaces the official one in your game. Online games on this map will go out of sync with players who have the official version.\n\nSave anyway?"
+    IDS_OFFICIAL_TITLE_HIDDEN
+                            "The map name ""%s"" in Edit > Edit Map Settings is the name of the official map ""%s"".\n\nThe game does not list a user map with the same name as an official map, so this one will not appear in Skirmish until it is accepted into the official maps.\n\nTo test it in the game now, clear the map name in Map Settings: the game then lists the map under its file name.\n\nSave anyway?"
 END
 
 #endif    // English (U.S.) resources
