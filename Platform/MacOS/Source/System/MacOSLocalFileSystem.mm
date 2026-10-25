@@ -305,6 +305,7 @@ void MacOSLocalFileSystem::getFileListInDirectory(const AsciiString& currentDire
 	asciisearch = originalDirectory;
 	asciisearch.concat(currentDirectory);
 	auto searchExt = std::filesystem::path(searchName.str()).extension();
+	const bool matchesAnyFile = strcmp(searchName.str(), "*") == 0 || strcmp(searchName.str(), "*.*") == 0;
 	if (asciisearch.isEmpty()) {
 		asciisearch = ".";
 	}
@@ -348,7 +349,7 @@ void MacOSLocalFileSystem::getFileListInDirectory(const AsciiString& currentDire
 			while (!done)	{
 				std::string filenameStr = iter->path().filename().string();
 				std::string ext = iter->path().extension().string();
-				bool extMatch = strcasecmp(ext.c_str(), searchExt.string().c_str()) == 0;
+				bool extMatch = matchesAnyFile || strcasecmp(ext.c_str(), searchExt.string().c_str()) == 0;
 
 				// Entries the process cannot stat (system files under a denied TCC scope) must be
 				// skipped: the throwing overload would abort startup instead of ignoring them.
