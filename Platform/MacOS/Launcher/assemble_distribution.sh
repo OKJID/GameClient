@@ -14,8 +14,8 @@
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
 
-VERSION="2.5.5"
-BUILD="36"
+VERSION="2.5.6"
+BUILD="37"
 
 if [ -f ".env" ]; then
     set -a
