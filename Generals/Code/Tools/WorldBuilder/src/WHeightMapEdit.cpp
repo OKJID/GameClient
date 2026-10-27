@@ -639,7 +639,11 @@ void WorldHeightMapEdit::saveToFile(DataChunkOutput &chunkWriter)
 		chunkWriter.writeArrayOfBytes((char*)m_blendTileNdxes, m_dataSize*sizeof(Short));
 		chunkWriter.writeArrayOfBytes((char*)m_extraBlendTileNdxes, m_dataSize*sizeof(Short));
 		chunkWriter.writeArrayOfBytes((char*)m_cliffInfoNdxes, m_dataSize*sizeof(Short));
-		chunkWriter.writeArrayOfBytes((char*)m_cellCliffState, m_height*m_flipStateWidth);
+		// Version 7 uses the legacy row width, even when the in-memory rows are wider.
+		Int byteWidth = (m_width+1)/8;
+		for (Int j=0; j<m_height; j++) {
+			chunkWriter.writeArrayOfBytes((char*)m_cellCliffState + j*m_flipStateWidth, byteWidth);
+		}
 		chunkWriter.writeInt(m_numBitmapTiles);
 		chunkWriter.writeInt(m_numBlendedTiles);
 		chunkWriter.writeInt(m_numCliffInfo);
