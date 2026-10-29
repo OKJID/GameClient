@@ -577,7 +577,8 @@ void LocomotorStore::reset()
 		Overridable *locoTemp = it->second->deleteOverrides();
 		if (!locoTemp)
 		{
-			m_locomotorTemplates.erase(it);
+			DEBUG_INFO_MAC(("LOCOMOTOR_RESET: erasing override-only template '%s'", TheNameKeyGenerator->keyToName(it->first).str()));
+			m_locomotorTemplates.erase(it++);
 		}
 		else
 		{
@@ -627,6 +628,7 @@ LocomotorTemplate *LocomotorStore::newOverride( LocomotorTemplate *locoTemplate 
 		loco = newInstance(LocomotorTemplate);
 		if (ini->getLoadType() == INI_LOAD_CREATE_OVERRIDES) {
 			loco->markAsOverride();
+			DEBUG_INFO_MAC(("LOCOMOTOR_INI: '%s' from '%s' is new, stored as an override-only template", token, ini->getFilename().str()));
 		}
 	}
 
