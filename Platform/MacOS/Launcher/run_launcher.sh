@@ -15,6 +15,7 @@ APP_PATH="$APP_DIR/Contents/MacOS/$LAUNCHER_NAME"
 RESOURCES_DIR="$APP_DIR/Contents/Resources"
 LAUNCHER_ASSETS="background.png background_mod.png dir_image.png author_logo.png medallion_logo.png mod_banner_default.png hacker.png worldbuilder_zh.png worldbuilder_generals.png worldbuilder_mod.png Install_Final.bmp"
 API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
+SIGNING_IDENTITY="Developer ID Application: Dmytriy Okladnoy (GUDMPDW2D2)"
 REFRESH_SWIFT=0
 
 for arg in "$@"; do
@@ -52,8 +53,10 @@ if [ "$REFRESH_SWIFT" -eq 1 ]; then
     mkdir -p "$RESOURCES_DIR/api"
     cp "$API_SNAPSHOTS_DIR"/*.json "$RESOURCES_DIR/api/"
 
+    # The nested binaries keep their signatures; only the launcher and the
+    # resources are new. The same identity keeps the macOS permissions granted.
     echo "🔏 Re-signing the bundle..."
-    codesign --force --deep -s - "$APP_DIR"
+    codesign --force --options runtime -s "$SIGNING_IDENTITY" "$APP_DIR"
 fi
 
 if [ ! -f "$APP_PATH" ]; then

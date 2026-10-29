@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# The installer writes the bundle as root, while the launcher replaces its own
+# bundle when it updates itself, so the bundle goes to the user at the console.
+# The launcher then opens for that user, unless the package was installed from
+# the command line. $2 is the install location of the package.
+APP="$2/Generals Online.app"
+CONSOLE_USER="$(stat -f %Su /dev/console)"
+
+if [ -z "$CONSOLE_USER" ] || [ "$CONSOLE_USER" = "root" ]; then
+    exit 0
+fi
+
+chown -R "$CONSOLE_USER:staff" "$APP"
+
+if [ "$COMMAND_LINE_INSTALL" = "1" ]; then
+    exit 0
+fi
+
+launchctl asuser "$(id -u "$CONSOLE_USER")" sudo -u "$CONSOLE_USER" open "$APP"
+exit 0

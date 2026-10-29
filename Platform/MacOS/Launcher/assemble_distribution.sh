@@ -13,6 +13,10 @@
 # Prerequisites:
 #   - dylibbundler  (brew install dylibbundler)
 #   - create-dmg    (brew install create-dmg)  — optional, for premium DMG
+#   - the Developer ID Application and Developer ID Installer certificates of
+#     team GUDMPDW2D2 in the keychain
+#   - the notary keychain profile "generals-online", set up once with
+#     xcrun notarytool store-credentials generals-online --apple-id <Apple ID> --team-id GUDMPDW2D2
 
 VERSION="2.5.6"
 BUILD="37"
@@ -38,6 +42,19 @@ FINAL_APP_DIR="$DIST_DIR/$FINAL_APP_NAME.app"
 ZIP_NAME="Generals_Online_Mac_Alpha.zip"
 DMG_NAME="Generals_Online_Mac_Alpha.dmg"
 INSTRUCTIONS_NAME="Instructions.html"
+SIGNING_IDENTITY="Developer ID Application: Dmytriy Okladnoy (GUDMPDW2D2)"
+INSTALLER_IDENTITY="Developer ID Installer: Dmytriy Okladnoy (GUDMPDW2D2)"
+NOTARY_PROFILE="generals-online"
+NOTARIZATION_ARCHIVE="$DIST_DIR/notarization.zip"
+PKG_NAME="Generals_Online_Mac_Alpha.pkg"
+PKG_IDENTIFIER="com.playgenerals.online.pkg"
+PKG_WORK_DIR="build/installer"
+PKG_ROOT="$PKG_WORK_DIR/root"
+PKG_COMPONENTS="$PKG_WORK_DIR/components.plist"
+PKG_COMPONENT_NAME="GeneralsOnline.pkg"
+PKG_DISTRIBUTION="$PKG_WORK_DIR/distribution.xml"
+PKG_SCRIPTS_DIR="installer/scripts"
+EOS_SDK_NAME="libEOSSDK-Mac-Shipping.dylib"
 INSTRUCTIONS_BUILDER="../../../Dependencies/general_online_zh/build.sh"
 API_SNAPSHOTS_DIR="../../../Dependencies/general_online_zh/public/api"
 DONATION_ICONS_INLINER="../../../Dependencies/general_online_zh/scripts/put_svg_string.sh"
@@ -163,9 +180,9 @@ echo "🔒 [2/7] Cleaning RPATHs..."
 # dylibbundler modifies all dylibs in Frameworks/, including libEOSSDK-Mac-Shipping.dylib
 # (EAC plugin dependency), corrupting its original code signature.
 # Restore the original from the CMake build output.
-EOS_SDK_BUILD="$CMAKE_APP_DIR/Contents/Frameworks/libEOSSDK-Mac-Shipping.dylib"
+EOS_SDK_BUILD="$CMAKE_APP_DIR/Contents/Frameworks/$EOS_SDK_NAME"
 if [ -f "$EOS_SDK_BUILD" ]; then
-    cp -f "$EOS_SDK_BUILD" "$FRAMEWORKS_DIR/libEOSSDK-Mac-Shipping.dylib"
+    cp -f "$EOS_SDK_BUILD" "$FRAMEWORKS_DIR/$EOS_SDK_NAME"
 fi
 
 retarget_rpaths() {
@@ -269,10 +286,64 @@ else
     echo "   Self-update: disabled (no GO_UPDATE_PUBLIC_KEY, the banner opens the browser)"
 fi
 
-echo "🔏 [5/7] Signing the finished bundle..."
+echo "🔏 [5/7] Signing and notarizing the finished bundle..."
 # Signing has to come last: compiling the launcher in and editing Info.plist
-# both invalidate an earlier seal.
-codesign --force --deep -s - "$FINAL_APP_DIR"
+# both invalidate an earlier seal. Nested code is signed from the inside out
+# and the bundle itself last; the EOS SDK keeps the signature of Epic.
+sign() {
+    codesign --force --timestamp --options runtime -s "$SIGNING_IDENTITY" "$@"
+}
+
+# The notary service checks a submitted archive or installer, and the ticket
+# it issues is stapled onto the app or the installer itself.
+notarize() {
+    submission="$1"
+    target="$2"
+
+    echo "   📮 Waiting for the notary service: $(basename "$target")..."
+    if ! xcrun notarytool submit "$submission" --keychain-profile "$NOTARY_PROFILE" --wait; then
+        echo "❌ Notarization of $target failed!"
+        return 1
+    fi
+
+    if ! xcrun stapler staple "$target"; then
+        echo "❌ No notarization ticket to staple to $target, see: xcrun notarytool history --keychain-profile $NOTARY_PROFILE"
+        return 1
+    fi
+}
+
+sign_nested_code() {
+    for item in "$FRAMEWORKS_DIR"/*.dylib "$MACOS_DIR"/plugins/*/*.dylib "$MACOS_DIR"/*; do
+        if [ ! -f "$item" ] || [ "$item" = "$MACOS_DIR/$LAUNCHER_NAME" ] || [ "$item" = "$FRAMEWORKS_DIR/$EOS_SDK_NAME" ]; then
+            continue
+        fi
+
+        if ! sign "$item"; then
+            return 1
+        fi
+    done
+}
+
+if ! sign_nested_code || ! sign "$FINAL_APP_DIR"; then
+    echo "❌ Signing with $SIGNING_IDENTITY failed!"
+    exit 1
+fi
+
+if ! codesign --verify --deep --strict "$FINAL_APP_DIR"; then
+    echo "❌ The signed bundle does not verify!"
+    exit 1
+fi
+
+ditto -c -k --keepParent "$FINAL_APP_DIR" "$NOTARIZATION_ARCHIVE"
+if ! notarize "$NOTARIZATION_ARCHIVE" "$FINAL_APP_DIR"; then
+    exit 1
+fi
+rm -f "$NOTARIZATION_ARCHIVE"
+
+if ! spctl --assess --type execute -v "$FINAL_APP_DIR"; then
+    echo "❌ Gatekeeper rejects the notarized bundle!"
+    exit 1
+fi
 
 echo "📝 [6/7] Building HTML instructions..."
 # The generator lives in the site repository, which is an optional dependency
@@ -289,7 +360,7 @@ else
     echo "⚠️ Warning: www/instructions.html not found, skipping HTML instructions."
 fi
 
-echo "🗜️ [7/7] Creating final deployment ZIP..."
+echo "🗜️ [7/7] Creating final deployment ZIP and installer..."
 # Enter dist so the archive carries the app itself at its root, without build/dist
 cd "$DIST_DIR" || exit
 zip -qry "../../$OUTPUTS_DIR/$ZIP_NAME" "$FINAL_APP_NAME.app"
@@ -301,6 +372,68 @@ if [ -f "$INSTRUCTIONS_NAME" ]; then
     zip -rq "$ZIP_NAME" "$INSTRUCTIONS_NAME"
 fi
 cd ..
+
+# The ZIP stays for the self-update, the installer is the first download.
+# It accepts only Apple Silicon and the macOS the game binary was built for.
+write_installer_distribution() {
+    cat <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>$FINAL_APP_NAME</title>
+    <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="$GAME_MIN_MACOS"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="$PKG_IDENTIFIER"/>
+    </choices-outline>
+    <choice id="$PKG_IDENTIFIER" visible="false">
+        <pkg-ref id="$PKG_IDENTIFIER"/>
+    </choice>
+    <pkg-ref id="$PKG_IDENTIFIER" version="$VERSION" onConclusion="none">$PKG_COMPONENT_NAME</pkg-ref>
+</installer-gui-script>
+EOF
+}
+
+echo "   📦 Building the installer..."
+rm -rf "$PKG_WORK_DIR"
+mkdir -p "$PKG_ROOT"
+ditto "$FINAL_APP_DIR" "$PKG_ROOT/$FINAL_APP_NAME.app"
+
+# The app always lands in /Applications, even when an older copy lies
+# elsewhere, and replaces the installed one whatever CFBundleVersion it
+# carries: the launcher version lives in GOLauncherVersion.
+pkgbuild --analyze --root "$PKG_ROOT" "$PKG_COMPONENTS"
+/usr/libexec/PlistBuddy -c "Delete :0:BundleIsRelocatable" "$PKG_COMPONENTS" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :0:BundleIsRelocatable bool false" "$PKG_COMPONENTS"
+/usr/libexec/PlistBuddy -c "Delete :0:BundleIsVersionChecked" "$PKG_COMPONENTS" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Add :0:BundleIsVersionChecked bool false" "$PKG_COMPONENTS"
+
+if ! pkgbuild --root "$PKG_ROOT" --component-plist "$PKG_COMPONENTS" --scripts "$PKG_SCRIPTS_DIR" \
+        --identifier "$PKG_IDENTIFIER" --version "$VERSION" --install-location /Applications \
+        "$PKG_WORK_DIR/$PKG_COMPONENT_NAME"; then
+    echo "❌ pkgbuild failed!"
+    exit 1
+fi
+
+write_installer_distribution > "$PKG_DISTRIBUTION"
+if ! productbuild --distribution "$PKG_DISTRIBUTION" --package-path "$PKG_WORK_DIR" \
+        --sign "$INSTALLER_IDENTITY" --timestamp "$OUTPUTS_DIR/$PKG_NAME"; then
+    echo "❌ productbuild with $INSTALLER_IDENTITY failed!"
+    exit 1
+fi
+
+if ! notarize "$OUTPUTS_DIR/$PKG_NAME" "$OUTPUTS_DIR/$PKG_NAME"; then
+    exit 1
+fi
+
+if ! spctl --assess --type install -v "$OUTPUTS_DIR/$PKG_NAME"; then
+    echo "❌ Gatekeeper rejects the notarized installer!"
+    exit 1
+fi
 
 # echo "💿 [7/7] Creating DMG installer image..."
 # sh build_dmg.sh
