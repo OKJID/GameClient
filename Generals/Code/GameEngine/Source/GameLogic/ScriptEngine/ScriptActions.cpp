@@ -961,6 +961,8 @@ void ScriptActions::doCreateObject(const AsciiString& objectName, const AsciiStr
 	// triggered the condition.  jba. :)
 	if (theTeam==nullptr) {
 		// We may need to create the team.
+		DEBUG_INFO_MAC(("[TEAM_SCRIPT] doCreateObject object='%s' type='%s': team '%s' not found by name, creating it",
+			objectName.str(), thingName.str(), teamName.str()));
 		theTeam = TheTeamFactory->createTeam( teamName );
 	}
 	if (!theTeam) {
@@ -1131,6 +1133,8 @@ void ScriptActions::createUnitOnTeamAt(const AsciiString& unitName, const AsciiS
 	// triggered the condition.  jba. :)
 	if (theTeam==nullptr) {
 		// We may need to create the team.
+		DEBUG_INFO_MAC(("[TEAM_SCRIPT] createUnitOnTeamAt unit='%s' type='%s' waypoint='%s': team '%s' not found by name, creating it",
+			unitName.str(), objType.str(), waypoint.str(), teamName.str()));
 		theTeam = TheTeamFactory->createTeam( teamName );
 	}
 	if (!theTeam) {

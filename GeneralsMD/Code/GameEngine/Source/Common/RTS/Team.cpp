@@ -335,6 +335,7 @@ Team *TeamFactory::createInactiveTeam(const AsciiString& name)
 	TeamPrototype *tp = findTeamPrototype(name);
 	if (!tp) {
 		DEBUG_CRASH(( "Team prototype '%s' does not exist", name.str() ));
+		DEBUG_INFO_MAC(("[TEAM_MISSING] team prototype '%s' does not exist, %d prototypes", name.str(), (Int)m_prototypes.size()));
 		return nullptr;
 	}
 
@@ -367,9 +368,11 @@ Team *TeamFactory::createInactiveTeam(const AsciiString& name)
 // ------------------------------------------------------------------------
 Team *TeamFactory::createTeam(const AsciiString& name)
 {
-	Team *t = NULL;
-	t = createInactiveTeam(name);
-	t->setActive();
+	Team *t = createInactiveTeam(name);
+
+	if (t)
+		t->setActive();
+
 	return t;
 }
 
