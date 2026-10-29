@@ -10,6 +10,11 @@ struct AppUpdate: Codable, Equatable {
     let minOSVersion: String
     let sha256: String?
     let signature: String?
+    let installerURL: String?
+
+    var browserDownloadURL: String {
+        installerURL ?? downloadURL
+    }
 }
 
 class UpdateChecker: ObservableObject, ApiResource {

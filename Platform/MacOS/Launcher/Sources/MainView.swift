@@ -1426,7 +1426,7 @@ struct MainView: View {
         Button(action: {
             Analytics.logUpdateOpened(version: update.version)
 
-            if let url = URL(string: update.downloadURL) {
+            if let url = URL(string: update.browserDownloadURL) {
                 NSWorkspace.shared.open(url)
             }
         }) {
