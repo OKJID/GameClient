@@ -165,63 +165,6 @@
     .step-body {
         margin-left: 40px;
     }
-
-    .code-box {
-        margin: 16px 0 16px 40px;
-        background: #000;
-        padding: 16px;
-        border-radius: 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        font-family: monospace;
-        font-size: 14px;
-    }
-
-    .copy-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: none;
-        color: var(--text-main);
-        padding: 6px 12px;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-
-    .copy-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-    }
-
-    .copy-btn.copied {
-        background: var(--accent);
-        color: #000;
-    }
-
-    .alert {
-        margin: 24px 0 0 40px;
-        padding: 16px 20px;
-        background: var(--warning-bg);
-        border-left: 4px solid var(--warning-border);
-        border-radius: 8px;
-    }
-
-    .alert-title {
-        color: #f87171;
-        font-weight: 700;
-        margin-bottom: 8px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .alert-desc {
-        color: var(--warning-text) !important;
-        margin: 0 !important;
-        font-size: 14px !important;
-    }
     /* styles/30-actions.css */
     .intro-alert {
         margin: 0 0 32px 0;
@@ -897,16 +840,6 @@
         margin-right: 40px;
     }
 
-    [dir="rtl"] .code-box {
-        margin: 16px 40px 16px 0;
-    }
-
-    [dir="rtl"] .alert {
-        margin: 24px 40px 0 0;
-        border-left: none;
-        border-right: 4px solid var(--warning-border);
-    }
-
     [dir="rtl"] .faq-answer .faq-warning {
         border-left: none;
         border-right: 4px solid var(--warning-border);
@@ -975,7 +908,7 @@
     </div>
     <div class="intro-alert">
         <span data-i18n="intro">
-            macOS Gatekeeper will block this app because it is a free community port without a paid Apple Developer certificate. You need to remove the quarantine flag using Terminal before playing.
+            Generals Online for macOS is signed with an Apple Developer ID and notarized by Apple, so it opens like any other app: no Terminal, no commands.
         </span>
         <div class="support-actions">
             <a href="https://t.me/GeneralsOnlineMacOSChannel" target="_blank" class="support-btn tg-btn">
@@ -995,34 +928,12 @@
 
     <div class="steps">
         <div class="step">
-            <h2><span class="step-num"></span> <span data-i18n="stepTerminalTitle">Open Terminal</span></h2>
-            <p data-i18n="stepTerminalDesc">Open the <b>Terminal</b> application from Launchpad or Spotlight Search.</p>
-        </div>
-        <div class="step">
-            <h2><span class="step-num"></span> <span data-i18n="stepCommandTitle">Type the command</span></h2>
-            <p data-i18n="stepCommandDesc">Copy the following command. Paste it into the Terminal (it has a necessary space at the end), but <b>do not press Enter yet</b>:</p>
-            <div class="code-box">
-                <code id="command-text">sudo xattr -cr </code>
-                <button class="copy-btn" id="copy-btn" data-i18n="btnCopy">Copy</button>
-            </div>
-        </div>
-        <div class="step">
-            <h2><span class="step-num"></span> <span data-i18n="stepDragTitle">Drag and Drop</span></h2>
-            <p data-i18n="stepDragDesc">Drag the unzipped <b>Generals Online.app</b> into the Terminal window. Its file path will be inserted automatically. Then press Enter.</p>
-        </div>
-        <div class="step">
-            <h2><span class="step-num"></span> <span data-i18n="stepPasswordTitle">Enter your Mac Password</span></h2>
-            <p data-i18n="stepPasswordDesc">The Terminal will ask for your Mac administrator password (the PIN or password you use to unlock your computer).</p>
-            <div class="alert">
-                <div class="alert-title">
-                    ⚠️ <span data-i18n="passwordAlertTitle">Wait! Your typing will be invisible!</span>
-                </div>
-                <p class="alert-desc" data-i18n="passwordAlertDesc">When you type your password, <b>no characters or asterisks (*) will appear on the screen</b>. This is a normal macOS security feature. Just type your password blindly and press Enter.</p>
-            </div>
+            <h2><span class="step-num"></span> <span data-i18n="stepMoveTitle">Move it to Applications</span></h2>
+            <p data-i18n="stepMoveDesc">Drag the unzipped <b>Generals Online.app</b> into the <b>Applications</b> folder in Finder and start it from there. Started straight from Downloads, macOS runs a temporary copy of the app, and the launcher cannot update itself. On the first launch macOS asks whether you are sure you want to open an app downloaded from the Internet — press <b>Open</b>.</p>
         </div>
         <div class="step">
             <h2><span class="step-num"></span> <span data-i18n="stepLauncherTitle">Open the Launcher</span></h2>
-            <p data-i18n="stepLauncherDesc">You can now double-click the app to open the Launcher! Choose how you want to get the Windows game data — download it from Steam or point the launcher at a copy you already have.</p>
+            <p data-i18n="stepLauncherDesc">Open <b>Generals Online</b> from Applications or Launchpad. Then choose how to get the Windows game data: download it from Steam, or point the launcher at a copy you already have.</p>
 
             <div class="step-body">
                 <div class="tabs-wrapper" data-tabs>
@@ -1258,28 +1169,20 @@
 I18N.ar = {
     pageSubtitle: "Generals Online",
     pageTitle: "العب C&C Generals Zero Hour على Mac",
-    intro: "القدرة على تشغيل لعبة C&C Generals Online على نظام macOS تم تطويرها مجانًا بدافع الحماس الخالص بدون شهادة مدفوعة من Apple - لذلك ولتشغيل <code>Generals Online</code> لأول مرة، ستحتاج لاتباع بعض الخطوات الموضحة في التعليمات أدناه. دعم المطور يزيد من فرص إصدار اللعبة <b>بشهادة Apple الرسمية</b> وإطلاق اللانشر بنقرة واحدة!",
+    intro: "تطبيق <code>Generals Online</code> لنظام macOS موقّع بمعرّف Apple Developer ID وموثّق من Apple، لذا يُفتح مثل أي تطبيق آخر: بلا Terminal وبلا أوامر. يُطوَّر هذا المنفذ تطوعًا وبدافع الحماس الخالص — ودعم المطور يساعد على إصدار نسخ جديدة!",
     btnTelegram: "قناة تليجرام",
     btnSupport: "دعم المطور",
     btnUpdates: "التحقق من التحديثات",
-    stepDownloadTitle: "نزّل اللانشر",
-    stepDownloadDesc: "نزّل أحدث إصدار من <b>Generals Online</b> لنظام macOS، ثم فك ضغط الأرشيف.",
+    stepDownloadTitle: "نزّل المثبّت",
+    stepDownloadDesc: "نزّل مثبّت أحدث إصدار من <b>Generals Online</b> لنظام macOS.",
     stepDownloadVideo: "▶ دليل فيديو على YouTube — التثبيت كاملًا في 5–10 دقائق",
     btnDownload: "تنزيل Generals Online",
-    stepTerminalTitle: "افتح تطبيق Terminal",
-    stepTerminalDesc: "افتح تطبيق <b>Terminal</b> من Launchpad أو عبر بحث Spotlight.",
-    stepCommandTitle: "اكتب الأمر المطلوب",
-    stepCommandDesc: "انسخ الأمر التالي. ألصقه في الـ Terminal (يحتوي على مسافة في النهاية)، ولكن <b>لا تضغط على مفتاح Enter بعد</b>:",
-    btnCopy: "نسخ",
-    btnCopied: "تم النسخ!",
-    stepDragTitle: "السحب والإفلات",
-    stepDragDesc: "اسحب تطبيق <b>Generals Online.app</b> الذي تم فك ضغطه إلى نافذة الـ Terminal. سيتم إدراج المسار تلقائيا. ثم اضغط على Enter.",
-    stepPasswordTitle: "أدخل كلمة مرور الـ Mac",
-    stepPasswordDesc: "سيطلب منك الـ Terminal كلمة مرور مسؤول Mac (رمز PIN أو كلمة المرور التي تستخدمها لإلغاء القفل).",
-    passwordAlertTitle: "انتظر! كتابتك ستكون غير مرئية!",
-    passwordAlertDesc: "عند كتابة كلمة المرور، <b>لن تظهر أية أحرف أو نجوم (*) على الشاشة</b>. هذه ميزة أمان طبيعية في macOS. فقط اكتب كلمة المرور بشكل مخفي واضغط Enter.",
+    stepInstallTitle: "شغّل المثبّت",
+    stepInstallDesc: "افتح الملف <b>Generals_Online_macOS.pkg</b> الذي نزّلته واتبع خطوات المثبّت: <b>متابعة</b> ← <b>تثبيت</b>. سيطلب macOS كلمة مرور الـ Mac كما في أي عملية تثبيت. سيستقر اللانشر في مجلد <b>التطبيقات</b> ويحدّث نفسه من هناك.",
+    stepMoveTitle: "انقله إلى مجلد التطبيقات",
+    stepMoveDesc: "اسحب تطبيق <b>Generals Online.app</b> الذي تم فك ضغطه إلى مجلد <b>التطبيقات</b> (Applications) في Finder وشغّله من هناك. إذا شُغّل مباشرةً من مجلد التنزيلات، يفتح macOS نسخة مؤقتة من التطبيق ولا يستطيع اللانشر تحديث نفسه. عند التشغيل الأول سيسألك macOS إن كنت متأكدًا من فتح تطبيق تم تنزيله من الإنترنت — اضغط <b>فتح</b>.",
     stepLauncherTitle: "افتح اللانشر",
-    stepLauncherDesc: "يمكنك الآن النقر المزدوج على التطبيق لفتح اللانشر! اختر مصدر ملفات نسخة Windows: تنزيلها من Steam أو الإشارة إلى نسخة تملكها بالفعل.",
+    stepLauncherDesc: "افتح <b>Generals Online</b> من مجلد التطبيقات أو من Launchpad. ثم اختر مصدر ملفات نسخة Windows: تنزيلها من Steam أو الإشارة إلى نسخة تملكها بالفعل.",
     tabSteam: "Steam",
     tabLocal: "أرشيف محلي",
     steamSteps: '<li>افتح علامة التبويب <b>Steam</b> في اللانشر.</li><li>سجّل الدخول بحساب Steam الخاص بك — يجب أن تكون اللعبة مشتراة عليه.</li><li>اضغط على <b>DOWNLOAD ASSETS</b>.</li><li>أدخل رمز Steam Guard إذا طُلب منك (الحقل يظهر بجوار كلمة المرور، ويصل الرمز عادة عبر البريد الإلكتروني).</li><li>إذا لم يكن الحساب يملك اللعبة، ستنقلك نافذة منبثقة إلى صفحتها على Steam. بعد الشراء اضغط التنزيل مرة أخرى.</li><li>ينزّل اللانشر الملفات الأصلية مباشرة من خوادم Valve إلى <code>~/Documents/Generals Online/</code> ويطبّق تصحيح المجتمع بنفسه.</li><li>بعدها يضيء زر <span class="launch-btn">LAUNCH</span> — اضغطه والعب!</li>',
@@ -1340,7 +1243,7 @@ I18N.ar = {
     faqSendQ: "هل يمكنك ببساطة أن ترسل لي ملفات اللعبة؟",
     faqSendA: "لا. أصدرت EA الشيفرة المصدرية للمحرك — وهذه يحق لنا بناؤها ومشاركتها، وهذا هو اللانشر. أما بيانات اللعبة فلم تُنشر قط، وتداولها سيكون قرصنة. نحن لا نفعل ذلك ولا نضع روابط له.",
     faqVideoQ: "هل يوجد دليل فيديو؟ كم يستغرق التثبيت؟",
-    faqVideoA: 'نعم: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">دليل فيديو على YouTube</a>. إنه تسجيل للشاشة بلا صوت يعرض الطريق كاملًا، من التنزيل حتى أول مباراة. عادةً يستغرق الأمر 5–10 دقائق. تطوّر اللانشر منذ التسجيل، فإن بدا لك شيء مختلفًا فاتبع الخطوات في هذه الصفحة.',
+    faqVideoA: 'نعم: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">دليل فيديو على YouTube</a>. إنه تسجيل للشاشة بلا صوت يعرض الطريق كاملًا، من التنزيل حتى أول مباراة. عادةً يستغرق الأمر 5–10 دقائق. تطوّر اللانشر منذ التسجيل، فإن بدا لك شيء مختلفًا فاتبع الخطوات في هذه الصفحة. لم تعد خطوات Terminal الظاهرة في الفيديو ضرورية: أصبح التطبيق الآن موثّقًا من Apple ويُفتح بنقرة مزدوجة.',
     faqOnlineQ: "كيف ألعب عبر الإنترنت مع لاعبين آخرين على Mac؟",
     faqOnlineA: '<ul class="steps-list"><li>شغّل اللعبة من اللانشر، واختر <b>Online</b>، وسجّل الدخول عندما تطلب اللعبة ذلك.</li><li>تعرض قائمة الردهات الألعاب التي أُنشئت على Mac فقط — فلتر <b>macOS</b> مفعّل افتراضيًا. اللعبة التي تنشئها تحصل تلقائيًا على الوسم <code>[MAC]</code>.</li><li>أنشئ لعبة أو انضم إلى إحداها. يجب أن يستخدم كل من في المباراة المود نفسه بالإصدار نفسه.</li><li>عدد لاعبي Mac المتصلين في أي لحظة قليل، لذلك اتفق على المباراة مسبقًا: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">محادثة Telegram</a> أو <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "هل يمكنني اللعب ضد لاعبي Windows؟",
@@ -1360,28 +1263,20 @@ I18N.ar = {
 I18N.de = {
     pageSubtitle: "Generals Online",
     pageTitle: "C&C Generals Zero Hour auf dem Mac spielen",
-    intro: "Die Möglichkeit, C&C Generals Online unter macOS auszuführen, wurde rein aus Enthusiasmus und ohne kostenpflichtiges Apple-Zertifikat entwickelt. Um das Spiel zum ersten Mal auszuführen, folge bitte den unten stehenden Schritten. Die Unterstützung des Entwicklers erhöht die Chancen, das Spiel mit einem <b>offiziellen Apple-Zertifikat</b> und einfachem 1-Klick-Launcher zu veröffentlichen!",
+    intro: "<code>Generals Online</code> für macOS ist mit einer Apple Developer ID signiert und von Apple notarisiert, deshalb öffnet es sich wie jede andere App: ohne Terminal, ohne Befehle. Der Port entsteht ehrenamtlich, aus reiner Begeisterung — wer den Entwickler unterstützt, hilft, dass weitere Versionen erscheinen!",
     btnTelegram: "Telegram-Kanal",
     btnSupport: "Entwickler unterstützen",
     btnUpdates: "Updates prüfen",
-    stepDownloadTitle: "Launcher herunterladen",
-    stepDownloadDesc: "Lade die neueste Version von <b>Generals Online</b> für macOS herunter und entpacke das Archiv.",
+    stepDownloadTitle: "Installer herunterladen",
+    stepDownloadDesc: "Lade den Installer der neuesten Version von <b>Generals Online</b> für macOS herunter.",
     stepDownloadVideo: "▶ Videoanleitung auf YouTube — die ganze Installation in 5–10 Minuten",
     btnDownload: "Generals Online herunterladen",
-    stepTerminalTitle: "Terminal öffnen",
-    stepTerminalDesc: "Öffne die <b>Terminal</b>-App über das Launchpad oder die Spotlight-Suche.",
-    stepCommandTitle: "Befehl eingeben",
-    stepCommandDesc: "Kopiere den folgenden Befehl und füge ihn in das Terminal ein (er hat ein Leerzeichen am Ende), aber <b>drücke noch nicht Enter</b>:",
-    btnCopy: "Kopieren",
-    btnCopied: "Kopiert!",
-    stepDragTitle: "Drag and Drop",
-    stepDragDesc: "Ziehe die entpackte <b>Generals Online.app</b> in das Terminal-Fenster. Der Dateipfad wird automatisch eingefügt. Drücke dann auf Enter.",
-    stepPasswordTitle: "Mac-Passwort eingeben",
-    stepPasswordDesc: "Das Terminal fordert dich nun auf, dein Mac-Administrator-Passwort einzugeben.",
-    passwordAlertTitle: "Warte! Deine Eingabe ist unsichtbar!",
-    passwordAlertDesc: "Wenn du dein Passwort eingibst, <b>werden keine Zeichen oder Sternchen (*) auf dem Bildschirm angezeigt</b>. Das ist ein normales Sicherheitsmerkmal von macOS. Tippe dein Passwort blind ein und drücke Enter.",
+    stepInstallTitle: "Installer ausführen",
+    stepInstallDesc: "Öffne die heruntergeladene <b>Generals_Online_macOS.pkg</b> und folge dem Installer: <b>Fortfahren</b> → <b>Installieren</b>. macOS fragt nach deinem Mac-Passwort, wie bei jeder Installation. Der Launcher landet im Ordner <b>Programme</b> und aktualisiert sich von dort selbst.",
+    stepMoveTitle: "In „Programme“ verschieben",
+    stepMoveDesc: "Ziehe die entpackte <b>Generals Online.app</b> im Finder in den Ordner <b>Programme</b> und starte sie von dort. Direkt aus „Downloads“ gestartet, führt macOS eine temporäre Kopie der App aus, und der Launcher kann sich nicht selbst aktualisieren. Beim ersten Start fragt macOS, ob du eine aus dem Internet geladene App wirklich öffnen möchtest — klicke auf <b>Öffnen</b>.",
     stepLauncherTitle: "Öffne den Launcher",
-    stepLauncherDesc: "Du kannst nun auf die App doppelklicken, um den Launcher zu öffnen! Wähle, woher die Windows-Spieldaten kommen: aus Steam laden oder eine vorhandene Kopie angeben.",
+    stepLauncherDesc: "Öffne <b>Generals Online</b> über „Programme“ oder das Launchpad. Wähle dann, woher die Windows-Spieldaten kommen: aus Steam laden oder eine vorhandene Kopie angeben.",
     tabSteam: "Steam",
     tabLocal: "Lokales Archiv",
     steamSteps: '<li>Gehe zum Reiter <b>Steam</b> im Launcher.</li><li>Melde dich mit deinem Steam-Konto an — das Spiel muss darauf gekauft sein.</li><li>Klicke auf <b>DOWNLOAD ASSETS</b>.</li><li>Gib bei Bedarf deinen Steam-Guard-Code ein (das Feld erscheint rechts neben dem Passwort, der Code kommt meistens per E-Mail).</li><li>Falls das Spiel nicht gekauft wurde, öffnet ein Pop-up die Steam-Seite. Nach dem Kauf erneut auf Herunterladen klicken.</li><li>Der Launcher lädt die Originaldateien direkt von den Valve-Servern nach <code>~/Documents/Generals Online/</code> und spielt den Community-Patch selbst ein.</li><li>Danach leuchtet die Schaltfläche <span class="launch-btn">LAUNCH</span> auf — anklicken und spielen!</li>',
@@ -1442,7 +1337,7 @@ I18N.de = {
     faqSendQ: "Kannst du mir nicht einfach die Spieldateien schicken?",
     faqSendA: "Nein. EA hat den Quellcode der Engine veröffentlicht — den dürfen wir bauen und weitergeben, und genau das ist der Launcher. Die Spieldaten wurden nie freigegeben, sie weiterzugeben wäre Piraterie. Das machen wir nicht, und wir verlinken auch nicht darauf.",
     faqVideoQ: "Gibt es eine Videoanleitung? Wie lange dauert die Installation?",
-    faqVideoA: 'Ja: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">Videoanleitung auf YouTube</a>. Eine Bildschirmaufnahme ohne Ton — der ganze Weg vom Download bis zum ersten Match. Meist dauert es 5–10 Minuten. Der Launcher hat sich seit der Aufnahme weiterentwickelt: Wenn etwas anders aussieht, folge den Schritten auf dieser Seite.',
+    faqVideoA: 'Ja: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">Videoanleitung auf YouTube</a>. Eine Bildschirmaufnahme ohne Ton — der ganze Weg vom Download bis zum ersten Match. Meist dauert es 5–10 Minuten. Der Launcher hat sich seit der Aufnahme weiterentwickelt: Wenn etwas anders aussieht, folge den Schritten auf dieser Seite. Die Terminal-Schritte aus dem Video sind nicht mehr nötig: Die App ist jetzt von Apple notarisiert und öffnet sich per Doppelklick.',
     faqOnlineQ: "Wie spiele ich online mit anderen Mac-Spielern?",
     faqOnlineA: '<ul class="steps-list"><li>Starte das Spiel aus dem Launcher, wähle <b>Online</b> und melde dich an, wenn das Spiel danach fragt.</li><li>Die Lobby-Liste zeigt nur Spiele, die auf einem Mac erstellt wurden — der Filter <b>macOS</b> ist standardmäßig aktiv. Ein Spiel, das du erstellst, bekommt automatisch die Markierung <code>[MAC]</code>.</li><li>Erstelle ein Spiel oder tritt einem bei. Alle im Match müssen denselben Mod in derselben Version haben.</li><li>Es sind nie besonders viele Mac-Spieler gleichzeitig online, verabrede ein Match also vorher: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram-Chat</a> oder <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Kann ich gegen Windows-Spieler spielen?",
@@ -1462,28 +1357,20 @@ I18N.de = {
 I18N.en = {
     pageSubtitle: "Generals Online",
     pageTitle: "Play C&C Generals Zero Hour on Mac",
-    intro: "The ability to run C&C Generals Online on macOS was developed voluntarily out of pure enthusiasm, without a paid Apple Certificate. Therefore, to launch <code>Generals Online</code> for the first time, you need to follow a few simple steps below. However, supporting the developer increases the chances of releasing future versions with an <b>official Apple Certificate</b> and a 1-click launcher!",
+    intro: "<code>Generals Online</code> for macOS is signed with an Apple Developer ID and notarized by Apple, so it opens like any other app: no Terminal, no commands. The port is developed voluntarily, out of pure enthusiasm — supporting the developer helps keep new versions coming!",
     btnTelegram: "Telegram Channel",
     btnSupport: "Support Developer",
     btnUpdates: "Check for Updates",
-    stepDownloadTitle: "Download the Launcher",
-    stepDownloadDesc: "Download the latest version of <b>Generals Online</b> for macOS. Unzip the archive after downloading.",
+    stepDownloadTitle: "Download the Installer",
+    stepDownloadDesc: "Download the installer of the latest <b>Generals Online</b> for macOS.",
     stepDownloadVideo: "▶ Video guide on YouTube — the whole install in 5–10 minutes",
     btnDownload: "Download Generals Online",
-    stepTerminalTitle: "Open Terminal",
-    stepTerminalDesc: "Open the <b>Terminal</b> application from Launchpad or Spotlight Search.",
-    stepCommandTitle: "Type the command",
-    stepCommandDesc: "Copy the following command. Paste it into the Terminal (it has a necessary space at the end), but <b>do not press Enter yet</b>:",
-    btnCopy: "Copy",
-    btnCopied: "Copied!",
-    stepDragTitle: "Drag and Drop",
-    stepDragDesc: "Drag the unzipped <b>Generals Online.app</b> into the Terminal window. Its file path will be inserted automatically. Then press Enter.",
-    stepPasswordTitle: "Enter your Mac Password",
-    stepPasswordDesc: "The Terminal will ask for your Mac administrator password (the PIN or password you use to unlock your computer).",
-    passwordAlertTitle: "Wait! Your typing will be invisible!",
-    passwordAlertDesc: "When you type your password, <b>no characters or asterisks (*) will appear on the screen</b>. This is a normal macOS security feature. Just type your password blindly and press Enter.",
+    stepInstallTitle: "Run the Installer",
+    stepInstallDesc: "Open the downloaded <b>Generals_Online_macOS.pkg</b> and follow the installer: <b>Continue</b> → <b>Install</b>. macOS asks for your Mac password, as with any installer. The launcher lands in the <b>Applications</b> folder and updates itself from there.",
+    stepMoveTitle: "Move it to Applications",
+    stepMoveDesc: "Drag the unzipped <b>Generals Online.app</b> into the <b>Applications</b> folder in Finder and start it from there. Started straight from Downloads, macOS runs a temporary copy of the app, and the launcher cannot update itself. On the first launch macOS asks whether you are sure you want to open an app downloaded from the Internet — press <b>Open</b>.",
     stepLauncherTitle: "Open the Launcher",
-    stepLauncherDesc: "You can now double-click the app to open the Launcher! Choose how to get the Windows game data: download it from Steam, or point the launcher at a copy you already have.",
+    stepLauncherDesc: "Open <b>Generals Online</b> from Applications or Launchpad. Then choose how to get the Windows game data: download it from Steam, or point the launcher at a copy you already have.",
     tabSteam: "Steam",
     tabLocal: "Local Archive",
     steamSteps: '<li>Open the <b>Steam</b> tab in the launcher.</li><li>Sign in with your Steam account — the game has to be on it.</li><li>Press <b>DOWNLOAD ASSETS</b>.</li><li>Enter your Steam Guard code if asked (the field appears next to the password; the code usually arrives by email).</li><li>If the account does not own the game, a popup takes you to its Steam page. After buying, press download again.</li><li>The launcher pulls the original files straight from Valve into <code>~/Documents/Generals Online/</code> and applies the community patch by itself.</li><li>Once that is done the <span class="launch-btn">LAUNCH</span> button lights up — press it and play!</li>',
@@ -1544,7 +1431,7 @@ I18N.en = {
     faqSendQ: "Can you just send me the game files?",
     faqSendA: "No. EA released the source code of the engine — that we may build and share, and that is what the launcher is. The game data was never released, so passing it around would be piracy. We don't do that and we don't link to it.",
     faqVideoQ: "Is there a video guide? How long does the install take?",
-    faqVideoA: 'Yes: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">video guide on YouTube</a>. It is a silent screen recording of the whole path, from the download to the first match. Usually it takes 5–10 minutes. The launcher has grown since the recording, so if something looks different, follow the steps on this page.',
+    faqVideoA: 'Yes: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">video guide on YouTube</a>. It is a silent screen recording of the whole path, from the download to the first match. Usually it takes 5–10 minutes. The launcher has grown since the recording, so if something looks different, follow the steps on this page. The Terminal steps from the video are no longer needed: the app is now notarized by Apple and opens with a double-click.',
     faqOnlineQ: "How do I play online with other Mac players?",
     faqOnlineA: '<ul class="steps-list"><li>Start the game from the launcher, choose <b>Online</b> and sign in when the game asks.</li><li>The lobby list shows only games hosted on a Mac — the <b>macOS</b> filter is selected by default. A game you host gets the <code>[MAC]</code> tag on its own.</li><li>Host a game or join one. Everyone in the match must run the same mod of the same version.</li><li>There are not many Mac players online at any given moment, so agree on a match in advance: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram chat</a> or <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Can I play against Windows players?",
@@ -1564,28 +1451,20 @@ I18N.en = {
 I18N.es = {
     pageSubtitle: "Generals Online",
     pageTitle: "Juega a C&C Generals Zero Hour en Mac",
-    intro: "La capacidad de jugar C&C Generals Online en macOS fue desarrollada de forma gratuita por puro entusiasmo, sin un certificado de Apple pago. Por eso, para ejecutarlo por primera vez, debes seguir los breves pasos a continuación. ¡El apoyo al desarrollador aumenta las posibilidades de lanzar versiones futuras con un <b>certificado oficial de Apple</b> y un inicio con 1 clic!",
+    intro: "<code>Generals Online</code> para macOS está firmado con un Apple Developer ID y notarizado por Apple, así que se abre como cualquier otra app: sin Terminal ni comandos. El port se desarrolla de forma voluntaria, por puro entusiasmo: ¡apoyar al desarrollador ayuda a que sigan saliendo nuevas versiones!",
     btnTelegram: "Canal de Telegram",
     btnSupport: "Apoyar al creador",
     btnUpdates: "Buscar actualizaciones",
-    stepDownloadTitle: "Descarga el Lanzador",
-    stepDownloadDesc: "Descarga la última versión de <b>Generals Online</b> para macOS y descomprime el archivo.",
+    stepDownloadTitle: "Descarga el instalador",
+    stepDownloadDesc: "Descarga el instalador de la última versión de <b>Generals Online</b> para macOS.",
     stepDownloadVideo: "▶ Videoguía en YouTube: toda la instalación en 5–10 minutos",
     btnDownload: "Descargar Generals Online",
-    stepTerminalTitle: "Abre Terminal",
-    stepTerminalDesc: "Abre la aplicación <b>Terminal</b> desde el Launchpad o la Búsqueda de Spotlight.",
-    stepCommandTitle: "Introduce el comando",
-    stepCommandDesc: "Copia el siguiente comando y pégalo en la Terminal (fíjate que termina con un espacio), pero <b>no presiones Enter todavía</b>:",
-    btnCopy: "Copiar",
-    btnCopied: "¡Copiado!",
-    stepDragTitle: "Arrastrar y Soltar",
-    stepDragDesc: "Arrastra la aplicación descomprimida <b>Generals Online.app</b> hacia la ventana de la Terminal. La ruta se insertará automáticamente. Luego presiona Enter.",
-    stepPasswordTitle: "Ingresa tu contraseña de Mac",
-    stepPasswordDesc: "La Terminal te pedirá tu contraseña de administrador (la misma que usas para iniciar sesión).",
-    passwordAlertTitle: "¡Atención! ¡Tu escritura será invisible!",
-    passwordAlertDesc: "Mientras tecleas la contraseña, <b>no aparecerán letras ni asteriscos (*) en la pantalla</b>. Esta es una medida de seguridad normal de macOS. Solo escribe tu contraseña 'a ciegas' y presiona Enter.",
+    stepInstallTitle: "Ejecuta el instalador",
+    stepInstallDesc: "Abre el <b>Generals_Online_macOS.pkg</b> descargado y sigue el instalador: <b>Continuar</b> → <b>Instalar</b>. macOS te pedirá la contraseña de tu Mac, como en cualquier instalación. El Lanzador queda en la carpeta <b>Aplicaciones</b> y se actualiza solo desde ahí.",
+    stepMoveTitle: "Muévela a Aplicaciones",
+    stepMoveDesc: "Arrastra la aplicación descomprimida <b>Generals Online.app</b> a la carpeta <b>Aplicaciones</b> en el Finder y ábrela desde ahí. Si la abres directamente desde Descargas, macOS ejecuta una copia temporal de la app y el Lanzador no puede actualizarse solo. En el primer arranque macOS te pregunta si seguro que quieres abrir una app descargada de Internet: pulsa <b>Abrir</b>.",
     stepLauncherTitle: "Abre el Lanzador",
-    stepLauncherDesc: "¡Ahora puedes hacer doble clic en la aplicación para abrir el Lanzador! Elige de dónde salen los datos de la versión de Windows: descargarlos de Steam o señalar una copia que ya tengas.",
+    stepLauncherDesc: "Abre <b>Generals Online</b> desde Aplicaciones o el Launchpad. Después elige de dónde salen los datos de la versión de Windows: descargarlos de Steam o señalar una copia que ya tengas.",
     tabSteam: "Steam",
     tabLocal: "Archivo Local",
     steamSteps: '<li>Ve a la pestaña <b>Steam</b> en el lanzador.</li><li>Inicia sesión con tu cuenta de Steam — el juego debe estar comprado en ella.</li><li>Pulsa <b>DOWNLOAD ASSETS</b>.</li><li>Si hace falta, introduce tu código de Steam Guard (el campo aparece a la derecha de la contraseña; el código suele llegar por correo).</li><li>Si la cuenta no tiene el juego, una ventana emergente te lleva a su página de Steam. Tras comprarlo, pulsa descargar otra vez.</li><li>El lanzador descarga los archivos originales directamente de los servidores de Valve a <code>~/Documents/Generals Online/</code> y aplica el parche comunitario por su cuenta.</li><li>Después se enciende el botón <span class="launch-btn">LAUNCH</span>: ¡púlsalo y juega!</li>',
@@ -1646,7 +1525,7 @@ I18N.es = {
     faqSendQ: "¿Puedes simplemente enviarme los archivos del juego?",
     faqSendA: "No. EA publicó el código fuente del motor: ese sí podemos compilarlo y compartirlo, y eso es el lanzador. Los datos del juego nunca se publicaron, así que pasarlos sería piratería. No lo hacemos ni enlazamos a ello.",
     faqVideoQ: "¿Hay un vídeo tutorial? ¿Cuánto tarda la instalación?",
-    faqVideoA: 'Sí: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">vídeo tutorial en YouTube</a>. Es una grabación de pantalla sin sonido de todo el proceso, desde la descarga hasta la primera partida. Normalmente lleva 5–10 minutos. El lanzador ha crecido desde la grabación, así que si algo se ve distinto, sigue los pasos de esta página.',
+    faqVideoA: 'Sí: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">vídeo tutorial en YouTube</a>. Es una grabación de pantalla sin sonido de todo el proceso, desde la descarga hasta la primera partida. Normalmente lleva 5–10 minutos. El lanzador ha crecido desde la grabación, así que si algo se ve distinto, sigue los pasos de esta página. Los pasos con la Terminal del vídeo ya no hacen falta: ahora la app está notarizada por Apple y se abre con doble clic.',
     faqOnlineQ: "¿Cómo juego en línea con otros jugadores de Mac?",
     faqOnlineA: '<ul class="steps-list"><li>Inicia el juego desde el lanzador, elige <b>Online</b> e inicia sesión cuando el juego lo pida.</li><li>La lista de salas muestra solo partidas creadas en un Mac: el filtro <b>macOS</b> está activado por defecto. Una partida que crees recibe la etiqueta <code>[MAC]</code> automáticamente.</li><li>Crea una partida o únete a una. Todos en la partida deben tener el mismo mod en la misma versión.</li><li>Nunca hay muchos jugadores de Mac conectados a la vez, así que acuerda la partida con antelación: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">chat de Telegram</a> o <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "¿Puedo jugar contra jugadores de Windows?",
@@ -1666,28 +1545,20 @@ I18N.es = {
 I18N.hi = {
     pageSubtitle: "Generals Online",
     pageTitle: "Mac पर C&C Generals Zero Hour खेलें",
-    intro: "macOS पर C&C Generals Online चलाने की क्षमता पूरी तरह से स्वैच्छिक रूप से और उत्साह से विकसित की गई है, बिना किसी भुगतान किए Apple Developer Certificate के। इसलिए, पहली बार <code>Generals Online</code> लॉन्च करने के लिए, आपको नीचे दिए गए कुछ सरल चरणों का पालन करना होगा। डेवलपर का समर्थन करने से भविष्य के संस्करणों में <b>आधिकारिक Apple Certificate</b> और वन-क्लिक लॉन्चर की संभावना बढ़ जाती है!",
+    intro: "macOS के लिए <code>Generals Online</code> Apple Developer ID से साइन किया गया है और Apple द्वारा नोटराइज़ किया गया है, इसलिए यह किसी भी दूसरे ऐप की तरह खुलता है: न Terminal, न कोई कमांड। यह पोर्ट पूरी तरह स्वैच्छिक रूप से, शुद्ध उत्साह से विकसित किया जाता है — डेवलपर का समर्थन नए संस्करण जारी करते रहने में मदद करता है!",
     btnTelegram: "टेलीग्राम चैनल",
     btnSupport: "डेवलपर का समर्थन करें",
     btnUpdates: "अपडेट जाँचें",
-    stepDownloadTitle: "लॉन्चर डाउनलोड करें",
-    stepDownloadDesc: "macOS के लिए <b>Generals Online</b> का नवीनतम संस्करण डाउनलोड करें। डाउनलोड के बाद आर्काइव को अनज़िप करें।",
+    stepDownloadTitle: "इंस्टॉलर डाउनलोड करें",
+    stepDownloadDesc: "macOS के लिए <b>Generals Online</b> के नवीनतम संस्करण का इंस्टॉलर डाउनलोड करें।",
     stepDownloadVideo: "▶ YouTube पर वीडियो गाइड — पूरा इंस्टॉलेशन 5–10 मिनट में",
     btnDownload: "Generals Online डाउनलोड करें",
-    stepTerminalTitle: "Terminal खोलें",
-    stepTerminalDesc: "Launchpad या Spotlight Search से <b>Terminal</b> एप्लिकेशन खोलें।",
-    stepCommandTitle: "कमांड टाइप करें",
-    stepCommandDesc: "नीचे दी गई कमांड कॉपी करें। इसे Terminal में पेस्ट करें (अंत में एक स्पेस है), लेकिन <b>अभी Enter न दबाएं</b>:",
-    btnCopy: "कॉपी करें",
-    btnCopied: "कॉपी हो गया!",
-    stepDragTitle: "ड्रैग एंड ड्रॉप",
-    stepDragDesc: "अनज़िप किए गए <b>Generals Online.app</b> को Terminal विंडो में ड्रैग करें। इसका फ़ाइल पथ स्वचालित रूप से जोड़ दिया जाएगा। फिर Enter दबाएं।",
-    stepPasswordTitle: "Mac पासवर्ड दर्ज करें",
-    stepPasswordDesc: "Terminal आपसे Mac एडमिनिस्ट्रेटर पासवर्ड मांगेगा (वही PIN या पासवर्ड जो आप कंप्यूटर अनलॉक करने के लिए उपयोग करते हैं)।",
-    passwordAlertTitle: "रुकें! टाइपिंग दिखाई नहीं देगी!",
-    passwordAlertDesc: "जब आप पासवर्ड टाइप करते हैं, <b>स्क्रीन पर कोई अक्षर या तारांकन (*) दिखाई नहीं देंगे</b>। यह macOS की एक सामान्य सुरक्षा सुविधा है। बस अपना पासवर्ड बिना देखे टाइप करें और Enter दबाएं।",
+    stepInstallTitle: "इंस्टॉलर चलाएँ",
+    stepInstallDesc: "डाउनलोड की गई <b>Generals_Online_macOS.pkg</b> खोलें और इंस्टॉलर के चरण पूरे करें: <b>Continue</b> → <b>Install</b>। किसी भी इंस्टॉलेशन की तरह macOS आपका Mac पासवर्ड पूछेगा। लॉन्चर <b>Applications</b> फ़ोल्डर में पहुँच जाएगा और वहीं से खुद को अपडेट करेगा।",
+    stepMoveTitle: "Applications में ले जाएँ",
+    stepMoveDesc: "अनज़िप किए गए <b>Generals Online.app</b> को Finder में <b>Applications</b> फ़ोल्डर में ड्रैग करें और वहीं से चलाएँ। अगर इसे सीधे Downloads से चलाया जाए, तो macOS ऐप की एक अस्थायी कॉपी चलाता है और लॉन्चर खुद को अपडेट नहीं कर पाता। पहली बार खोलने पर macOS पूछेगा कि क्या आप सचमुच इंटरनेट से डाउनलोड किया गया ऐप खोलना चाहते हैं — <b>Open</b> दबाएँ।",
     stepLauncherTitle: "लॉन्चर खोलें",
-    stepLauncherDesc: "अब आप ऐप पर डबल-क्लिक करके लॉन्चर खोल सकते हैं! चुनें कि Windows गेम डेटा कहाँ से लेना है: Steam से डाउनलोड करें या अपनी मौजूदा कॉपी दिखाएँ।",
+    stepLauncherDesc: "Applications या Launchpad से <b>Generals Online</b> खोलें। फिर चुनें कि Windows गेम डेटा कहाँ से लेना है: Steam से डाउनलोड करें या अपनी मौजूदा कॉपी दिखाएँ।",
     tabSteam: "Steam",
     tabLocal: "लोकल आर्काइव",
     steamSteps: '<li>लॉन्चर में <b>Steam</b> टैब खोलें।</li><li>अपने Steam अकाउंट से लॉग इन करें — गेम उसी अकाउंट पर खरीदा होना चाहिए।</li><li><b>DOWNLOAD ASSETS</b> बटन दबाएँ।</li><li>पूछे जाने पर Steam Guard कोड दर्ज करें (फ़ील्ड पासवर्ड के दाईं ओर दिखता है; कोड आमतौर पर ईमेल पर आता है)।</li><li>यदि अकाउंट में गेम नहीं है, तो एक पॉपअप उसके Steam पेज पर ले जाएगा। खरीदने के बाद फिर से डाउनलोड दबाएँ।</li><li>लॉन्चर मूल फ़ाइलें सीधे Valve के सर्वर से <code>~/Documents/Generals Online/</code> में डाउनलोड करता है और कम्युनिटी पैच खुद लगा देता है।</li><li>इसके बाद <span class="launch-btn">LAUNCH</span> बटन सक्रिय हो जाएगा — इसे दबाएँ और खेलें!</li>',
@@ -1748,7 +1619,7 @@ I18N.hi = {
     faqSendQ: "क्या आप मुझे सीधे गेम की फ़ाइलें भेज सकते हैं?",
     faqSendA: "नहीं। EA ने इंजन का सोर्स कोड जारी किया है — उसे हम बना और बाँट सकते हैं, और लॉन्चर वही है। गेम का डेटा कभी जारी नहीं हुआ, इसलिए उसे बाँटना पायरेसी होगी। हम ऐसा नहीं करते और उसके लिंक भी नहीं देते।",
     faqVideoQ: "क्या कोई वीडियो गाइड है? इंस्टॉलेशन में कितना समय लगता है?",
-    faqVideoA: 'हाँ: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube पर वीडियो गाइड</a>। यह बिना आवाज़ की स्क्रीन रिकॉर्डिंग है — डाउनलोड से लेकर पहले मैच तक पूरा रास्ता। आमतौर पर 5–10 मिनट लगते हैं। रिकॉर्डिंग के बाद लॉन्चर में काफ़ी बदलाव हुए हैं, इसलिए अगर कुछ अलग दिखे तो इस पेज के चरणों का पालन करें।',
+    faqVideoA: 'हाँ: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube पर वीडियो गाइड</a>। यह बिना आवाज़ की स्क्रीन रिकॉर्डिंग है — डाउनलोड से लेकर पहले मैच तक पूरा रास्ता। आमतौर पर 5–10 मिनट लगते हैं। रिकॉर्डिंग के बाद लॉन्चर में काफ़ी बदलाव हुए हैं, इसलिए अगर कुछ अलग दिखे तो इस पेज के चरणों का पालन करें। वीडियो में दिखाए गए Terminal वाले चरण अब ज़रूरी नहीं हैं: ऐप अब Apple द्वारा नोटराइज़ है और डबल-क्लिक से खुलता है।',
     faqOnlineQ: "दूसरे Mac खिलाड़ियों के साथ ऑनलाइन कैसे खेलूँ?",
     faqOnlineA: '<ul class="steps-list"><li>लॉन्चर से गेम शुरू करें, <b>Online</b> चुनें और गेम के माँगने पर साइन इन करें।</li><li>लॉबी की सूची में सिर्फ़ Mac पर बनाए गए गेम दिखते हैं — <b>macOS</b> फ़िल्टर पहले से चुना होता है। आपका बनाया गेम अपने आप <code>[MAC]</code> टैग पा लेता है।</li><li>गेम बनाएँ या किसी गेम में शामिल हों। मैच में सबके पास एक ही मॉड का एक ही संस्करण होना चाहिए।</li><li>किसी भी समय ऑनलाइन Mac खिलाड़ी कम होते हैं, इसलिए मैच पहले से तय कर लें: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram चैट</a> या <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>।</li></ul>',
     faqCrossplayQ: "क्या मैं Windows खिलाड़ियों के ख़िलाफ़ खेल सकता हूँ?",
@@ -1768,28 +1639,20 @@ I18N.hi = {
 I18N.kk = {
     pageSubtitle: "Generals Online",
     pageTitle: "C&C Generals Zero Hour ойынын Mac-та ойнау",
-    intro: "C&C Generals Online ойынын macOS-та қосу мүмкіндігі Apple-дің ақылы сертификатынсыз тек энтузиазммен жасалған. Сондықтан <code>Generals Online</code> бірінші рет ашу үшін төмендегі бірнеше қадамдарды орындау қажет. Әзірлеушіні қолдау ойынды <b>Apple-дің ресми сертификатымен</b> шығарып, лаунчерді бір рет басу арқылы іске қосу мүмкіндігін арттырады!",
+    intro: "macOS-қа арналған <code>Generals Online</code> Apple Developer ID арқылы қол қойылған және Apple нотариаттауынан өткен, сондықтан басқа қолданбалар сияқты ашылады: Терминалсыз, командаларсыз. Порт ерікті түрде, таза энтузиазммен жасалады — әзірлеушіні қолдау жаңа нұсқалардың шығуына көмектеседі!",
     btnTelegram: "Телеграм каналы",
     btnSupport: "Әзірлеушіні қолдау",
     btnUpdates: "Жаңартуларды тексеру",
-    stepDownloadTitle: "Лаунчерді жүктеңіз",
-    stepDownloadDesc: "macOS үшін <b>Generals Online</b> соңғы нұсқасын жүктеп, мұрағаттан шығарыңыз.",
+    stepDownloadTitle: "Орнатқышты жүктеңіз",
+    stepDownloadDesc: "macOS үшін <b>Generals Online</b> соңғы нұсқасының орнатқышын жүктеп алыңыз.",
     stepDownloadVideo: "▶ YouTube-тағы бейненұсқаулық — бүкіл орнату 5–10 минутта",
     btnDownload: "Generals Online жүктеу",
-    stepTerminalTitle: "Терминалды ашыңыз",
-    stepTerminalDesc: "Launchpad немесе Spotlight іздеуі арқылы <b>Terminal</b> қолданбасын ашыңыз.",
-    stepCommandTitle: "Команданы енгізіңіз",
-    stepCommandDesc: "Төмендегі команданы көшіріңіз. Оны терминалға қойыңыз (команда соңында бос орын бар), бірақ <b>Enter пернесін әлі баспаңыз</b>:",
-    btnCopy: "Көшіру",
-    btnCopied: "Көшірілді!",
-    stepDragTitle: "Ойынды сүйреп апарыңыз",
-    stepDragDesc: "Қораптан шығарылған <b>Generals Online.app</b> қолданбасын Терминал терезесіне сүйреп апарыңыз. Жол автоматты түрде қойылады. Содан кейін Enter басыңыз.",
-    stepPasswordTitle: "Mac паролін енгізіңіз",
-    stepPasswordDesc: "Терминал әкімші паролін сұрайды (Mac жүйесіне кіру үшін қолданатын пароль немесе PIN).",
-    passwordAlertTitle: "Назар аударыңыз! Енгізуіңіз көрінбейді!",
-    passwordAlertDesc: "Парольді терген кезде <b>таңбалар (тіпті жұлдызшалар да) экранда көрсетілмейді</b>. Бұл қалыпты macOS қауіпсіздік қорғанысы. Тек пароліңізді көзсіз теріп, Enter басыңыз.",
+    stepInstallTitle: "Орнатқышты іске қосыңыз",
+    stepInstallDesc: "Жүктелген <b>Generals_Online_macOS.pkg</b> файлын ашып, орнатқыш қадамдарынан өтіңіз: <b>Continue</b> (Жалғастыру) → <b>Install</b> (Орнату). Кез келген орнатудағыдай, macOS Mac паролін сұрайды. Лаунчер <b>Applications</b> қалтасына орнатылып, сол жерден өзін-өзі жаңартады.",
+    stepMoveTitle: "Applications қалтасына жылжытыңыз",
+    stepMoveDesc: "Мұрағаттан шығарылған <b>Generals Online.app</b> қолданбасын Finder-де <b>Applications</b> (Бағдарламалар) қалтасына сүйреп апарып, сол жерден іске қосыңыз. Тікелей Downloads (Жүктеулер) қалтасынан іске қосылса, macOS қолданбаның уақытша көшірмесін ашады, ал лаунчер өзін-өзі жаңарта алмайды. Алғаш іске қосқанда macOS интернеттен жүктелген қолданбаны шынымен ашқыңыз келе ме деп сұрайды — <b>Open</b> (Ашу) батырмасын басыңыз.",
     stepLauncherTitle: "Лаунчерді ашыңыз",
-    stepLauncherDesc: "Енді лаунчерді ашу үшін қолданбаны екі рет басыңыз! Windows нұсқасының деректерін қайдан алатыныңызды таңдаңыз: Steam-нен жүктеу немесе бар көшірмені көрсету.",
+    stepLauncherDesc: "<b>Generals Online</b> қолданбасын Applications қалтасынан немесе Launchpad арқылы ашыңыз. Содан кейін Windows нұсқасының деректерін қайдан алатыныңызды таңдаңыз: Steam-нен жүктеу немесе бар көшірмені көрсету.",
     tabSteam: "Steam",
     tabLocal: "Жергілікті мұрағат",
     steamSteps: '<li>Лаунчердегі <b>Steam</b> қойындысына өтіңіз.</li><li>Steam аккаунтыңызбен кіріңіз — ойын сол аккаунтта сатып алынған болуы керек.</li><li><b>DOWNLOAD ASSETS</b> түймесін басыңыз.</li><li>Қажет болса, Steam Guard кодын енгізіңіз (өріс парольдің оң жағында пайда болады, код әдетте поштаға келеді).</li><li>Ойын сатып алынбаған болса, қалқымалы терезе оның Steam бетіне апарады. Сатып алғаннан кейін жүктеуді қайта басыңыз.</li><li>Лаунчер түпнұсқа файлдарды Valve серверлерінен тікелей <code>~/Documents/Generals Online/</code> ішіне жүктеп, қауымдастық патчын өзі орнатады.</li><li>Содан кейін <span class="launch-btn">LAUNCH</span> түймесі жанады — оны басып, ойнаңыз!</li>',
@@ -1850,7 +1713,7 @@ I18N.kk = {
     faqSendQ: "Маған ойын файлдарын жай ғана жібере аласыз ба?",
     faqSendA: "Жоқ. EA қозғалтқыштың бастапқы кодын жариялады — оны құрастырып, таратуға болады, лаунчер дәл осы. Ал ойын деректері ешқашан жарияланған жоқ, оларды тарату қарақшылық болады. Біз мұны істемейміз және оған сілтеме де бермейміз.",
     faqVideoQ: "Бейненұсқаулық бар ма? Орнату қанша уақыт алады?",
-    faqVideoA: 'Иә: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube-тағы бейненұсқаулық</a>. Бұл дыбыссыз экран жазбасы — жүктеуден бастап алғашқы матчқа дейінгі бүкіл жол. Әдетте 5–10 минут кетеді. Жазылғаннан бері лаунчер біраз өзгерді, сондықтан бірдеңе басқаша көрінсе, осы беттегі қадамдарды орындаңыз.',
+    faqVideoA: 'Иә: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube-тағы бейненұсқаулық</a>. Бұл дыбыссыз экран жазбасы — жүктеуден бастап алғашқы матчқа дейінгі бүкіл жол. Әдетте 5–10 минут кетеді. Жазылғаннан бері лаунчер біраз өзгерді, сондықтан бірдеңе басқаша көрінсе, осы беттегі қадамдарды орындаңыз. Бейнедегі Терминал қадамдары енді қажет емес: қолданба енді Apple нотариаттауынан өткен және екі рет басқанда ашылады.',
     faqOnlineQ: "Басқа Mac ойыншыларымен желіде қалай ойнаймын?",
     faqOnlineA: '<ul class="steps-list"><li>Ойынды лаунчерден іске қосып, <b>Online</b> таңдаңыз және ойын сұрағанда аккаунтқа кіріңіз.</li><li>Лобби тізімінде тек Mac-та құрылған ойындар көрінеді — <b>macOS</b> сүзгісі әдепкі бойынша қосулы. Сіз құрған ойын <code>[MAC]</code> белгісін өздігінен алады.</li><li>Ойын құрыңыз немесе біреуіне қосылыңыз. Матчтағы барлығында бір модтың бір нұсқасы болуы керек.</li><li>Кез келген сәтте желіде Mac ойыншылары аз, сондықтан матчты алдын ала келісіп алыңыз: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram чаты</a> немесе <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Windows ойыншыларына қарсы ойнай аламын ба?",
@@ -1870,28 +1733,20 @@ I18N.kk = {
 I18N.pl = {
     pageSubtitle: "Generals Online",
     pageTitle: "Graj w C&C Generals Zero Hour na Macu",
-    intro: "Możliwość uruchomienia C&C Generals Online na macOS powstała całkowicie za darmo i bez płatnego certyfikatu od Apple. Dlatego, aby uruchomić grę po raz pierwszy, musisz wykonać kilka poniższych kroków. Wsparcie dla autora zwiększa szanse na wydanie gry z <b>oficjalnym certyfikatem Apple</b> i uruchamianie jej jednym kliknięciem!",
+    intro: "<code>Generals Online</code> na macOS jest podpisany identyfikatorem Apple Developer ID i notaryzowany przez Apple, więc otwiera się jak każda inna aplikacja: bez Terminala i bez komend. Port powstaje dobrowolnie, z czystego entuzjazmu — wsparcie dla autora pomaga wydawać kolejne wersje!",
     btnTelegram: "Kanał Telegram",
     btnSupport: "Wesprzyj twórcę",
     btnUpdates: "Sprawdź aktualizacje",
-    stepDownloadTitle: "Pobierz Launcher",
-    stepDownloadDesc: "Pobierz najnowszą wersję <b>Generals Online</b> dla macOS i rozpakuj archiwum.",
+    stepDownloadTitle: "Pobierz instalator",
+    stepDownloadDesc: "Pobierz instalator najnowszej wersji <b>Generals Online</b> dla macOS.",
     stepDownloadVideo: "▶ Poradnik wideo na YouTube — cała instalacja w 5–10 minut",
     btnDownload: "Pobierz Generals Online",
-    stepTerminalTitle: "Otwórz Terminal",
-    stepTerminalDesc: "Otwórz aplikację <b>Terminal</b> z Launchpada lub wyszukiwarki Spotlight.",
-    stepCommandTitle: "Wprowadź komendę",
-    stepCommandDesc: "Skopiuj poniższą komendę i wklej ją do Terminala (upewnij się, że na końcu jest spacja), ale <b>nie naciskaj jeszcze Enter</b>:",
-    btnCopy: "Kopiuj",
-    btnCopied: "Skopiowano!",
-    stepDragTitle: "Przeciągnij i upuść",
-    stepDragDesc: "Przeciągnij wypakowaną aplikację <b>Generals Online.app</b> do okna Terminala. Ścieżka pojawi się automatycznie. Następnie naciśnij Enter.",
-    stepPasswordTitle: "Wpisz hasło Maca",
-    stepPasswordDesc: "Terminal poprosi o hasło administratora Maca (hasło, którego używasz do logowania).",
-    passwordAlertTitle: "Uwaga! Twoje hasło będzie niewidoczne!",
-    passwordAlertDesc: "Podczas wpisywania hasła <b>żadne znaki ani gwiazdki (*) nie pojawią się na ekranie</b>. Jest to normalne zabezpieczenie macOS. Po prostu wpisz hasło w ciemno i naciśnij Enter.",
+    stepInstallTitle: "Uruchom instalator",
+    stepInstallDesc: "Otwórz pobrany plik <b>Generals_Online_macOS.pkg</b> i przejdź przez instalator: <b>Kontynuuj</b> → <b>Instaluj</b>. macOS poprosi o hasło do Maca, jak przy każdej instalacji. Launcher trafi do folderu <b>Aplikacje</b> i będzie się stamtąd sam aktualizował.",
+    stepMoveTitle: "Przenieś do Aplikacji",
+    stepMoveDesc: "Przeciągnij wypakowaną aplikację <b>Generals Online.app</b> w Finderze do folderu <b>Aplikacje</b> i uruchamiaj ją stamtąd. Po uruchomieniu prosto z folderu Pobrane macOS otwiera tymczasową kopię aplikacji, a Launcher nie może sam się aktualizować. Przy pierwszym uruchomieniu macOS zapyta, czy na pewno otworzyć aplikację pobraną z internetu — kliknij <b>Otwórz</b>.",
     stepLauncherTitle: "Otwórz Launcher",
-    stepLauncherDesc: "Teraz możesz dwukrotnie kliknąć aplikację, aby otworzyć Launcher! Wybierz, skąd wziąć dane gry z wersji Windows: pobrać ze Steam albo wskazać posiadaną kopię.",
+    stepLauncherDesc: "Otwórz <b>Generals Online</b> z Aplikacji lub Launchpada. Następnie wybierz, skąd wziąć dane gry z wersji Windows: pobrać ze Steam albo wskazać posiadaną kopię.",
     tabSteam: "Steam",
     tabLocal: "Lokalne Archiwum",
     steamSteps: '<li>Przejdź do zakładki <b>Steam</b> w launcherze.</li><li>Zaloguj się na swoje konto Steam — gra musi być na nim kupiona.</li><li>Kliknij <b>DOWNLOAD ASSETS</b>.</li><li>W razie potrzeby wprowadź kod Steam Guard (pole pojawi się po prawej stronie hasła, kod zwykle przychodzi na e-mail).</li><li>Jeśli gra nie jest kupiona, wyskoczy okienko z jej stroną na Steamie. Po zakupie ponownie kliknij pobieranie.</li><li>Launcher pobierze oryginalne pliki prosto z serwerów Valve do <code>~/Documents/Generals Online/</code> i sam nałoży łatkę społeczności.</li><li>Potem zaświeci się przycisk <span class="launch-btn">LAUNCH</span> — kliknij go i graj!</li>',
@@ -1952,7 +1807,7 @@ I18N.pl = {
     faqSendQ: "Możesz mi po prostu wysłać pliki gry?",
     faqSendA: "Nie. EA opublikowało kod źródłowy silnika — ten możemy kompilować i udostępniać, i tym właśnie jest launcher. Dane gry nigdy nie zostały udostępnione, więc ich przekazywanie byłoby piractwem. Nie robimy tego i nie podajemy do tego linków.",
     faqVideoQ: "Czy jest poradnik wideo? Ile trwa instalacja?",
-    faqVideoA: 'Tak: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">poradnik wideo na YouTube</a>. To nagranie ekranu bez dźwięku — cała droga od pobrania do pierwszego meczu. Zwykle zajmuje to 5–10 minut. Od czasu nagrania launcher się rozrósł, więc jeśli coś wygląda inaczej, kieruj się krokami na tej stronie.',
+    faqVideoA: 'Tak: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">poradnik wideo na YouTube</a>. To nagranie ekranu bez dźwięku — cała droga od pobrania do pierwszego meczu. Zwykle zajmuje to 5–10 minut. Od czasu nagrania launcher się rozrósł, więc jeśli coś wygląda inaczej, kieruj się krokami na tej stronie. Kroki z Terminalem z filmu nie są już potrzebne: aplikacja jest teraz notaryzowana przez Apple i otwiera się dwukrotnym kliknięciem.',
     faqOnlineQ: "Jak grać online z innymi graczami na Macu?",
     faqOnlineA: '<ul class="steps-list"><li>Uruchom grę z launchera, wybierz <b>Online</b> i zaloguj się, gdy gra o to poprosi.</li><li>Lista lobby pokazuje tylko gry utworzone na Macu — filtr <b>macOS</b> jest domyślnie włączony. Gra, którą tworzysz, sama dostaje znacznik <code>[MAC]</code>.</li><li>Utwórz grę lub dołącz do istniejącej. Wszyscy w meczu muszą mieć ten sam mod w tej samej wersji.</li><li>W danej chwili online jest niewielu graczy na Macu, więc umów się na mecz wcześniej: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">czat na Telegramie</a> lub <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Czy mogę grać przeciwko graczom na Windows?",
@@ -1972,28 +1827,20 @@ I18N.pl = {
 I18N.ru = {
     pageSubtitle: "Generals Online",
     pageTitle: "Играть в C&C Generals Zero Hour на Mac",
-    intro: "Возможность запуска C&C Generals Online на macOS сделана бесплатно на чистом энтузиазме без платного сертификата от Apple — поэтому для первого открытия <code>Generals Online</code> нужно выполнить несколько шагов, которые описаны в инструкции ниже. Поддержка разработчика повышает шансы выпуска игры с <b>официальным сертификатом Apple</b> и запуском лаунчера в один клик!",
+    intro: "<code>Generals Online</code> для macOS подписан Apple Developer ID и нотаризован Apple, поэтому открывается как любое другое приложение: без Терминала и без команд. Порт делается добровольно, на чистом энтузиазме — поддержка разработчика помогает выпускать новые версии!",
     btnTelegram: "Телеграм Канал",
     btnSupport: "Поддержать разработчика",
     btnUpdates: "Проверить обновления",
-    stepDownloadTitle: "Скачайте Лаунчер",
-    stepDownloadDesc: "Скачайте последнюю версию <b>Generals Online</b> для macOS. После скачивания разархивируйте файл.",
+    stepDownloadTitle: "Скачайте установщик",
+    stepDownloadDesc: "Скачайте установщик последней версии <b>Generals Online</b> для macOS.",
     stepDownloadVideo: "▶ Видеоинструкция на YouTube — вся установка за 5–10 минут",
     btnDownload: "Скачать Generals Online",
-    stepTerminalTitle: "Откройте Терминал",
-    stepTerminalDesc: "Откройте приложение <b>Терминал</b> (Terminal) через Launchpad или поиск Spotlight.",
-    stepCommandTitle: "Вставьте команду",
-    stepCommandDesc: "Скопируйте команду ниже и вставьте её в Терминал (команда заканчивается пробелом). <b>Пока не нажимайте Enter</b>:",
-    btnCopy: "Скопировать",
-    btnCopied: "Скопировано",
-    stepDragTitle: "Перетащите игру",
-    stepDragDesc: "Перетащите распакованное приложение <b>Generals Online.app</b> прямо в окно Терминала. Путь подставится автоматически. Теперь нажмите Enter.",
-    stepPasswordTitle: "Введите пароль от Mac",
-    stepPasswordDesc: "Терминал запросит пароль администратора (ваш пин-код или пароль для входа в систему при включении Mac).",
-    passwordAlertTitle: "Внимание! Пароль вводится «вслепую»!",
-    passwordAlertDesc: "Когда вы печатаете пароль, <b>символы не будут отображаться (даже звездочки)</b>. Это стандартная защита macOS. Создается ощущение, что клавиатура сломана, но это не так. Просто введите пароль и нажмите Enter.",
+    stepInstallTitle: "Запустите установщик",
+    stepInstallDesc: "Откройте скачанный <b>Generals_Online_macOS.pkg</b> и пройдите установщик: <b>Продолжить</b> → <b>Установить</b>. macOS спросит пароль от Mac, как при установке любой программы. Лаунчер окажется в папке <b>Программы</b> и будет обновляться оттуда сам.",
+    stepMoveTitle: "Перенесите в «Программы»",
+    stepMoveDesc: "Перетащите распакованное приложение <b>Generals Online.app</b> в папку <b>Программы</b> (Applications) в Finder и запускайте его оттуда. Если запустить прямо из «Загрузок», macOS откроет временную копию приложения, и лаунчер не сможет обновляться сам. При первом запуске macOS спросит, точно ли открыть приложение, загруженное из интернета, — нажмите <b>Открыть</b>.",
     stepLauncherTitle: "Откройте Лаунчер",
-    stepLauncherDesc: "Теперь можно дважды кликнуть по приложению, чтобы открыть Лаунчер! Выберите, откуда взять данные Windows-версии: скачать из Steam или указать уже имеющуюся копию.",
+    stepLauncherDesc: "Откройте <b>Generals Online</b> из «Программ» или Launchpad. Затем выберите, откуда взять данные Windows-версии: скачать из Steam или указать уже имеющуюся копию.",
     tabSteam: "Steam",
     tabLocal: "Локальный архив (Local Archive)",
     steamSteps: '<li>Перейдите во вкладку <b>Steam</b> в лаунчере.</li><li>Авторизуйтесь под своим аккаунтом Steam — игра должна быть куплена на нём.</li><li>Нажмите <b>DOWNLOAD ASSETS</b> («Загрузить ассеты»).</li><li>При необходимости введите код Steam Guard (поле появится справа от пароля, сам код чаще всего приходит на почту).</li><li>Если игра не куплена, всплывающее окно переведёт на её страницу в Steam. После покупки нажмите загрузку ещё раз.</li><li>Лаунчер скачает оригинальные файлы напрямую с серверов Valve в <code>~/Documents/Generals Online/</code> и сам наложит community-патч.</li><li>После этого загорится кнопка <span class="launch-btn">LAUNCH</span> — нажимаем её и играем!</li>',
@@ -2054,7 +1901,7 @@ I18N.ru = {
     faqSendQ: "Можете просто прислать мне файлы игры?",
     faqSendA: "Нет. EA открыла исходники движка — их мы вправе собирать и распространять, лаунчер как раз из них. Данные игры никто не открывал, передавать их — пиратство. Мы этим не занимаемся и ссылок не даём.",
     faqVideoQ: "Есть видеоинструкция? Сколько времени занимает установка?",
-    faqVideoA: 'Да: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">видеоинструкция на YouTube</a>. Это запись экрана без звука — весь путь от скачивания до первого матча. Обычно хватает 5–10 минут. С момента записи лаунчер подрос, поэтому если что-то выглядит иначе — сверяйтесь с шагами на этой странице.',
+    faqVideoA: 'Да: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">видеоинструкция на YouTube</a>. Это запись экрана без звука — весь путь от скачивания до первого матча. Обычно хватает 5–10 минут. С момента записи лаунчер подрос, поэтому если что-то выглядит иначе — сверяйтесь с шагами на этой странице. Шаги с Терминалом из видео больше не нужны: теперь приложение нотаризовано Apple и открывается двойным кликом.',
     faqOnlineQ: "Как играть по сети с другими игроками на Mac?",
     faqOnlineA: '<ul class="steps-list"><li>Запустите игру из лаунчера, выберите <b>Online</b> и авторизуйтесь, когда игра попросит.</li><li>В списке лобби видны только игры, созданные на Mac, — фильтр <b>macOS</b> включён по умолчанию. Ваша игра сама получит метку <code>[MAC]</code>.</li><li>Создайте игру или зайдите в чужую. У всех в матче должен стоять один и тот же мод одной версии.</li><li>Mac-игроков онлайн в каждый момент немного, поэтому о матче удобнее договориться заранее: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">чат в Telegram</a> или <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Можно играть против игроков на Windows?",
@@ -2074,28 +1921,20 @@ I18N.ru = {
 I18N.tr = {
     pageSubtitle: "Generals Online",
     pageTitle: "C&C Generals Zero Hour'u Mac'te oyna",
-    intro: "C&C Generals Online oyununu macOS'ta çalıştırma imkanı tamamen ücretsiz ve ücretli bir Apple Sertifikası olmadan gönüllü olarak geliştirildi. Bu yüzden ilk defa oynayabilmek için aşağıdaki birkaç adımı izlemeniz gerekiyor. Geliştiriciye destek olmak, gelecekteki sürümlerin <b>resmi bir Apple Sertifikası</b> ile çıkmasını ve 1 tıklamayla açılmasını hızlandırır!",
+    intro: "macOS için <code>Generals Online</code>, Apple Developer ID ile imzalanmış ve Apple tarafından onaylanmıştır (notarized); bu yüzden diğer uygulamalar gibi açılır: Terminal yok, komut yok. Port tamamen gönüllü olarak, saf bir tutkuyla geliştiriliyor — geliştiriciye destek olmak yeni sürümlerin çıkmasına yardımcı olur!",
     btnTelegram: "Telegram Kanalı",
     btnSupport: "Destek Ol",
     btnUpdates: "Güncellemeleri Kontrol Et",
-    stepDownloadTitle: "Launcher'ı İndirin",
-    stepDownloadDesc: "<b>Generals Online</b> uygulamasının macOS için en son sürümünü indirin ve arşivden çıkarın.",
+    stepDownloadTitle: "Yükleyiciyi İndirin",
+    stepDownloadDesc: "<b>Generals Online</b> uygulamasının macOS için en son sürümünün yükleyicisini indirin.",
     stepDownloadVideo: "▶ YouTube'da video rehber — tüm kurulum 5–10 dakikada",
     btnDownload: "Generals Online'ı indir",
-    stepTerminalTitle: "Terminali Açın",
-    stepTerminalDesc: "Launchpad veya Spotlight aramasını kullanarak <b>Terminal</b> uygulamasını açın.",
-    stepCommandTitle: "Kodu Girin",
-    stepCommandDesc: "Aşağıdaki kodu kopyalayın ve Terminale yapıştırın (sonunda bir boşluk vardır), ama <b>henüz Enter tuşuna basmayın</b>:",
-    btnCopy: "Kopyala",
-    btnCopied: "Kopyalandı!",
-    stepDragTitle: "Sürükle ve Bırak",
-    stepDragDesc: "Arşivden çıkardığınız <b>Generals Online.app</b> uygulamasını Terminal penceresinin içine sürükleyin. Dosya yolu otomatik eklenecektir. Sonra Enter'a basın.",
-    stepPasswordTitle: "Mac Şifresini Girin",
-    stepPasswordDesc: "Terminal sizden Mac yönetici şifrenizi (bilgisayarınızı açarken girdiğiniz şifre) isteyecektir.",
-    passwordAlertTitle: "Dikkat! Yazdıklarınız ekranda görünmeyecek!",
-    passwordAlertDesc: "Şifrenizi yazarken <b>ekranda hiçbir karakter veya yıldız (*) çıkmayacaktır</b>. Bu macOS'un normal bir güvenlik önlemidir. Şifrenizi görmeden yazın ve Enter'a basın.",
+    stepInstallTitle: "Yükleyiciyi Çalıştırın",
+    stepInstallDesc: "İndirdiğiniz <b>Generals_Online_macOS.pkg</b> dosyasını açın ve yükleyicinin adımlarını izleyin: <b>Devam</b> → <b>Yükle</b>. macOS, her kurulumda olduğu gibi Mac şifrenizi sorar. Launcher <b>Uygulamalar</b> klasörüne yerleşir ve oradan kendini günceller.",
+    stepMoveTitle: "Uygulamalar Klasörüne Taşıyın",
+    stepMoveDesc: "Arşivden çıkardığınız <b>Generals Online.app</b> uygulamasını Finder'da <b>Uygulamalar</b> klasörüne sürükleyin ve oradan başlatın. Doğrudan İndirilenler klasöründen açıldığında macOS uygulamanın geçici bir kopyasını çalıştırır ve Launcher kendini güncelleyemez. İlk açılışta macOS, internetten indirilen bir uygulamayı açmak istediğinizden emin olup olmadığınızı sorar — <b>Aç</b>'a basın.",
     stepLauncherTitle: "Launcher'ı Açın",
-    stepLauncherDesc: "Artık uygulamaya çift tıklayarak Launcher'ı açabilirsiniz! Windows oyun verilerini nereden alacağınızı seçin: Steam'den indirin ya da elinizdeki kopyayı gösterin.",
+    stepLauncherDesc: "<b>Generals Online</b>'ı Uygulamalar klasöründen veya Launchpad'den açın. Ardından Windows oyun verilerini nereden alacağınızı seçin: Steam'den indirin ya da elinizdeki kopyayı gösterin.",
     tabSteam: "Steam",
     tabLocal: "Yerel Arşiv",
     steamSteps: '<li>Launcher\'da <b>Steam</b> sekmesine gidin.</li><li>Steam hesabınızla giriş yapın — oyunun o hesapta satın alınmış olması gerekir.</li><li><b>DOWNLOAD ASSETS</b> düğmesine tıklayın.</li><li>Gerekirse Steam Guard kodunuzu girin (alan şifrenin sağında belirir, kod genellikle e-postaya gelir).</li><li>Oyun satın alınmamışsa açılan pencere sizi Steam sayfasına götürür. Satın aldıktan sonra indirmeye tekrar basın.</li><li>Launcher orijinal dosyaları doğrudan Valve sunucularından <code>~/Documents/Generals Online/</code> klasörüne indirir ve topluluk yamasını kendisi uygular.</li><li>Ardından <span class="launch-btn">LAUNCH</span> düğmesi yanar — tıklayın ve oynayın!</li>',
@@ -2156,7 +1995,7 @@ I18N.tr = {
     faqSendQ: "Oyun dosyalarını bana gönderemez misiniz?",
     faqSendA: "Hayır. EA motorun kaynak kodunu yayımladı — onu derleyip paylaşabiliriz, launcher da tam olarak budur. Oyun verileri ise hiçbir zaman yayımlanmadı, onları dağıtmak korsanlık olur. Bunu yapmıyoruz ve bağlantı da vermiyoruz.",
     faqVideoQ: "Video rehber var mı? Kurulum ne kadar sürer?",
-    faqVideoA: 'Evet: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube\'da video rehber</a>. İndirmeden ilk maça kadar tüm yolun sessiz bir ekran kaydıdır. Genellikle 5–10 dakika sürer. Kayıttan bu yana launcher gelişti; bir şey farklı görünüyorsa bu sayfadaki adımları izleyin.',
+    faqVideoA: 'Evet: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube\'da video rehber</a>. İndirmeden ilk maça kadar tüm yolun sessiz bir ekran kaydıdır. Genellikle 5–10 dakika sürer. Kayıttan bu yana launcher gelişti; bir şey farklı görünüyorsa bu sayfadaki adımları izleyin. Videodaki Terminal adımlarına artık gerek yok: uygulama artık Apple tarafından onaylanmış durumda ve çift tıklamayla açılıyor.',
     faqOnlineQ: "Diğer Mac oyuncularıyla nasıl çevrimiçi oynarım?",
     faqOnlineA: '<ul class="steps-list"><li>Oyunu launcher\'dan başlatın, <b>Online</b> seçeneğini seçin ve oyun istediğinde giriş yapın.</li><li>Lobi listesi yalnızca Mac\'te kurulan oyunları gösterir — <b>macOS</b> filtresi varsayılan olarak seçilidir. Kurduğunuz oyun <code>[MAC]</code> etiketini kendiliğinden alır.</li><li>Bir oyun kurun ya da birine katılın. Maçtaki herkesin aynı modun aynı sürümünü kullanması gerekir.</li><li>Herhangi bir anda çevrimiçi Mac oyuncusu az olur, bu yüzden maçı önceden ayarlayın: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram sohbeti</a> veya <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Windows oyuncularına karşı oynayabilir miyim?",
@@ -2176,28 +2015,20 @@ I18N.tr = {
 I18N.uk = {
     pageSubtitle: "Generals Online",
     pageTitle: "Грати в C&C Generals Zero Hour на Mac",
-    intro: "Можливість запуску C&C Generals Online на macOS зроблена безкоштовно на чистому ентузіазмі без платного сертифіката від Apple — тому для першого відкриття <code>Generals Online</code> потрібно виконати кілька кроків, які описані в інструкції нижче. Підтримка розробника підвищує шанси випуску гри з <b>офіційним сертифікатом Apple</b> та запуском лаунчера в один клік!",
+    intro: "<code>Generals Online</code> для macOS підписаний Apple Developer ID і нотаризований Apple, тому відкривається як будь-який інший додаток: без Терміналу й без команд. Порт розробляється добровільно, на чистому ентузіазмі — підтримка розробника допомагає випускати нові версії!",
     btnTelegram: "Телеграм Канал",
     btnSupport: "Підтримати розробника",
     btnUpdates: "Перевірити оновлення",
-    stepDownloadTitle: "Завантажте Лаунчер",
-    stepDownloadDesc: "Завантажте останню версію <b>Generals Online</b> для macOS. Після завантаження розархівуйте файл.",
+    stepDownloadTitle: "Завантажте інсталятор",
+    stepDownloadDesc: "Завантажте інсталятор останньої версії <b>Generals Online</b> для macOS.",
     stepDownloadVideo: "▶ Відеоінструкція на YouTube — усе встановлення за 5–10 хвилин",
     btnDownload: "Завантажити Generals Online",
-    stepTerminalTitle: "Відкрийте Термінал",
-    stepTerminalDesc: "Відкрийте програму <b>Термінал</b> (Terminal) через Launchpad або пошук Spotlight.",
-    stepCommandTitle: "Вставте команду",
-    stepCommandDesc: "Скопіюйте наведену нижче команду та вставте її в Термінал (команда закінчується пробілом). <b>Поки не натискайте Enter</b>:",
-    btnCopy: "Скопіювати",
-    btnCopied: "Скопійовано",
-    stepDragTitle: "Перетягніть гру",
-    stepDragDesc: "Перетягніть розпакований додаток <b>Generals Online.app</b> прямо у вікно Терміналу. Шлях до файлу підставиться автоматично. Тепер натисніть Enter.",
-    stepPasswordTitle: "Введіть пароль від Mac",
-    stepPasswordDesc: "Термінал запитає пароль адміністратора (ваш пін-код або пароль для входу в систему при увімкненні Mac).",
-    passwordAlertTitle: "Увага! Пароль вводиться «наосліп»!",
-    passwordAlertDesc: "Коли ви вводите пароль, <b>символи не будуть відображатися (навіть зірочки)</b>. Це стандартний захист macOS. Здається, що клавіатура не працює, але це не так. Механічно введіть пароль і натисніть Enter.",
+    stepInstallTitle: "Запустіть інсталятор",
+    stepInstallDesc: "Відкрийте завантажений <b>Generals_Online_macOS.pkg</b> і пройдіть інсталятор: <b>Продовжити</b> → <b>Інсталювати</b>. macOS запитає пароль від Mac, як під час встановлення будь-якої програми. Лаунчер опиниться в папці <b>Програми</b> й оновлюватиметься звідти сам.",
+    stepMoveTitle: "Перенесіть у «Програми»",
+    stepMoveDesc: "Перетягніть розпакований додаток <b>Generals Online.app</b> у папку <b>Програми</b> (Applications) у Finder і запускайте його звідти. Якщо запустити просто із «Завантажень», macOS відкриє тимчасову копію додатка, і лаунчер не зможе оновлюватися сам. Під час першого запуску macOS запитає, чи справді відкрити додаток, завантажений з інтернету, — натисніть <b>Відкрити</b>.",
     stepLauncherTitle: "Відкрийте Лаунчер",
-    stepLauncherDesc: "Тепер можна двічі клікнути по додатку, щоб відкрити Лаунчер! Оберіть, звідки взяти дані Windows-версії: завантажити зі Steam або вказати вже наявну копію.",
+    stepLauncherDesc: "Відкрийте <b>Generals Online</b> із «Програм» або Launchpad. Потім оберіть, звідки взяти дані Windows-версії: завантажити зі Steam або вказати вже наявну копію.",
     tabSteam: "Steam",
     tabLocal: "Локальний архів",
     steamSteps: '<li>Перейдіть у вкладку <b>Steam</b> у лаунчері.</li><li>Авторизуйтесь під своїм акаунтом Steam — гра має бути придбана на ньому.</li><li>Натисніть <b>DOWNLOAD ASSETS</b> («Завантажити асети»).</li><li>За потреби введіть код Steam Guard (поле з\'явиться праворуч від пароля, код зазвичай приходить на пошту).</li><li>Якщо гру не придбано, спливаюче вікно переведе вас на її сторінку в Steam. Після покупки натисніть завантаження ще раз.</li><li>Лаунчер завантажить оригінальні файли напряму з серверів Valve у <code>~/Documents/Generals Online/</code> і сам накладе community-патч.</li><li>Після цього засвітиться кнопка <span class="launch-btn">LAUNCH</span> — натискаємо її і граємо!</li>',
@@ -2258,7 +2089,7 @@ I18N.uk = {
     faqSendQ: "Можете просто надіслати мені файли гри?",
     faqSendA: "Ні. EA відкрила вихідний код рушія — його ми маємо право збирати та поширювати, лаунчер саме з нього. Дані гри ніхто не відкривав, передавати їх — піратство. Ми цим не займаємось і посилань не даємо.",
     faqVideoQ: "Чи є відеоінструкція? Скільки часу займає встановлення?",
-    faqVideoA: 'Так: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">відеоінструкція на YouTube</a>. Це запис екрана без звуку — весь шлях від завантаження до першого матчу. Зазвичай вистачає 5–10 хвилин. Відтоді лаунчер підріс, тож якщо щось виглядає інакше — звіряйтеся з кроками на цій сторінці.',
+    faqVideoA: 'Так: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">відеоінструкція на YouTube</a>. Це запис екрана без звуку — весь шлях від завантаження до першого матчу. Зазвичай вистачає 5–10 хвилин. Відтоді лаунчер підріс, тож якщо щось виглядає інакше — звіряйтеся з кроками на цій сторінці. Кроки з Терміналом із відео більше не потрібні: тепер додаток нотаризований Apple і відкривається подвійним кліком.',
     faqOnlineQ: "Як грати по мережі з іншими гравцями на Mac?",
     faqOnlineA: '<ul class="steps-list"><li>Запустіть гру з лаунчера, виберіть <b>Online</b> і авторизуйтеся, коли гра попросить.</li><li>У списку лобі видно лише ігри, створені на Mac, — фільтр <b>macOS</b> увімкнено за замовчуванням. Ваша гра сама отримає мітку <code>[MAC]</code>.</li><li>Створіть гру або зайдіть у чужу. У всіх у матчі має стояти один і той самий мод однієї версії.</li><li>Mac-гравців онлайн щомиті небагато, тож про матч зручніше домовитися заздалегідь: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">чат у Telegram</a> або <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Чи можна грати проти гравців на Windows?",
@@ -2278,28 +2109,20 @@ I18N.uk = {
 I18N.vi = {
     pageSubtitle: "Generals Online",
     pageTitle: "Chơi C&C Generals Zero Hour trên Mac",
-    intro: "Khả năng chạy C&C Generals Online trên macOS được phát triển hoàn toàn miễn phí nhờ vào đam mê và không có chứng chỉ Apple trả phí. Vì vậy, để khởi chạy <code>Generals Online</code> lần đầu tiên, bạn cần thực hiện một vài bước dưới đây. Ủng hộ tác giả sẽ làm tăng cơ hội phát hành game với <b>chứng chỉ Apple chính thức</b> và chạy launcher chỉ với 1 cú click!",
+    intro: "<code>Generals Online</code> cho macOS đã được ký bằng Apple Developer ID và được Apple công chứng (notarized), nên mở như mọi ứng dụng khác: không cần Terminal, không cần lệnh. Bản port được phát triển hoàn toàn tự nguyện, nhờ vào đam mê — ủng hộ tác giả giúp các phiên bản mới tiếp tục ra đời!",
     btnTelegram: "Kênh Telegram",
     btnSupport: "Ủng hộ tác giả",
     btnUpdates: "Kiểm tra cập nhật",
-    stepDownloadTitle: "Tải Launcher",
-    stepDownloadDesc: "Tải phiên bản mới nhất của <b>Generals Online</b> cho macOS và giải nén tệp lưu trữ.",
+    stepDownloadTitle: "Tải trình cài đặt",
+    stepDownloadDesc: "Tải trình cài đặt phiên bản mới nhất của <b>Generals Online</b> cho macOS.",
     stepDownloadVideo: "▶ Video hướng dẫn trên YouTube — cài đặt xong trong 5–10 phút",
     btnDownload: "Tải Generals Online",
-    stepTerminalTitle: "Mở Terminal",
-    stepTerminalDesc: "Mở ứng dụng <b>Terminal</b> từ Launchpad hoặc tìm kiếm Spotlight.",
-    stepCommandTitle: "Nhập lệnh",
-    stepCommandDesc: "Sao chép lệnh dưới đây và dán vào Terminal (lưu ý có dấu cách ở cuối), nhưng <b>đừng nhấn Enter vội</b>:",
-    btnCopy: "Sao chép",
-    btnCopied: "Đã chép!",
-    stepDragTitle: "Kéo và Thả",
-    stepDragDesc: "Kéo ứng dụng <b>Generals Online.app</b> đã giải nén vào cửa sổ Terminal. Đường dẫn sẽ được chèn tự động. Sau đó nhấn Enter.",
-    stepPasswordTitle: "Nhập Mật khẩu Mac",
-    stepPasswordDesc: "Terminal sẽ yêu cầu mật khẩu quản trị viên Mac của bạn (mật khẩu dùng để đăng nhập máy).",
-    passwordAlertTitle: "Đợi đã! Mật khẩu sẽ bị ẩn!",
-    passwordAlertDesc: "Khi bạn nhập mật khẩu, <b>sẽ không có ký tự hay dấu sao (*) nào hiện lên</b>. Đây là tính năng bảo mật bình thường của macOS. Cứ nhập mật khẩu bình thường và nhấn Enter.",
+    stepInstallTitle: "Chạy trình cài đặt",
+    stepInstallDesc: "Mở tệp <b>Generals_Online_macOS.pkg</b> đã tải và làm theo trình cài đặt: <b>Tiếp tục</b> → <b>Cài đặt</b>. macOS sẽ hỏi mật khẩu máy Mac như khi cài bất kỳ ứng dụng nào. Launcher sẽ nằm trong thư mục <b>Ứng dụng</b> và tự cập nhật từ đó.",
+    stepMoveTitle: "Chuyển vào thư mục Ứng dụng",
+    stepMoveDesc: "Kéo ứng dụng <b>Generals Online.app</b> đã giải nén vào thư mục <b>Ứng dụng</b> (Applications) trong Finder và mở từ đó. Nếu mở thẳng từ thư mục Tải về, macOS sẽ chạy một bản sao tạm thời của ứng dụng và Launcher không thể tự cập nhật. Ở lần mở đầu tiên, macOS sẽ hỏi bạn có chắc muốn mở ứng dụng tải về từ Internet không — nhấn <b>Mở</b>.",
     stepLauncherTitle: "Mở Launcher",
-    stepLauncherDesc: "Bây giờ bạn có thể nhấp đúp vào ứng dụng để mở Launcher! Chọn cách lấy dữ liệu game bản Windows: tải từ Steam hoặc chỉ tới bản sao bạn đã có.",
+    stepLauncherDesc: "Mở <b>Generals Online</b> từ thư mục Ứng dụng hoặc Launchpad. Sau đó chọn cách lấy dữ liệu game bản Windows: tải từ Steam hoặc chỉ tới bản sao bạn đã có.",
     tabSteam: "Steam",
     tabLocal: "Lưu trữ cục bộ",
     steamSteps: '<li>Mở tab <b>Steam</b> trong launcher.</li><li>Đăng nhập bằng tài khoản Steam của bạn — game phải được mua trên tài khoản đó.</li><li>Nhấn <b>DOWNLOAD ASSETS</b>.</li><li>Nhập mã Steam Guard nếu được hỏi (ô nhập nằm bên phải mật khẩu, mã thường được gửi qua email).</li><li>Nếu tài khoản chưa có game, một cửa sổ sẽ mở trang Steam của game. Sau khi mua, nhấn tải lại lần nữa.</li><li>Launcher tải các tệp gốc trực tiếp từ máy chủ Valve về <code>~/Documents/Generals Online/</code> và tự áp dụng bản vá cộng đồng.</li><li>Sau đó nút <span class="launch-btn">LAUNCH</span> sẽ sáng lên — nhấn vào và chơi!</li>',
@@ -2360,7 +2183,7 @@ I18N.vi = {
     faqSendQ: "Bạn có thể gửi thẳng cho tôi tệp game không?",
     faqSendA: "Không. EA đã công bố mã nguồn của engine — phần đó chúng tôi được phép build và chia sẻ, và đó chính là launcher. Dữ liệu game chưa bao giờ được công bố, nên chia sẻ nó là vi phạm bản quyền. Chúng tôi không làm vậy và cũng không đưa liên kết đến đó.",
     faqVideoQ: "Có video hướng dẫn không? Cài đặt mất bao lâu?",
-    faqVideoA: 'Có: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">video hướng dẫn trên YouTube</a>. Đó là bản ghi màn hình không tiếng của toàn bộ quá trình, từ lúc tải về đến trận đấu đầu tiên. Thường mất 5–10 phút. Launcher đã thay đổi nhiều kể từ lúc quay, nên nếu có gì trông khác đi, hãy làm theo các bước trên trang này.',
+    faqVideoA: 'Có: <a href="https://youtu.be/Kxk3NJ307mY" target="_blank">video hướng dẫn trên YouTube</a>. Đó là bản ghi màn hình không tiếng của toàn bộ quá trình, từ lúc tải về đến trận đấu đầu tiên. Thường mất 5–10 phút. Launcher đã thay đổi nhiều kể từ lúc quay, nên nếu có gì trông khác đi, hãy làm theo các bước trên trang này. Các bước với Terminal trong video không còn cần nữa: giờ ứng dụng đã được Apple công chứng và mở bằng nhấp đúp.',
     faqOnlineQ: "Làm sao chơi online với những người chơi Mac khác?",
     faqOnlineA: '<ul class="steps-list"><li>Mở game từ launcher, chọn <b>Online</b> và đăng nhập khi game yêu cầu.</li><li>Danh sách phòng chỉ hiện các trận được tạo trên Mac — bộ lọc <b>macOS</b> được bật sẵn. Trận bạn tạo sẽ tự động có nhãn <code>[MAC]</code>.</li><li>Tạo trận hoặc tham gia trận có sẵn. Mọi người trong trận phải dùng cùng một mod, cùng phiên bản.</li><li>Vào mỗi thời điểm không có nhiều người chơi Mac online, nên hãy hẹn trận trước: <a href="https://t.me/GeneralsOnlineMacOS" target="_blank">nhóm chat Telegram</a> hoặc <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>.</li></ul>',
     faqCrossplayQ: "Tôi có thể chơi với người chơi Windows không?",
@@ -2380,28 +2203,20 @@ I18N.vi = {
 I18N.zh = {
     pageSubtitle: "Generals Online",
     pageTitle: "在 Mac 上玩 C&C 将军：绝命时刻",
-    intro: "在macOS上运行C&C绝命时刻完全是由社区成员出于热情免费开发的，因此缺少付费的Apple开发者证书。首次运行游戏前，您需要完成以下几个步骤。支持开发者有助于在未来的版本中获得<b>官方Apple证书</b>，从而实现一键完美启动！",
+    intro: "macOS 版 <code>Generals Online</code> 已使用 Apple Developer ID 签名并通过 Apple 公证，因此可以像其他应用一样直接打开：无需终端，无需输入命令。本移植完全由社区成员出于热情自愿开发——支持开发者，就是帮助新版本持续推出！",
     btnTelegram: "电报频道",
     btnSupport: "支持开发者",
     btnUpdates: "检查更新",
-    stepDownloadTitle: "下载启动器",
-    stepDownloadDesc: "下载适用于 macOS 的最新版 <b>Generals Online</b>，下载后解压压缩包。",
+    stepDownloadTitle: "下载安装器",
+    stepDownloadDesc: "下载适用于 macOS 的最新版 <b>Generals Online</b> 安装器。",
     stepDownloadVideo: "▶ YouTube 视频教程 — 5–10 分钟完成全部安装",
     btnDownload: "下载 Generals Online",
-    stepTerminalTitle: "打开 终端",
-    stepTerminalDesc: "通过启动台(Launchpad)或聚焦搜索(Spotlight)打开 <b>Terminal (终端)</b> 应用。",
-    stepCommandTitle: "输入命令",
-    stepCommandDesc: "复制下方命令并粘贴到“终端”里（注意末尾带有一个空格），但 <b>请先不要按回车键</b>：",
-    btnCopy: "复制",
-    btnCopied: "已复制！",
-    stepDragTitle: "拖拽应用",
-    stepDragDesc: "将解压后的 <b>Generals Online.app</b> 直接拖拽到终端窗口中。路径会自动输入，然后再按回车键。",
-    stepPasswordTitle: "输入 Mac 密码",
-    stepPasswordDesc: "终端会要求您输入Mac管理员密码（就是您开机时输入的密码）。",
-    passwordAlertTitle: "注意！您输入的密码将不可见！",
-    passwordAlertDesc: "当您键盘输入密码时，<b>屏幕上不会显示任何字符或星号(*)</b>。这是macOS正常的安全保护机制。只管盲打输入您的密码，然后按回车即可。",
+    stepInstallTitle: "运行安装器",
+    stepInstallDesc: "打开下载的 <b>Generals_Online_macOS.pkg</b>，按安装器提示操作：<b>继续</b> → <b>安装</b>。与安装任何软件一样，macOS 会要求输入 Mac 密码。启动器会安装到 <b>应用程序</b> 文件夹，并在那里自动更新。",
+    stepMoveTitle: "移到“应用程序”",
+    stepMoveDesc: "在访达(Finder)中把解压后的 <b>Generals Online.app</b> 拖进 <b>应用程序</b>(Applications) 文件夹，并从那里启动。如果直接在“下载”中运行，macOS 会启动应用的临时副本，启动器也无法自行更新。首次启动时，macOS 会询问您是否确定要打开从互联网下载的应用——请点按<b>打开</b>。",
     stepLauncherTitle: "打开启动器",
-    stepLauncherDesc: "您现在可以双击应用程序以打开启动器！请选择 Windows 版游戏数据的来源：从 Steam 下载，或指向您已有的副本。",
+    stepLauncherDesc: "从“应用程序”或启动台打开 <b>Generals Online</b>。然后选择 Windows 版游戏数据的来源：从 Steam 下载，或指向您已有的副本。",
     tabSteam: "Steam",
     tabLocal: "本地存档",
     steamSteps: '<li>在启动器中打开 <b>Steam</b> 选项卡。</li><li>使用您的 Steam 帐户登录——游戏必须已在该帐户中购买。</li><li>点击 <b>DOWNLOAD ASSETS</b>（下载资源）。</li><li>如有提示，请输入 Steam Guard 验证码（输入框在密码右侧，验证码通常发送到邮箱）。</li><li>如果帐户尚未购买游戏，弹窗会带您前往 Steam 商店页面。购买后再次点击下载。</li><li>启动器会直接从 Valve 服务器把原版文件下载到 <code>~/Documents/Generals Online/</code>，并自动打好社区补丁。</li><li>完成后 <span class="launch-btn">LAUNCH</span> 按钮会亮起——点击它即可游玩！</li>',
@@ -2462,7 +2277,7 @@ I18N.zh = {
     faqSendQ: "你能直接把游戏文件发给我吗？",
     faqSendA: "不能。EA 公开的是引擎源代码——我们可以编译和分享它，启动器就是这样来的。游戏数据从未公开，传播它就是盗版。我们不这样做，也不提供相关链接。",
     faqVideoQ: "有视频教程吗？安装需要多长时间？",
-    faqVideoA: '有：<a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube 视频教程</a>。这是一段无声的录屏，展示从下载到第一场对局的全过程。通常需要 5–10 分钟。录制之后启动器有所更新，如果有地方看起来不一样，请按本页的步骤操作。',
+    faqVideoA: '有：<a href="https://youtu.be/Kxk3NJ307mY" target="_blank">YouTube 视频教程</a>。这是一段无声的录屏，展示从下载到第一场对局的全过程。通常需要 5–10 分钟。录制之后启动器有所更新，如果有地方看起来不一样，请按本页的步骤操作。视频中的终端步骤已不再需要：应用现已通过 Apple 公证，双击即可打开。',
     faqOnlineQ: "如何与其他 Mac 玩家联机？",
     faqOnlineA: '<ul class="steps-list"><li>从启动器启动游戏，选择 <b>Online</b>，并在游戏提示时登录。</li><li>大厅列表只显示在 Mac 上创建的游戏——<b>macOS</b> 筛选默认已选中。您创建的游戏会自动带上 <code>[MAC]</code> 标记。</li><li>创建游戏或加入他人的游戏。对局中的所有人必须使用同一个模组的同一版本。</li><li>任何时候在线的 Mac 玩家都不多，因此最好提前约好对局：<a href="https://t.me/GeneralsOnlineMacOS" target="_blank">Telegram 群聊</a> 或 <a href="https://discord.gg/khSv8re5Hb" target="_blank">Discord</a>。</li></ul>',
     faqCrossplayQ: "我可以和 Windows 玩家对战吗？",
@@ -2545,16 +2360,6 @@ function initTabs() {
 }
 
 // js/30-copy.js
-function showCopied(button) {
-    button.innerHTML = activeDictionary.btnCopied;
-    button.classList.add('copied');
-
-    setTimeout(function () {
-        button.innerHTML = activeDictionary.btnCopy;
-        button.classList.remove('copied');
-    }, 2000);
-}
-
 function copyWithSelection(text) {
     var input = document.createElement('input');
     var copied = false;
@@ -2566,37 +2371,6 @@ function copyWithSelection(text) {
     document.body.removeChild(input);
 
     return copied;
-}
-
-function copyCommand(button, text) {
-    if (!navigator.clipboard) {
-        if (copyWithSelection(text)) {
-            showCopied(button);
-        }
-
-        return;
-    }
-
-    navigator.clipboard.writeText(text).then(function () {
-        showCopied(button);
-    }).catch(function () {
-        if (copyWithSelection(text)) {
-            showCopied(button);
-        }
-    });
-}
-
-function initCopyButton() {
-    var button = document.getElementById('copy-btn');
-    var source = document.getElementById('command-text');
-
-    if (!button || !source) {
-        return;
-    }
-
-    button.addEventListener('click', function () {
-        copyCommand(button, source.textContent);
-    });
 }
 
 // js/40-version.js
@@ -2988,7 +2762,6 @@ window.addEventListener('DOMContentLoaded', function () {
     applyTranslations(language);
     initLanguageSwitcher(language);
     initTabs();
-    initCopyButton();
     initVersionLabel();
     initModCatalog();
     initFaq();
