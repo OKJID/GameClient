@@ -61,12 +61,29 @@
     }
     /* styles/10-header.css */
     .header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 32px;
-        padding-bottom: 24px;
+        gap: 16px;
+        margin: -16px -40px 32px;
+        padding: 16px 40px 24px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        transition: padding 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .header.is-stuck {
+        background-color: rgba(17, 23, 39, 0.94);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 12px 24px -12px rgba(0, 0, 0, 0.6);
+    }
+
+    .header.is-compact {
+        padding-top: 12px;
+        padding-bottom: 12px;
     }
 
     h1 {
@@ -78,15 +95,29 @@
         background-clip: text;
         -webkit-text-fill-color: transparent;
         color: transparent;
+        transition: font-size 0.2s ease;
+    }
+
+    .header.is-compact h1 {
+        font-size: 20px;
     }
 
     .subtitle {
+        max-height: 24px;
+        overflow: hidden;
         font-size: 14px;
         color: var(--accent);
         text-transform: uppercase;
         letter-spacing: 1.5px;
         font-weight: 600;
         margin-bottom: 8px;
+        transition: max-height 0.2s ease, margin-bottom 0.2s ease, opacity 0.2s ease;
+    }
+
+    .header.is-compact .subtitle {
+        max-height: 0;
+        margin-bottom: 0;
+        opacity: 0;
     }
 
     .lang-select {
@@ -681,6 +712,30 @@
     .footer p:last-child {
         margin-bottom: 0;
     }
+
+    .moddb-badges {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0;
+    }
+
+    .moddb-badge {
+        display: inline-block;
+        line-height: 0;
+        transition: transform 0.2s ease;
+    }
+
+    .moddb-badge:hover {
+        transform: translateY(-2px);
+    }
+
+    .moddb-badge img {
+        max-width: 100%;
+        height: auto;
+    }
     /* styles/80-faq.css */
     .faq {
         margin-top: 32px;
@@ -699,7 +754,7 @@
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 8px;
         margin-bottom: 8px;
-        scroll-margin-top: 24px;
+        scroll-margin-top: 96px;
         transition: border-color 0.2s, box-shadow 0.2s;
     }
 
@@ -1155,6 +1210,10 @@
         <p data-i18n="footerAbout"></p>
         <p data-i18n="footerBuilt"></p>
         <p data-i18n="footerLegal"></p>
+        <div class="moddb-badges">
+            <a href="https://www.moddb.com/mods/command-conquer-generals-for-mac-generals-online-mods" title="View Command &amp; Conquer Generals for Mac + Generals Online + Mods on ModDB" target="_blank" rel="noopener" class="moddb-badge"><img src="https://button.moddb.com/popularity/medium/mods/73950.png" alt="Command &amp; Conquer Generals for Mac + Generals Online + Mods" width="260" height="50"></a>
+            <a href="https://www.moddb.com" title="Game Mod Development Home" target="_blank" rel="noopener" class="moddb-badge"><img src="https://media.moddb.com/images/global/moddb_88x31_v12.png" alt="Mod DB - Change the Game" width="88" height="31"></a>
+        </div>
         <p><a href="https://github.com/OKJID/GameClient" target="_blank">github.com/OKJID/GameClient</a></p>
     </div>
 </div>
@@ -2359,6 +2418,30 @@ function initTabs() {
     });
 }
 
+// js/25-header.js
+function scrolledPastHeaderRest(header) {
+    return -header.parentElement.getBoundingClientRect().top;
+}
+
+function syncHeaderState(header) {
+    header.classList.toggle('is-stuck', header.getBoundingClientRect().top < 1);
+    header.classList.toggle('is-compact', scrolledPastHeaderRest(header) > header.offsetHeight);
+}
+
+function initStickyHeader() {
+    var header = document.querySelector('.header');
+
+    if (!header) {
+        return;
+    }
+
+    window.addEventListener('scroll', function () {
+        syncHeaderState(header);
+    }, { passive: true });
+
+    syncHeaderState(header);
+}
+
 // js/30-copy.js
 function copyWithSelection(text) {
     var input = document.createElement('input');
@@ -2761,6 +2844,7 @@ window.addEventListener('DOMContentLoaded', function () {
 
     applyTranslations(language);
     initLanguageSwitcher(language);
+    initStickyHeader();
     initTabs();
     initVersionLabel();
     initModCatalog();
