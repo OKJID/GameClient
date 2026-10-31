@@ -447,6 +447,7 @@ private:
 #endif
 
 	UpdateModulePtr					 m_curUpdateModule;
+	Bool m_isDestroyingAllObjects;
 
 	ObjectPointerList m_objectsToDestroy;										///< List of things that need to be destroyed at end of frame
 

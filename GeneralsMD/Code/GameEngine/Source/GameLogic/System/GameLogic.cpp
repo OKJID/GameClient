@@ -293,6 +293,7 @@ GameLogic::GameLogic()
 	m_height = 0;
 	m_objList = NULL;
 	m_curUpdateModule = NULL;
+	m_isDestroyingAllObjects = FALSE;
 	m_nextObjID = INVALID_ID;
 	m_startNewGame = FALSE;
 	m_gameMode = GAME_NONE;
@@ -389,6 +390,7 @@ void GameLogic::destroyAllObjectsImmediate()
 	// in an intermediate state, causing a crash inside rebalanceChildSleepyUpdate.
 	// Clearing up front sets all module indices to -1 so that any setWakeFrame calls from
 	// destructor chains safely no-op, and processDestroyList skips per-element heap removal.
+	m_isDestroyingAllObjects = TRUE;
 	for (std::vector<UpdateModulePtr>::iterator it = m_sleepyUpdates.begin(); it != m_sleepyUpdates.end(); ++it)
 	{
 		(*it)->friend_setIndexInLogic(-1);
@@ -397,6 +399,7 @@ void GameLogic::destroyAllObjectsImmediate()
 
 	// process the destroy list immediately
 	processDestroyList();
+	m_isDestroyingAllObjects = FALSE;
 	DEBUG_ASSERTCRASH(m_objList == NULL, ("destroyAllObjectsImmediate: Object list not cleared"));
 
 }
@@ -3509,6 +3512,12 @@ void GameLogic::friend_awakenUpdateModule(Object* obj, UpdateModulePtr u, Unsign
 	Int idx = u->friend_getIndexInLogic();
 	if (obj->isInList(&m_objList))
 	{
+		if (idx == -1 && m_isDestroyingAllObjects)
+		{
+			u->friend_setNextCallFrame(whenToWakeUp);
+			return;
+		}
+
 		if (idx < 0 || idx >= m_sleepyUpdates.size())
 		{
 			RELEASE_CRASH("fatal error! sleepy update module illegal index.");
