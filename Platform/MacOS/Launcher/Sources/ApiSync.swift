@@ -3,8 +3,13 @@ import Network
 
 protocol ApiResource: AnyObject {
     var resourceName: String { get }
+    var isRequired: Bool { get }
 
     func reload() throws
+}
+
+extension ApiResource {
+    var isRequired: Bool { true }
 }
 
 enum ApiSyncStatus {
@@ -68,7 +73,7 @@ final class ApiSync: ObservableObject {
         for resource in resources {
             group.enter()
             fetch(resource) { succeeded in
-                if !succeeded {
+                if !succeeded && resource.isRequired {
                     failedCount += 1
                 }
 

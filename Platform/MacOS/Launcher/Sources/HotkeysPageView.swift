@@ -191,7 +191,7 @@ struct HotkeyEditorPage: View {
 
     private func _buildHeader() -> some View {
         HStack(spacing: 16) {
-            PageBackButton(accent: accent) { viewModel.route = .home }
+            PageBackButton(accent: accent) { viewModel.leavePage() }
                 .disabled(editor.phase == .applying)
 
             Image(systemName: "keyboard")
@@ -395,7 +395,7 @@ struct HotkeyUnavailablePage: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                PageBackButton(accent: viewModel.selectedProfile.theme.accent) { viewModel.route = .home }
+                PageBackButton(accent: viewModel.selectedProfile.theme.accent) { viewModel.leavePage() }
                 Spacer()
             }
             .padding(.horizontal, pageInset)

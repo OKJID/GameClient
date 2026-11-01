@@ -12,6 +12,7 @@ class LauncherViewModel: ObservableObject {
         case home
         case settings
         case hotkeys
+        case guide
     }
 
     struct ModConfirmation: Identifiable {
@@ -74,6 +75,8 @@ class LauncherViewModel: ObservableObject {
     @Published var isAskingAboutStoredPassword: Bool = false
     @Published var isUpdateDismissed: Bool = false
     @Published var route: Route = .home
+    @Published var guideArticleID: String? = nil
+    @Published var highlightedSetting: SettingKey? = nil
     @Published var showPatchConfirmation: Bool = false
     @Published var modConfirmation: ModConfirmation? = nil
     @Published var isConfirmingLocaleRemoval = false
@@ -169,10 +172,11 @@ class LauncherViewModel: ObservableObject {
     var announcements = AnnouncementsFeed()
     lazy var apiSync = ApiSync(resources: [
         updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared,
-        DonationsCatalog.shared, HotkeyPresetCatalog.shared
+        DonationsCatalog.shared, HotkeyPresetCatalog.shared, GuideCatalog.shared
     ])
     private var cancellables = Set<AnyCancellable>()
     private var isInitializing = true
+    private var returnsToGuide = false
     private var isSendingCrashReport = false
 
     private struct ModStatus {
@@ -384,6 +388,44 @@ class LauncherViewModel: ObservableObject {
 
         Analytics.logGameSwitched(from: previous)
         Analytics.logSettingsSnapshot(self)
+    }
+
+    func openGuide(article id: String? = nil, source: String) {
+        if let id {
+            guideArticleID = id
+        }
+
+        returnsToGuide = false
+        route = .guide
+        Analytics.logGuideOpened(source: source)
+    }
+
+    func leavePage() {
+        route = returnsToGuide ? .guide : .home
+        returnsToGuide = false
+    }
+
+    func follow(_ link: LauncherLink) {
+        switch link {
+        case .guide(let id):
+            guideArticleID = id
+            route = .guide
+        case .settings(let key):
+            highlightedSetting = key
+            leaveGuide(to: .settings)
+        case .hotkeys:
+            leaveGuide(to: .hotkeys)
+        case .tab(let tab):
+            activeTab = tab
+            leaveGuide(to: .home)
+        case .support:
+            activeSheet = .support
+        }
+    }
+
+    private func leaveGuide(to destination: Route) {
+        returnsToGuide = route == .guide && destination != .home
+        route = destination
     }
 
     func revealStoredPassword() {

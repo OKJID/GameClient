@@ -9,6 +9,7 @@ struct SettingsPageView: View {
     private let maxColumns = 4
     private let gridSpacing: CGFloat = 16
     private let pageInset: CGFloat = 32
+    private let highlightDuration: TimeInterval = 2.5
     private var profile: GameProfile { viewModel.selectedProfile }
     private var accent: Color { profile.theme.accent }
 
@@ -21,6 +22,26 @@ struct SettingsPageView: View {
         SettingTopic.allCases.filter { !profile.supportedKeys(scope: scope, topic: $0).isEmpty }
     }
 
+    private func revealHighlightedSetting(_ proxy: ScrollViewProxy) {
+        guard let key = viewModel.highlightedSetting else { return }
+
+        DispatchQueue.main.async {
+            withAnimation { proxy.scrollTo(key, anchor: .center) }
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + highlightDuration) {
+            fadeHighlight(key)
+        }
+    }
+
+    private func fadeHighlight(_ key: SettingKey) {
+        guard viewModel.highlightedSetting == key else { return }
+
+        withAnimation(.easeOut(duration: 0.6)) {
+            viewModel.highlightedSetting = nil
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             _buildHeader()
@@ -29,14 +50,17 @@ struct SettingsPageView: View {
                 .padding(.bottom, 16)
 
             GeometryReader { geometry in
-                ScrollView(.vertical, showsIndicators: true) {
-                    VStack(alignment: .leading, spacing: 32) {
-                        ForEach(profile.supportedScopes, id: \.self) { scope in
-                            _buildScopeSection(scope, columns: columnCount(for: geometry.size.width - pageInset * 2))
+                ScrollViewReader { proxy in
+                    ScrollView(.vertical, showsIndicators: true) {
+                        VStack(alignment: .leading, spacing: 32) {
+                            ForEach(profile.supportedScopes, id: \.self) { scope in
+                                _buildScopeSection(scope, columns: columnCount(for: geometry.size.width - pageInset * 2))
+                            }
                         }
+                        .padding(.horizontal, pageInset)
+                        .padding(.bottom, 32)
                     }
-                    .padding(.horizontal, pageInset)
-                    .padding(.bottom, 32)
+                    .onAppear { revealHighlightedSetting(proxy) }
                 }
             }
         }
@@ -46,7 +70,7 @@ struct SettingsPageView: View {
 
     private func _buildHeader() -> some View {
         HStack(spacing: 16) {
-            PageBackButton(accent: accent) { viewModel.route = .home }
+            PageBackButton(accent: accent) { viewModel.leavePage() }
 
             Image(systemName: "slider.horizontal.3")
                 .foregroundColor(accent)
@@ -117,6 +141,8 @@ struct SettingsPageView: View {
 
             ForEach(profile.supportedKeys(scope: scope, topic: topic), id: \.self) { key in
                 SettingRow(key: key, viewModel: viewModel, showsScope: false)
+                    .id(key)
+                    .overlay(_buildHighlight(key))
             }
         }
         .padding(14)
@@ -127,6 +153,18 @@ struct SettingsPageView: View {
             RoundedRectangle(cornerRadius: 8)
                 .stroke(scope.color.opacity(0.2), lineWidth: 1)
         )
+    }
+
+    @ViewBuilder
+    private func _buildHighlight(_ key: SettingKey) -> some View {
+        if viewModel.highlightedSetting == key {
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(accent, lineWidth: 2)
+                .shadow(color: accent.opacity(0.8), radius: 8)
+                .padding(-4)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
     }
 }
 

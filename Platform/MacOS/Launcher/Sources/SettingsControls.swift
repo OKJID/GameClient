@@ -142,6 +142,7 @@ struct SettingRow: View {
             scope: key.scope,
             accent: accent,
             showsScope: showsScope,
+            hintAnchor: GuideAnchor.setting(key),
             action: action
         )
     }
@@ -210,6 +211,7 @@ struct SettingToggleCard: View {
     let scope: SettingScope
     let accent: Color
     var showsScope: Bool = true
+    var hintAnchor: String? = nil
     var action: SettingCardAction? = nil
 
     private let neonGreen = Color(red: 0.1, green: 0.9, blue: 0.4)
@@ -231,6 +233,10 @@ struct SettingToggleCard: View {
 
                         if showsScope {
                             ScopeChip(scope: scope)
+                        }
+
+                        if let hintAnchor {
+                            GuideHintButton(anchor: hintAnchor)
                         }
                     }
 

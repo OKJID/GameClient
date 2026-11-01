@@ -106,6 +106,8 @@ struct MainView: View {
                         SettingsPageView(viewModel: viewModel)
                     } else if viewModel.route == .hotkeys {
                         HotkeysPageView(viewModel: viewModel)
+                    } else if viewModel.route == .guide {
+                        GuidePageView(viewModel: viewModel)
                     } else {
                         _buildHome()
                     }
@@ -114,6 +116,7 @@ struct MainView: View {
             .frame(width: geometry.size.width, height: geometry.size.height)
             .edgesIgnoringSafeArea(.all)
         }
+        .environment(\.openGuide, OpenGuideAction { viewModel.openGuide(article: $0, source: $1) })
         .alert(item: _activeAlert) { alert in
             _buildAlert(alert)
         }
@@ -424,6 +427,8 @@ struct MainView: View {
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.35))
 
+            GuideHintButton(anchor: GuideAnchor.mods)
+
             _buildModSearchField()
         }
         .padding(.leading, 8)
@@ -682,9 +687,13 @@ struct MainView: View {
 
     private func _buildSteamCredentials() -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(L10n.steam.credentials)
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
+            HStack(spacing: 6) {
+                Text(L10n.steam.credentials)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+
+                GuideHintButton(anchor: GuideAnchor.steamTab)
+            }
 
             HStack(spacing: 12) {
                 _buildTextField(placeholder: L10n.steam.usernamePlaceholder, text: $viewModel.steamUsername, isSecure: false)
@@ -844,9 +853,13 @@ struct MainView: View {
 
     private func _buildLocalTab() -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(L10n.local.path)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundColor(.white.opacity(0.7))
+            HStack(spacing: 6) {
+                Text(L10n.local.path)
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.7))
+
+                GuideHintButton(anchor: GuideAnchor.localTab)
+            }
 
             HStack(spacing: 12) {
                 Text(viewModel.installPath.isEmpty ? "NO SIGNAL — AWAITING FOLDER TARGET" : viewModel.installPath)
@@ -891,14 +904,18 @@ struct MainView: View {
     }
 
     private func _buildLocalValidationWarning() -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(.red.opacity(0.8))
-                .font(.system(size: 14))
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.red.opacity(0.8))
+                    .font(.system(size: 14))
 
-            Text(L10n.local.invalidTarget)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.red.opacity(0.8))
+                Text(L10n.local.invalidTarget)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.red.opacity(0.8))
+            }
+
+            GuideHintNote(anchor: GuideAnchor.invalidTarget, color: .white.opacity(0.75))
         }
         .padding(10)
         .background(Color.red.opacity(0.1))
@@ -918,6 +935,7 @@ struct MainView: View {
             HStack(spacing: 12) {
                 _buildLaunchButton()
                 _buildWorldBuilderButton()
+                GuideHintButton(anchor: GuideAnchor.launch)
             }
         } else if viewModel.assetPatcher.state.isRunning {
             _buildPatchingProgressButton()
@@ -1063,6 +1081,7 @@ struct MainView: View {
             HStack(spacing: 12) {
                 _buildLaunchButton()
                 _buildWorldBuilderButton()
+                GuideHintButton(anchor: GuideAnchor.launch)
             }
 
             HStack(spacing: 12) {
@@ -1329,6 +1348,8 @@ struct MainView: View {
                     .font(.system(size: 13, weight: .bold, design: .monospaced))
                     .foregroundColor(.white)
 
+                GuideHintButton(anchor: GuideAnchor.update)
+
                 Spacer()
 
                 if !viewModel.launcherUpdater.state.isRunning {
@@ -1539,6 +1560,7 @@ struct MainView: View {
             }
 
             _buildHelpButton()
+            _buildGuideButton()
 
             Spacer()
         }
@@ -1546,8 +1568,20 @@ struct MainView: View {
     }
 
     private func _buildHelpButton() -> some View {
-        Button(action: { viewModel.activeSheet = .support }) {
-            Image(systemName: "headset")
+        _buildRoundHeaderButton(systemImage: "headset", help: L10n.support.help) {
+            viewModel.activeSheet = .support
+        }
+    }
+
+    private func _buildGuideButton() -> some View {
+        _buildRoundHeaderButton(systemImage: "book", help: L10n.guide.help) {
+            viewModel.openGuide(source: "header")
+        }
+    }
+
+    private func _buildRoundHeaderButton(systemImage: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white)
                 .frame(width: 30, height: 30)
@@ -1556,7 +1590,7 @@ struct MainView: View {
         }
         .buttonStyle(PlainButtonStyle())
         .offset(y: -8)
-        .help(L10n.support.help)
+        .help(help)
         .onHover { inside in
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }

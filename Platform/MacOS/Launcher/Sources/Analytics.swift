@@ -239,6 +239,25 @@ enum Analytics {
         ])
     }
 
+    static func logGuideOpened(source: String) {
+        log("guide_opened", ["guide_source": source])
+    }
+
+    static func logGuideHintOpened(anchor: String) {
+        log("guide_hint_opened", ["guide_anchor": anchor])
+    }
+
+    static func logGuideArticleShown(id: String) {
+        log("guide_article_shown", ["guide_article_id": id])
+    }
+
+    static func logGuideLinkFollowed(articleID: String, url: URL) {
+        log("guide_link_followed", [
+            "guide_article_id": articleID,
+            "link_target": shortReason((url.host ?? url.scheme ?? "unknown") + url.path)
+        ])
+    }
+
     static func logLinkOpened(target: String, location: String) {
         log("link_opened", ["link_target": target, "link_location": location])
     }
