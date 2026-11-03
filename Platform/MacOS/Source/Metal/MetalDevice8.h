@@ -16,30 +16,24 @@ typedef void *id;
 #endif
 
 #include <map>
+#include <tuple>
 #include <vector>
+
+class MetalShaderProgram;
 
 static const int MAX_VS_CONSTANTS = 96;
 
 struct VSHandleInfo {
   DWORD handle;
   DWORD fvf;
-  uint32_t shaderType;
+  MetalShaderProgram *program;
 };
 
 static const int MAX_PS_CONSTANTS = 8;
 
-enum PSType {
-  PS_NONE = 0, PS_TERRAIN = 1, PS_TERRAIN_NOISE1 = 2, PS_TERRAIN_NOISE2 = 3,
-  PS_ROAD_NOISE2 = 4, PS_MONOCHROME = 5, PS_WAVE = 6, PS_FLAT_TERRAIN = 7,
-  PS_FLAT_TERRAIN0 = 8, PS_FLAT_TERRAIN_NOISE1 = 9, PS_FLAT_TERRAIN_NOISE2 = 10,
-  PS_WATER_TRAPEZOID = 11, PS_WATER_BUMP = 12, PS_WATER_RIVER = 13,
-};
-
 struct PSHandleInfo {
   DWORD handle;
-  uint32_t psType;
-  uint32_t numTexStages;
-  uint32_t numArithOps;
+  MetalShaderProgram *program;
 };
 
 class MetalSurface8;

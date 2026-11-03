@@ -48,20 +48,31 @@ private:
   float m_ScreenHeight;
 
   void *GetPSO(DWORD fvf, UINT stride);
+  void *GetDrawPSO(DWORD fvf, UINT stride);
+  void *GetShaderPSO(DWORD fvf, UINT stride, MetalShaderProgram *vertexProgram, MetalShaderProgram *pixelProgram);
+  void ConfigurePipelineTargets(void *descriptor);
+  void *BuildFVFVertexDescriptor(DWORD fvf, UINT stride);
+  void *BuildDeclarationVertexDescriptor(const MetalShaderProgram &program, UINT stride);
+  void *CreatePipelineState(void *descriptor, uint64_t key);
+  void ReleaseShaderPipelines(DWORD handle);
   uint64_t BuildPSOKey(DWORD fvf, UINT stride);
   void *GetDepthStencilState();
   void CreateDepthTexture(UINT width, UINT height);
   void ApplyPerDrawState();
   void *GetSamplerState(DWORD stage);
   void BindUniforms(DWORD fvf);
-  void BindCustomVSUniforms();
+  void BindShaderPrograms();
   void BindTexturesAndSamplers();
+  uint32_t TextureFormatType(DWORD stage) const;
+  MetalShaderProgram *CurrentVertexProgram() const;
+  MetalShaderProgram *CurrentPixelProgram() const;
   static unsigned long MapPrimitiveType(DWORD d3dPrimType);
 
   void *m_Library;
   void *m_FunctionVertex;
   void *m_FunctionFragment;
   std::map<uint64_t, void *> m_PsoCache;
+  std::map<std::tuple<uint64_t, DWORD, DWORD>, void *> m_ShaderPsoCache;
 
   void *m_DepthTexture;
   void *m_DepthStencilState;

@@ -183,38 +183,7 @@ public:
   virtual ULONG Release() override { delete this; return 0; }
 };
 
-inline HRESULT D3DXAssembleShader(const char* pSrcData, UINT SrcDataLen, DWORD Flags, void* pConstants, ID3DXBuffer** ppShader, void** ppErrorMsgs) {
-    if (!pSrcData || !ppShader) return E_POINTER;
-    
-    DWORD tokens[32];
-    int t = 0;
-    tokens[t++] = 0xFFFF0101; // ps.1.1 version
-    
-    bool isTrapezoid = (strstr(pSrcData, "mad r0.rgb") != nullptr);
-    bool isWave = (strstr(pSrcData, "texbem t2") != nullptr);
-    
-    if (isTrapezoid) {
-        tokens[t++] = 0x00000042; // tex t0
-        tokens[t++] = 0x00000042; // tex t1
-        tokens[t++] = 0x00000042; // tex t2
-        tokens[t++] = 0x00000042; // tex t3
-        tokens[t++] = 0x00000004; // mad
-    } else if (isWave) {
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000041; // texbem
-    } else {
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000042; // tex
-        tokens[t++] = 0x00000002; // add
-    }
-    
-    tokens[t++] = 0x0000FFFF; // end
-    *ppShader = new DummyD3DXBuffer(tokens, (DWORD)(t * sizeof(DWORD)));
-    return 0; // S_OK
-}
+// Platform/MacOS/Source/Metal/D3DXAssembleShader.cpp, on top of ShaderTranslator/D3D8ShaderAssembler.
+HRESULT D3DXAssembleShader(const char* pSrcData, UINT SrcDataLen, DWORD Flags, void* pConstants, ID3DXBuffer** ppShader, void** ppErrorMsgs);
 
 #endif

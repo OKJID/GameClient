@@ -1,6 +1,6 @@
 # macOS Port — Rendering Pipeline
 
-> Updated: 2026-09-28
+> Updated: 2026-11-03
 
 ---
 
@@ -54,6 +54,8 @@ graph TD
 | `MetalVertexBuffer8` | `IDirect3DVertexBuffer8` — MTLBuffer |
 | `MetalIndexBuffer8` | `IDirect3DIndexBuffer8` — MTLBuffer |
 | `MacOSShaders.metal` | FFP emulation (vertex + fragment shaders) |
+| `ShaderTranslator/` | DX8 `vs.1.1` / `ps.1.x` bytecode and assembly → MSL, see [DX8 Shader Translator](#dx8-shader-translator) |
+| `MetalShaderProgram` | `IDirect3DDevice8` shader object: translated shader compiled into its own Metal library |
 
 ---
 
@@ -77,13 +79,13 @@ graph TD
 ### 3. Draw Calls (`DrawIndexedPrimitive`, `DrawPrimitive`, `DrawPrimitiveUP`)
 1. `EnsureCurrentEncoder()` — creates encoder if none (loadAction=Load)
 2. `GetBufferFVF(m_StreamSource)` — gets FVF from VB
-3. `GetPSO(fvf, stride)` — gets/creates Pipeline State Object (cached)
+3. `GetDrawPSO(fvf, stride)` — `GetPSO` by FVF, or `GetShaderPSO` when a translated vertex or pixel shader is set (cached)
 4. `setRenderPipelineState:pso`
 5. `ApplyPerDrawState()` — cull mode (FORCED NONE for 2D), depth/stencil, z-bias
 6. VB binding: `setVertexBuffer:atIndex:0`
 7. Zero buffer binding: `setVertexBuffer:atIndex:30` (for missing FVF attributes)
 8. `BindUniforms(fvf)` — buffer(1) MetalUniforms + buffer(2) FragmentUniforms
-9. `BindCustomVSUniforms()` — buffer(4) + buffer(5)
+9. `BindShaderPrograms()` — vertex constants buffer(4); pixel constants buffer(5) and stage state buffer(6)
 10. `BindTexturesAndSamplers()` — textures and samplers for stage 0..3
 11. `drawIndexedPrimitives` / `drawPrimitives`
 
@@ -101,6 +103,12 @@ graph TD
 `GetPSO(DWORD fvf, UINT stride)` creates or retrieves from `m_PsoCache`.
 
 **PSO key** (`uint64_t`): `fvf | blendEnable | srcBlend | dstBlend | cwMask | alphaTestEnable | stride | hasDepth | sampleCount`
+
+`GetShaderPSO` caches in `m_ShaderPsoCache` by that key plus the vertex and pixel shader handles.
+A translated vertex shader brings its own vertex descriptor, built from the D3D8 declaration
+(`D3DVSD_REG(reg, type)` → `attributes[reg]`); registers the shader reads but the declaration does
+not feed come from buffer(30) as (0, 0, 0, 1). Our `d3d8.h` encodes `D3DVSD_STREAM(s)` as bit 31 and
+`D3DVSD_REG(r, t)` as `r | (t << 16)`, and only stream 0 is supported.
 
 ### Vertex Descriptor (from FVF)
 
@@ -130,53 +138,85 @@ Unused attributes are connected to `m_ZeroBuffer` (`MTLVertexStepFunctionConstan
 | buffer(0) | Vertex | — | Vertex data (VB) |
 | buffer(1) | V+F | `MetalUniforms` | world/view/projection, screenSize, useProjection, texMatrix[4] |
 | buffer(2) | Fragment | `FragmentUniforms` | TSS config (4 stages), textureFactor, fog, alphaTest, hasTexture[4] |
-| buffer(3) | Vertex | `LightingUniforms` | Up to 4 lights, materials, fog params |
-| buffer(4) | Vertex | `CustomVSUniforms` | shaderType + VS constants c0..c33 |
-| buffer(5) | Fragment | `CustomPSUniforms` | psType + PS constants c0..c7 |
+| buffer(3) | Vertex | `LightingUniforms` | Up to 8 lights, materials, fog params |
+| buffer(4) | Vertex | `float4[96]` | translated vertex shader constants c0..c95 |
+| buffer(5) | Fragment | `float4[8]` | translated pixel shader constants c0..c7 |
+| buffer(6) | Fragment | `PixelShaderStateUniforms` | `BUMPENVMAT*`, `BUMPENVL*`, projection divisor, texture format, cube and bound-stage masks |
 | buffer(30) | Vertex | — | Zero buffer for missing attributes |
 
 ---
 
 ## Shaders (`MacOSShaders.metal`)
 
-### Vertex Shader (`vertex_main`)
+`MacOSShaderInterface.h` holds what this file shares with shaders compiled at run time:
+`Uniforms`, `FragmentUniforms`, `VertexOut`/`FragmentIn`, `applyClipPlanes`, `alphaTestPass`,
+`computeTexCoord`. `MacOSShaders.metal` includes it, and CMake embeds its text into the binary
+(`Tools/EmbedMetalSource.cmake` → `macosShaderInterfaceSource()`).
 
-Three paths:
-
-**1. Custom VS: Trees (shaderType == 1)** — `Trees.vso`
-- c4-c7: WVP matrix (transposed row-major)
-- Sway displacement: swayType from normal.x, weight from pos.z - normal.z
-- Shroud UV: c32 (offset) + c33 (scale)
-
-**2. Custom VS: Water Wave (shaderType == 2)** — `wave.vso`
-- c2-c5: WVP matrix (transposed)
-- UV1: texture projection for reflection (c6-c9)
-
-**3. Standard VS (shaderType == 0)**
+### Vertex Shader (`vertex_main`) — fixed function
 - `useProjection == 1`: `pos = projection * view * world * pos` (3D)
 - `useProjection == 2`: screen coords → NDC (XYZRHW), Y-flip for Metal
-- Per-vertex lighting (DX8 FFP): up to 4 lights, ambient/diffuse/specular
+- Per-vertex lighting (DX8 FFP): up to 8 lights, ambient/diffuse/specular
 
-**Fog (all paths):** linear, exp, exp2. 2D vertices = no fog (fogFactor=1.0).
+**Fog:** linear, exp, exp2. 2D vertices = no fog (fogFactor=1.0).
 
-### Fragment Shader (`fragment_main`)
-
-**Path A: Custom PS (psType != 0)** — terrain blend, road, monochrome, wave bump
-
-| psType | Name | Description |
-|:---|:---|:---|
-| 1 | `PS_TERRAIN` | `lrp r0, v0.a, t0, t1` — blend by vertex alpha |
-| 2-3 | `PS_TERRAIN_NOISE` | terrain + cloud texture (stages 2-3) |
-| 4 | `PS_ROAD_NOISE2` | road: t0 * t1 * t2, alpha = t0.a |
-| 5 | `PS_MONOCHROME` | luminance = dot(t0.rgb, c0.rgb) * c1 * c2 |
-| 6 | `PS_WAVE` | bump water: t1 * c0 (reflection factor) |
-| 7-10 | `PS_FLAT_TERRAIN*` | simplified terrain blend variants |
-
-**Path B: TSS Pipeline (psType == 0)** — full D3DTOP processing for 4 stages:
+### Fragment Shader (`fragment_main`) — fixed function
+Full D3DTOP processing for 4 stages:
 - `resolveArg()`: D3DTA_DIFFUSE, CURRENT, TEXTURE, TFACTOR, SPECULAR
 - `evaluateOp()`: SELECTARG, MODULATE, ADD, SUBTRACT, BLEND*, DOTPRODUCT3, etc.
 
 **Post-processing:** alpha test → fog → specular add
+
+Custom DX8 shaders no longer go through these two functions; see the next section.
+
+---
+
+## DX8 Shader Translator
+
+Every shader the engine and mods load runs as written, instead of emulating known ones.
+`FillDeviceCaps` reports `vs.1.1` / `ps.1.1` (96 vertex constants, `MaxPixelShaderValue` 1.0), so
+`getChipset()` is `DC_GENERIC_PIXEL_SHADER_1_1` and the engine takes its shader paths: terrain,
+flat terrain, roads, trees, river / standing / sea water, screen filters, render targets.
+`Source/Metal/ShaderTranslator/`:
+
+| Part | Files |
+|:---|:---|
+| Token format, opcode table (D3D9 `dcl` included) | `D3D8ShaderTokens.h`, `D3D8ShaderOpcodes.*` |
+| Bytecode ↔ program, D3DX-syntax printer | `D3D8ShaderDecoder.cpp`, `D3D8ShaderDisassembler.cpp` |
+| Assembler for `vs.1.x` / `ps.1.x` text (replacement for the `D3DXAssembleShader` stub in `Include/d3dx8math.h`) | `D3D8ShaderAssembler.*` |
+| Program → MSL function | `D3D8ShaderTranslator.*`, `D3D8ShaderEmitter.*`, `D3D8ShaderArithmetic.cpp`, `D3D8PixelTextureOps.cpp`, `D3D8ShaderPrelude.cpp` |
+
+Generated functions take the shader's own registers: VS gets `v[16]` by declaration register and
+`c[96]`; PS gets the raw per-stage texture coordinates, `c[8]`, the stage state (`BUMPENVMAT*`,
+`BUMPENVL*`, projection divisor, cube and bound-stage masks) and textures/samplers 0–3. Semantics
+follow D3D8: ps 1.0–1.3 clamp every result to [−1, 1] and ps.1.4 to [−8, 8], co-issued pairs read
+before either writes, `cnd` tests `r0.a > 0.5` before ps.1.4, an empty stage samples (0, 0, 0, 1).
+
+Check without the game: `sh Tools/shader_translator_check/check.sh <archive.big | Shaders folder>...`
+extracts every `*.pso`/`*.vso`, round-trips it through printer and assembler against the D3DX
+binary, translates it and compiles the result with `xcrun metal`. The engine's text shaders live in
+`Tools/shader_translator_check/fixtures/`.
+
+### In the device
+
+`CreateVertexShader` / `CreatePixelShader` build a `MetalShaderProgram`: translate, wrap
+(`MetalShaderWrappers`), compile one Metal library per shader with `newLibraryWithSource`. A failure
+returns `D3DERR_INVALIDCALL` and logs `CreatePixelShader failed: <reason>` (`DEBUG_RENDERING_MAC`);
+the engine then stays on its fixed-function path for that effect, as on hardware without shaders.
+`D3DXAssembleShader` (`Source/Metal/D3DXAssembleShader.cpp`) is the real assembler.
+
+Each library carries two entry points, one per partner:
+
+| Shader | Partner | Entry | Interface |
+|:---|:---|:---|:---|
+| vertex | translated pixel shader | `d3d8_vs_to_ps` | `D3D8VertexVaryings`: oD0/oD1 saturated, oT0..oT7, oFog |
+| vertex | `fragment_main` | `d3d8_vs_to_ff` | `VertexOut`: oT0/oT1 → `texCoord`/`texCoord2` |
+| pixel | translated vertex shader | `d3d8_ps_after_vs` | texture coordinates as the vertex shader wrote them, divided per `D3DTTFF_PROJECTED` |
+| pixel | `vertex_main` | `d3d8_ps_after_ff` | texture coordinates from `computeTexCoord` (texgen, texture matrices) |
+
+After a translated pixel shader: `texkill` → saturate → alpha test → fog; no specular add, as in
+D3D8. Clip planes with a vertex shader are tested in clip space. A shader that writes depth
+(`texdepth`, `texm3x2depth`) gets a `[[depth(any)]]` output.
 
 ---
 
@@ -278,10 +318,13 @@ The resolve action is critical: standard `MultisampleResolve` discards the MSAA 
 ## Water Rendering
 
 ### Z-Fighting Fix
-Water surfaces and terrain beds occupy nearly the same Z depth, causing horizontal banding artifacts ("z-fighting"). A strategic `+1.0f` Z-offset is applied to water vertices in `W3DWater.cpp` (under `#ifdef __APPLE__`), pushing the water plane slightly above the terrain bed.
+Water surfaces and terrain beds occupy nearly the same Z depth, causing horizontal banding artifacts ("z-fighting"). A `+0.02f` Z-offset is applied to the trapezoid water vertices in `W3DWater::drawTrapezoidWater` (under `#ifdef __APPLE__`), pushing the water plane slightly above the terrain bed.
 
 ### Destination Alpha
-Soft water edges rely on the destination alpha channel in the framebuffer. The water pixel shader writes alpha based on shore proximity, and subsequent terrain passes read this alpha for edge blending. The MSAA `StoreAndMultisampleResolve` action ensures this alpha survives the resolve step.
+Soft water edges rely on the destination alpha channel in the framebuffer. Water writes alpha based on shore proximity, and subsequent terrain passes read this alpha for edge blending. The MSAA `StoreAndMultisampleResolve` action ensures this alpha survives the resolve step. The `ps.1.1` river, bump and trapezoid water shaders in `W3DWater::ReAcquireResources` exist only when `getChipset() >= DC_GENERIC_PIXEL_SHADER_1_1`, i.e. with the translator; engines that report no shaders draw water on the fixed-function path.
+
+### Water Types
+`GameData` `WaterType` picks the renderer. Zero Hour ships `0` (translucent tiles over water areas). `2` is the pixel shader sea: `wave.vso`/`wave.pso` plus a 256×256 mirror render target. Engines that report no shaders (1.4.0 and earlier) return from `ReAcquireResources` before creating that target and `renderMirror` binds a null texture, so a mod that sets `WaterType = 2` crashes on the first water map there; Modern Warfare overrides it to `0` in its package until players have an engine with the translator.
 
 ---
 

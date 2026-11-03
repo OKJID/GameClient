@@ -24,6 +24,8 @@
 #include "MacOSNativeWindow.h"
 #include "../Utils/MacDebug.h"
 #include "MetalTextureCapture.h"
+#include "MetalShaderProgram.h"
+#include "MetalShaderWrappers.h"
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -384,14 +386,6 @@ struct LightingUniforms {
   uint32_t fogMode; // 0=NONE, 1=EXP, 2=EXP2, 3=LINEAR
 };
 
-// Custom Vertex Shader Uniforms (buffer 4)
-// Passed to Metal vertex shader when a custom DX8 vertex shader is active
-struct CustomVSUniforms {
-  uint32_t shaderType;    // 0=none, 1=trees, 2=water wave
-  uint32_t _pad[3];       // alignment
-  simd::float4 c[34];     // VS constant registers c0..c33 (covers all used registers)
-};
-
 // FVF bit definitions: see d3d8_stub.h (D3DFVF_XYZ, D3DFVF_XYZRHW, etc.)
 
 // Helper to get FVF from an opaque IDirect3DVertexBuffer8
@@ -746,7 +740,7 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   if (!m_RTTColorTexture && cwMask == 0xF) {
     cwMask = 0x7; // RGB only, preserve destination alpha
   }
-  
+
   key |= (uint64_t)(blendEn) << 32;
   key |= (uint64_t)(srcBlend) << 33;
   key |= (uint64_t)(dstBlend) << 38;
@@ -928,17 +922,7 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
   for (int s = 0; s < 4; ++s) {
     fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX];
-    fu.texFormatType[s] = 0;
-    if (m_Textures[s]) {
-      D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[s])->GetD3DFormat();
-      if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
-        fu.texFormatType[s] = 1;
-      } else if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
-        fu.texFormatType[s] = 2;
-      } else if (fmt == D3DFMT_DXT1) {
-        fu.texFormatType[s] = 3;
-      }
-    }
+    fu.texFormatType[s] = TextureFormatType(s);
   }
   [MTL_ENCODER setFragmentBytes:&fu length:sizeof(fu) atIndex:2];
 
@@ -1008,38 +992,85 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   [MTL_ENCODER setVertexBytes:&lu length:sizeof(lu) atIndex:3];
 }
 
-void MetalDevice8::BindCustomVSUniforms() {
-  CustomVSUniforms cvu;
-  memset(&cvu, 0, sizeof(cvu));
-  if (m_VertexShader & 0x80000000) {
-    auto it = m_VSHandleMap.find(m_VertexShader);
-    if (it != m_VSHandleMap.end()) {
-      cvu.shaderType = it->second.shaderType;
-    }
-    for (int r = 0; r < 34; ++r) {
-      cvu.c[r] = simd::float4{m_VSConstants[r][0], m_VSConstants[r][1],
-                              m_VSConstants[r][2], m_VSConstants[r][3]};
-    }
-  }
-  [MTL_ENCODER setVertexBytes:&cvu length:sizeof(cvu) atIndex:4];
+// Mirrors D3D8PixelShaderState in ShaderTranslator/D3D8ShaderPrelude.cpp.
+struct PixelShaderStateUniforms {
+  simd::float4 bumpEnvMatrix[8];
+  simd::float4 bumpEnvLuminance[8];
+  uint32_t projectionDivisor[8];
+  uint32_t textureFormat[8];
+  uint32_t cubeStageMask;
+  uint32_t boundStageMask;
+  uint32_t _pad[2];
+};
 
-  struct {
-    uint32_t psType;
-    uint32_t _pad[3];
-    simd::float4 c[8];
-  } psu;
-  memset(&psu, 0, sizeof(psu));
-  if (m_PixelShader != 0) {
-    auto it = m_PSHandleMap.find(m_PixelShader);
-    if (it != m_PSHandleMap.end()) {
-      psu.psType = it->second.psType;
-    }
-    for (int r = 0; r < MAX_PS_CONSTANTS; ++r) {
-      psu.c[r] = simd::float4{m_PSConstants[r][0], m_PSConstants[r][1],
-                              m_PSConstants[r][2], m_PSConstants[r][3]};
+MetalShaderProgram *MetalDevice8::CurrentVertexProgram() const {
+  if ((m_VertexShader & 0x80000000) == 0) {
+    return nullptr;
+  }
+  auto it = m_VSHandleMap.find(m_VertexShader);
+  return it == m_VSHandleMap.end() ? nullptr : it->second.program;
+}
+
+MetalShaderProgram *MetalDevice8::CurrentPixelProgram() const {
+  if (m_PixelShader == 0) {
+    return nullptr;
+  }
+  auto it = m_PSHandleMap.find(m_PixelShader);
+  return it == m_PSHandleMap.end() ? nullptr : it->second.program;
+}
+
+uint32_t MetalDevice8::TextureFormatType(DWORD stage) const {
+  if (!m_Textures[stage]) {
+    return 0;
+  }
+  D3DFORMAT fmt = ((MetalTexture8 *)m_Textures[stage])->GetD3DFormat();
+  if (fmt == D3DFMT_L8 || fmt == D3DFMT_P8) {
+    return 1;
+  }
+  if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
+    return 2;
+  }
+  return fmt == D3DFMT_DXT1 ? 3 : 0;
+}
+
+static uint32_t ProjectionDivisor(DWORD transformFlags) {
+  if ((transformFlags & D3DTTFF_PROJECTED) == 0) {
+    return 0;
+  }
+  DWORD count = transformFlags & 0xFF;
+  return count >= 2 && count <= 4 ? count - 1 : 0;
+}
+
+void MetalDevice8::BindShaderPrograms() {
+  MetalShaderProgram *vertexProgram = CurrentVertexProgram();
+  if (vertexProgram) {
+    [MTL_ENCODER setVertexBytes:m_VSConstants length:sizeof(m_VSConstants)
+                        atIndex:MetalShaderWrappers::VERTEX_CONSTANTS_BUFFER];
+  }
+  if (!CurrentPixelProgram()) {
+    return;
+  }
+
+  PixelShaderStateUniforms state;
+  memset(&state, 0, sizeof(state));
+  for (int s = 0; s < MAX_TEXTURE_STAGES; ++s) {
+    const DWORD *tss = m_TextureStageStates[s];
+    state.bumpEnvMatrix[s] = simd::float4{DWtoF(tss[D3DTSS_BUMPENVMAT00]), DWtoF(tss[D3DTSS_BUMPENVMAT01]),
+                                          DWtoF(tss[D3DTSS_BUMPENVMAT10]), DWtoF(tss[D3DTSS_BUMPENVMAT11])};
+    state.bumpEnvLuminance[s] = simd::float4{DWtoF(tss[D3DTSS_BUMPENVLSCALE]), DWtoF(tss[D3DTSS_BUMPENVLOFFSET]), 0.0f, 0.0f};
+    state.projectionDivisor[s] = vertexProgram ? ProjectionDivisor(tss[D3DTSS_TEXTURETRANSFORMFLAGS]) : 0;
+  }
+  for (int s = 0; s < 4; ++s) {
+    state.textureFormat[s] = TextureFormatType(s);
+    if (m_Textures[s]) {
+      state.boundStageMask |= 1u << s;
+      state.cubeStageMask |= m_Textures[s]->GetType() == D3DRTYPE_CUBETEXTURE ? 1u << s : 0u;
     }
   }
-  [MTL_ENCODER setFragmentBytes:&psu length:sizeof(psu) atIndex:5];
+
+  [MTL_ENCODER setFragmentBytes:m_PSConstants length:sizeof(m_PSConstants)
+                        atIndex:MetalShaderWrappers::PIXEL_CONSTANTS_BUFFER];
+  [MTL_ENCODER setFragmentBytes:&state length:sizeof(state) atIndex:MetalShaderWrappers::PIXEL_STATE_BUFFER];
 }
 
 static id<MTLTexture> GetMTLTextureForBase(IDirect3DBaseTexture8* t) {
@@ -1197,8 +1228,13 @@ void MetalDevice8::FillDeviceCaps(D3DCAPS8 *pCaps) {
   pCaps->DevCaps = D3DDEVCAPS_HWTRANSFORMANDLIGHT;
   pCaps->MaxSimultaneousTextures = 8;
   pCaps->MaxTextureBlendStages = 8;
-  pCaps->VertexShaderVersion = 0; // Fixed function fallback
-  pCaps->PixelShaderVersion = 0;  // Fixed function fallback
+  // vs.1.1 and ps.1.1 run through ShaderTranslator; ps 1.0-1.3 registers hold [-1, 1].
+  static const DWORD VERTEX_SHADER_1_1 = 0xFFFE0101;
+  static const DWORD PIXEL_SHADER_1_1 = 0xFFFF0101;
+  pCaps->VertexShaderVersion = VERTEX_SHADER_1_1;
+  pCaps->MaxVertexShaderConst = MAX_VS_CONSTANTS;
+  pCaps->PixelShaderVersion = PIXEL_SHADER_1_1;
+  pCaps->MaxPixelShaderValue = 1.0f;
   pCaps->MaxPrimitiveCount = 0xFFFFFF;
   pCaps->MaxVertexIndex = 0xFFFFFF;
   pCaps->MaxStreams = 8;
@@ -2440,6 +2476,96 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   MTLRenderPipelineDescriptor *pd = [[MTLRenderPipelineDescriptor alloc] init];
   pd.vertexFunction = (__bridge id<MTLFunction>)m_FunctionVertex;
   pd.fragmentFunction = (__bridge id<MTLFunction>)m_FunctionFragment;
+  ConfigurePipelineTargets((__bridge void *)pd);
+  pd.vertexDescriptor = (__bridge_transfer MTLVertexDescriptor *)BuildFVFVertexDescriptor(fvf, stride);
+
+  void *pso = CreatePipelineState((__bridge void *)pd, key);
+  if (pso) {
+    m_PsoCache[key] = pso;
+  }
+  return pso;
+}
+
+void *MetalDevice8::GetDrawPSO(DWORD fvf, UINT stride) {
+  MetalShaderProgram *vertexProgram = CurrentVertexProgram();
+  MetalShaderProgram *pixelProgram = CurrentPixelProgram();
+  if (!vertexProgram && !pixelProgram) {
+    return GetPSO(fvf, stride);
+  }
+  return GetShaderPSO(fvf, stride, vertexProgram, pixelProgram);
+}
+
+void *MetalDevice8::GetShaderPSO(DWORD fvf, UINT stride, MetalShaderProgram *vertexProgram,
+                                 MetalShaderProgram *pixelProgram) {
+  auto key = std::make_tuple(BuildPSOKey(fvf, stride), vertexProgram ? m_VertexShader : 0,
+                             pixelProgram ? m_PixelShader : 0);
+  auto it = m_ShaderPsoCache.find(key);
+  if (it != m_ShaderPsoCache.end()) {
+    return it->second;
+  }
+
+  MTLRenderPipelineDescriptor *pd = [[MTLRenderPipelineDescriptor alloc] init];
+  void *vertexFunction = !vertexProgram ? m_FunctionVertex
+                         : pixelProgram ? vertexProgram->functionWithShaderPartner
+                                        : vertexProgram->functionWithFixedFunctionPartner;
+  void *fragmentFunction = !pixelProgram ? m_FunctionFragment
+                           : vertexProgram ? pixelProgram->functionWithShaderPartner
+                                           : pixelProgram->functionWithFixedFunctionPartner;
+  pd.vertexFunction = (__bridge id<MTLFunction>)vertexFunction;
+  pd.fragmentFunction = (__bridge id<MTLFunction>)fragmentFunction;
+  ConfigurePipelineTargets((__bridge void *)pd);
+  pd.vertexDescriptor = vertexProgram
+    ? (__bridge_transfer MTLVertexDescriptor *)BuildDeclarationVertexDescriptor(*vertexProgram, stride)
+    : (__bridge_transfer MTLVertexDescriptor *)BuildFVFVertexDescriptor(fvf, stride);
+
+  void *pso = CreatePipelineState((__bridge void *)pd, std::get<0>(key));
+  DEBUG_RENDERING_MAC(("GetShaderPSO: vs=0x%08x ps=0x%08x fvf=0x%x stride=%u -> %p", (unsigned)std::get<1>(key),
+                       (unsigned)std::get<2>(key), (unsigned)fvf, stride, pso));
+  m_ShaderPsoCache[key] = pso;
+  return pso;
+}
+
+static MTLVertexFormat DeclarationTypeFormat(uint32_t type) {
+  static const MTLVertexFormat FORMATS[] = {
+    MTLVertexFormatFloat, MTLVertexFormatFloat2, MTLVertexFormatFloat3, MTLVertexFormatFloat4,
+    MTLVertexFormatUChar4Normalized_BGRA, MTLVertexFormatUChar4, MTLVertexFormatShort2, MTLVertexFormatShort4,
+  };
+  return type < sizeof(FORMATS) / sizeof(FORMATS[0]) ? FORMATS[type] : MTLVertexFormatInvalid;
+}
+
+void *MetalDevice8::BuildDeclarationVertexDescriptor(const MetalShaderProgram &program, UINT stride) {
+  MTLVertexDescriptor *vd = [MTLVertexDescriptor vertexDescriptor];
+  uint32_t providedRegisters = 0;
+  for (const VertexElement &element : program.elements) {
+    vd.attributes[element.reg].format = DeclarationTypeFormat(element.type);
+    vd.attributes[element.reg].offset = element.offset;
+    vd.attributes[element.reg].bufferIndex = 0;
+    providedRegisters |= 1u << element.reg;
+  }
+  vd.layouts[0].stride = stride;
+  vd.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
+
+  uint32_t missingRegisters = program.shader.inputRegisterMask & ~providedRegisters;
+  if (missingRegisters == 0) {
+    return (__bridge_retained void *)vd;
+  }
+
+  // An input the declaration does not feed reads (0, 0, 0, 1), as in D3D8.
+  vd.layouts[30].stride = 64;
+  vd.layouts[30].stepFunction = MTLVertexStepFunctionConstant;
+  vd.layouts[30].stepRate = 0;
+  for (uint32_t reg = 0; reg < D3D8Shader::MAX_VERTEX_INPUTS; ++reg) {
+    if (missingRegisters & (1u << reg)) {
+      vd.attributes[reg].format = MTLVertexFormatFloat3;
+      vd.attributes[reg].offset = 8;
+      vd.attributes[reg].bufferIndex = 30;
+    }
+  }
+  return (__bridge_retained void *)vd;
+}
+
+void MetalDevice8::ConfigurePipelineTargets(void *descriptor) {
+  MTLRenderPipelineDescriptor *pd = (__bridge MTLRenderPipelineDescriptor *)descriptor;
   pd.colorAttachments[0].pixelFormat = MTLPixelFormatBGRA8Unorm;
 
   // MSAA: PSO sampleCount must match render target
@@ -2487,7 +2613,9 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
   if (cwMask & 8)
     mtlMask |= MTLColorWriteMaskAlpha;
   pd.colorAttachments[0].writeMask = mtlMask;
+}
 
+void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
   // 3. Define Vertex Layout based on FVF
   MTLVertexDescriptor *vd = [MTLVertexDescriptor vertexDescriptor];
 
@@ -2623,8 +2751,11 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
     }
   }
 
-  pd.vertexDescriptor = vd;
+  return (__bridge_retained void *)vd;
+}
 
+void *MetalDevice8::CreatePipelineState(void *descriptor, uint64_t key) {
+  MTLRenderPipelineDescriptor *pd = (__bridge MTLRenderPipelineDescriptor *)descriptor;
   NSError *err = nil;
   id<MTLRenderPipelineState> pso = nil;
   @try {
@@ -2632,20 +2763,16 @@ void *MetalDevice8::GetPSO(DWORD fvf, UINT stride) {
         newRenderPipelineStateWithDescriptor:pd
                                        error:&err];
   } @catch (NSException *exception) {
-    fprintf(stderr,
-            "[MetalDevice8] Exception creating PSO for FVF 0x%x key 0x%llx: %s\n",
-            fvf, key, [[exception reason] UTF8String]);
+    DEBUG_RENDERING_MAC(("Exception creating PSO for key 0x%llx: %s", key, [[exception reason] UTF8String]));
     return nil;
   }
   if (!pso) {
-    fprintf(stderr,
-            "[MetalDevice8] Error creating PSO for FVF %x key %llx: %s\n", fvf,
-            key, err ? [[err localizedDescription] UTF8String] : "(no error)");
+    DEBUG_RENDERING_MAC(("Error creating PSO for key 0x%llx: %s", key,
+                         err ? [[err localizedDescription] UTF8String] : "(no error)"));
     return nil;
   }
 
-  m_PsoCache[key] = (__bridge_retained void *)pso;
-  return (__bridge void *)pso;
+  return (__bridge_retained void *)pso;
 }
 
 // ─────────────────────────────────────────────────────
@@ -2743,7 +2870,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
     if (fvf == 0) fvf = D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1;
   }
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
+      (__bridge id<MTLRenderPipelineState>)GetDrawPSO(fvf, m_StreamStride);
   if (!pso)
     return D3D_OK;
 
@@ -2768,7 +2895,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
 
 
   BindUniforms(fvf);
-  BindCustomVSUniforms();
+  BindShaderPrograms();
   BindTexturesAndSamplers();
 
   
@@ -2842,7 +2969,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   }
 
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, m_StreamStride);
+      (__bridge id<MTLRenderPipelineState>)GetDrawPSO(fvf, m_StreamStride);
   if (!pso) {
     DLOG_RFLOW(15, "DrawIndexedPrimitive NO PSO for fvf=0x%x", (unsigned)fvf);
     return D3D_OK;
@@ -2868,7 +2995,7 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   }
 
   BindUniforms(fvf);
-  BindCustomVSUniforms();
+  BindShaderPrograms();
   BindTexturesAndSamplers();
 
   MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
@@ -3017,7 +3144,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
   // (already evaluated above)
 
   id<MTLRenderPipelineState> pso =
-      (__bridge id<MTLRenderPipelineState>)GetPSO(fvf, stride);
+      (__bridge id<MTLRenderPipelineState>)GetDrawPSO(fvf, stride);
   if (!pso)
     return D3D_OK;
 
@@ -3101,7 +3228,7 @@ STDMETHODIMP MetalDevice8::DrawPrimitiveUP(DWORD pt, UINT pc, const void *data,
 
 
   BindUniforms(fvf);
-  BindCustomVSUniforms();
+  BindShaderPrograms();
   BindTexturesAndSamplers();
 
   // Draw
@@ -3131,81 +3258,68 @@ MetalDevice8::DrawIndexedPrimitiveUP(DWORD pt, UINT mvi, UINT nvi, UINT pc,
 //  Vertex Shaders
 // ─────────────────────────────────────────────────────
 
+// The FVF a declaration matches: lighting flags, 2D detection and draws whose vertex buffer has
+// no FVF still read it. D3DVSD_STREAM(s) has bit 31 set, D3DVSD_REG(r, t) is r | (t << 16).
+static DWORD DeclarationFVF(const DWORD *decl) {
+  if (!decl) {
+    return D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1;
+  }
+
+  bool hasPosition = false;
+  bool hasNormal = false;
+  bool hasDiffuse = false;
+  int texCount = 0;
+  for (int i = 0; decl[i] != 0xFFFFFFFF && i < 64; i++) {
+    DWORD token = decl[i];
+    if (token & 0x80000000) continue;
+    DWORD dataType = (token >> 16) & 0xF;
+    if (dataType == 2) { // float3 = position or normal
+      if (!hasPosition) {
+        hasPosition = true;
+      } else {
+        hasNormal = true;
+      }
+    } else if (dataType == 4) { // D3DCOLOR = diffuse
+      hasDiffuse = true;
+    } else if (dataType == 1) { // float2 = texcoord
+      texCount++;
+    }
+  }
+
+  DWORD fvf = D3DFVF_XYZ;
+  if (hasNormal) fvf |= D3DFVF_NORMAL;
+  if (hasDiffuse) fvf |= D3DFVF_DIFFUSE;
+  if (texCount >= 1) fvf |= D3DFVF_TEX1;
+  if (texCount >= 2) fvf |= D3DFVF_TEX2;
+  return fvf;
+}
+
 STDMETHODIMP MetalDevice8::CreateVertexShader(const DWORD *decl,
                                               const DWORD *func, DWORD *handle,
                                               DWORD usage) {
   static DWORD s_nextVS = 1;
-  if (handle) {
-    // Top bit set means it's a shader handle, not an FVF
-    DWORD h = (1 << 31) | s_nextVS++;
-    *handle = h;
-
-    // Parse the vertex declaration to extract FVF
-    // D3DVSD tokens: stream 0, position, normal, diffuse, tex coords
-    // We detect shader type by the handle ordinal:
-    //   handle 1 (0x80000001) = Trees.vso (first shader created)
-    //   handle 2 (0x80000002) = Trees.pso (pixel shader, ignored)
-    //   handle 3+ = water wave etc.
-    // Better approach: count how many VS handles (not PS) we've created
-    VSHandleInfo info;
-    info.handle = h;
-    info.fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_DIFFUSE | D3DFVF_TEX1; // default
-    info.shaderType = 0; // unknown
-    
-    // Tree VS uses declaration: stream 0, XYZ, NORMAL, DIFFUSE, TEX(2 floats)
-    // which is effectively FVF 0x152 = XYZ|NORMAL|DIFFUSE|TEX1
-    // Water wave VS: XYZ, DIFFUSE, TEX(2 floats) = 0x142 = XYZ|DIFFUSE|TEX1
-    //
-    // We determine shader type from the declaration structure:
-    // Parse D3DVSD tokens to determine what vertex elements are declared
-    if (decl) {
-      bool hasPosition = false;
-      bool hasNormal = false;
-      bool hasDiffuse = false;
-      int texCount = 0;
-      for (int i = 0; decl[i] != 0xFFFFFFFF && i < 64; i++) {
-        DWORD token = decl[i];
-        // D3DVSD_STREAM(s) has bit 31 set — skip stream tokens
-        if (token & 0x80000000) continue;
-        // D3DVSD_REG(r, t) = r | (t << 16), bit 31 clear
-        DWORD dataType = (token >> 16) & 0xF;
-        // dataType: 0=float1, 1=float2, 2=float3, 3=float4, 4=D3DCOLOR
-        if (dataType == 2) { // float3 = position or normal
-          if (!hasPosition) {
-            hasPosition = true;
-          } else {
-            hasNormal = true;
-          }
-        } else if (dataType == 4) { // D3DCOLOR = diffuse
-          hasDiffuse = true;
-        } else if (dataType == 1) { // float2 = texcoord
-          texCount++;
-        }
-      }
-      // Build FVF from parsed declaration
-      DWORD parsedFVF = D3DFVF_XYZ;
-      if (hasNormal) parsedFVF |= D3DFVF_NORMAL;
-      if (hasDiffuse) parsedFVF |= D3DFVF_DIFFUSE;
-      if (texCount >= 1) parsedFVF |= D3DFVF_TEX1;
-      if (texCount >= 2) parsedFVF |= D3DFVF_TEX2;
-      info.fvf = parsedFVF;
-      
-      // Shader type heuristic:
-      // Trees: XYZ + NORMAL + DIFFUSE + TEX1 (FVF 0x152)
-      // Water: XYZ + DIFFUSE + TEX1 (FVF 0x142)
-      if (hasNormal && hasDiffuse && texCount >= 1) {
-        info.shaderType = 1; // Trees
-      } else if (!hasNormal && hasDiffuse && texCount >= 1) {
-        info.shaderType = 2; // Water wave
-      }
-    }
-    
-    m_VSHandleMap[h] = info;
-    
-    printf("[VS] CreateVertexShader: handle=0x%08x fvf=0x%x type=%u\n",
-           (unsigned)h, (unsigned)info.fvf, info.shaderType);
-    fflush(stdout);
+  if (!handle) {
+    return D3DERR_INVALIDCALL;
   }
+
+  VSHandleInfo info;
+  info.fvf = DeclarationFVF(decl);
+  info.program = nullptr;
+  if (func) {
+    std::string error;
+    info.program = MetalShaderProgram::createVertexShader(m_Device, decl, func, error);
+    if (!info.program) {
+      DEBUG_RENDERING_MAC(("CreateVertexShader failed: %s", error.c_str()));
+      return D3DERR_INVALIDCALL;
+    }
+  }
+
+  // Top bit set means it's a shader handle, not an FVF
+  info.handle = (1u << 31) | s_nextVS++;
+  m_VSHandleMap[info.handle] = info;
+  *handle = info.handle;
+  DEBUG_RENDERING_MAC(("CreateVertexShader: handle=0x%08x fvf=0x%x inputs=0x%x", (unsigned)info.handle,
+                       (unsigned)info.fvf, info.program ? info.program->shader.inputRegisterMask : 0u));
   return D3D_OK;
 }
 
@@ -3214,7 +3328,33 @@ STDMETHODIMP MetalDevice8::SetVertexShader(DWORD h) {
   return D3D_OK;
 }
 
-STDMETHODIMP MetalDevice8::DeleteVertexShader(DWORD h) { return D3D_OK; }
+void MetalDevice8::ReleaseShaderPipelines(DWORD handle) {
+  for (auto it = m_ShaderPsoCache.begin(); it != m_ShaderPsoCache.end();) {
+    if (std::get<1>(it->first) != handle && std::get<2>(it->first) != handle) {
+      ++it;
+      continue;
+    }
+    if (it->second) {
+      CFRelease(it->second);
+    }
+    it = m_ShaderPsoCache.erase(it);
+  }
+}
+
+STDMETHODIMP MetalDevice8::DeleteVertexShader(DWORD h) {
+  auto it = m_VSHandleMap.find(h);
+  if (it == m_VSHandleMap.end()) {
+    return D3D_OK;
+  }
+
+  ReleaseShaderPipelines(h);
+  delete it->second.program;
+  m_VSHandleMap.erase(it);
+  if (m_VertexShader == h) {
+    m_VertexShader = 0;
+  }
+  return D3D_OK;
+}
 
 STDMETHODIMP MetalDevice8::SetVertexShaderConstant(DWORD r, const void *d,
                                                    DWORD c) {
@@ -3276,204 +3416,23 @@ HRESULT MetalDevice8::GetIndices(IDirect3DIndexBuffer8 **ib, UINT *base) {
 
 STDMETHODIMP MetalDevice8::CreatePixelShader(const DWORD *func, DWORD *handle) {
   static DWORD s_nextPS = 1;
-  if (!handle) return D3D_OK;
-
-  DWORD h = 0xC0000000 | s_nextPS++;
-  *handle = h;
-
-  PSHandleInfo info;
-  info.handle = h;
-  info.psType = PS_NONE;
-  info.numTexStages = 0;
-  info.numArithOps = 0;
-
-  if (func) {
-    DWORD version = func[0];
-
-    if ((version & 0xFFFF0000) == 0xFFFF0000) {
-      uint32_t numTex = 0;
-      uint32_t numArith = 0;
-      bool hasDp3 = false;
-      bool hasLrp = false;
-      bool hasMad = false;
-      bool hasMul = false;
-      bool hasAdd = false;
-      bool hasTexbem = false;
-
-      // PS 1.x bytecode format:
-      //   DWORD 0: version token (0xFFFF0101 for ps_1_1, etc.)
-      //   Then instruction tokens until END token (0x0000FFFF).
-      //   Each instruction: opcode DWORD, then operand DWORDs.
-      //   For PS 1.x, instruction length is NOT encoded in the opcode token
-      //   (that's only ps_2_0+). Instead we use known operand counts per opcode.
-      int i = 1;
-      while (i < 256) {
-        DWORD token = func[i];
-        if (token == 0x0000FFFF) break; // END token
-        i++; // consume opcode token
-
-        uint32_t opcode = token & 0xFFFF;
-
-        // Determine operand count for PS 1.x instructions
-        int operandCount = 0;
-
-        if (opcode == 0x00) {
-          // nop
-          operandCount = 0;
-        } else if (opcode == 0x01) {
-          // mov: dest, src
-          operandCount = 2;
-        } else if (opcode == 0x02) {
-          // add: dest, src0, src1
-          hasAdd = true; numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x03) {
-          // sub: dest, src0, src1
-          numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x04) {
-          // mad: dest, src0, src1, src2
-          hasMad = true; numArith++;
-          operandCount = 4;
-        } else if (opcode == 0x05) {
-          // mul: dest, src0, src1
-          hasMul = true; numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x06) {
-          // rcp: dest, src
-          numArith++;
-          operandCount = 2;
-        } else if (opcode == 0x08) {
-          // dp3: dest, src0, src1
-          hasDp3 = true; numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x09) {
-          // dp3 (alternative encoding)
-          hasDp3 = true; numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x0A) {
-          // dp4: dest, src0, src1
-          numArith++;
-          operandCount = 3;
-        } else if (opcode == 0x12) {
-          // lrp: dest, src0, src1, src2
-          hasLrp = true; numArith++;
-          operandCount = 4;
-        } else if (opcode == 0x40) {
-          // tex / texcoord: dest only in ps_1_1-1_3
-          numTex++;
-          operandCount = 1;
-        } else if (opcode == 0x41) {
-          // texbem: dest, src
-          hasTexbem = true; numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x42) {
-          // In ps_1_1/1_2/1_3: tex = dest only (1 operand)
-          // In ps_1_4: texld = dest, src (2 operands)
-          numTex++;
-          uint32_t minor = version & 0xFF;
-          operandCount = (minor <= 3) ? 1 : 2;
-        } else if (opcode == 0x43) {
-          // texreg2gb: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x44) {
-          // texm3x2pad: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x45) {
-          // texm3x2tex: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x46) {
-          // texm3x3pad: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x47) {
-          // texm3x3tex: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x48) {
-          // reserved
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x49) {
-          // texm3x3spec: dest, src0, src1
-          numTex++;
-          operandCount = 3;
-        } else if (opcode == 0x4A) {
-          // texm3x3vspec: dest, src
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0x50) {
-          // cnd: dest, src0, src1, src2
-          numArith++;
-          operandCount = 4;
-        } else if (opcode == 0x51) {
-          // def: dest, float, float, float, float (constant definition)
-          // NOT a tex instruction! 5 DWORDs follow opcode
-          operandCount = 5;
-        } else if (opcode == 0x58) {
-          // cmp: dest, src0, src1, src2
-          numArith++;
-          operandCount = 4;
-        } else if (opcode >= 0x4B && opcode <= 0x5F) {
-          // other tex ops (but not def/cnd/cmp already handled)
-          numTex++;
-          operandCount = 2;
-        } else if (opcode == 0xFFFE) {
-          // comment: next DWORD is length in DWORDs
-          uint32_t commentLen = (token >> 16) & 0xFFFF;
-          i += commentLen;
-          continue;
-        } else if (opcode >= 0x02 && opcode <= 0x3F) {
-          // Other arithmetic — assume dest + 2 src
-          numArith++;
-          operandCount = 3;
-        } else {
-          // Unknown — skip conservatively
-          operandCount = 0;
-        }
-
-        i += operandCount; // skip operands
-      }
-
-      info.numTexStages = numTex;
-      info.numArithOps = numArith;
-
-      if (numTex == 1 && hasDp3) {
-        info.psType = PS_MONOCHROME;
-      } else if (hasTexbem && numTex >= 3) {
-        info.psType = PS_WATER_BUMP;
-      } else if (hasTexbem) {
-        info.psType = PS_WAVE;
-      } else if (numTex == 2 && hasLrp) {
-        info.psType = PS_TERRAIN;
-      } else if (numTex == 3 && hasLrp) {
-        info.psType = PS_TERRAIN_NOISE1;
-      } else if (numTex == 4 && hasLrp) {
-        info.psType = PS_TERRAIN_NOISE2;
-      } else if (numTex == 3 && !hasLrp) {
-        info.psType = PS_ROAD_NOISE2;
-      } else if (numTex == 2 && !hasLrp && !hasDp3) {
-        info.psType = PS_FLAT_TERRAIN;
-      } else if (numTex == 4 && !hasLrp && hasMad) {
-        info.psType = PS_WATER_TRAPEZOID;
-      } else if (numTex == 4 && !hasLrp && !hasMad) {
-        if (hasAdd) {
-          info.psType = PS_WATER_RIVER;
-        } else {
-          info.psType = PS_FLAT_TERRAIN_NOISE2;
-        }
-      } else {
-        info.psType = PS_TERRAIN;
-      }
-
-
-    }
+  if (!handle) {
+    return D3DERR_INVALIDCALL;
   }
 
-  m_PSHandleMap[h] = info;
+  std::string error;
+  PSHandleInfo info;
+  info.program = MetalShaderProgram::createPixelShader(m_Device, func, error);
+  if (!info.program) {
+    DEBUG_RENDERING_MAC(("CreatePixelShader failed: %s", error.c_str()));
+    return D3DERR_INVALIDCALL;
+  }
+
+  info.handle = 0xC0000000 | s_nextPS++;
+  m_PSHandleMap[info.handle] = info;
+  *handle = info.handle;
+  DEBUG_RENDERING_MAC(("CreatePixelShader: handle=0x%08x stages=0x%x", (unsigned)info.handle,
+                       info.program->shader.textureStageMask));
   return D3D_OK;
 }
 
@@ -3483,7 +3442,17 @@ STDMETHODIMP MetalDevice8::SetPixelShader(DWORD h) {
 }
 
 STDMETHODIMP MetalDevice8::DeletePixelShader(DWORD h) {
-  m_PSHandleMap.erase(h);
+  auto it = m_PSHandleMap.find(h);
+  if (it == m_PSHandleMap.end()) {
+    return D3D_OK;
+  }
+
+  ReleaseShaderPipelines(h);
+  delete it->second.program;
+  m_PSHandleMap.erase(it);
+  if (m_PixelShader == h) {
+    m_PixelShader = 0;
+  }
   return D3D_OK;
 }
 

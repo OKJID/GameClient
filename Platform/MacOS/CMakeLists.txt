@@ -18,6 +18,46 @@ set(METAL_SRC
     Source/Metal/MetalTexture8.h
     Source/Metal/MetalTextureCapture.h
     Source/Metal/MetalVertexBuffer8.h
+    Source/Metal/MacOSShaderInterface.h
+    Source/Metal/MetalShaderProgram.mm
+    Source/Metal/MetalShaderProgram.h
+    Source/Metal/MetalShaderWrappers.cpp
+    Source/Metal/MetalShaderWrappers.h
+    Source/Metal/D3DXAssembleShader.cpp
+    ${CMAKE_CURRENT_BINARY_DIR}/MacOSShaderInterfaceSource.cpp
+)
+
+# ── DX8 shader translator (vs.1.1 / ps.1.x bytecode and assembly → MSL) ──
+set(SHADER_TRANSLATOR_SRC
+    Source/Metal/ShaderTranslator/D3D8ShaderTokens.h
+    Source/Metal/ShaderTranslator/D3D8ShaderOpcodes.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderOpcodes.h
+    Source/Metal/ShaderTranslator/D3D8ShaderDecoder.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderDisassembler.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderAssembler.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderAssembler.h
+    Source/Metal/ShaderTranslator/D3D8ShaderTranslator.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderTranslator.h
+    Source/Metal/ShaderTranslator/D3D8ShaderEmitter.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderEmitter.h
+    Source/Metal/ShaderTranslator/D3D8ShaderStages.h
+    Source/Metal/ShaderTranslator/D3D8ShaderArithmetic.cpp
+    Source/Metal/ShaderTranslator/D3D8PixelTextureOps.cpp
+    Source/Metal/ShaderTranslator/D3D8ShaderPrelude.cpp
+)
+
+# Shaders compiled at run time share the structs of default.metallib through this header.
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/MacOSShaderInterfaceSource.cpp
+    COMMAND ${CMAKE_COMMAND}
+        -DINPUT=${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal/MacOSShaderInterface.h
+        -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/MacOSShaderInterfaceSource.cpp
+        -DFUNCTION=macosShaderInterfaceSource
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/Tools/EmbedMetalSource.cmake
+    DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal/MacOSShaderInterface.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/Tools/EmbedMetalSource.cmake
+    COMMENT "Embedding MacOSShaderInterface.h"
 )
 
 # ── Main application (game engine, entry handled by GeneralsMD/Code/Main) ──
@@ -83,6 +123,7 @@ set(CMAKE_OBJCXX_FLAGS "${CMAKE_OBJCXX_FLAGS}${MAC_SYNC_FLAGS}" PARENT_SCOPE)
 # ── Combine all sources ──
 add_library(macos_platform STATIC
     ${METAL_SRC}
+    ${SHADER_TRANSLATOR_SRC}
     ${MAIN_SRC}
     ${AUDIO_SRC}
     ${INPUT_SRC}
@@ -181,7 +222,7 @@ set(METAL_LIB_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/default.metallib)
 add_custom_command(
     OUTPUT ${METAL_AIR_OUTPUT}
     COMMAND xcrun -sdk macosx metal -std=metal3.0 -mmacosx-version-min=${CMAKE_OSX_DEPLOYMENT_TARGET} -c ${METAL_SHADER_SOURCE} -o ${METAL_AIR_OUTPUT}
-    DEPENDS ${METAL_SHADER_SOURCE}
+    DEPENDS ${METAL_SHADER_SOURCE} ${CMAKE_CURRENT_SOURCE_DIR}/Source/Metal/MacOSShaderInterface.h
     COMMENT "Compiling Metal shaders"
 )
 
@@ -213,6 +254,7 @@ set_source_files_properties(
     Source/Metal/MetalTexture8.mm
     Source/Metal/MetalCubeTexture8.mm
     Source/Metal/MacOSDisplayManager.mm
+    Source/Metal/MetalShaderProgram.mm
     Source/Input/MacOSKeyboard.mm
     Source/System/MacOSLocalFileSystem.mm
     Source/Audio/AVAudioBridge.mm
