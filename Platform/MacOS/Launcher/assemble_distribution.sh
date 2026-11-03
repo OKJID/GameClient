@@ -381,6 +381,9 @@ write_installer_distribution() {
 <installer-gui-script minSpecVersion="2">
     <title>$FINAL_APP_NAME</title>
     <options customize="never" require-scripts="false" hostArchitectures="arm64"/>
+    <allowed-os-versions>
+        <os-version min="$GAME_MIN_MACOS"/>
+    </allowed-os-versions>
     <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
     <volume-check>
         <allowed-os-versions>
