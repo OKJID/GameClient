@@ -82,6 +82,9 @@ MetalTexture8::MetalTexture8(MetalDevice8 *device, UINT width, UINT height,
       if (initData) {
         if (usage & D3DUSAGE_RENDERTARGET) {
           memset(initData, 0x00, dataSize); // Transparent black — matches DX8 cleared RT
+          if (IsAlphaLessFormat(format)) {
+            FillOpaqueAlphaBGRA8(initData, dataSize);
+          }
         } else if (format == D3DFMT_DXT1) {
           // 0x00 creates opaque black for DXT1. We need transparent (code 3).
           // 00 00 (c0) 00 00 (c1) FF FF FF FF (indices)

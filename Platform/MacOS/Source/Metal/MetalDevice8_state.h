@@ -98,6 +98,7 @@ private:
   IDirect3DSurface8 *m_RTTSurface;
   UINT m_RTTWidth;
   UINT m_RTTHeight;
+  bool m_RTTColorHasAlpha;
 
   int m_MSAASampleCount;
   void *m_MSAAColorTexture;

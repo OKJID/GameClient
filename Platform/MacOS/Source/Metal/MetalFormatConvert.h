@@ -56,6 +56,24 @@ inline bool Is16BitFormat(D3DFORMAT fmt) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Check if format stores no alpha (D3D reads its alpha as 1.0)
+// ─────────────────────────────────────────────────────────────────
+inline bool IsAlphaLessFormat(D3DFORMAT fmt) {
+  return fmt == D3DFMT_X8R8G8B8 || fmt == D3DFMT_R8G8B8 ||
+         fmt == D3DFMT_X1R5G5B5 || fmt == D3DFMT_R5G6B5;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Set the alpha byte of every BGRA8 pixel to opaque
+// ─────────────────────────────────────────────────────────────────
+inline void FillOpaqueAlphaBGRA8(void *pixels, UINT size) {
+  uint8_t *bytes = (uint8_t *)pixels;
+  for (UINT i = 3; i < size; i += 4) {
+    bytes[i] = 0xFF;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Get texFormatType for a D3D format
 // 0 = Default (standard BGRA)
 // 1 = Luminance: RGB = r, A = 1.0 (from R8Unorm)

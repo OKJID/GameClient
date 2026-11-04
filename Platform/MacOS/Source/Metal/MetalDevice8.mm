@@ -76,7 +76,7 @@ MetalDevice8::MetalDevice8()
       m_MetalLayer(nullptr), m_CurrentCommandBuffer(nullptr),
       m_CurrentDrawable(nullptr), m_CurrentEncoder(nullptr), m_InScene(false),
       m_RTTColorTexture(nullptr), m_RTTDepthTexture(nullptr),
-      m_RTTSurface(nullptr), m_RTTWidth(0), m_RTTHeight(0),
+      m_RTTSurface(nullptr), m_RTTWidth(0), m_RTTHeight(0), m_RTTColorHasAlpha(true),
       m_StreamSource(nullptr), m_StreamStride(0), m_IndexBuffer(nullptr),
       m_BaseVertexIndex(0), m_VertexShader(0), m_PixelShader(0),
       m_HWND(nullptr), m_ScreenWidth(800), m_ScreenHeight(600),
@@ -740,6 +740,9 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   if (!m_RTTColorTexture && cwMask == 0xF) {
     cwMask = 0x7; // RGB only, preserve destination alpha
   }
+  if (m_RTTColorTexture && !m_RTTColorHasAlpha) {
+    cwMask &= 0x7;
+  }
 
   key |= (uint64_t)(blendEn) << 32;
   key |= (uint64_t)(srcBlend) << 33;
@@ -1309,7 +1312,7 @@ STDMETHODIMP MetalDevice8::GetDisplayMode(D3DDISPLAYMODE *pMode) {
   pMode->Width = (UINT)m_ScreenWidth;
   pMode->Height = (UINT)m_ScreenHeight;
   pMode->RefreshRate = 60;
-  pMode->Format = D3DFMT_A8R8G8B8;
+  pMode->Format = D3DFMT_X8R8G8B8;
   return D3D_OK;
 }
 
@@ -1923,6 +1926,7 @@ STDMETHODIMP MetalDevice8::SetRenderTarget(IDirect3DSurface8 *s,
     m_RTTDepthTexture = nullptr;
     m_RTTWidth = 0;
     m_RTTHeight = 0;
+    m_RTTColorHasAlpha = true;
 
     // End current encoder so next draw/Clear creates a new render pass
     // targeting the drawable.
@@ -1963,6 +1967,7 @@ STDMETHODIMP MetalDevice8::SetRenderTarget(IDirect3DSurface8 *s,
   m_RTTColorTexture = (__bridge void *)mtl;
   m_RTTWidth = surf->GetWidth();
   m_RTTHeight = surf->GetHeight();
+  m_RTTColorHasAlpha = !IsAlphaLessFormat(tex->GetD3DFormat());
   tex->MarkWritten();
 
   // Depth target
@@ -2104,7 +2109,8 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
   }
 
   if (Flags & D3DCLEAR_TARGET) {
-    float a = ((Color >> 24) & 0xFF) / 255.0f;
+    bool alphaLessTarget = m_RTTColorTexture && !m_RTTColorHasAlpha;
+    float a = alphaLessTarget ? 1.0f : ((Color >> 24) & 0xFF) / 255.0f;
     float r = ((Color >> 16) & 0xFF) / 255.0f;
     float g = ((Color >> 8) & 0xFF) / 255.0f;
     float b = ((Color >> 0) & 0xFF) / 255.0f;
@@ -2593,6 +2599,9 @@ void MetalDevice8::ConfigurePipelineTargets(void *descriptor) {
   if (!m_RTTColorTexture && cwMask == 0xF) {
     cwMask = 0x7; // RGB only, preserve destination alpha
   }
+  if (m_RTTColorTexture && !m_RTTColorHasAlpha) {
+    cwMask &= 0x7;
+  }
   pd.colorAttachments[0].blendingEnabled = (blendEn != 0) ? YES : NO;
   pd.colorAttachments[0].rgbBlendOperation = MTLBlendOperationAdd;
   pd.colorAttachments[0].alphaBlendOperation = MTLBlendOperationAdd;
@@ -2845,6 +2854,17 @@ void MetalDevice8::EnsureCurrentEncoder() {
   m_LastAppliedZBias = 0xFFFFFFFF;
   m_DepthStateDirty = true;
   m_StencilRefDirty = true;
+
+  if (m_Viewport.Width > 0 && m_Viewport.Height > 0) {
+    MTLViewport vp;
+    vp.originX = m_Viewport.X;
+    vp.originY = m_Viewport.Y;
+    vp.width = m_Viewport.Width;
+    vp.height = m_Viewport.Height;
+    vp.znear = m_Viewport.MinZ;
+    vp.zfar = m_Viewport.MaxZ;
+    [MTL_ENCODER setViewport:vp];
+  }
 }
 
 STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
