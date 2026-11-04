@@ -103,26 +103,13 @@ inline float3 d3d8_projected(float4 coord, uint divisor) {
     return coord.xyz / coord[divisor];
 }
 
-inline float4 d3d8_unpackFormat(float4 texel, uint format) {
-    if (format == 1u) {
-        return float4(texel.r, texel.r, texel.r, 1.0);
-    }
-    if (format == 2u) {
-        return float4(texel.r, texel.r, texel.r, texel.g);
-    }
-    if (format == 3u && all(texel.rgb == 0.0)) {
-        texel.a = 0.0;
-    }
-    return texel;
-}
-
 inline float4 d3d8_sample(texture2d<float> flat, texturecube<float> cube, sampler s, constant D3D8PixelShaderState &state,
                           uint stage, float3 coord) {
     if (((state.boundStageMask >> stage) & 1u) == 0u) {
         return float4(0.0, 0.0, 0.0, 1.0);
     }
     float4 texel = ((state.cubeStageMask >> stage) & 1u) != 0u ? cube.sample(s, coord) : flat.sample(s, coord.xy);
-    return d3d8_unpackFormat(texel, state.textureFormat[stage]);
+    return unpackTexelFormat(texel, state.textureFormat[stage]);
 }
 
 inline float3 d3d8_reflect(float3 normal, float3 eye) {

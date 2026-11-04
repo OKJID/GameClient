@@ -130,14 +130,17 @@ static std::string vertexToPixelShader(const TranslatedShader &shader) {
 }
 
 static std::string vertexToFixedFunction(const TranslatedShader &shader) {
-  return std::string("vertex VertexOut ") + VERTEX_TO_FIXED_FUNCTION + "(" + vertexParameters(shader) + ") {\n"
+  std::string text = std::string("vertex VertexOut ") + VERTEX_TO_FIXED_FUNCTION + "(" + vertexParameters(shader) + ") {\n"
     + vertexShaderCall(shader) +
     "    VertexOut out;\n"
     "    out.position = o.position;\n"
     "    out.color = saturate(o.diffuse);\n"
-    "    out.specularColor = saturate(o.specular);\n"
-    "    out.texCoord = o.texCoord[0].xy;\n"
-    "    out.texCoord2 = o.texCoord[1].xy;\n"
+    "    out.specularColor = saturate(o.specular);\n";
+  for (int i = 0; i < 8; ++i) {
+    std::string n = std::to_string(i);
+    text += "    out.texCoord" + n + " = o.texCoord[" + n + "];\n";
+  }
+  return text +
     "    out.fogFactor = saturate(o.fog);\n"
     "    out.camPosX = 0.0;\n"
     "    out.camPosY = 0.0;\n"
@@ -158,8 +161,8 @@ std::string vertexEntries(const TranslatedShader &shader) {
 static std::string textureParameters() {
   return "        texture2d<float> tex0 [[texture(0)]], texture2d<float> tex1 [[texture(1)]],\n"
          "        texture2d<float> tex2 [[texture(2)]], texture2d<float> tex3 [[texture(3)]],\n"
-         "        texturecube<float> cube0 [[texture(4)]], texturecube<float> cube1 [[texture(5)]],\n"
-         "        texturecube<float> cube2 [[texture(6)]], texturecube<float> cube3 [[texture(7)]],\n"
+         "        texturecube<float> cube0 [[texture(8)]], texturecube<float> cube1 [[texture(9)]],\n"
+         "        texturecube<float> cube2 [[texture(10)]], texturecube<float> cube3 [[texture(11)]],\n"
          "        sampler s0 [[sampler(0)]], sampler s1 [[sampler(1)]], sampler s2 [[sampler(2)]], sampler s3 [[sampler(3)]]";
 }
 
@@ -209,17 +212,14 @@ static std::string pixelAfterFixedFunction(const TranslatedShader &shader) {
     "        float2 pointCoord [[point_coord]]) {\n"
     "    FragmentIn in = stageIn;\n"
     "    if (uniforms.pointSpriteEnable != 0) {\n"
-    "        in.texCoord = pointCoord;\n"
-    "        in.texCoord2 = pointCoord;\n"
+    "        applyPointSpriteTexCoords(in, pointCoord);\n"
     "    }\n"
     "    D3D8PixelShaderInput psIn;\n"
     "    psIn.diffuse = in.color;\n"
     "    psIn.specular = in.specularColor;\n"
-    "    for (uint i = 0; i < 4; ++i) {\n"
-    "        psIn.texCoord[i] = float4(computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[i], i), 1.0);\n"
-    "    }\n"
-    "    for (uint i = 4; i < 8; ++i) {\n"
-    "        psIn.texCoord[i] = float4(0.0, 0.0, 0.0, 1.0);\n"
+    "    for (uint i = 0; i < 8; ++i) {\n"
+    "        bool clipped;\n"
+    "        psIn.texCoord[i] = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[i], i, clipped);\n"
     "    }\n"
     + pixelShaderCall(shader) + pixelReturn(shader, "in.fogFactor") + "}\n\n";
 }

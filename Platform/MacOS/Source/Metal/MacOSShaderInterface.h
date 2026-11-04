@@ -10,11 +10,12 @@ struct Uniforms {
     float4x4 world;
     float4x4 view;
     float4x4 projection;
-    float4x4 texMatrix[4];  // D3DTS_TEXTURE0..3 — UV transform matrices
+    float4x4 texMatrix[8];  // D3DTS_TEXTURE0..7 — UV transform matrices
     float2 screenSize;
     int useProjection;      // 0=passthrough, 1=3D, 2=2D screen space
     uint shaderSettings;    // legacy bitfield (texturing bit etc.)
-    uint texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+    uint texTransformFlags[8]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+    uint texCoordSize[8];      // components of each FVF texcoord set, 0 when the set is absent
     float4 clipPlanes[6];
     uint clipPlaneEnable;
     // Point sprites (D3DRS_POINTSPRITEENABLE / POINTSCALE*).
@@ -28,7 +29,7 @@ struct Uniforms {
     float pointScaleA;
     float pointScaleB;
     float pointScaleC;
-    uint _pad0;
+    uint vertexProgramActive; // texcoords come from a DX8 vertex shader
     uint _pad1;
     uint _pad2;
 };
@@ -53,11 +54,15 @@ struct Uniforms {
 #define D3DTOP_BLENDDIFFUSEALPHA  12
 #define D3DTOP_BLENDTEXTUREALPHA  13
 #define D3DTOP_BLENDFACTORALPHA   14
+#define D3DTOP_BLENDTEXTUREALPHAPM 15
 #define D3DTOP_BLENDCURRENTALPHA  16
+#define D3DTOP_PREMODULATE       17
 #define D3DTOP_MODULATEALPHA_ADDCOLOR   18
 #define D3DTOP_MODULATECOLOR_ADDALPHA   19
 #define D3DTOP_MODULATEINVALPHA_ADDCOLOR 20
 #define D3DTOP_MODULATEINVCOLOR_ADDALPHA 21
+#define D3DTOP_BUMPENVMAP        22
+#define D3DTOP_BUMPENVMAPLUMINANCE 23
 #define D3DTOP_DOTPRODUCT3       24
 #define D3DTOP_MULTIPLYADD       25
 #define D3DTOP_LERP              26
@@ -68,6 +73,7 @@ struct Uniforms {
 #define D3DTA_TEXTURE  2
 #define D3DTA_TFACTOR  3
 #define D3DTA_SPECULAR 4
+#define D3DTA_TEMP     5
 // D3DTA modifiers (high bits)
 #define D3DTA_COMPLEMENT     0x10
 #define D3DTA_ALPHAREPLICATE 0x20
@@ -82,6 +88,17 @@ struct Uniforms {
 #define D3DCMP_GREATEREQUAL 7
 #define D3DCMP_ALWAYS       8
 
+// texFormatType values
+#define TEXFORMAT_DEFAULT         0
+#define TEXFORMAT_LUMINANCE       1  // L8/P8: (r, r, r, 1)
+#define TEXFORMAT_LUMINANCE_ALPHA 2  // A8L8/A4L4/A8P8: (r, r, r, g)
+#define TEXFORMAT_DXT1            3  // BC1: black texels are transparent
+#define TEXFORMAT_NO_ALPHA        4  // X8R8G8B8 and other alpha-less formats: alpha reads 1
+#define TEXFORMAT_BUMP_DUDV       5  // V8U8: (du, dv, 1, 1)
+
+// D3DTEXTURETRANSFORMFLAGS
+#define D3DTTFF_PROJECTED 256
+
 struct TextureStageConfig {
     uint colorOp;     // D3DTOP enum
     uint colorArg1;   // D3DTA enum
@@ -90,11 +107,16 @@ struct TextureStageConfig {
     uint alphaArg1;   // D3DTA enum
     uint alphaArg2;   // D3DTA enum
     uint colorArg0;   // D3DTA enum (3rd arg for MULTIPLYADD, LERP)
-    uint _pad1;
+    uint alphaArg0;   // D3DTA enum (3rd arg for MULTIPLYADD, LERP)
+    uint resultArg;   // D3DTA_CURRENT or D3DTA_TEMP
+    float bumpEnvLScale;  // D3DTSS_BUMPENVLSCALE
+    float bumpEnvLOffset; // D3DTSS_BUMPENVLOFFSET
+    float lodBias;        // D3DTSS_MIPMAPLODBIAS
+    float4 bumpEnvMatrix; // D3DTSS_BUMPENVMAT00, 01, 10, 11
 };
 
 struct FragmentUniforms {
-    TextureStageConfig stages[4];
+    TextureStageConfig stages[8];
     float4 textureFactor;   // D3DRS_TEXTUREFACTOR (ARGB as float4)
     float4 fogColor;
     float  fogStart;
@@ -104,10 +126,10 @@ struct FragmentUniforms {
     uint   alphaTestEnable;
     uint   alphaFunc;        // D3DCMP enum
     float  alphaRef;         // normalized 0..1
-    uint   hasTexture[4];
+    uint   hasTexture[8];
     uint   specularEnable;
-    uint   texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
-    uint   texFormatType[4]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8), 3=DXT1(BC1)
+    uint   texCoordIndex[8]; // D3DTSS_TEXCOORDINDEX: which UV set each stage uses
+    uint   texFormatType[8]; // 0=Default, 1=Luminance(L8/P8), 2=Luminance+Alpha(A4L4/A8L8), 3=DXT1(BC1), 4=NoAlpha(X8R8G8B8), 5=V8U8
     uint   blendEnabled;     // D3DRS_ALPHABLENDENABLE — used by black discard guard
 };
 
@@ -115,8 +137,14 @@ struct VertexOut {
     float4 position [[position]];
     float4 color;
     float4 specularColor;
-    float2 texCoord;
-    float2 texCoord2;
+    float4 texCoord0;
+    float4 texCoord1;
+    float4 texCoord2;
+    float4 texCoord3;
+    float4 texCoord4;
+    float4 texCoord5;
+    float4 texCoord6;
+    float4 texCoord7;
     float fogFactor;
     // Camera-space position for TCI_CAMERASPACEPOSITION.
     // Using 3 separate floats instead of float3 to avoid 16-byte alignment
@@ -135,8 +163,14 @@ struct FragmentIn {
     float4 position [[position]];
     float4 color;
     float4 specularColor;
-    float2 texCoord;
-    float2 texCoord2;
+    float4 texCoord0;
+    float4 texCoord1;
+    float4 texCoord2;
+    float4 texCoord3;
+    float4 texCoord4;
+    float4 texCoord5;
+    float4 texCoord6;
+    float4 texCoord7;
     float fogFactor;
     float camPosX;
     float camPosY;
@@ -177,57 +211,120 @@ bool alphaTestPass(uint func, float alphaVal, float ref) {
     }
 }
 
-static float3 computeTexCoord(constant Uniforms &uniforms, thread FragmentIn &in, uint tci, uint stage) {
-    uint tciMode = (tci >> 16) & 0x3;
-    uint uvIndex = tci & 0x3;
-    float4 unprojected;
+// D3DTSS_TCI_* >> 16, numbered as in Platform/MacOS/Include/d3d8.h
+#define TCI_PASSTHRU                    0
+#define TCI_CAMERASPACEPOSITION         1
+#define TCI_CAMERASPACENORMAL           2
+#define TCI_CAMERASPACEREFLECTIONVECTOR 3
 
-    if (tciMode == 1 && uniforms.useProjection == 1) {
-        // D3DTSS_TCI_CAMERASPACEPOSITION (1)
-        unprojected = float4(in.camPosX, in.camPosY, in.camPosZ, 1.0);
-    } else if (tciMode == 2) {
-        // D3DTSS_TCI_CAMERASPACENORMAL (2)
-        unprojected = float4(in.camNormalX, in.camNormalY, in.camNormalZ, 1.0);
-    } else if (tciMode == 3) {
-        // D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR (3)
-        float3 V = normalize(float3(in.camPosX, in.camPosY, in.camPosZ));
-        float3 N = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
-        float3 R = V - 2.0 * dot(V, N) * N;
-        unprojected = float4(R.x, R.y, R.z, 1.0);
-    } else {
-        // D3DTSS_TCI_PASSTHRU (0)
-        float2 uv = (uvIndex == 1) ? in.texCoord2 : in.texCoord;
-        unprojected = float4(uv.x, uv.y, 0.0, 1.0);
+static float4 vertexTexCoord(thread FragmentIn &in, uint index) {
+    switch (index) {
+        case 0:  return in.texCoord0;
+        case 1:  return in.texCoord1;
+        case 2:  return in.texCoord2;
+        case 3:  return in.texCoord3;
+        case 4:  return in.texCoord4;
+        case 5:  return in.texCoord5;
+        case 6:  return in.texCoord6;
+        default: return in.texCoord7;
     }
+}
 
+static void applyPointSpriteTexCoords(thread FragmentIn &in, float2 pointCoord) {
+    float4 spriteCoord = float4(pointCoord, 0.0, 1.0);
+    in.texCoord0 = spriteCoord;
+    in.texCoord1 = spriteCoord;
+    in.texCoord2 = spriteCoord;
+    in.texCoord3 = spriteCoord;
+    in.texCoord4 = spriteCoord;
+    in.texCoord5 = spriteCoord;
+    in.texCoord6 = spriteCoord;
+    in.texCoord7 = spriteCoord;
+}
+
+static uint texGenMode(constant Uniforms &uniforms, uint tci) {
+    uint mode = (tci >> 16) & 0x3;
+    if (mode == TCI_CAMERASPACEPOSITION && uniforms.useProjection != 1) {
+        return TCI_PASSTHRU;
+    }
+    return mode;
+}
+
+static float4 generatedTexCoord(thread FragmentIn &in, uint mode) {
+    float3 position = float3(in.camPosX, in.camPosY, in.camPosZ);
+    float3 normal = float3(in.camNormalX, in.camNormalY, in.camNormalZ);
+    if (mode == TCI_CAMERASPACEPOSITION) {
+        return float4(position, 1.0);
+    }
+    if (mode == TCI_CAMERASPACENORMAL) {
+        return float4(normal, 1.0);
+    }
+    float3 view = normalize(position);
+    return float4(view - 2.0 * dot(view, normal) * normal, 1.0);
+}
+
+static float4 texCoordAsTransformInput(float4 tc, uint size) {
+    if (size == 1) {
+        return float4(tc.x, 1.0, 0.0, 0.0);
+    }
+    if (size == 2) {
+        return float4(tc.xy, 1.0, 0.0);
+    }
+    return tc;
+}
+
+static float4 truncatedTexCoord(float4 tc, uint count) {
+    return select(float4(0.0, 0.0, 0.0, 1.0), tc, uint4(0, 1, 2, 3) < uint4(count));
+}
+
+static float4 projectedTexCoord(float4 tc, uint flags, thread bool &clipped) {
+    uint count = flags & 0xFF;
+    if ((flags & D3DTTFF_PROJECTED) == 0 || count < 3 || count > 4) {
+        return tc;
+    }
+    float divisor = tc[count - 1];
+    if (divisor == 0.0) {
+        return tc;
+    }
+    if (divisor < 0.0) {
+        clipped = true;
+        return tc;
+    }
+    float4 projected = tc;
+    projected.xy /= divisor;
+    if (count == 4) {
+        projected.z /= divisor;
+    }
+    clipped = any(projected.xy < 0.0) || any(projected.xy > 1.0);
+    return projected;
+}
+
+static float4 computeTexCoord(constant Uniforms &uniforms, thread FragmentIn &in, uint tci, uint stage,
+                              thread bool &clipped) {
+    clipped = false;
     uint flags = uniforms.texTransformFlags[stage];
-    if (flags != 0) {
-        float4 tc = uniforms.texMatrix[stage] * unprojected;
-        if ((flags & 256) != 0) { // D3DTTFF_PROJECTED
-            uint count = flags & 255;
-            if (count == 3 && tc.z != 0.0f) {
-                if (tc.z <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
-                tc.x /= tc.z;
-                tc.y /= tc.z;
-                if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
-            } else if (count == 4 && tc.w != 0.0f) {
-                if (tc.w <= 0.0f) return float3(0.0f, 0.0f, -1.0f);
-                tc.x /= tc.w;
-                tc.y /= tc.w;
-                tc.z /= tc.w;
-                if (tc.x < 0.0f || tc.x > 1.0f || tc.y < 0.0f || tc.y > 1.0f) return float3(0.0f, 0.0f, -1.0f);
-            }
-        }
-        // Non-projected texgen (COUNT2): tc.z is the raw third matrix
-        // component, not a projective clip coordinate. The fragment body
-        // discards when any uv.z < 0 to emulate projected-texture clipping,
-        // and only the .xy of the result is ever sampled — so leaking a raw
-        // negative tc.z here made the projected terrain overlay (cloud/light
-        // map) get discarded in bands wherever tc.z dipped below zero across
-        // the near-flat lowland, producing shimmering horizontal stripes.
-        // Force z=0 so only genuine projected clipping (the -1 sentinel
-        // above) can trigger the discard.
-        return float3(tc.xy, 0.0f);
+    if (uniforms.vertexProgramActive != 0) {
+        return projectedTexCoord(vertexTexCoord(in, stage), flags, clipped);
     }
-    return unprojected.xyz;
+
+    uint mode = texGenMode(uniforms, tci);
+    uint index = tci & 0x7;
+    float4 tc = mode == TCI_PASSTHRU ? vertexTexCoord(in, index) : generatedTexCoord(in, mode);
+    uint count = flags & 0xFF;
+    if (count >= 2 && uniforms.useProjection == 1) {
+        float4 source = mode == TCI_PASSTHRU ? texCoordAsTransformInput(tc, uniforms.texCoordSize[index]) : tc;
+        tc = truncatedTexCoord(uniforms.texMatrix[stage] * source, count);
+    }
+    return projectedTexCoord(tc, flags, clipped);
+}
+
+static float4 unpackTexelFormat(float4 texel, uint format) {
+    switch (format) {
+        case TEXFORMAT_LUMINANCE:       return float4(texel.rrr, 1.0);
+        case TEXFORMAT_LUMINANCE_ALPHA: return float4(texel.rrr, texel.g);
+        case TEXFORMAT_DXT1:            return all(texel.rgb == 0.0) ? float4(0.0) : texel;
+        case TEXFORMAT_NO_ALPHA:        return float4(texel.rgb, 1.0);
+        case TEXFORMAT_BUMP_DUDV:       return float4(texel.rg, 1.0, 1.0);
+        default:                        return texel;
+    }
 }

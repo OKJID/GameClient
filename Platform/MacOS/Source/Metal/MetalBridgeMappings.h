@@ -70,6 +70,14 @@ enum {
 };
 typedef uint32_t MTLSamplerAddressMode;
 
+// MTLSamplerBorderColor values
+enum {
+  MTLSamplerBorderColorTransparentBlack = 0,
+  MTLSamplerBorderColorOpaqueBlack = 1,
+  MTLSamplerBorderColorOpaqueWhite = 2,
+};
+typedef uint32_t MTLSamplerBorderColor;
+
 // MTLSamplerMinMagFilter values
 enum {
   MTLSamplerMinMagFilterNearest = 0,
@@ -251,10 +259,25 @@ inline MTLSamplerAddressMode MapD3DAddressToMTL(DWORD addr) {
   case D3DTADDRESS_MIRROR:
     return MTLSamplerAddressModeMirrorRepeat;
   case D3DTADDRESS_BORDER:
-    return MTLSamplerAddressModeClampToZero;
+    return MTLSamplerAddressModeClampToBorderColor;
+  case D3DTADDRESS_MIRRORONCE:
+    return MTLSamplerAddressModeMirrorClampToEdge;
   default:
     return MTLSamplerAddressModeRepeat;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  D3DTSS_BORDERCOLOR → MTLSamplerBorderColor
+//  Metal offers three border colors; exact for 0x00000000,
+//  0xFF000000 and 0xFFFFFFFF, nearest of the three otherwise.
+// ═══════════════════════════════════════════════════════════════
+inline MTLSamplerBorderColor MapD3DBorderColorToMTL(DWORD argb) {
+  if ((argb >> 24) < 0x80) {
+    return MTLSamplerBorderColorTransparentBlack;
+  }
+  DWORD luminance = (((argb >> 16) & 0xFF) + ((argb >> 8) & 0xFF) + (argb & 0xFF)) / 3;
+  return luminance < 0x80 ? MTLSamplerBorderColorOpaqueBlack : MTLSamplerBorderColorOpaqueWhite;
 }
 
 // ═══════════════════════════════════════════════════════════════

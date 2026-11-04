@@ -130,6 +130,12 @@ STDMETHODIMP MetalInterface8::CheckDeviceFormat(UINT a, DWORD dt, D3DFORMAT af,
       cf == D3DFMT_A1R5G5B5 || cf == D3DFMT_A4R4G4B4 || cf == D3DFMT_R3G3B2) {
     return D3DERR_NOTAVAILABLE;
   }
+  // Of the bump formats only V8U8 has an upload path (RG8Snorm); WW3D
+  // picks it first, the others would reach the GPU with a wrong layout.
+  if (cf == D3DFMT_L6V5U5 || cf == D3DFMT_X8L8V8U8 ||
+      cf == D3DFMT_Q8W8V8U8 || cf == D3DFMT_V16U16) {
+    return D3DERR_NOTAVAILABLE;
+  }
   return D3D_OK;
 }
 

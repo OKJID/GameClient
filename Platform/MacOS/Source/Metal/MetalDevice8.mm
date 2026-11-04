@@ -101,13 +101,17 @@ MetalDevice8::MetalDevice8()
   memset(m_TextureStageStates, 0, sizeof(m_TextureStageStates));
   for (int s = 0; s < 8; ++s) {
     m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX] = s;
+    m_TextureStageStates[s][D3DTSS_COLORARG1] = D3DTA_TEXTURE;
+    m_TextureStageStates[s][D3DTSS_COLORARG2] = D3DTA_CURRENT;
+    m_TextureStageStates[s][D3DTSS_ALPHAARG1] = D3DTA_TEXTURE;
+    m_TextureStageStates[s][D3DTSS_ALPHAARG2] = D3DTA_CURRENT;
+    m_TextureStageStates[s][D3DTSS_COLORARG0] = D3DTA_CURRENT;
+    m_TextureStageStates[s][D3DTSS_ALPHAARG0] = D3DTA_CURRENT;
+    m_TextureStageStates[s][D3DTSS_RESULTARG] = D3DTA_CURRENT;
+    m_TextureStageStates[s][D3DTSS_MAXANISOTROPY] = 1;
     if (s == 0) {
       m_TextureStageStates[s][D3DTSS_COLOROP] = D3DTOP_MODULATE;
-      m_TextureStageStates[s][D3DTSS_COLORARG1] = D3DTA_TEXTURE;
-      m_TextureStageStates[s][D3DTSS_COLORARG2] = D3DTA_CURRENT;
       m_TextureStageStates[s][D3DTSS_ALPHAOP] = D3DTOP_SELECTARG1;
-      m_TextureStageStates[s][D3DTSS_ALPHAARG1] = D3DTA_TEXTURE;
-      m_TextureStageStates[s][D3DTSS_ALPHAARG2] = D3DTA_CURRENT;
     } else {
       m_TextureStageStates[s][D3DTSS_COLOROP] = D3DTOP_DISABLE;
       m_TextureStageStates[s][D3DTSS_ALPHAOP] = D3DTOP_DISABLE;
@@ -132,7 +136,7 @@ MetalDevice8::MetalDevice8()
   setIdentity(m_Transforms[D3DTS_VIEW]);
   setIdentity(m_Transforms[D3DTS_PROJECTION]);
   setIdentity(m_Transforms[D3DTS_WORLD]);
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < MAX_TEXTURE_STAGES; ++i) {
     setIdentity(m_Transforms[D3DTS_TEXTURE0 + i]);
   }
 
@@ -163,6 +167,7 @@ MetalDevice8::MetalDevice8()
   for (int s = 0; s < MAX_TEXTURE_STAGES; s++) {
     m_TextureStageStates[s][D3DTSS_ADDRESSU] = D3DTADDRESS_WRAP;
     m_TextureStageStates[s][D3DTSS_ADDRESSV] = D3DTADDRESS_WRAP;
+    m_TextureStageStates[s][D3DTSS_ADDRESSW] = D3DTADDRESS_WRAP;
     m_TextureStageStates[s][D3DTSS_MAGFILTER] = D3DTEXF_LINEAR;
     m_TextureStageStates[s][D3DTSS_MINFILTER] = D3DTEXF_LINEAR;
     m_TextureStageStates[s][D3DTSS_MIPFILTER] = D3DTEXF_NONE;
@@ -291,11 +296,12 @@ struct MetalUniforms {
   simd::float4x4 world;
   simd::float4x4 view;
   simd::float4x4 projection;
-  simd::float4x4 texMatrix[4];  // D3DTS_TEXTURE0..3 — UV transform matrices
+  simd::float4x4 texMatrix[8];  // D3DTS_TEXTURE0..7 — UV transform matrices
   simd::float2 screenSize;
   int useProjection; // 0=None, 1=3D, 2=2D(ScreenSpace)
   uint32_t shaderSettings;
-  uint32_t texTransformFlags[4]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+  uint32_t texTransformFlags[8]; // D3DTSS_TEXTURETRANSFORMFLAGS per stage (0=disabled, 2=COUNT2)
+  uint32_t texCoordSize[8];      // components of each FVF texcoord set, 0 when the set is absent
   simd::float4 clipPlanes[6];
   uint32_t clipPlaneEnable;
   // Point sprites — scalars only, must mirror the Uniforms tail in
@@ -308,7 +314,8 @@ struct MetalUniforms {
   float pointScaleA;
   float pointScaleB;
   float pointScaleC;
-  uint32_t _pad[3];
+  uint32_t vertexProgramActive; // texcoords come from a DX8 vertex shader
+  uint32_t _pad[2];
 };
 
 // Stage 7: TextureStageConfig (matches MacOSShaders.metal)
@@ -320,12 +327,17 @@ struct TextureStageConfig {
   uint32_t alphaArg1;
   uint32_t alphaArg2;
   uint32_t colorArg0;
-  uint32_t _pad1;
+  uint32_t alphaArg0;
+  uint32_t resultArg;
+  float bumpEnvLScale;
+  float bumpEnvLOffset;
+  float lodBias;
+  simd::float4 bumpEnvMatrix; // D3DTSS_BUMPENVMAT00, 01, 10, 11
 };
 
 // Stage 7: FragmentUniforms (matches MacOSShaders.metal, buffer 2)
 struct FragmentUniforms {
-  TextureStageConfig stages[4];
+  TextureStageConfig stages[8];
   simd::float4 textureFactor; // D3DRS_TEXTUREFACTOR as RGBA float
   simd::float4 fogColor;
   float fogStart;
@@ -335,12 +347,15 @@ struct FragmentUniforms {
   uint32_t alphaTestEnable;
   uint32_t alphaFunc; // D3DCMP enum
   float alphaRef;     // normalized 0..1
-  uint32_t hasTexture[4];
+  uint32_t hasTexture[8];
   uint32_t specularEnable;
-  uint32_t texCoordIndex[4]; // D3DTSS_TEXCOORDINDEX per stage
-  uint32_t texFormatType[4]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g), 3=DXT1(BC1)
+  uint32_t texCoordIndex[8]; // D3DTSS_TEXCOORDINDEX per stage
+  uint32_t texFormatType[8]; // 0=Default, 1=Luminance(r,r,r,1), 2=Luminance+Alpha(r,r,r,g), 3=DXT1(BC1), 4=NoAlpha(r,g,b,1), 5=V8U8(du,dv,1,1)
   uint32_t blendEnabled;     // D3DRS_ALPHABLENDENABLE
 };
+
+static_assert(sizeof(MetalUniforms) == 928, "MetalUniforms must mirror Uniforms in MacOSShaderInterface.h");
+static_assert(sizeof(FragmentUniforms) == 688, "FragmentUniforms must mirror MacOSShaderInterface.h");
 
 // Stage 8: LightData (matches MacOSShaders.metal)
 // Per-light parameters for DX8 per-vertex lighting
@@ -829,6 +844,59 @@ static inline float DWtoF(DWORD d) {
   return f;
 }
 
+static const UINT MAX_TEXCOORD_SETS = 8;
+
+static UINT TexCoordSetCount(DWORD fvf) {
+  UINT count = (fvf & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
+  return count < MAX_TEXCOORD_SETS ? count : MAX_TEXCOORD_SETS;
+}
+
+static UINT TexCoordComponents(DWORD fvf, UINT set) {
+  switch ((fvf >> (set * 2 + 16)) & 0x3) {
+    case D3DFVF_TEXTUREFORMAT1: return 1;
+    case D3DFVF_TEXTUREFORMAT3: return 3;
+    case D3DFVF_TEXTUREFORMAT4: return 4;
+    default:                    return 2;
+  }
+}
+
+// Vertex attribute of each texcoord set in VertexIn (MacOSShaders.metal)
+static NSUInteger TexCoordAttribute(UINT set) {
+  switch (set) {
+    case 0:  return 2;
+    case 1:  return 5;
+    default: return set + 4;
+  }
+}
+
+static MTLVertexFormat TexCoordVertexFormat(UINT components) {
+  switch (components) {
+    case 1:  return MTLVertexFormatFloat;
+    case 3:  return MTLVertexFormatFloat3;
+    case 4:  return MTLVertexFormatFloat4;
+    default: return MTLVertexFormatFloat2;
+  }
+}
+
+static TextureStageConfig StageConfig(const DWORD *tss) {
+  TextureStageConfig config;
+  config.colorOp = tss[D3DTSS_COLOROP];
+  config.colorArg1 = tss[D3DTSS_COLORARG1];
+  config.colorArg2 = tss[D3DTSS_COLORARG2];
+  config.alphaOp = tss[D3DTSS_ALPHAOP];
+  config.alphaArg1 = tss[D3DTSS_ALPHAARG1];
+  config.alphaArg2 = tss[D3DTSS_ALPHAARG2];
+  config.colorArg0 = tss[D3DTSS_COLORARG0];
+  config.alphaArg0 = tss[D3DTSS_ALPHAARG0];
+  config.resultArg = tss[D3DTSS_RESULTARG];
+  config.bumpEnvLScale = DWtoF(tss[D3DTSS_BUMPENVLSCALE]);
+  config.bumpEnvLOffset = DWtoF(tss[D3DTSS_BUMPENVLOFFSET]);
+  config.lodBias = DWtoF(tss[D3DTSS_MIPMAPLODBIAS]);
+  config.bumpEnvMatrix = simd::float4{DWtoF(tss[D3DTSS_BUMPENVMAT00]), DWtoF(tss[D3DTSS_BUMPENVMAT01]),
+                                      DWtoF(tss[D3DTSS_BUMPENVMAT10]), DWtoF(tss[D3DTSS_BUMPENVMAT11])};
+  return config;
+}
+
 void MetalDevice8::BindUniforms(DWORD fvf) {
   MetalUniforms u;
   memcpy(&u.world, &m_Transforms[D3DTS_WORLD], 64);
@@ -846,10 +914,15 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     const float* v = (const float*)&m_Transforms[D3DTS_VIEW];
     const float* p = (const float*)&m_Transforms[D3DTS_PROJECTION];
   }
-  for (int s = 0; s < 4; ++s) {
+  for (int s = 0; s < MAX_TEXTURE_STAGES; ++s) {
     memcpy(&u.texMatrix[s], &m_Transforms[D3DTS_TEXTURE0 + s], 64);
     u.texTransformFlags[s] = m_TextureStageStates[s][D3DTSS_TEXTURETRANSFORMFLAGS];
   }
+  UINT texCount = TexCoordSetCount(fvf);
+  for (UINT set = 0; set < MAX_TEXCOORD_SETS; ++set) {
+    u.texCoordSize[set] = set < texCount ? TexCoordComponents(fvf, set) : 0;
+  }
+  u.vertexProgramActive = CurrentVertexProgram() ? 1u : 0u;
   u.clipPlaneEnable = m_RenderStates[D3DRS_CLIPPLANEENABLE];
 
   // Point sprite states hold float bit patterns (engine writes them via FtoDW).
@@ -878,14 +951,8 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
 
   FragmentUniforms fu;
   memset(&fu, 0, sizeof(fu));
-  for (int s = 0; s < 4; s++) {
-    fu.stages[s].colorOp = m_TextureStageStates[s][D3DTSS_COLOROP];
-    fu.stages[s].colorArg1 = m_TextureStageStates[s][D3DTSS_COLORARG1];
-    fu.stages[s].colorArg2 = m_TextureStageStates[s][D3DTSS_COLORARG2];
-    fu.stages[s].alphaOp = m_TextureStageStates[s][D3DTSS_ALPHAOP];
-    fu.stages[s].alphaArg1 = m_TextureStageStates[s][D3DTSS_ALPHAARG1];
-    fu.stages[s].alphaArg2 = m_TextureStageStates[s][D3DTSS_ALPHAARG2];
-    fu.stages[s].colorArg0 = m_TextureStageStates[s][D3DTSS_COLORARG0];
+  for (int s = 0; s < MAX_TEXTURE_STAGES; s++) {
+    fu.stages[s] = StageConfig(m_TextureStageStates[s]);
   }
   DWORD tf = m_RenderStates[D3DRS_TEXTUREFACTOR];
   fu.textureFactor.x = ((tf >> 16) & 0xFF) / 255.0f;
@@ -913,7 +980,7 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
     memcpy(&fu.fogEnd, &m_RenderStates[D3DRS_FOGEND], 4);
     memcpy(&fu.fogDensity, &m_RenderStates[D3DRS_FOGDENSITY], 4);
   }
-  for (int s = 0; s < 4; ++s) {
+  for (int s = 0; s < MAX_TEXTURE_STAGES; ++s) {
     if (m_Textures[s]) {
       fu.hasTexture[s] = (m_Textures[s]->GetType() == D3DRTYPE_CUBETEXTURE) ? 2 : 1;
     } else {
@@ -923,7 +990,7 @@ void MetalDevice8::BindUniforms(DWORD fvf) {
   // DIAG: dump TSS for first draw each frame
   fu.specularEnable = m_RenderStates[D3DRS_SPECULARENABLE];
   fu.blendEnabled = m_RenderStates[D3DRS_ALPHABLENDENABLE] ? 1 : 0;
-  for (int s = 0; s < 4; ++s) {
+  for (int s = 0; s < MAX_TEXTURE_STAGES; ++s) {
     fu.texCoordIndex[s] = m_TextureStageStates[s][D3DTSS_TEXCOORDINDEX];
     fu.texFormatType[s] = TextureFormatType(s);
   }
@@ -1033,7 +1100,13 @@ uint32_t MetalDevice8::TextureFormatType(DWORD stage) const {
   if (fmt == D3DFMT_A8L8 || fmt == D3DFMT_A4L4 || fmt == D3DFMT_A8P8) {
     return 2;
   }
-  return fmt == D3DFMT_DXT1 ? 3 : 0;
+  if (fmt == D3DFMT_DXT1) {
+    return 3;
+  }
+  if (IsAlphaLessFormat(fmt)) {
+    return 4;
+  }
+  return fmt == D3DFMT_V8U8 ? 5 : 0;
 }
 
 static uint32_t ProjectionDivisor(DWORD transformFlags) {
@@ -1091,12 +1164,12 @@ static uint32_t GetTextureGeneration(IDirect3DBaseTexture8* t) {
 }
 
 void MetalDevice8::BindTexturesAndSamplers() {
-  for (int s = 0; s < 4; s++) {
+  for (int s = 0; s < MAX_TEXTURE_STAGES; s++) {
     if (m_Textures[s]) {
       id<MTLTexture> mtlTex = GetMTLTextureForBase(m_Textures[s]);
       if (mtlTex) {
         if (m_Textures[s]->GetType() == D3DRTYPE_CUBETEXTURE) {
-          [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s + 4];
+          [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s + MAX_TEXTURE_STAGES];
         } else {
           [MTL_ENCODER setFragmentTexture:mtlTex atIndex:s];
         }
@@ -1131,11 +1204,13 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
   if (stage >= MAX_TEXTURE_STAGES)
     return nullptr;
 
-  DWORD addrU = m_TextureStageStates[stage][D3DTSS_ADDRESSU];
-  DWORD addrV = m_TextureStageStates[stage][D3DTSS_ADDRESSV];
-  DWORD magF = m_TextureStageStates[stage][D3DTSS_MAGFILTER];
-  DWORD minF = m_TextureStageStates[stage][D3DTSS_MINFILTER];
-  DWORD mipF = m_TextureStageStates[stage][D3DTSS_MIPFILTER];
+  const DWORD *tss = m_TextureStageStates[stage];
+  DWORD addrU = tss[D3DTSS_ADDRESSU];
+  DWORD addrV = tss[D3DTSS_ADDRESSV];
+  DWORD addrW = tss[D3DTSS_ADDRESSW];
+  DWORD magF = tss[D3DTSS_MAGFILTER];
+  DWORD minF = tss[D3DTSS_MINFILTER];
+  DWORD mipF = tss[D3DTSS_MIPFILTER];
 
   // MacOS Metal Hack: The engine's Mac dx8caps.cpp misses LINEAR filter capabilities, causing
   // TextureFilterClass::FILTER_TYPE_DEFAULT to silently degrade to POINT filtering globally.
@@ -1148,9 +1223,16 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
     }
   }
 
-  // Build key: addrU(3) | addrV(3) | mag(3) | min(3) | mip(3) = 15 bits
-  uint32_t key = (addrU & 0x7) | ((addrV & 0x7) << 3) | ((magF & 0x7) << 6) |
-                 ((minF & 0x7) << 9) | ((mipF & 0x7) << 12);
+  bool anisotropic = magF == D3DTEXF_ANISOTROPIC || minF == D3DTEXF_ANISOTROPIC;
+  bool bordered = addrU == D3DTADDRESS_BORDER || addrV == D3DTADDRESS_BORDER || addrW == D3DTADDRESS_BORDER;
+  DWORD maxMipLevel = std::min<DWORD>(tss[D3DTSS_MAXMIPLEVEL], 15);
+  DWORD maxAnisotropy = anisotropic ? std::clamp<DWORD>(tss[D3DTSS_MAXANISOTROPY], 1, 16) : 1;
+  DWORD borderColor = bordered ? MapD3DBorderColorToMTL(tss[D3DTSS_BORDERCOLOR]) : 0;
+
+  // Build key: addrU(3) | addrV(3) | addrW(3) | mag(3) | min(3) | mip(3) | maxMip(4) | aniso(5) | border(2) = 29 bits
+  uint32_t key = (addrU & 0x7) | ((addrV & 0x7) << 3) | ((addrW & 0x7) << 6) | ((magF & 0x7) << 9) |
+                 ((minF & 0x7) << 12) | ((mipF & 0x7) << 15) | (maxMipLevel << 18) | (maxAnisotropy << 22) |
+                 (borderColor << 27);
 
   auto it = m_SamplerStateCache.find(key);
   if (it != m_SamplerStateCache.end())
@@ -1159,9 +1241,13 @@ void *MetalDevice8::GetSamplerState(DWORD stage) {
   MTLSamplerDescriptor *sd = [[MTLSamplerDescriptor alloc] init];
   sd.sAddressMode = MapD3DAddressToMTL(addrU);
   sd.tAddressMode = MapD3DAddressToMTL(addrV);
+  sd.rAddressMode = MapD3DAddressToMTL(addrW);
   sd.magFilter = MapD3DFilterToMTL(magF);
   sd.minFilter = MapD3DFilterToMTL(minF);
   sd.mipFilter = MapD3DMipFilterToMTL(mipF);
+  sd.lodMinClamp = (float)maxMipLevel;
+  sd.maxAnisotropy = maxAnisotropy;
+  sd.borderColor = (MTLSamplerBorderColor)borderColor;
 
   id<MTLSamplerState> sampler = [MTL_DEVICE newSamplerStateWithDescriptor:sd];
   if (sampler) {
@@ -2634,10 +2720,8 @@ void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
   // Track which attributes are provided by the FVF
   bool hasPosition = false;
   bool hasDiffuse = false;
-  bool hasTexCoord0 = false;
   bool hasNormal = false;
   bool hasSpecular = false;
-  bool hasTexCoord1 = false;
 
   // --- Position ---
   DWORD posType = fvf & 0x400E; // D3DFVF_POSITION_MASK
@@ -2694,21 +2778,16 @@ void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
   }
 
   // --- Texture Coordinates ---
-  // D3DFVF_TEX* is a counted field (bits 8-11), not bitmask flags
-  UINT texCount = (fvf & D3DFVF_TEXCOUNT_MASK) >> D3DFVF_TEXCOUNT_SHIFT;
-  if (texCount >= 1) {
-    vd.attributes[2].format = MTLVertexFormatFloat2; // texCoord0 → attribute(2)
-    vd.attributes[2].offset = currentOffset;
-    vd.attributes[2].bufferIndex = 0;
-    currentOffset += 8;
-    hasTexCoord0 = true;
-  }
-  if (texCount >= 2) {
-    vd.attributes[5].format = MTLVertexFormatFloat2; // texCoord1 → attribute(5)
-    vd.attributes[5].offset = currentOffset;
-    vd.attributes[5].bufferIndex = 0;
-    currentOffset += 8;
-    hasTexCoord1 = true;
+  // D3DFVF_TEX* is a counted field (bits 8-11), not bitmask flags.
+  // Each set is 1..4 floats wide per its D3DFVF_TEXCOORDSIZE bits.
+  UINT texCount = TexCoordSetCount(fvf);
+  for (UINT set = 0; set < texCount; ++set) {
+    UINT components = TexCoordComponents(fvf, set);
+    NSUInteger attribute = TexCoordAttribute(set);
+    vd.attributes[attribute].format = TexCoordVertexFormat(components);
+    vd.attributes[attribute].offset = currentOffset;
+    vd.attributes[attribute].bufferIndex = 0;
+    currentOffset += components * sizeof(float);
   }
   
   // Use the ACTUAL stride provided by the caller (which accounts for structure padding
@@ -2720,8 +2799,8 @@ void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
     vd.layouts[0].stepFunction = MTLVertexStepFunctionPerVertex;
   }
 
-  bool needDefaultBuffer = !hasPosition || !hasDiffuse || !hasTexCoord0 ||
-                           !hasNormal || !hasSpecular || !hasTexCoord1;
+  bool needDefaultBuffer = !hasPosition || !hasDiffuse || !hasNormal ||
+                           !hasSpecular || texCount < MAX_TEXCOORD_SETS;
   if (needDefaultBuffer) {
     // Layout for constant buffer
     vd.layouts[30].stride = 64;
@@ -2738,11 +2817,6 @@ void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
       vd.attributes[1].offset = 0; // White
       vd.attributes[1].bufferIndex = 30;
     }
-    if (!hasTexCoord0) {
-      vd.attributes[2].format = MTLVertexFormatFloat2;
-      vd.attributes[2].offset = 8;
-      vd.attributes[2].bufferIndex = 30;
-    }
     if (!hasNormal) {
       vd.attributes[3].format = MTLVertexFormatFloat3;
       vd.attributes[3].offset = 8;
@@ -2753,10 +2827,11 @@ void *MetalDevice8::BuildFVFVertexDescriptor(DWORD fvf, UINT stride) {
       vd.attributes[4].offset = 4; // Black
       vd.attributes[4].bufferIndex = 30;
     }
-    if (!hasTexCoord1) {
-      vd.attributes[5].format = MTLVertexFormatFloat2;
-      vd.attributes[5].offset = 8;
-      vd.attributes[5].bufferIndex = 30;
+    for (UINT set = texCount; set < MAX_TEXCOORD_SETS; ++set) {
+      NSUInteger attribute = TexCoordAttribute(set);
+      vd.attributes[attribute].format = MTLVertexFormatFloat2;
+      vd.attributes[attribute].offset = 8;
+      vd.attributes[attribute].bufferIndex = 30;
     }
   }
 

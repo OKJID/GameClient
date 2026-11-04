@@ -72,10 +72,16 @@ struct LightingUniforms {
 struct VertexIn {
     float4 position     [[attribute(0)]]; // float3 (auto-padded w=1) or float4 (XYZRHW)
     float4 color        [[attribute(1)]]; // diffuse vertex color (BGRA normalized)
-    float2 texCoord     [[attribute(2)]]; // UV set 0
+    float4 texCoord0    [[attribute(2)]]; // texcoord sets: 1..4 floats, Metal pads to (x, y, 0, 1)
     float3 normal       [[attribute(3)]]; // vertex normal (for lighting)
     float4 specVtxColor [[attribute(4)]]; // specular vertex color (BGRA normalized)
-    float2 texCoord2    [[attribute(5)]]; // UV set 1 (multi-texturing)
+    float4 texCoord1    [[attribute(5)]];
+    float4 texCoord2    [[attribute(6)]];
+    float4 texCoord3    [[attribute(7)]];
+    float4 texCoord4    [[attribute(8)]];
+    float4 texCoord5    [[attribute(9)]];
+    float4 texCoord6    [[attribute(10)]];
+    float4 texCoord7    [[attribute(11)]];
 };
 
 // ─────────────────────────────────────────────────────
@@ -107,8 +113,14 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
         out.position = pos;
     }
     
-    out.texCoord = in.texCoord;
+    out.texCoord0 = in.texCoord0;
+    out.texCoord1 = in.texCoord1;
     out.texCoord2 = in.texCoord2;
+    out.texCoord3 = in.texCoord3;
+    out.texCoord4 = in.texCoord4;
+    out.texCoord5 = in.texCoord5;
+    out.texCoord6 = in.texCoord6;
+    out.texCoord7 = in.texCoord7;
     
     // Compute camera-space position for D3DTSS_TCI_CAMERASPACEPOSITION
     float4 worldPos = uniforms.world * pos;
@@ -331,33 +343,28 @@ vertex VertexOut vertex_main(VertexIn in [[stage_in]],
 //  Stage 7: TSS Argument Resolver
 //  Selects the color/alpha source based on D3DTA value
 // ─────────────────────────────────────────────────────
-float4 resolveArg(uint argId,
-                  float4 texColor0, float4 texColor1, float4 texColor2, float4 texColor3,
-                  float4 diffuse,
-                  float4 specular,
-                  float4 current,
-                  float4 tFactor,
-                  uint   stageIndex) {
-    uint source = argId & 0xF;  // low 4 bits = source selector
-    float4 val;
-    
-    switch (source) {
-        case D3DTA_DIFFUSE:  val = diffuse;  break;
-        case D3DTA_CURRENT:  val = current;  break;
-        case D3DTA_TEXTURE:  
-            val = (stageIndex == 0) ? texColor0 :
-                  (stageIndex == 1) ? texColor1 :
-                  (stageIndex == 2) ? texColor2 : texColor3;
-            break;
-        case D3DTA_TFACTOR:  val = tFactor;  break;
-        case D3DTA_SPECULAR: val = specular; break;
-        default:             val = current;  break;
-    }
-    
-    // Apply modifiers
-    if (argId & D3DTA_COMPLEMENT)     val = 1.0 - val;
-    if (argId & D3DTA_ALPHAREPLICATE) val = float4(val.a, val.a, val.a, val.a);
+struct StageInputs {
+    float4 diffuse;
+    float4 specular;
+    float4 current;
+    float4 temp;
+    float4 tFactor;
+    float4 texel;
+};
 
+float4 resolveArg(uint argId, thread const StageInputs &inputs) {
+    float4 val;
+    switch (argId & 0xF) {
+        case D3DTA_DIFFUSE:  val = inputs.diffuse;  break;
+        case D3DTA_TEXTURE:  val = inputs.texel;    break;
+        case D3DTA_TFACTOR:  val = inputs.tFactor;  break;
+        case D3DTA_SPECULAR: val = inputs.specular; break;
+        case D3DTA_TEMP:     val = inputs.temp;     break;
+        default:             val = inputs.current;  break;
+    }
+
+    if (argId & D3DTA_COMPLEMENT)     val = 1.0 - val;
+    if (argId & D3DTA_ALPHAREPLICATE) val = float4(val.a);
     return val;
 }
 
@@ -369,120 +376,112 @@ bool isActiveOp(uint op) {
     return op != 0 && op != D3DTOP_DISABLE;
 }
 
-bool opSamplesTexture(uint op, uint arg0, uint arg1, uint arg2) {
-    if (!isActiveOp(op)) {
-        return false;
-    }
-
-    if (op == D3DTOP_BLENDTEXTUREALPHA) {
-        return true;
-    }
-
-    const bool readsArg0 = op == D3DTOP_MULTIPLYADD || op == D3DTOP_LERP;
-    const bool readsArg1 = op != D3DTOP_SELECTARG2;
-    const bool readsArg2 = op != D3DTOP_SELECTARG1;
-
-    return (readsArg0 && isTextureArg(arg0)) || (readsArg1 && isTextureArg(arg1)) || (readsArg2 && isTextureArg(arg2));
+bool isBumpOp(uint op) {
+    return op == D3DTOP_BUMPENVMAP || op == D3DTOP_BUMPENVMAPLUMINANCE;
 }
 
-bool stageSamplesMissingTexture(constant TextureStageConfig &stage, uint hasTexture) {
+bool readsArg0(uint op) {
+    return op == D3DTOP_MULTIPLYADD || op == D3DTOP_LERP;
+}
+
+bool readsMissingTexture(uint op, uint arg0, uint arg1, uint arg2, uint hasTexture) {
     if (hasTexture != 0) {
         return false;
     }
-
-    return opSamplesTexture(stage.colorOp, stage.colorArg0, stage.colorArg1, stage.colorArg2)
-        || opSamplesTexture(stage.alphaOp, D3DTA_CURRENT, stage.alphaArg1, stage.alphaArg2);
+    if (isTextureArg(arg1) && op != D3DTOP_SELECTARG2) {
+        return true;
+    }
+    if (isTextureArg(arg2) && op != D3DTOP_SELECTARG1) {
+        return true;
+    }
+    return isTextureArg(arg0) && readsArg0(op);
 }
 
 // ─────────────────────────────────────────────────────
 //  Stage 7: TSS Operation Evaluator
 //  Computes result for both color (.rgb) and alpha (.a)
 // ─────────────────────────────────────────────────────
-float4 evaluateOp(uint op, float4 arg1, float4 arg2, float4 arg0) {
+float4 evaluateOp(uint op, float4 arg0, float4 arg1, float4 arg2, thread const StageInputs &inputs) {
     switch (op) {
-        case D3DTOP_DISABLE:
-            return arg1;
-        case D3DTOP_SELECTARG1:
-            return arg1;
-        case D3DTOP_SELECTARG2:
-            return arg2;
-        case D3DTOP_MODULATE:
-            return arg1 * arg2;
-        case D3DTOP_MODULATE2X:
-            return clamp(arg1 * arg2 * 2.0, 0.0, 1.0);
-        case D3DTOP_MODULATE4X:
-            return clamp(arg1 * arg2 * 4.0, 0.0, 1.0);
-        case D3DTOP_ADD:
-            return clamp(arg1 + arg2, 0.0, 1.0);
-        case D3DTOP_ADDSIGNED:
-            return clamp(arg1 + arg2 - 0.5, 0.0, 1.0);
-        case D3DTOP_ADDSIGNED2X:
-            return clamp((arg1 + arg2 - 0.5) * 2.0, 0.0, 1.0);
-        case D3DTOP_SUBTRACT:
-            return clamp(arg1 - arg2, 0.0, 1.0);
-        case D3DTOP_ADDSMOOTH:
-            return clamp(arg1 + arg2 - arg1 * arg2, 0.0, 1.0);
-        case D3DTOP_BLENDDIFFUSEALPHA: {
-            return arg1; // Handled in evaluateBlendOp
-        }
-        case D3DTOP_BLENDTEXTUREALPHA: {
-            return arg1; // Handled in evaluateBlendOp
-        }
-        case D3DTOP_BLENDFACTORALPHA: {
-            return arg1; // Handled in evaluateBlendOp
-        }
-        case D3DTOP_BLENDCURRENTALPHA: {
-            return arg1; // Handled in evaluateBlendOp
-        }
-        case D3DTOP_MODULATEALPHA_ADDCOLOR:
-            return float4(arg1.rgb + arg1.a * arg2.rgb, arg1.a);
-        case D3DTOP_MODULATECOLOR_ADDALPHA:
-            return float4(arg1.rgb * arg2.rgb + arg1.a, arg1.a);
-        case D3DTOP_MODULATEINVALPHA_ADDCOLOR:
-            return float4((1.0 - arg1.a) * arg2.rgb + arg1.rgb, arg1.a);
-        case D3DTOP_MODULATEINVCOLOR_ADDALPHA:
-            return float4((1.0 - arg1.rgb) * arg2.rgb + float3(arg1.a), arg1.a);
-        case D3DTOP_DOTPRODUCT3: {
-            float d = dot(arg1.rgb * 2.0 - 1.0, arg2.rgb * 2.0 - 1.0);
-            return float4(d, d, d, d);
-        }
-        case D3DTOP_MULTIPLYADD:
-            return clamp(arg0 + arg1 * arg2, 0.0, 1.0);
-        case D3DTOP_LERP:
-            return clamp(arg1 * arg2 + (1.0 - arg1) * arg0, 0.0, 1.0);
-        default:
-            return arg1 * arg2;
+        case D3DTOP_SELECTARG1:                return arg1;
+        case D3DTOP_SELECTARG2:                return arg2;
+        case D3DTOP_MODULATE:                  return arg1 * arg2;
+        case D3DTOP_MODULATE2X:                return arg1 * arg2 * 2.0;
+        case D3DTOP_MODULATE4X:                return arg1 * arg2 * 4.0;
+        case D3DTOP_ADD:                       return arg1 + arg2;
+        case D3DTOP_ADDSIGNED:                 return arg1 + arg2 - 0.5;
+        case D3DTOP_ADDSIGNED2X:               return (arg1 + arg2 - 0.5) * 2.0;
+        case D3DTOP_SUBTRACT:                  return arg1 - arg2;
+        case D3DTOP_ADDSMOOTH:                 return arg1 + arg2 - arg1 * arg2;
+        case D3DTOP_BLENDDIFFUSEALPHA:         return mix(arg2, arg1, inputs.diffuse.a);
+        case D3DTOP_BLENDTEXTUREALPHA:         return mix(arg2, arg1, inputs.texel.a);
+        case D3DTOP_BLENDFACTORALPHA:          return mix(arg2, arg1, inputs.tFactor.a);
+        case D3DTOP_BLENDTEXTUREALPHAPM:       return arg1 + arg2 * (1.0 - inputs.texel.a);
+        case D3DTOP_BLENDCURRENTALPHA:         return mix(arg2, arg1, inputs.current.a);
+        case D3DTOP_MODULATEALPHA_ADDCOLOR:    return float4(arg1.rgb + arg1.a * arg2.rgb, arg1.a);
+        case D3DTOP_MODULATECOLOR_ADDALPHA:    return float4(arg1.rgb * arg2.rgb + arg1.a, arg1.a);
+        case D3DTOP_MODULATEINVALPHA_ADDCOLOR: return float4((1.0 - arg1.a) * arg2.rgb + arg1.rgb, arg1.a);
+        case D3DTOP_MODULATEINVCOLOR_ADDALPHA: return float4((1.0 - arg1.rgb) * arg2.rgb + arg1.a, arg1.a);
+        case D3DTOP_BUMPENVMAP:                return inputs.current;
+        case D3DTOP_BUMPENVMAPLUMINANCE:       return inputs.current;
+        case D3DTOP_DOTPRODUCT3:               return float4(dot(arg1.rgb - 0.5, arg2.rgb - 0.5) * 4.0);
+        case D3DTOP_MULTIPLYADD:               return arg0 + arg1 * arg2;
+        case D3DTOP_LERP:                      return arg0 * arg1 + (1.0 - arg0) * arg2;
+        default:                               return arg1 * arg2;
     }
 }
 
-// ─────────────────────────────────────────────────────
-//  Stage 7: Blend operation helper
-//  For BLENDDIFFUSEALPHA, BLENDTEXTUREALPHA, etc.
-// ─────────────────────────────────────────────────────
-float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2, float4 arg0,
-                       float4 diffuse, float4 stageTexColor, float4 tFactor,
-                       float4 current) {
-    float alpha;
-    switch (op) {
-        case D3DTOP_BLENDDIFFUSEALPHA:
-            alpha = diffuse.a;
-            return float4(mix(arg2.rgb, arg1.rgb, alpha),
-                         mix(arg2.a, arg1.a, alpha));
-        case D3DTOP_BLENDTEXTUREALPHA:
-            alpha = stageTexColor.a;
-            return float4(mix(arg2.rgb, arg1.rgb, alpha),
-                         mix(arg2.a, arg1.a, alpha));
-        case D3DTOP_BLENDFACTORALPHA:
-            alpha = tFactor.a;
-            return float4(mix(arg2.rgb, arg1.rgb, alpha),
-                         mix(arg2.a, arg1.a, alpha));
-        case D3DTOP_BLENDCURRENTALPHA:
-            alpha = current.a;
-            return float4(mix(arg2.rgb, arg1.rgb, alpha),
-                         mix(arg2.a, arg1.a, alpha));
-        default:
-            return evaluateOp(op, arg1, arg2, arg0);
+float4 evaluateStageOp(uint op, uint arg0, uint arg1, uint arg2, uint hasTexture, thread const StageInputs &inputs) {
+    if (readsMissingTexture(op, arg0, arg1, arg2, hasTexture)) {
+        return inputs.current;
     }
+    return evaluateOp(op, resolveArg(arg0, inputs), resolveArg(arg1, inputs), resolveArg(arg2, inputs), inputs);
+}
+
+float4 combineStage(constant TextureStageConfig &stage, uint hasTexture, thread const StageInputs &inputs) {
+    float4 color = evaluateStageOp(stage.colorOp, stage.colorArg0, stage.colorArg1, stage.colorArg2, hasTexture, inputs);
+    if (stage.colorOp == D3DTOP_DOTPRODUCT3) {
+        return saturate(color);
+    }
+    if (!isActiveOp(stage.alphaOp)) {
+        return float4(saturate(color.rgb), inputs.current.a);
+    }
+    float4 alpha = evaluateStageOp(stage.alphaOp, stage.alphaArg0, stage.alphaArg1, stage.alphaArg2, hasTexture, inputs);
+    return saturate(float4(color.rgb, alpha.a));
+}
+
+// ─────────────────────────────────────────────────────
+//  Stage 7: Bump environment mapping
+//  A BUMPENVMAP stage offsets the texcoords of the next stage
+// ─────────────────────────────────────────────────────
+struct BumpState {
+    bool active;
+    bool luminance;
+    float2 offset;
+    float luminanceScale;
+};
+
+BumpState bumpStateForNextStage(constant TextureStageConfig &stage, float4 bumpTexel) {
+    float4 m = stage.bumpEnvMatrix;
+    BumpState bump;
+    bump.active = true;
+    bump.luminance = stage.colorOp == D3DTOP_BUMPENVMAPLUMINANCE;
+    bump.offset = float2(m.x * bumpTexel.x + m.z * bumpTexel.y, m.y * bumpTexel.x + m.w * bumpTexel.y);
+    bump.luminanceScale = saturate(bumpTexel.z * stage.bumpEnvLScale + stage.bumpEnvLOffset);
+    return bump;
+}
+
+float4 sampleStageTexture(uint stage, float4 uv, constant FragmentUniforms &fragUniforms,
+                          array<texture2d<float>, 8> textures, array<texturecube<float>, 8> cubeTextures,
+                          array<sampler, 8> samplers) {
+    uint kind = fragUniforms.hasTexture[stage];
+    if (kind == 0) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
+    float lodBias = fragUniforms.stages[stage].lodBias;
+    float4 texel = kind == 2 ? cubeTextures[stage].sample(samplers[stage], uv.xyz, bias(lodBias))
+                             : textures[stage].sample(samplers[stage], uv.xy, bias(lodBias));
+    return unpackTexelFormat(texel, fragUniforms.texFormatType[stage]);
 }
 
 // ─────────────────────────────────────────────────────
@@ -491,18 +490,9 @@ float4 evaluateBlendOp(uint op, float4 arg1, float4 arg2, float4 arg0,
 fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
                              constant Uniforms &uniforms [[buffer(1)]],
                              constant FragmentUniforms &fragUniforms [[buffer(2)]],
-                             texture2d<float> tex0 [[texture(0)]],
-                             texture2d<float> tex1 [[texture(1)]],
-                             texture2d<float> tex2 [[texture(2)]],
-                             texture2d<float> tex3 [[texture(3)]],
-                             texturecube<float> texCube0 [[texture(4)]],
-                             texturecube<float> texCube1 [[texture(5)]],
-                             texturecube<float> texCube2 [[texture(6)]],
-                             texturecube<float> texCube3 [[texture(7)]],
-                             sampler sampler0 [[sampler(0)]],
-                             sampler sampler1 [[sampler(1)]],
-                             sampler sampler2 [[sampler(2)]],
-                             sampler sampler3 [[sampler(3)]],
+                             array<texture2d<float>, 8> textures [[texture(0)]],
+                             array<texturecube<float>, 8> cubeTextures [[texture(8)]],
+                             array<sampler, 8> samplers [[sampler(0)]],
                              float2 pointCoord [[point_coord]]) {
     // D3D generates per-sprite UVs in the rasterizer when POINTSPRITEENABLE is
     // on; Metal exposes them as point_coord. Substituting into a local copy
@@ -510,108 +500,62 @@ fragment float4 fragment_main(FragmentIn stageIn [[stage_in]],
     // non-point primitives, hence the gate.
     FragmentIn in = stageIn;
     if (uniforms.pointSpriteEnable != 0) {
-        in.texCoord = pointCoord;
-        in.texCoord2 = pointCoord;
+        applyPointSpriteTexCoords(in, pointCoord);
     }
 
-    // ════════════════════════════════════════════════════
-    //  TSS (Texture Stage State) path — fallback when no PS active
-    // ════════════════════════════════════════════════════
-    
-    float3 uv0 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[0], 0);
+    StageInputs inputs;
+    inputs.diffuse = in.color;
+    inputs.specular = in.specularColor;
+    inputs.current = in.color;
+    inputs.temp = float4(0.0);
+    inputs.tFactor = fragUniforms.textureFactor;
 
-    float3 uv1 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[1], 1);
-    float3 uv2 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[2], 2);
-    float3 uv3 = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[3], 3);
-    
-    // Sample textures using their respective UV coordinates.
-    // If projective coordinates were truncated (tc.z < 0), DX8 hardware would have clipped this geometry.
-    // Emulate geometry clipping by completely discarding the fragment, preventing it from applying base diffuse logic.
-    if (uv0.z < 0.0f || uv1.z < 0.0f || uv2.z < 0.0f || uv3.z < 0.0f) {
-        discard_fragment();
-    }
-    
-    float4 texColor0 = (fragUniforms.hasTexture[0] == 2) ? texCube0.sample(sampler0, uv0) :
-                       (fragUniforms.hasTexture[0] != 0) ? tex0.sample(sampler0, uv0.xy) : float4(1.0f);
-    float4 texColor1 = (fragUniforms.hasTexture[1] == 2) ? texCube1.sample(sampler1, uv1) :
-                       (fragUniforms.hasTexture[1] != 0) ? tex1.sample(sampler1, uv1.xy) : float4(1.0f);
-    float4 texColor2 = (fragUniforms.hasTexture[2] == 2) ? texCube2.sample(sampler2, uv2) :
-                       (fragUniforms.hasTexture[2] != 0) ? tex2.sample(sampler2, uv2.xy) : float4(1.0f);
-    float4 texColor3 = (fragUniforms.hasTexture[3] == 2) ? texCube3.sample(sampler3, uv3) :
-                       (fragUniforms.hasTexture[3] != 0) ? tex3.sample(sampler3, uv3.xy) : float4(1.0f);
-    
-    // Apply texture format data unpacking
-    if (fragUniforms.texFormatType[0] == 1) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, 1.0f);
-    else if (fragUniforms.texFormatType[0] == 2) texColor0 = float4(texColor0.r, texColor0.r, texColor0.r, texColor0.g);
-    
-    if (fragUniforms.texFormatType[1] == 1) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, 1.0f);
-    else if (fragUniforms.texFormatType[1] == 2) texColor1 = float4(texColor1.r, texColor1.r, texColor1.r, texColor1.g);
-    
-    if (fragUniforms.texFormatType[2] == 1) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, 1.0f);
-    else if (fragUniforms.texFormatType[2] == 2) texColor2 = float4(texColor2.r, texColor2.r, texColor2.r, texColor2.g);
-    
-    if (fragUniforms.texFormatType[3] == 1) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, 1.0f);
-    else if (fragUniforms.texFormatType[3] == 2) texColor3 = float4(texColor3.r, texColor3.r, texColor3.r, texColor3.g);
+    BumpState bump;
+    bump.active = false;
 
-    // BC1 (DXT1) format decompression emulation. Empty blocks output exactly 0.0f into RGB.
-    // Using MSL 'all' spec operator explicitly avoids unsafe floating point approximation thresholds.
-    if (fragUniforms.texFormatType[0] == 3 && all(texColor0.rgb == 0.0f)) texColor0.a = 0.0f;
-    if (fragUniforms.texFormatType[1] == 3 && all(texColor1.rgb == 0.0f)) texColor1.a = 0.0f;
-    if (fragUniforms.texFormatType[2] == 3 && all(texColor2.rgb == 0.0f)) texColor2.a = 0.0f;
-    if (fragUniforms.texFormatType[3] == 3 && all(texColor3.rgb == 0.0f)) texColor3.a = 0.0f;
+    for (uint i = 0; i < 8; i++) {
+        constant TextureStageConfig &stage = fragUniforms.stages[i];
+        if (!isActiveOp(stage.colorOp)) break;
 
-    float4 diffuse = in.color;
-    
-
-    // Full TSS processing for 2D and textured 3D draws
-    float4 specular = in.specularColor;
-    float4 tFactor = fragUniforms.textureFactor;
-    float4 current = diffuse;
-
-    for (int i = 0; i < 4; i++) {
-        uint colorOp = fragUniforms.stages[i].colorOp;
-        if (colorOp == 0 || colorOp == D3DTOP_DISABLE) break;
-        if (i > 0 && stageSamplesMissingTexture(fragUniforms.stages[i], fragUniforms.hasTexture[i])) continue;
-
-        // Determine current stage texture for BLENDTEXTUREALPHA
-        float4 stageTexColor = (i == 0) ? texColor0 : (i == 1) ? texColor1 : (i == 2) ? texColor2 : texColor3;
-
-        float4 cArg1 = resolveArg(fragUniforms.stages[i].colorArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 cArg2 = resolveArg(fragUniforms.stages[i].colorArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 cArg0 = resolveArg(fragUniforms.stages[i].colorArg0, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-        float4 colorResult = evaluateBlendOp(colorOp, cArg1, cArg2, cArg0, diffuse, stageTexColor, tFactor, current);
-        
-        uint alphaOp = fragUniforms.stages[i].alphaOp;
-        float alphaVal;
-        if (alphaOp == 0 || alphaOp == D3DTOP_DISABLE) {
-            // D3DTOP_DISABLE for alpha means "don't modify alpha from previous stage"
-            alphaVal = current.a;
-        } else {
-            float4 aArg1 = resolveArg(fragUniforms.stages[i].alphaArg1, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-            float4 aArg2 = resolveArg(fragUniforms.stages[i].alphaArg2, texColor0, texColor1, texColor2, texColor3, diffuse, specular, current, tFactor, i);
-            float4 alphaResult = evaluateBlendOp(alphaOp, aArg1, aArg2, current, diffuse, stageTexColor, tFactor, current);
-            alphaVal = alphaResult.a;
-        }
-        
-        current = float4(colorResult.rgb, alphaVal);
-    }
-    
-    // --- Alpha Test ---
-    if (fragUniforms.alphaTestEnable != 0) {
-        if (!alphaTestPass(fragUniforms.alphaFunc, current.a, fragUniforms.alphaRef)) {
+        bool clipped;
+        float4 uv = computeTexCoord(uniforms, in, fragUniforms.texCoordIndex[i], i, clipped);
+        if (clipped) {
             discard_fragment();
         }
+        if (bump.active) {
+            uv.xy += bump.offset;
+        }
+
+        inputs.texel = sampleStageTexture(i, uv, fragUniforms, textures, cubeTextures, samplers);
+        if (bump.active && bump.luminance) {
+            inputs.texel *= bump.luminanceScale;
+        }
+
+        float4 result = combineStage(stage, fragUniforms.hasTexture[i], inputs);
+        bump.active = isBumpOp(stage.colorOp) && fragUniforms.hasTexture[i] != 0;
+        if (bump.active) {
+            bump = bumpStateForNextStage(stage, inputs.texel);
+        }
+
+        if (stage.resultArg == D3DTA_TEMP) {
+            inputs.temp = result;
+        } else {
+            inputs.current = result;
+        }
     }
 
-    // --- Fog ---
-    if (fragUniforms.fogMode != 0) {
-        current.rgb = mix(fragUniforms.fogColor.rgb, current.rgb, in.fogFactor);
-    }
-
-    // Add specular only if D3DRS_SPECULARENABLE is TRUE
+    float4 color = inputs.current;
     if (fragUniforms.specularEnable != 0) {
-        current.rgb = clamp(current.rgb + specular.rgb, 0.0, 1.0);
+        color.rgb = saturate(color.rgb + inputs.specular.rgb);
     }
 
-    return current;
+    if (fragUniforms.alphaTestEnable != 0 && !alphaTestPass(fragUniforms.alphaFunc, color.a, fragUniforms.alphaRef)) {
+        discard_fragment();
+    }
+
+    if (fragUniforms.fogMode != 0) {
+        color.rgb = mix(fragUniforms.fogColor.rgb, color.rgb, in.fogFactor);
+    }
+
+    return color;
 }
