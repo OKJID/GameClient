@@ -240,6 +240,10 @@ protected:
 	void drawTrapezoidWater(Vector3 points[4]);
 	void loadSetting ( Setting *skySetting, TimeOfDay timeOfDay );	///<init sky/water settings from GDF
 	void renderSky();	///<draw the sky layer (clouds, stars, etc.)
+#ifdef __APPLE__
+	void renderMirrorSky(CameraClass *cam);	///<draw the sky layer under the mirror camera, past its far clip plane
+	void renderSkyPlane(Real centerX, Real centerY, Real halfSize);	///<draw the sky layer as a square around a point, clouds fixed in the world
+#endif
 	void testCurvedWater();	///<draw the sky layer (clouds, stars, etc.)
 	void renderSkyBody(Matrix3D *mat);	///<draw the sky body (sun, moon, etc.)
 	void renderWaterMesh();			///<draw the water surface mesh (deformed 3d mesh).

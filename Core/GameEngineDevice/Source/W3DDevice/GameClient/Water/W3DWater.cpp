@@ -74,6 +74,9 @@
 // DEFINES ////////////////////////////////////////////////////////////////////////////////////////
 #define SKYPLANE_SIZE	(384.0f*MAP_XY_FACTOR)
 #define SKYPLANE_HEIGHT	(30.0f)
+#ifdef __APPLE__
+#define MIRROR_SKYPLANE_SIZE	(100000.0f)	//half extent of the sky plane drawn around the mirror camera
+#endif
 
 #define SKYBODY_TEXTURE	"TSMoonLarg.tga"
 #define SKYBODY_SIZE	45.0f		//extent or radius of sky body
@@ -1497,7 +1500,11 @@ void WaterRenderObjClass::renderMirror(CameraClass *cam)
 	ShaderClass::Invert_Backface_Culling(true);
 
 	// Render the scene
+#ifdef __APPLE__
+	renderMirrorSky(cam);
+#else
 	renderSky();
+#endif
 	if (m_tod == TIME_OF_DAY_NIGHT)
 		renderSkyBody(&reflectedTransform);
 
@@ -2136,6 +2143,104 @@ void WaterRenderObjClass::renderSky()
 
 	DX8Wrapper::Draw_Triangles(	0,2, 0,	4);	//draw a quad, 2 triangles, 4 verts
 }
+
+#ifdef __APPLE__
+//-------------------------------------------------------------------------------------------------
+/** Renders the sky plane around the mirror camera with the far clip plane moved past it,
+	* so the sky covers the whole reflection texture on maps of any size. */
+//-------------------------------------------------------------------------------------------------
+void WaterRenderObjClass::renderMirrorSky(CameraClass *cam)
+{
+	float nearZ, farZ;
+	cam->Get_Clip_Planes(nearZ, farZ);
+	cam->Set_Clip_Planes(nearZ, MIRROR_SKYPLANE_SIZE * 2.0f);
+	cam->Apply();
+
+	const Vector3 cameraPosition = cam->Get_Position();
+	renderSkyPlane(cameraPosition.X, cameraPosition.Y, MIRROR_SKYPLANE_SIZE);
+
+	cam->Set_Clip_Planes(nearZ, farZ);
+	cam->Apply();
+}
+
+static Real wrappedSkyTexCoord(Real scrollOffset, Real worldCoord, Real texelsPerUnit)
+{
+	Real texCoord = scrollOffset + (worldCoord + SKYPLANE_SIZE) * texelsPerUnit;
+	return texCoord - (Real)((Int) texCoord);
+}
+
+//-------------------------------------------------------------------------------------------------
+/** Renders the sky plane as a square around a point.  Clouds keep the world placement and
+	* the UV scrolling of renderSky. */
+//-------------------------------------------------------------------------------------------------
+void WaterRenderObjClass::renderSkyPlane(Real centerX, Real centerY, Real halfSize)
+{
+	Setting *setting=&m_settings[m_tod];
+
+	Int timeNow=timeGetTime();
+	Int timeDiff=timeNow-m_LastUpdateTime;
+	m_LastUpdateTime=timeNow;
+
+	m_uOffset += timeDiff * setting->uScrollPerMs * setting->skyTexelsPerUnit;
+	m_vOffset += timeDiff * setting->vScrollPerMs * setting->skyTexelsPerUnit;
+
+	//clamp uv coordinate into 0,1 range
+	m_uOffset = m_uOffset - (Real)((Int) m_uOffset);
+	m_vOffset = m_vOffset - (Real)((Int) m_vOffset);
+
+	const Real minX = centerX - halfSize;
+	const Real maxX = centerX + halfSize;
+	const Real minY = centerY - halfSize;
+	const Real maxY = centerY + halfSize;
+
+	const Real minU = wrappedSkyTexCoord(m_uOffset, minX, setting->skyTexelsPerUnit);
+	const Real minV = wrappedSkyTexCoord(m_vOffset, minY, setting->skyTexelsPerUnit);
+	const Real maxU = minU + (halfSize * 2) * setting->skyTexelsPerUnit;
+	const Real maxV = minV + (halfSize * 2) * setting->skyTexelsPerUnit;
+
+	const Real cornerX[4] = { minX, maxX, maxX, minX };
+	const Real cornerY[4] = { maxY, maxY, minY, minY };
+	const Real cornerU[4] = { minU, maxU, maxU, minU };
+	const Real cornerV[4] = { maxV, maxV, minV, minV };
+	const DWORD cornerDiffuse[4] = { setting->vertex01Diffuse, setting->vertex11Diffuse, setting->vertex10Diffuse, setting->vertex00Diffuse };
+
+	VertexMaterialClass *vmat=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
+	DX8Wrapper::Set_Material(vmat);
+	REF_PTR_RELEASE(vmat);
+
+	ShaderClass skyShader=ShaderClass::_PresetOpaqueShader;
+	skyShader.Set_Cull_Mode(ShaderClass::CULL_MODE_DISABLE);
+	skyShader.Set_Depth_Compare(ShaderClass::PASS_ALWAYS);
+	skyShader.Set_Depth_Mask(ShaderClass::DEPTH_WRITE_DISABLE);
+
+	DX8Wrapper::Set_Shader(skyShader);
+
+	DX8Wrapper::Set_Texture(0,setting->skyTexture);
+
+	DynamicVBAccessClass vb_access(BUFFER_TYPE_DYNAMIC_DX8,dynamic_fvf_type,4);
+	{
+		DynamicVBAccessClass::WriteLockClass lock(&vb_access);
+		VertexFormatXYZNDUV2* verts=lock.Get_Formatted_Vertex_Array();
+		for (Int i=0; verts && i<4; ++i)
+		{
+			verts[i].x=cornerX[i];
+			verts[i].y=cornerY[i];
+			verts[i].z=SKYPLANE_HEIGHT;
+			verts[i].u1=cornerU[i];
+			verts[i].v1=cornerV[i];
+			verts[i].diffuse=cornerDiffuse[i];
+		}
+	}
+
+	DX8Wrapper::Set_Index_Buffer(m_indexBuffer,0);
+	DX8Wrapper::Set_Vertex_Buffer(vb_access);
+
+	Matrix3D tm(1);
+	DX8Wrapper::Set_Transform(D3DTS_WORLD,tm);
+
+	DX8Wrapper::Draw_Triangles(	0,2, 0,	4);	//draw a quad, 2 triangles, 4 verts
+}
+#endif
 
 //-------------------------------------------------------------------------------------------------
 /** Renders (draws) the sky body.  Used for moon and sun.  We rotate the image
