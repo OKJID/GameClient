@@ -1574,7 +1574,7 @@ STDMETHODIMP MetalDevice8::CreateVertexBuffer(UINT Length, DWORD Usage,
   UINT vertexSize = D3DXGetFVFVertexSize(FVF);
   if (vertexSize == 0)
     vertexSize = 32;
-  UINT count = Length / vertexSize;
+  UINT count = (Length + vertexSize - 1) / vertexSize;
   *ppVB = new MetalVertexBuffer8(FVF, (unsigned short)count, vertexSize);
   return D3D_OK;
 }
