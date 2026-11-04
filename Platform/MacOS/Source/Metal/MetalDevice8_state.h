@@ -107,3 +107,4 @@ private:
   void *m_RingBuffer;
   uint32_t m_RingBufferSize;
   uint32_t m_RingBufferOffset;
+  int m_ProbeEncodersThisFrame = 0;

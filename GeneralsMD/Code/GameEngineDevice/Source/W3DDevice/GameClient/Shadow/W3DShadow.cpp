@@ -50,6 +50,9 @@
 #include "WW3D2/statistics.h"
 #include "Common/Debug.h"
 #include "Common/PerfTimer.h"
+#ifdef __APPLE__
+#include "GameClient/Drawable.h"
+#endif
 
 #define SUN_DISTANCE_FROM_GROUND	10000.0f	//distance of sun (our only light source).
 
@@ -184,6 +187,20 @@ Shadow *W3DShadowManager::addShadow( RenderObjClass *robj, Shadow::ShadowTypeInf
 	if (shadowInfo)
 		type = shadowInfo->m_type;
 
+#ifdef __APPLE__
+	Shadow::ShadowTypeInfo probeProjection;
+	if (type == SHADOW_DECAL && robj && draw && draw->isKindOf(KINDOF_INFANTRY))
+	{
+		probeProjection = *shadowInfo;
+		probeProjection.m_type = SHADOW_PROJECTION;
+		probeProjection.m_ShadowName[0] = '\0';
+		probeProjection.allowUpdates = TRUE;
+		shadowInfo = &probeProjection;
+		type = SHADOW_PROJECTION;
+	}
+	DEBUG_RENDER_CORE_MAC(("Probe shadowAdd model=%s type=%d infantry=%d", robj && robj->Get_Name() ? robj->Get_Name() : "-",
+		(int)type, draw ? (int)draw->isKindOf(KINDOF_INFANTRY) : -1));
+#endif
 	switch(type)
 	{
 		case	SHADOW_VOLUME:

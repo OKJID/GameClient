@@ -42,6 +42,13 @@ void *g_MetalMTLDevice = nullptr;
 // size during resolution changes. Set in InitMetal(), cleared in destructor.
 MetalDevice8* g_theMetalDevice = nullptr;
 
+static void ProbeTextureHook(void *texture, const char *label);
+extern int g_metalPresentCount;
+
+static int ProbeFrameHook() {
+  return g_metalPresentCount;
+}
+
 // D3DXGetFVFVertexSize is inline in d3dx8core.h
 #include "d3dx8core.h"
 
@@ -94,6 +101,8 @@ MetalDevice8::MetalDevice8()
       m_RingBuffer(nullptr),
       m_RingBufferSize(256 * 1024),
       m_RingBufferOffset(0) {
+  MacTextureProbeSetHook(ProbeTextureHook);
+  MacProbeFrameSetHook(ProbeFrameHook);
   // Create frame semaphore for GPU-CPU sync (like DirectX's Present VSync)
   m_FrameSemaphore = (__bridge_retained void *)dispatch_semaphore_create(MAX_FRAMES_IN_FLIGHT);
   memset(m_RenderStates, 0, sizeof(m_RenderStates));
@@ -1158,9 +1167,192 @@ static id<MTLTexture> GetMTLTextureForBase(IDirect3DBaseTexture8* t) {
 
 static uint32_t GetTextureGeneration(IDirect3DBaseTexture8* t) {
   if (!t) return 0;
-  if (t->GetType() == D3DRTYPE_CUBETEXTURE) 
+  if (t->GetType() == D3DRTYPE_CUBETEXTURE)
     return ((MetalCubeTexture8*)t)->GetGeneration();
   return ((MetalTexture8*)t)->GetGeneration();
+}
+
+void MetalDevice8::ProbeTextureContent(IDirect3DBaseTexture8 *texture, const char *label) {
+  id<MTLTexture> mtl = GetMTLTextureForBase(texture);
+  if (!mtl || !m_CurrentCommandBuffer || mtl.pixelFormat != MTLPixelFormatBGRA8Unorm) {
+    DEBUG_RENDERING_MAC(("Probe textureContent label=%s texture=%p mtl=%p fmt=%lu inFrame=%d", label, texture,
+                         (__bridge void *)mtl, mtl ? (unsigned long)mtl.pixelFormat : 0ul, m_CurrentCommandBuffer != nullptr));
+    return;
+  }
+  if (m_CurrentEncoder) {
+    [MTL_ENCODER endEncoding];
+    CLEAR_MTL(CurrentEncoder);
+  }
+  NSUInteger width = mtl.width;
+  NSUInteger height = mtl.height;
+  NSUInteger bytesPerRow = width * 4;
+  id<MTLBuffer> pixels = [MTL_DEVICE newBufferWithLength:bytesPerRow * height options:MTLResourceStorageModeShared];
+  id<MTLBlitCommandEncoder> blit = [MTL_CMD_BUF blitCommandEncoder];
+  [blit copyFromTexture:mtl sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+             sourceSize:MTLSizeMake(width, height, 1) toBuffer:pixels destinationOffset:0
+ destinationBytesPerRow:bytesPerRow destinationBytesPerImage:bytesPerRow * height];
+  [blit endEncoding];
+  EnsureCurrentEncoder();
+
+  std::string name = label;
+  void *textureId = texture;
+  const int frame = g_metalPresentCount;
+  [MTL_CMD_BUF addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+    const uint8_t *px = (const uint8_t *)pixels.contents;
+    unsigned long dark = 0, alphaZero = 0, alphaFull = 0;
+    unsigned long minX = width, minY = height, maxX = 0, maxY = 0;
+    unsigned sum[4] = {0, 0, 0, 0};
+    for (NSUInteger y = 0; y < height; ++y) {
+      for (NSUInteger x = 0; x < width; ++x) {
+        const uint8_t *p = px + y * bytesPerRow + x * 4;
+        sum[0] += p[2]; sum[1] += p[1]; sum[2] += p[0]; sum[3] += p[3];
+        alphaZero += p[3] == 0;
+        alphaFull += p[3] == 255;
+        if ((p[0] + p[1] + p[2]) < 3 * 200) {
+          ++dark;
+          minX = std::min(minX, (unsigned long)x); maxX = std::max(maxX, (unsigned long)x);
+          minY = std::min(minY, (unsigned long)y); maxY = std::max(maxY, (unsigned long)y);
+        }
+      }
+    }
+    const unsigned long total = (unsigned long)(width * height);
+    const uint8_t *c = px + (height / 2) * bytesPerRow + (width / 2) * 4;
+    DEBUG_RENDERING_MAC(("Probe textureContent frame=%d label=%s texture=%p %lux%lu dark=%lu alpha0=%lu alpha255=%lu mean=(r%lu g%lu b%lu a%lu) center=%02x%02x%02x%02x darkBox=(%lu,%lu)-(%lu,%lu)",
+                         frame, name.c_str(), textureId, (unsigned long)width, (unsigned long)height, dark, alphaZero, alphaFull,
+                         sum[0] / total, sum[1] / total, sum[2] / total, sum[3] / total, c[2], c[1], c[0], c[3], minX, minY,
+                         maxX, maxY));
+  }];
+}
+
+void MetalDevice8::ProbeRenderTargetDraw(const char *kind, DWORD fvf, UINT minIndex, UINT numVertices, UINT primitives) {
+  if (!MacShadowProbeFrame()) {
+    return;
+  }
+  simd::float4x4 world, view, projection;
+  memcpy(&world, &m_Transforms[D3DTS_WORLD], sizeof(world));
+  memcpy(&view, &m_Transforms[D3DTS_VIEW], sizeof(view));
+  memcpy(&projection, &m_Transforms[D3DTS_PROJECTION], sizeof(projection));
+  simd::float4x4 worldViewProjection = projection * view * world;
+  float zMin = FLT_MAX, zMax = -FLT_MAX, xMin = FLT_MAX, xMax = -FLT_MAX, yMin = FLT_MAX, yMax = -FLT_MAX;
+  UINT behind = 0;
+  MetalVertexBuffer8 *vb = (MetalVertexBuffer8 *)m_StreamSource;
+  id<MTLBuffer> buffer = vb ? (__bridge id<MTLBuffer>)vb->GetMTLBuffer() : nil;
+  UINT first = m_BaseVertexIndex + minIndex;
+  UINT available = (buffer && m_StreamStride) ? (UINT)(buffer.length / m_StreamStride) : 0;
+  UINT count = first < available ? std::min(numVertices, available - first) : 0;
+  const bool screenSpace = (fvf & 0x00E) == D3DFVF_XYZRHW;
+  for (UINT v = 0; v < count && !screenSpace; ++v) {
+    float position[3];
+    memcpy(position, (const uint8_t *)buffer.contents + (first + v) * m_StreamStride, sizeof(position));
+    simd::float4 clip = worldViewProjection * simd::float4{position[0], position[1], position[2], 1.0f};
+    if (clip.w <= 0.0f) {
+      ++behind;
+      continue;
+    }
+    xMin = std::min(xMin, clip.x / clip.w); xMax = std::max(xMax, clip.x / clip.w);
+    yMin = std::min(yMin, clip.y / clip.w); yMax = std::max(yMax, clip.y / clip.w);
+    zMin = std::min(zMin, clip.z / clip.w); zMax = std::max(zMax, clip.z / clip.w);
+  }
+  id<MTLTexture> depth = m_RTTDepthTexture ? (__bridge id<MTLTexture>)m_RTTDepthTexture
+                                           : (m_DepthTexture ? (__bridge id<MTLTexture>)m_DepthTexture : nil);
+  const DWORD *tss = m_TextureStageStates[0];
+  DEBUG_RENDERING_MAC(("Probe rttDraw frame=%d kind=%s rt=%p fvf=0x%x vs=0x%x ps=0x%x verts=%u prims=%u screen=%d behind=%u ndc=x[%g,%g] y[%g,%g] z[%g,%g] "
+                       "viewport=(%u,%u,%u,%u) z=%u zWrite=%u zFunc=%u cull=%u alphaTest=%u ref=%u blend=%u src=%u dst=%u cw=0x%x lighting=%u "
+                       "ambient=%08x depth=%p %lux%lu s0 tex=%p cop=%u ca1=0x%x ca2=0x%x aop=%u",
+                       g_metalPresentCount, kind, m_RTTColorTexture, (unsigned)fvf, (unsigned)m_VertexShader, (unsigned)m_PixelShader,
+                       count, primitives, (int)screenSpace, behind, xMin, xMax, yMin, yMax, zMin, zMax, (unsigned)m_Viewport.X,
+                       (unsigned)m_Viewport.Y, (unsigned)m_Viewport.Width, (unsigned)m_Viewport.Height,
+                       (unsigned)m_RenderStates[D3DRS_ZENABLE], (unsigned)m_RenderStates[D3DRS_ZWRITEENABLE],
+                       (unsigned)m_RenderStates[D3DRS_ZFUNC], (unsigned)m_RenderStates[D3DRS_CULLMODE],
+                       (unsigned)m_RenderStates[D3DRS_ALPHATESTENABLE], (unsigned)m_RenderStates[D3DRS_ALPHAREF],
+                       (unsigned)m_RenderStates[D3DRS_ALPHABLENDENABLE], (unsigned)m_RenderStates[D3DRS_SRCBLEND],
+                       (unsigned)m_RenderStates[D3DRS_DESTBLEND], (unsigned)m_RenderStates[D3DRS_COLORWRITEENABLE],
+                       (unsigned)m_RenderStates[D3DRS_LIGHTING], (unsigned)m_RenderStates[D3DRS_AMBIENT], (__bridge void *)depth,
+                       depth ? (unsigned long)depth.width : 0ul, depth ? (unsigned long)depth.height : 0ul, (void *)m_Textures[0],
+                       (unsigned)tss[D3DTSS_COLOROP], (unsigned)tss[D3DTSS_COLORARG1], (unsigned)tss[D3DTSS_COLORARG2],
+                       (unsigned)tss[D3DTSS_ALPHAOP]));
+}
+
+void MetalDevice8::ProbeProjectionDraw(UINT minIndex, UINT numVertices, UINT primitives) {
+  if (!MacShadowProbeFrame()) {
+    return;
+  }
+  std::string stages;
+  {
+    simd::float4x4 world, view, texture;
+    memcpy(&world, &m_Transforms[D3DTS_WORLD], sizeof(world));
+    memcpy(&view, &m_Transforms[D3DTS_VIEW], sizeof(view));
+    memcpy(&texture, &m_Transforms[D3DTS_TEXTURE0], sizeof(texture));
+    MetalVertexBuffer8 *vb = (MetalVertexBuffer8 *)m_StreamSource;
+    id<MTLBuffer> buffer = vb ? (__bridge id<MTLBuffer>)vb->GetMTLBuffer() : nil;
+    UINT first = m_BaseVertexIndex + minIndex;
+    UINT available = (buffer && m_StreamStride) ? (UINT)(buffer.length / m_StreamStride) : 0;
+    UINT count = first < available ? std::min(numVertices, available - first) : 0;
+    float uMin = FLT_MAX, uMax = -FLT_MAX, vMin = FLT_MAX, vMax = -FLT_MAX, qMin = FLT_MAX, qMax = -FLT_MAX;
+    float pos0[3] = {0, 0, 0};
+    for (UINT v = 0; v < count; ++v) {
+      float position[3];
+      memcpy(position, (const uint8_t *)buffer.contents + (first + v) * m_StreamStride, sizeof(position));
+      if (v == 0) {
+        memcpy(pos0, position, sizeof(pos0));
+      }
+      simd::float4 camera = view * world * simd::float4{position[0], position[1], position[2], 1.0f};
+      simd::float4 tc = texture * camera;
+      qMin = std::min(qMin, tc.z); qMax = std::max(qMax, tc.z);
+      if (tc.z == 0.0f) {
+        continue;
+      }
+      uMin = std::min(uMin, tc.x / tc.z); uMax = std::max(uMax, tc.x / tc.z);
+      vMin = std::min(vMin, tc.y / tc.z); vMax = std::max(vMax, tc.y / tc.z);
+    }
+    char uv[256];
+    snprintf(uv, sizeof(uv), " | first=(%.1f,%.1f,%.1f) uv=u[%g,%g] v[%g,%g] q[%g,%g]", pos0[0], pos0[1], pos0[2], uMin, uMax,
+             vMin, vMax, qMin, qMax);
+    stages += uv;
+  }
+  for (int s = 0; s < 2; ++s) {
+    IDirect3DBaseTexture8 *tex = m_Textures[s];
+    id<MTLTexture> mtl = GetMTLTextureForBase(tex);
+    const DWORD *tss = m_TextureStageStates[s];
+    const float *m = (const float *)&m_Transforms[D3DTS_TEXTURE0 + s];
+    bool renderTarget = tex && tex->GetType() == D3DRTYPE_TEXTURE && ((MetalTexture8 *)tex)->IsRenderTarget();
+    bool written = tex && tex->GetType() == D3DRTYPE_TEXTURE && ((MetalTexture8 *)tex)->HasBeenWritten();
+    char stage[600];
+    snprintf(stage, sizeof(stage),
+             " | s%d tex=%p mtl=%p %lux%lu fmt=%lu rt=%d written=%d cop=%u ca1=0x%x ca2=0x%x aop=%u aa1=0x%x aa2=0x%x tci=0x%x "
+             "ttff=0x%x addr=%u/%u m=[%g %g %g %g;%g %g %g %g;%g %g %g %g;%g %g %g %g]",
+             s, (void *)tex, (__bridge void *)mtl, mtl ? (unsigned long)mtl.width : 0ul, mtl ? (unsigned long)mtl.height : 0ul,
+             mtl ? (unsigned long)mtl.pixelFormat : 0ul, (int)renderTarget, (int)written, (unsigned)tss[D3DTSS_COLOROP],
+             (unsigned)tss[D3DTSS_COLORARG1], (unsigned)tss[D3DTSS_COLORARG2], (unsigned)tss[D3DTSS_ALPHAOP],
+             (unsigned)tss[D3DTSS_ALPHAARG1], (unsigned)tss[D3DTSS_ALPHAARG2], (unsigned)tss[D3DTSS_TEXCOORDINDEX],
+             (unsigned)tss[D3DTSS_TEXTURETRANSFORMFLAGS], (unsigned)tss[D3DTSS_ADDRESSU], (unsigned)tss[D3DTSS_ADDRESSV], m[0],
+             m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8], m[9], m[10], m[11], m[12], m[13], m[14], m[15]);
+    stages += stage;
+  }
+  const D3DMATERIAL8 &material = m_Material;
+  char materialText[200];
+  snprintf(materialText, sizeof(materialText),
+           " | material d(%g,%g,%g,%g) a(%g,%g,%g) e(%g,%g,%g) diffuseSource=%u emissiveSource=%u ambient=%08x colorVertex=%u",
+           material.Diffuse.r, material.Diffuse.g, material.Diffuse.b, material.Diffuse.a, material.Ambient.r, material.Ambient.g,
+           material.Ambient.b, material.Emissive.r, material.Emissive.g, material.Emissive.b,
+           (unsigned)m_RenderStates[D3DRS_DIFFUSEMATERIALSOURCE], (unsigned)m_RenderStates[D3DRS_EMISSIVEMATERIALSOURCE],
+           (unsigned)m_RenderStates[D3DRS_AMBIENT], (unsigned)m_RenderStates[D3DRS_COLORVERTEX]);
+  stages += materialText;
+  DEBUG_RENDERING_MAC(("Probe projectionDraw frame=%d verts=%u prims=%u z=%u zWrite=%u zFunc=%u alphaTest=%u ref=%u func=%u "
+                       "stencil=%u cull=%u tfactor=%08x lighting=%u blend=%u src=%u dst=%u%s",
+                       g_metalPresentCount, numVertices, primitives, (unsigned)m_RenderStates[D3DRS_ZENABLE],
+                       (unsigned)m_RenderStates[D3DRS_ZWRITEENABLE], (unsigned)m_RenderStates[D3DRS_ZFUNC],
+                       (unsigned)m_RenderStates[D3DRS_ALPHATESTENABLE], (unsigned)m_RenderStates[D3DRS_ALPHAREF],
+                       (unsigned)m_RenderStates[D3DRS_ALPHAFUNC], (unsigned)m_RenderStates[D3DRS_STENCILENABLE],
+                       (unsigned)m_RenderStates[D3DRS_CULLMODE], (unsigned)m_RenderStates[D3DRS_TEXTUREFACTOR],
+                       (unsigned)m_RenderStates[D3DRS_LIGHTING], (unsigned)m_RenderStates[D3DRS_ALPHABLENDENABLE],
+                       (unsigned)m_RenderStates[D3DRS_SRCBLEND], (unsigned)m_RenderStates[D3DRS_DESTBLEND], stages.c_str()));
+}
+
+static void ProbeTextureHook(void *texture, const char *label) {
+  if (g_theMetalDevice) {
+    g_theMetalDevice->ProbeTextureContent((IDirect3DBaseTexture8 *)texture, label);
+  }
 }
 
 void MetalDevice8::BindTexturesAndSamplers() {
@@ -1458,7 +1650,26 @@ STDMETHODIMP MetalDevice8::Present(const void *s, const void *d, HWND w,
   if (m_CurrentCommandBuffer) {
     dispatch_semaphore_t frameSemaphore =
         (__bridge dispatch_semaphore_t)m_FrameSemaphore;
+    const bool probeFrame = MacShadowProbeFrame();
+    const int frame = g_metalPresentCount;
+    const int encoders = m_ProbeEncodersThisFrame;
+    m_ProbeEncodersThisFrame = 0;
     [MTL_CMD_BUF addCompletedHandler:^(id<MTLCommandBuffer> completed) {
+      static double s_gpuMs = 0.0;
+      static long s_encoders = 0;
+      static int s_frames = 0;
+      if (!probeFrame) {
+        s_gpuMs += (completed.GPUEndTime - completed.GPUStartTime) * 1000.0;
+        s_encoders += encoders;
+        ++s_frames;
+      }
+      else if (s_frames > 0) {
+        DEBUG_RENDERING_MAC(("Probe gpuCost frame=%d frames=%d perFrame: gpuMs=%.3f encoders=%.1f", frame, s_frames,
+                             s_gpuMs / s_frames, (double)s_encoders / s_frames));
+        s_gpuMs = 0.0;
+        s_encoders = 0;
+        s_frames = 0;
+      }
       dispatch_semaphore_signal(frameSemaphore);
     }];
     [MTL_CMD_BUF commit];
@@ -1663,6 +1874,29 @@ STDMETHODIMP MetalDevice8::CopyRects(IDirect3DSurface8 *src, const void *sr,
       dstTex && dstTex->GetMTLTexture()) {
     id<MTLTexture> mtlSrc = srcTex->GetMTLTexture();
     id<MTLTexture> mtlDst = dstTex->GetMTLTexture();
+    if (MacShadowProbeFrame()) {
+      DEBUG_RENDERING_MAC(("Probe copyRects gpuToGpu frame=%d src=%p dst=%p srcRT=%d src=%lux%lu fmt=%lu dst=%lux%lu fmt=%lu inFrame=%d",
+                           g_metalPresentCount, (void *)srcTex, (void *)dstTex, (int)srcTex->IsRenderTarget(), (unsigned long)mtlSrc.width,
+                           (unsigned long)mtlSrc.height, (unsigned long)mtlSrc.pixelFormat, (unsigned long)mtlDst.width,
+                           (unsigned long)mtlDst.height, (unsigned long)mtlDst.pixelFormat, m_CurrentCommandBuffer != nullptr));
+    }
+    if (srcTex->IsRenderTarget() && m_CurrentCommandBuffer) {
+      if (m_CurrentEncoder) {
+        [MTL_ENCODER endEncoding];
+        CLEAR_MTL(CurrentEncoder);
+      }
+      id<MTLBlitCommandEncoder> blit = [MTL_CMD_BUF blitCommandEncoder];
+      UINT copyW = std::min((UINT)mtlSrc.width, (UINT)mtlDst.width);
+      UINT copyH = std::min((UINT)mtlSrc.height, (UINT)mtlDst.height);
+      [blit copyFromTexture:mtlSrc sourceSlice:0 sourceLevel:0
+            sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(copyW, copyH, 1)
+            toTexture:mtlDst destinationSlice:0 destinationLevel:0
+            destinationOrigin:MTLOriginMake(0, 0, 0)];
+      [blit endEncoding];
+      EnsureCurrentEncoder();
+      dstTex->MarkWritten();
+      return D3D_OK;
+    }
     void *queuePtr = m_CommandQueue;
     if (queuePtr) {
       id<MTLCommandQueue> queue = (__bridge id<MTLCommandQueue>)queuePtr;
@@ -2165,6 +2399,13 @@ STDMETHODIMP MetalDevice8::EndScene() {
 STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
                                  D3DCOLOR Color, float Z, DWORD Stencil) {
   DLOG_RFLOW(2, "Clear flags=0x%x color=0x%08x Z=%f", (unsigned)Flags, (unsigned)Color, Z);
+  if (m_RTTColorTexture && m_RTTWidth == 512 && m_RTTHeight == 512) {
+    if (MacShadowProbeFrame()) {
+      DEBUG_RENDERING_MAC(("Probe rttClear frame=%d rt=%p flags=0x%x color=%08x z=%g viewport=(%u,%u,%u,%u)", g_metalPresentCount,
+                           m_RTTColorTexture, (unsigned)Flags, (unsigned)Color, Z, (unsigned)m_Viewport.X,
+                           (unsigned)m_Viewport.Y, (unsigned)m_Viewport.Width, (unsigned)m_Viewport.Height));
+    }
+  }
   // WW3D calls Clear() BEFORE BeginScene(), so auto-start if needed.
   if (!m_CurrentDrawable) {
     HRESULT bshr = BeginScene();
@@ -2259,6 +2500,7 @@ STDMETHODIMP MetalDevice8::Clear(DWORD Count, const void *pRects, DWORD Flags,
       [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
   [encoder setLabel:@"MetalDevice8 RenderPass"];
   SET_MTL(CurrentEncoder, encoder);
+  ++m_ProbeEncodersThisFrame;
 
   // A fresh encoder starts with default state — every cached "already applied"
   // value is stale.
@@ -2338,6 +2580,16 @@ STDMETHODIMP MetalDevice8::SetViewport(const D3DVIEWPORT8 *pViewport) {
     DEBUG_RENDERING_MAC(("SetViewport#%d: x=%u y=%u w=%u h=%u",
            s_vpLogCount, pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height));
     s_vpLogCount++;
+  }
+  const uint64_t right = (uint64_t)pViewport->X + pViewport->Width;
+  const uint64_t bottom = (uint64_t)pViewport->Y + pViewport->Height;
+  const bool outsideTexture = m_RTTColorTexture && (right > m_RTTWidth || bottom > m_RTTHeight);
+  const bool outsideAnyTarget = right > 16384 || bottom > 16384;
+  if (outsideTexture || outsideAnyTarget) {
+    DEBUG_RENDERING_MAC(("SetViewport rejected frame=%d x=%u y=%u w=%u h=%u target=%ux%u rtt=%d", g_metalPresentCount,
+                         pViewport->X, pViewport->Y, pViewport->Width, pViewport->Height, m_RTTWidth, m_RTTHeight,
+                         m_RTTColorTexture != nullptr));
+    return D3DERR_INVALIDCALL;
   }
   m_Viewport = *pViewport;
 
@@ -2922,6 +3174,7 @@ void MetalDevice8::EnsureCurrentEncoder() {
 
   id<MTLRenderCommandEncoder> encoder = [MTL_CMD_BUF renderCommandEncoderWithDescriptor:rpd];
   SET_MTL(CurrentEncoder, encoder);
+  ++m_ProbeEncodersThisFrame;
 
   // A fresh encoder starts with default state — every cached "already applied"
   // value is stale.
@@ -2992,8 +3245,11 @@ STDMETHODIMP MetalDevice8::DrawPrimitive(DWORD pt, UINT sv, UINT pc) {
   BindUniforms(fvf);
   BindShaderPrograms();
   BindTexturesAndSamplers();
+  if (m_RTTColorTexture && m_RTTWidth == 512 && m_RTTHeight == 512) {
+    ProbeRenderTargetDraw("plain", fvf, sv, pc * 3, pc);
+  }
 
-  
+
 
   MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
   UINT vertexCount = 0;
@@ -3092,6 +3348,13 @@ STDMETHODIMP MetalDevice8::DrawIndexedPrimitive(DWORD pt, UINT mi, UINT nv,
   BindUniforms(fvf);
   BindShaderPrograms();
   BindTexturesAndSamplers();
+  if (m_RTTColorTexture && m_RTTWidth == 512 && m_RTTHeight == 512) {
+    ProbeRenderTargetDraw("indexed", fvf, mi, nv, pc);
+  }
+  if (!m_RTTColorTexture && fvf == D3DFVF_XYZ && m_RenderStates[D3DRS_SRCBLEND] == D3DBLEND_DESTCOLOR &&
+      m_RenderStates[D3DRS_DESTBLEND] == D3DBLEND_ZERO) {
+    ProbeProjectionDraw(mi, nv, pc);
+  }
 
   MTLPrimitiveType mtlPt = (MTLPrimitiveType)MapPrimitiveType(pt);
   UINT indexCount = 0;

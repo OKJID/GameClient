@@ -1000,4 +1000,38 @@ void MacDebugLogWrite(const char* tag, const char* fmt, ...)
 	fclose(fp);
 }
 
+static MacTextureProbeHook s_macTextureProbeHook = nullptr;
+
+void MacTextureProbeSetHook(MacTextureProbeHook hook)
+{
+	s_macTextureProbeHook = hook;
+}
+
+void MacTextureProbe(void* texture, const char* label)
+{
+	if (s_macTextureProbeHook != nullptr)
+	{
+		s_macTextureProbeHook(texture, label);
+	}
+}
+
+static MacProbeFrameHook s_macProbeFrameHook = nullptr;
+static const int MAC_SHADOW_PROBE_PERIOD = 30;
+
+void MacProbeFrameSetHook(MacProbeFrameHook hook)
+{
+	s_macProbeFrameHook = hook;
+}
+
+int MacProbeFrameNumber()
+{
+	return s_macProbeFrameHook != nullptr ? s_macProbeFrameHook() : -1;
+}
+
+bool MacShadowProbeFrame()
+{
+	const int frame = MacProbeFrameNumber();
+	return frame >= 0 && frame % MAC_SHADOW_PROBE_PERIOD == 0;
+}
+
 #endif // __APPLE__

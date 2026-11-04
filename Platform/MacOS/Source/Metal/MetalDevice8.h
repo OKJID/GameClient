@@ -112,6 +112,9 @@ public:
   // Non-override helpers
   void EnsureCurrentEncoder();
   void FlushPendingGPUWork();
+  void ProbeTextureContent(IDirect3DBaseTexture8 *texture, const char *label);
+  void ProbeRenderTargetDraw(const char *kind, DWORD fvf, UINT minIndex, UINT numVertices, UINT primitives);
+  void ProbeProjectionDraw(UINT minIndex, UINT numVertices, UINT primitives);
   HRESULT GetDirect3D(IDirect3D8 **ppD3D8);
   HRESULT GetViewport(D3DVIEWPORT8 *pViewport) override;
   HRESULT GetMaterial(D3DMATERIAL8 *pMaterial);

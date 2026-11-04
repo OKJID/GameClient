@@ -56,6 +56,27 @@
 #include "GameClient/Drawable.h"
 #include "W3DDevice/GameClient/Module/W3DModelDraw.h"
 #include "W3DDevice/GameClient/W3DShadow.h"
+#ifdef __APPLE__
+#include <chrono>
+
+struct ProbeShadowCost
+{
+	double updateMs = 0, silhouetteMs = 0, copyMs = 0, renderMs = 0, terrainMs = 0, receiversMs = 0;
+	Int frames = 0, silhouettes = 0, terrainDraws = 0, receiverRenders = 0, visibleProjections = 0;
+};
+static ProbeShadowCost s_probeShadowCost;
+static ProbeShadowCost s_probeShadowCostOnProbeFrames;
+
+static ProbeShadowCost &probeShadowCost()
+{
+	return MacShadowProbeFrame() ? s_probeShadowCostOnProbeFrames : s_probeShadowCost;
+}
+
+static double probeNowMs()
+{
+	return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+#endif
 
 
 /** @todo: We're going to have a pool of a couple rendertargets to use
@@ -330,6 +351,9 @@ void W3DProjectedShadowManager::updateRenderTargetTextures()
 	if (!TheGlobalData->m_useShadowDecals)
 		return;
 
+#ifdef __APPLE__
+	const double probeStart = probeNowMs();
+#endif
 	if (m_numProjectionShadows)
 	for( shadow = m_shadowList; shadow; shadow = shadow->m_next )
 	{	//decals don't need any updates on a per-frame basis since
@@ -337,6 +361,9 @@ void W3DProjectedShadowManager::updateRenderTargetTextures()
 		if (shadow->m_type != SHADOW_DECAL)
 			shadow->update();
 	}
+#ifdef __APPLE__
+	probeShadowCost().updateMs += probeNowMs() - probeStart;
+#endif
 }
 
 ///Renders shadow on part of terrain covered by world-space bounding box.
@@ -406,6 +433,15 @@ Int W3DProjectedShadowManager::renderProjectedTerrainShadow(W3DProjectedShadow *
 
 		if(pvVertices)
 		{
+#ifdef __APPLE__
+			const Int border = hmap->getBorderSizeInline();
+			if (MacShadowProbeFrame())
+				DEBUG_RENDER_CORE_MAC(("Probe shadowTerrainHeight frame=%d border=%d cells=(%d,%d)-(%d,%d) world=(%.1f,%.1f) heightNoBorder=%.2f heightWithBorder=%.2f terrain=%.2f",
+					MacProbeFrameNumber(), border, startX, startY, endX, endY, startX * MAP_XY_FACTOR, startY * MAP_XY_FACTOR,
+					(float)hmap->getHeight(startX, startY) * MAP_HEIGHT_SCALE,
+					(float)hmap->getHeight(startX + border, startY + border) * MAP_HEIGHT_SCALE,
+					TheTerrainRenderObject->getHeightMapHeight(startX * MAP_XY_FACTOR, startY * MAP_XY_FACTOR, nullptr)));
+#endif
 			//insert each cell's bottom/left edge vertex
 			for (j=startY; j <= endY; j++)
 			{
@@ -415,7 +451,11 @@ Int W3DProjectedShadowManager::renderProjectedTerrainShadow(W3DProjectedShadow *
 				{
 					pvVertices->x=(float)i*MAP_XY_FACTOR;
 					pvVertices->y=ycoord;
+#ifdef __APPLE__
+					pvVertices->z=(float)hmap->getHeight(i+border,j+border)*MAP_HEIGHT_SCALE;
+#else
 					pvVertices->z=(float)hmap->getHeight(i,j)*MAP_HEIGHT_SCALE;
+#endif
 					pvVertices++;
 				}
 			}
@@ -1304,6 +1344,9 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 	if (!m_shadowList && !m_decalList)
 		return	projectionCount;	//there are no shadows to render.
 
+#ifdef __APPLE__
+	const double probeRenderStart = probeNowMs();
+#endif
 	W3DProjectedShadow *shadow;
 	static AABoxClass aaBox;
 	static SphereClass sphere;
@@ -1353,12 +1396,24 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 				sphere.Center += shadow->m_robj->Get_Position();
 
 				CollisionMath::OverlapType result=CollisionMath::Overlap_Test(*shadowCameraFrustum,sphere);
+#ifdef __APPLE__
+				if (MacShadowProbeFrame())
+					DEBUG_RENDER_CORE_MAC(("Probe shadowCull frame=%d shadow=%p model=%s dynamic=%d visible=%d sphere=(%.1f,%.1f,%.1f) r=%.1f result=%d",
+						MacProbeFrameNumber(), shadow, shadow->m_robj->Get_Name(), (int)((shadow->m_flags & SHADOW_DYNAMIC_PROJECTION) != 0),
+						(int)shadow->m_robj->Is_Really_Visible(), sphere.Center.X, sphere.Center.Y, sphere.Center.Z, sphere.Radius, (int)result));
+#endif
 				if (result == CollisionMath::OVERLAPPED)
 				{	//do a more accurate test against bounding box.
 					aaBox=shadow->m_shadowTexture[0]->getBoundingBox();
 					aaBox.Translate(shadow->m_robj->Get_Position());	//translate bounding box to world space.
 					if (CollisionMath::Overlap_Test(*shadowCameraFrustum,aaBox) == CollisionMath::OUTSIDE)
+					{
+#ifdef __APPLE__
+						if (MacShadowProbeFrame())
+							DEBUG_RENDER_CORE_MAC(("Probe shadowCull frame=%d shadow=%p boxOutside=1", MacProbeFrameNumber(), shadow));
+#endif
 						continue;
+					}
 				}
 				else
 				if (result == CollisionMath::OUTSIDE)
@@ -1381,8 +1436,31 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 					//terrain is always visible and affected by all shadows so must render
 					projector->Peek_Material_Pass()->Install_Materials();
 					DX8Wrapper::Apply_Render_State_Changes();	//force update of view and projection matrices
+#ifdef __APPLE__
+					const Bool probeFrame = MacShadowProbeFrame();
+					TextureClass *probePassTexture = projector->Peek_Material_Pass()->Peek_Texture();
+					const double probeTerrainStart = probeNowMs();
+					const Int probeTerrainDrawn = renderProjectedTerrainShadow(shadow, aaBox);
+					probeShadowCost().terrainMs += probeNowMs() - probeTerrainStart;
+					probeShadowCost().terrainDraws += probeTerrainDrawn;
+					++probeShadowCost().visibleProjections;
+					if (probeTerrainDrawn)
+						projectionCount++;
+					if (probeFrame)
+					{
+						Vector3 probeProjector = projector->Get_Transform().Get_Translation();
+						DEBUG_RENDER_CORE_MAC(("Probe shadowProjectionRender frame=%d shadow=%p model=%s dynamic=%d shadowTexture=%p passTexture=%p textureSize=%d projector=(%.1f,%.1f,%.1f) object=(%.1f,%.1f,%.1f) terrain=%d box=(%.1f,%.1f,%.1f)+(%.1f,%.1f,%.1f)",
+							MacProbeFrameNumber(), shadow, shadow->m_robj->Get_Name(), (int)((shadow->m_flags & SHADOW_DYNAMIC_PROJECTION) != 0),
+							shadow->m_shadowTexture[0]->getTexture()->Peek_D3D_Base_Texture(),
+							probePassTexture ? probePassTexture->Peek_D3D_Base_Texture() : nullptr, projector->Get_Texture_Size(),
+							probeProjector.X, probeProjector.Y, probeProjector.Z, shadow->m_robj->Get_Position().X,
+							shadow->m_robj->Get_Position().Y, shadow->m_robj->Get_Position().Z, probeTerrainDrawn, aaBox.Center.X,
+							aaBox.Center.Y, aaBox.Center.Z, aaBox.Extent.X, aaBox.Extent.Y, aaBox.Extent.Z));
+					}
+#else
 					if (renderProjectedTerrainShadow(shadow, aaBox))
 						projectionCount++;
+#endif
 					projector->Peek_Material_Pass()->UnInstall_Materials();
 
 					SimpleObjectIterator *iter;
@@ -1393,6 +1471,10 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 
 					AABoxIntersectionTestClass boxtest(aaBox,COLL_TYPE_ALL);
 
+#ifdef __APPLE__
+					const double probeReceiversStart = probeNowMs();
+					const Int probeCountBefore = projectionCount;
+#endif
 					for( obj = iter->first(); obj; obj = iter->next() )
 					{
 							Drawable *draw = obj->getDrawable();
@@ -1423,12 +1505,22 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 								}
 							}
 					}
+#ifdef __APPLE__
+					probeShadowCost().receiversMs += probeNowMs() - probeReceiversStart;
+					probeShadowCost().receiverRenders += projectionCount - probeCountBefore;
+#endif
 				}
 			}
 		}
 
 		flushDecals(lastShadowDecalTexture,lastShadowType);	//make sure there are not any unrendered decals left over.
+#ifdef __APPLE__
+		const double probeFlushStart = probeNowMs();
+#endif
 		TheDX8MeshRenderer.Flush();	//draw all the shadow receiving objects
+#ifdef __APPLE__
+		probeShadowCost().receiversMs += probeNowMs() - probeFlushStart;
+#endif
 	}
 	if (m_decalList)
 	{
@@ -1462,6 +1554,21 @@ Int W3DProjectedShadowManager::renderShadows(RenderInfoClass & rinfo)
 
 		flushDecals(lastShadowDecalTexture,lastShadowType);	//make sure there are not any unrendered decals left over.
 	}
+#ifdef __APPLE__
+	probeShadowCost().renderMs += probeNowMs() - probeRenderStart;
+	++probeShadowCost().frames;
+	if (MacShadowProbeFrame())
+	{
+		const ProbeShadowCost &c = s_probeShadowCost;
+		const double frames = c.frames > 0 ? (double)c.frames : 1.0;
+		DEBUG_RENDER_CORE_MAC(("Probe shadowCost frame=%d frames=%d perFrame: updateMs=%.3f silhouetteMs=%.3f copyMs=%.3f silhouettes=%.1f renderMs=%.3f terrainMs=%.3f receiversMs=%.3f visible=%.1f terrainDraws=%.1f receiverRenders=%.1f",
+			MacProbeFrameNumber(), c.frames, c.updateMs / frames, c.silhouetteMs / frames, c.copyMs / frames, c.silhouettes / frames,
+			c.renderMs / frames, c.terrainMs / frames, c.receiversMs / frames, c.visibleProjections / frames, c.terrainDraws / frames,
+			c.receiverRenders / frames));
+		s_probeShadowCost = ProbeShadowCost();
+		s_probeShadowCostOnProbeFrames = ProbeShadowCost();
+	}
+#endif
 	return projectionCount;
 }
 
@@ -1691,6 +1798,23 @@ Shadow* W3DProjectedShadowManager::addDecal(RenderObjClass *robj, Shadow::Shadow
 	return shadow;
 }
 
+#ifdef __APPLE__
+#define DYNAMIC_SHADOW_TEXTURE_SIZE	512
+
+static W3DShadowTexture *createDynamicShadowTexture(const char *name)
+{
+	TextureClass *target = MSGNEW("TextureClass") TextureClass(DYNAMIC_SHADOW_TEXTURE_SIZE, DYNAMIC_SHADOW_TEXTURE_SIZE, WW3D_FORMAT_A8R8G8B8, MIP_LEVELS_1);
+	if (target == nullptr)
+		return nullptr;
+
+	W3DShadowTexture *texture = NEW W3DShadowTexture;
+	SET_REF_OWNER( texture );
+	texture->Set_Name(name);
+	texture->setTexture(target);
+	return texture;
+}
+#endif
+
 W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, Shadow::ShadowTypeInfo *shadowInfo, Drawable *draw)
 {
 	W3DShadowTexture *st=nullptr;
@@ -1704,6 +1828,9 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 
 	Bool	allowSunDirection=FALSE;
 	Char texture_name[ARRAY_SIZE(shadowInfo->m_ShadowName)];
+#ifdef __APPLE__
+	Bool	dynamicTexture=FALSE;
+#endif
 
 
 	if (!m_dynamicRenderTarget || !robj || !TheGlobalData->m_useShadowDecals)
@@ -1772,6 +1899,16 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 				else
 					strlcpy(texture_name, robj->Get_Name(), ARRAY_SIZE(texture_name));	//not texture name give, assume model name.
 
+#ifdef __APPLE__
+				if (shadowInfo->allowUpdates)
+				{
+					st = createDynamicShadowTexture(texture_name);
+					if (st == nullptr)
+						return nullptr;
+					dynamicTexture = TRUE;
+				}
+				else
+#endif
 				st=m_W3DShadowTextureManager->getTexture(texture_name);
 				if (st == nullptr)
 				{	//texture doesn't exist, use current render object to create it
@@ -1785,6 +1922,10 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 						return nullptr;	//could not create the shadow texture
 				}
 				shadowType=SHADOW_PROJECTION;
+#ifdef __APPLE__
+				DEBUG_RENDER_CORE_MAC(("Probe shadowProjectionCreate model=%s texture=%s renderTargetAlpha=%d", robj->Get_Name(),
+					texture_name, (int)m_renderTargetHasAlpha));
+#endif
 		}
 	}
 	else
@@ -1850,6 +1991,10 @@ W3DProjectedShadow* W3DProjectedShadowManager::addShadow(RenderObjClass *robj, S
 	shadow->m_decalOffsetV= decalOffsetY;
 
 	shadow->m_flags	= allowSunDirection;
+#ifdef __APPLE__
+	if (dynamicTexture)
+		shadow->m_flags |= SHADOW_DYNAMIC_PROJECTION;
+#endif
 
 	shadow->init();
 
@@ -2130,7 +2275,22 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 		objToLight =  objPos + objToLight * 2000.0f;
 
 		m_shadowProjector->Compute_Perspective_Projection(m_robj,objToLight);
+#ifdef __APPLE__
+		const Bool dynamicTexture = (m_flags & SHADOW_DYNAMIC_PROJECTION) != 0;
+		const Bool probeUpdate = !dynamicTexture || MacShadowProbeFrame();
+		TextureClass *renderTarget = TheW3DProjectedShadowManager->getRenderTarget();
+		if (probeUpdate)
+		{
+			Vector3 probeProjector = m_shadowProjector->Get_Transform().Get_Translation();
+			DEBUG_RENDER_CORE_MAC(("Probe shadowTextureUpdate frame=%d shadow=%p model=%s dynamic=%d pos=(%.1f,%.1f,%.1f) light=(%.1f,%.1f,%.1f) projector=(%.1f,%.1f,%.1f) textureSize=%d renderTarget=%p shadowTexture=%p",
+				MacProbeFrameNumber(), this, m_robj->Get_Name(), (int)dynamicTexture, objPos.X, objPos.Y, objPos.Z, lightPos.X,
+				lightPos.Y, lightPos.Z, probeProjector.X, probeProjector.Y, probeProjector.Z, m_shadowProjector->Get_Texture_Size(),
+				renderTarget->Peek_D3D_Base_Texture(), m_shadowTexture[0]->getTexture()->Peek_D3D_Base_Texture()));
+		}
+		m_shadowProjector->Set_Render_Target(renderTarget);
+#else
 		m_shadowProjector->Set_Render_Target(TheW3DProjectedShadowManager->getRenderTarget());
+#endif
 
 		//Set ambient to 0, so we get a black shadow on solid background
 
@@ -2138,7 +2298,24 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 
 		context->light_environment->Reset(m_robj->Get_Position(), Vector3(0,0,0));
 
+#ifdef __APPLE__
+		const double probeSilhouetteStart = probeNowMs();
+		DWORD oldColorWrite = 0;
+		DX8Wrapper::_Get_D3D_Device8()->GetRenderState(D3DRS_COLORWRITEENABLE, &oldColorWrite);
+		DX8Wrapper::Set_DX8_Render_State(D3DRS_COLORWRITEENABLE, D3DCOLORWRITEENABLE_RED|D3DCOLORWRITEENABLE_GREEN|D3DCOLORWRITEENABLE_BLUE|D3DCOLORWRITEENABLE_ALPHA);
+		DX8Wrapper::Set_Render_Target_With_Z(renderTarget, nullptr);
+		DX8Wrapper::Clear(false, true, Vector3(0.0f,0.0f,0.0f));
+#endif
 		m_shadowProjector->Compute_Texture(m_robj,context);
+#ifdef __APPLE__
+		DX8Wrapper::Set_DX8_Render_State(D3DRS_COLORWRITEENABLE, oldColorWrite);
+		if (probeUpdate)
+			DEBUG_RENDER_CORE_MAC(("Probe shadowSilhouetteState frame=%d shadow=%p oldColorWrite=0x%x", MacProbeFrameNumber(), this,
+				(unsigned)oldColorWrite));
+		const double probeCopyStart = probeNowMs();
+		probeShadowCost().silhouetteMs += probeCopyStart - probeSilhouetteStart;
+		++probeShadowCost().silhouettes;
+#endif
 
 		//Need to copy generated texture into permanent texture.
 		SurfaceClass *oldSurface=m_shadowTexture[0]->getTexture()->Get_Surface_Level();
@@ -2148,7 +2325,24 @@ void W3DProjectedShadow::updateTexture(Vector3 &lightPos)
 		oldSurface->Copy(0,0,0,0,DEFAULT_RENDER_TARGET_WIDTH,DEFAULT_RENDER_TARGET_HEIGHT,newSurface);
 		REF_PTR_RELEASE(newSurface);
 		REF_PTR_RELEASE(oldSurface);
+#ifdef __APPLE__
+		probeShadowCost().copyMs += probeNowMs() - probeCopyStart;
+		if (dynamicTexture)
+			m_shadowProjector->Set_Texture(m_shadowTexture[0]->getTexture());
+#endif
 		m_shadowTexture[0]->updateBounds(TheW3DShadowManager->getLightPosWorld(0),m_robj);	//update local shadow bounds
+#ifdef __APPLE__
+		if (probeUpdate)
+		{
+			const AABoxClass &probeBox = m_shadowTexture[0]->getBoundingBox();
+			const SphereClass &probeSphere = m_shadowTexture[0]->getBoundingSphere();
+			TextureClass *probePassTexture = m_shadowProjector->Peek_Material_Pass()->Peek_Texture();
+			DEBUG_RENDER_CORE_MAC(("Probe shadowTextureDone frame=%d shadow=%p passTexture=%p bounds=(%.1f,%.1f,%.1f)+(%.1f,%.1f,%.1f) sphere=(%.1f,%.1f,%.1f) r=%.1f",
+				MacProbeFrameNumber(), this, probePassTexture ? probePassTexture->Peek_D3D_Base_Texture() : nullptr, probeBox.Center.X,
+				probeBox.Center.Y, probeBox.Center.Z, probeBox.Extent.X, probeBox.Extent.Y, probeBox.Extent.Z, probeSphere.Center.X,
+				probeSphere.Center.Y, probeSphere.Center.Z, probeSphere.Radius));
+		}
+#endif
 	}
 	else
 	if (m_type == SHADOW_DECAL)
@@ -2196,6 +2390,24 @@ void W3DProjectedShadow::updateProjectionParameters(const Matrix3D &cameraXform)
 
 void W3DProjectedShadow::update()
 {
+#ifdef __APPLE__
+	if (MacShadowProbeFrame())
+	{
+		const Vector3 &probeLight = TheW3DShadowManager->getLightPosWorld(0);
+		const Vector3 probePos = m_robj->Get_Position();
+		DEBUG_RENDER_CORE_MAC(("Probe shadowUpdate frame=%d shadow=%p model=%s type=%d dynamic=%d visible=%d lightMoved=%d objMoved=%d pos=(%.1f,%.1f,%.1f) lastPos=(%.1f,%.1f,%.1f)",
+			MacProbeFrameNumber(), this, m_robj->Get_Name(), (int)m_type, (int)((m_flags & SHADOW_DYNAMIC_PROJECTION) != 0),
+			(int)m_robj->Is_Really_Visible(), (int)(m_shadowTexture[0]->getLightPosHistory() != probeLight),
+			(int)(m_lastObjPosition != probePos), probePos.X, probePos.Y, probePos.Z, m_lastObjPosition.X, m_lastObjPosition.Y,
+			m_lastObjPosition.Z));
+	}
+	if ((m_flags & SHADOW_DYNAMIC_PROJECTION) && m_robj->Is_Really_Visible())
+	{
+		updateTexture(TheW3DShadowManager->getLightPosWorld(0));
+		setObjPosHistory(m_robj->Get_Position());
+		return;
+	}
+#endif
 	if (m_shadowTexture[0]->getLightPosHistory() != TheW3DShadowManager->getLightPosWorld(0))
 	{	//light has moved since last time this shadow was calculated. Need update
 		updateTexture(TheW3DShadowManager->getLightPosWorld(0));

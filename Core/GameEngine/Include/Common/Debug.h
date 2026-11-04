@@ -273,6 +273,14 @@ public:
 	bool MacDebugLogEnabled();
 	void MacDebugLogWrite(const char* tag, const char* fmt, ...);
 
+	typedef void (*MacTextureProbeHook)(void* texture, const char* label);
+	void MacTextureProbeSetHook(MacTextureProbeHook hook);
+	void MacTextureProbe(void* texture, const char* label);
+	typedef int (*MacProbeFrameHook)();
+	void MacProbeFrameSetHook(MacProbeFrameHook hook);
+	int MacProbeFrameNumber();
+	bool MacShadowProbeFrame();
+
 	#define MAC_LOG_ARGS(...) __VA_ARGS__
 	#define MAC_LOG_TAG(tag, m) do { \
 		if (MacDebugLogEnabled()) MacDebugLogWrite(tag, MAC_LOG_ARGS m); \
