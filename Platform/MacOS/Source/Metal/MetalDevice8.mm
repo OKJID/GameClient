@@ -743,7 +743,7 @@ uint64_t MetalDevice8::BuildPSOKey(DWORD fvf, UINT stride) {
   if (m_RTTColorTexture && !m_RTTColorHasAlpha) {
     cwMask &= 0x7;
   }
-
+  
   key |= (uint64_t)(blendEn) << 32;
   key |= (uint64_t)(srcBlend) << 33;
   key |= (uint64_t)(dstBlend) << 38;
