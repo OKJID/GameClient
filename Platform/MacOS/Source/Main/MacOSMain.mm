@@ -91,6 +91,25 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
 extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
 extern "C" void MacOS_DiscardPendingMouseDown();
 
+// ── Content view ──
+
+@interface GeneralsContentView : NSView
+@end
+
+@implementation GeneralsContentView
+
+- (MacBOOL)acceptsFirstResponder {
+    return YES;
+}
+
+- (void)keyDown:(NSEvent*)event {
+}
+
+- (void)keyUp:(NSEvent*)event {
+}
+
+@end
+
 // ── NSApplication delegate ──
 
 @interface GeneralsAppDelegate : NSObject<NSApplicationDelegate, NSWindowDelegate>
@@ -250,6 +269,8 @@ extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes);
                                     styleMask:style
                                     backing:NSBackingStoreBuffered
                                     defer:NO];
+    [self.window setContentView:[[GeneralsContentView alloc] initWithFrame:frame]];
+    [self.window makeFirstResponder:self.window.contentView];
     [self.window setCollectionBehavior:NSWindowCollectionBehaviorFullScreenNone];
     [self.window setContentMinSize:NSMakeSize(DEFAULT_DISPLAY_WIDTH, DEFAULT_DISPLAY_HEIGHT)];
     [self.window setTitle:@"Command and Conquer Generals"];
