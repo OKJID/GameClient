@@ -95,14 +95,12 @@ class AssetPatcher: ObservableObject {
 
         for file in Self.conflictingEAFiles {
             let zhPath = zhDir.appendingPathComponent(file)
-            if fm.fileExists(atPath: zhPath.path) {
-                try? fm.removeItem(at: zhPath)
+            if (try? fm.removeItem(at: zhPath)) != nil {
                 appendLog("[*] Removed conflicting file: \(file)\n")
             }
 
             let rootPath = rootDir.appendingPathComponent(file)
-            if fm.fileExists(atPath: rootPath.path) {
-                try? fm.removeItem(at: rootPath)
+            if (try? fm.removeItem(at: rootPath)) != nil {
                 appendLog("[*] Removed conflicting file from root: \(file)\n")
             }
         }

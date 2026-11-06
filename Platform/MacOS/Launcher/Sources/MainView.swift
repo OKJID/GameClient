@@ -885,14 +885,23 @@ struct MainView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
                 .buttonStyle(PlainButtonStyle())
-                .disabled(viewModel.assetPatcher.state.isRunning || viewModel.modInstaller.isBusy)
+                .disabled(viewModel.assetPatcher.state.isRunning || viewModel.modInstaller.isBusy
+                          || viewModel.resourceCopier.state.isRunning)
             }
 
             if !viewModel.installPath.isEmpty && !viewModel.isPathValid {
                 _buildLocalValidationWarning()
             }
 
-            if viewModel.assetPatcher.state.isRunning || viewModel.assetPatcher.state == .completed {
+            if viewModel.needsResourceCopy {
+                _buildReadOnlyInstallNotice()
+            }
+
+            if viewModel.resourceCopier.state == .completed && viewModel.needsPatching {
+                _buildResourceCopiedNote()
+            }
+
+            if viewModel.assetPatcher.state != .idle {
                 _buildPatchConsole()
                 _buildPatchStatus()
             }
@@ -923,6 +932,61 @@ struct MainView: View {
         .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.red.opacity(0.3), lineWidth: 1))
     }
 
+    private func _buildReadOnlyInstallNotice() -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .foregroundColor(.orange)
+                    .font(.system(size: 14))
+
+                Text(L10n.local.readOnlyTitle)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundColor(.orange)
+            }
+
+            Text(String(
+                format: L10n.local.readOnlyMsg,
+                L10n.local.copyButtonInline, ResourceCopier.destinationRoot.path, L10n.action.patch, L10n.local.locate
+            ))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+
+            if case .failed(let reason) = viewModel.resourceCopier.state {
+                _buildResourceCopyFailure(reason)
+            }
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.orange.opacity(0.3), lineWidth: 1))
+    }
+
+    private func _buildResourceCopyFailure(_ reason: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(String(format: L10n.local.copyFailed, reason))
+                .foregroundColor(.red.opacity(0.85))
+
+            Text(viewModel.manualCopyHint)
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .font(.system(size: 11, weight: .medium, design: .monospaced))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func _buildResourceCopiedNote() -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundColor(neonGreen)
+                .font(.system(size: 14))
+
+            Text(String(format: L10n.local.copyDone, viewModel.installPath))
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     // MARK: - Bottom Action
 
     @ViewBuilder
@@ -938,9 +1002,17 @@ struct MainView: View {
                 GuideHintButton(anchor: GuideAnchor.launch)
             }
         } else if viewModel.assetPatcher.state.isRunning {
-            _buildPatchingProgressButton()
+            _buildProgressButton(viewModel.assetPatcher.state.statusText)
+        } else if viewModel.resourceCopier.state.isRunning {
+            _buildProgressButton(viewModel.resourceCopier.state.progressText)
+        } else if viewModel.needsResourceCopy {
+            _buildOrangeActionButton(icon: "doc.on.doc.fill", title: L10n.local.copyButton, fontSize: 16) {
+                viewModel.copyGameResources()
+            }
         } else if viewModel.needsPatching {
-            _buildPatchButton()
+            _buildOrangeActionButton(icon: "arrow.down.doc.fill", title: L10n.action.patch) {
+                viewModel.requestPatching()
+            }
         } else {
             _buildTargetRequiredHint()
         }
@@ -1248,13 +1320,19 @@ struct MainView: View {
 
     // MARK: - Patch Actions (Local Archive)
 
-    private func _buildPatchButton() -> some View {
-        Button(action: { viewModel.requestPatching() }) {
+    private func _buildOrangeActionButton(
+        icon: String,
+        title: String,
+        fontSize: CGFloat = 24,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: "arrow.down.doc.fill")
-                Text(L10n.action.patch)
+                Image(systemName: icon)
+                Text(title)
+                    .multilineTextAlignment(.center)
             }
-            .font(.system(size: 24, weight: .bold, design: .monospaced))
+            .font(.system(size: fontSize, weight: .bold, design: .monospaced))
             .foregroundColor(.white)
             .padding(.horizontal, 50)
             .padding(.vertical, 14)
@@ -1272,12 +1350,12 @@ struct MainView: View {
         .buttonStyle(PlainButtonStyle())
     }
 
-    private func _buildPatchingProgressButton() -> some View {
+    private func _buildProgressButton(_ text: String) -> some View {
         HStack(spacing: 10) {
             ProgressView()
                 .scaleEffect(0.7)
                 .progressViewStyle(CircularProgressViewStyle(tint: .orange))
-            Text(viewModel.assetPatcher.state.statusText)
+            Text(text)
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundColor(.orange.opacity(0.8))
         }

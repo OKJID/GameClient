@@ -163,6 +163,7 @@ class LauncherViewModel: ObservableObject {
 
     var steamCMD = SteamCMDManager()
     var assetPatcher = AssetPatcher()
+    var resourceCopier = ResourceCopier()
     var modInstaller = ModInstaller()
     var localeInstaller = LocaleInstaller()
     var hotkeyPresetInstaller = HotkeyPresetInstaller()
@@ -194,6 +195,7 @@ class LauncherViewModel: ObservableObject {
     private var baseReadyCache: [GameID: Bool] = [:]
     private var modStatusCache: [GameID: ModStatus] = [:]
     private var pathValidCache: Bool?
+    private var readOnlyInstallCache: Bool?
     private var steamAssetsValidCache: Bool?
 
     init() {
@@ -202,6 +204,10 @@ class LauncherViewModel: ObservableObject {
         }.store(in: &cancellables)
 
         assetPatcher.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
+        resourceCopier.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &cancellables)
 
@@ -524,6 +530,16 @@ class LauncherViewModel: ObservableObject {
         return valid
     }
 
+    var isInstallReadOnly: Bool {
+        guard activeTab == .local, isPathValid, let root = installRootURL else { return false }
+        if let cached = readOnlyInstallCache { return cached }
+
+        let directories = [root] + patchTargets.map(\.directory)
+        let readOnly = directories.contains { !FileManager.default.isWritableFile(atPath: $0.path) }
+        readOnlyInstallCache = readOnly
+        return readOnly
+    }
+
     // MARK: - Validation cache
 
     private func invalidateValidation() {
@@ -539,6 +555,7 @@ class LauncherViewModel: ObservableObject {
         baseReadyCache.removeAll()
         modStatusCache.removeAll()
         pathValidCache = nil
+        readOnlyInstallCache = nil
         steamAssetsValidCache = nil
     }
 
@@ -770,6 +787,15 @@ class LauncherViewModel: ObservableObject {
         }
     }
 
+    var needsResourceCopy: Bool {
+        needsPatching && isInstallReadOnly
+    }
+
+    var manualCopyHint: String {
+        let folderNames = patchTargets.map(\.directory.lastPathComponent).joined(separator: ", ")
+        return String(format: L10n.local.copyManually, folderNames, installPath)
+    }
+
     var canLaunch: Bool {
         guard !modInstaller.isBusy, !localeInstaller.isBusy else { return false }
 
@@ -786,6 +812,7 @@ class LauncherViewModel: ObservableObject {
 
     var hasRunningJobs: Bool {
         modInstaller.isBusy || localeInstaller.isBusy || assetPatcher.state.isRunning || steamCMD.state.isRunning
+            || resourceCopier.state.isRunning
     }
 
     func canInstallInPlace(_ update: AppUpdate) -> Bool {
@@ -825,7 +852,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func chooseFolder() {
-        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy, !resourceCopier.state.isRunning else { return }
 
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
@@ -835,6 +862,7 @@ class LauncherViewModel: ObservableObject {
 
         if panel.runModal() == .OK, let url = panel.url {
             Analytics.logFolderChosen(isValid: _validateGameFolder(at: url))
+            resourceCopier.reset()
 
             DispatchQueue.main.async {
                 self.installPath = url.path
@@ -845,7 +873,7 @@ class LauncherViewModel: ObservableObject {
     }
 
     func requestPatching() {
-        guard !modInstaller.isBusy, !localeInstaller.isBusy else { return }
+        guard !modInstaller.isBusy, !localeInstaller.isBusy, !needsResourceCopy else { return }
 
         switch activeTab {
         case .steam:
@@ -867,6 +895,25 @@ class LauncherViewModel: ObservableObject {
         }
 
         assetPatcher.startPatching(rootDir: rootDir, targets: patchTargets)
+    }
+
+    func copyGameResources() {
+        guard needsResourceCopy, !hasRunningJobs else { return }
+
+        let destination = ResourceCopier.destinationRoot
+        if _validateGameFolder(at: destination) {
+            useInstallPath(destination)
+            return
+        }
+
+        resourceCopier.copy(patchTargets.map(\.directory), to: destination) { [weak self] copied in
+            self?.useInstallPath(copied)
+        }
+    }
+
+    private func useInstallPath(_ url: URL) {
+        installPath = url.path
+        UserDefaults.standard.set(installPath, forKey: "GENERALS_INSTALL_PATH")
     }
 
     func launchGame() {
