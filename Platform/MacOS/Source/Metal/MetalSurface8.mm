@@ -30,6 +30,20 @@ MetalSurface8::~MetalSurface8() {
   }
 }
 
+void MetalSurface8::ResizeScreenSurface(UINT w, UINT h) {
+  if (m_Width == w && m_Height == h) {
+    return;
+  }
+
+  if (m_LockedData) {
+    free(m_LockedData);
+    m_LockedData = nullptr;
+  }
+  m_LockedPitch = 0;
+  m_Width = w;
+  m_Height = h;
+}
+
 // IUnknown
 STDMETHODIMP MetalSurface8::QueryInterface(REFIID riid, void **ppvObj) {
   if (!ppvObj)

@@ -3603,19 +3603,18 @@ void MetalDevice8::updateScreenSize(int width, int height) {
   vp.MaxZ = 1.0f;
   SetViewport(&vp);
 
-  // Recreate default surfaces at new size
   if (m_DefaultRTSurface) {
-    m_DefaultRTSurface->Release();
-    m_DefaultRTSurface = nullptr;
+    m_DefaultRTSurface->ResizeScreenSurface((UINT)width, (UINT)height);
+  } else {
+    m_DefaultRTSurface = W3DNEW MetalSurface8(this, MetalSurface8::kColor,
+                                              (UINT)width, (UINT)height, D3DFMT_A8R8G8B8);
   }
   if (m_DefaultDepthSurface) {
-    m_DefaultDepthSurface->Release();
-    m_DefaultDepthSurface = nullptr;
+    m_DefaultDepthSurface->ResizeScreenSurface((UINT)width, (UINT)height);
+  } else {
+    m_DefaultDepthSurface = W3DNEW MetalSurface8(this, MetalSurface8::kDepth,
+                                                 (UINT)width, (UINT)height, D3DFMT_D24S8);
   }
-  m_DefaultRTSurface = W3DNEW MetalSurface8(this, MetalSurface8::kColor,
-                                            (UINT)width, (UINT)height, D3DFMT_A8R8G8B8);
-  m_DefaultDepthSurface = W3DNEW MetalSurface8(this, MetalSurface8::kDepth,
-                                               (UINT)width, (UINT)height, D3DFMT_D24S8);
 
   DEBUG_RENDERING_MAC(("updateScreenSize: completed %dx%d", width, height));
 }
