@@ -580,29 +580,9 @@ void GameInfo::setMap( AsciiString mapName )
 				fp = nullptr;
 			}
 
-			AsciiString newMapName;
-			if (!mapName.isEmpty())
-			{
-				AsciiString token;
-				mapName.nextToken(&token, "\\/");
-				// add all the tokens except the last one.
-				// that way we don't add the filename, just the
-				// directory name, we can do this since the filename
-				// is just the directory name with the file extention
-				// added onto it.
-				while (mapName.find('\\') != nullptr)
-				{
-					if (!newMapName.isEmpty())
-					{
-						newMapName.concat('/');
-					}
-					newMapName.concat(token);
-					mapName.nextToken(&token, "\\/");
-				}
-			}
-			newMapName.concat("/map.ini");
-			DEBUG_LOG(("GameInfo::setMap() - Looking for '%s'", newMapName.str()));
-			fp = TheFileSystem->openFile(newMapName.str());
+			path = GetINIFromMap(m_mapName);
+			DEBUG_LOG(("GameInfo::setMap() - Looking for '%s'", path.str()));
+			fp = TheFileSystem->openFile(path.str());
 			if (fp)
 			{
 				m_mapMask |= 4;
