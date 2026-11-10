@@ -36,6 +36,7 @@
 #include "Common/GameMemory.h"
 #include "Common/Debug.h"
 #include "Common/INI.h"
+#include "Common/MessageStream.h"
 #include "Common/System/NativeFileSystem.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
@@ -85,6 +86,32 @@ static void observeSystemSleep() {
     }];
 }
 
+static void installApplicationMenu() {
+    NSMenu* menuBar = [[NSMenu alloc] init];
+    NSMenuItem* appMenuItem = [[NSMenuItem alloc] init];
+    [menuBar addItem:appMenuItem];
+
+    NSMenu* appMenu = [[NSMenu alloc] init];
+    NSString* quitTitle = [@"Quit " stringByAppendingString:[[NSProcessInfo processInfo] processName]];
+    [appMenu addItemWithTitle:quitTitle action:@selector(terminate:) keyEquivalent:@"q"];
+    [appMenuItem setSubmenu:appMenu];
+
+    [NSApp setMainMenu:menuBar];
+}
+
+static void requestGameQuit() {
+    if (!TheGameEngine || TheGameEngine->getQuitting()) {
+        return;
+    }
+
+    if (TheMessageStream && TheMessageStream->isReadyForMessages()) {
+        TheMessageStream->appendMessage(GameMessage::MSG_META_DEMO_INSTANT_QUIT);
+        return;
+    }
+
+    TheGameEngine->setQuitting(TRUE);
+}
+
 // ── External engine bridges ──
 
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
@@ -119,6 +146,7 @@ extern "C" void MacOS_DiscardPendingMouseDown();
 @implementation GeneralsAppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification*)notification {
+    installApplicationMenu();
     dispatch_async(dispatch_get_main_queue(), ^{
         [self runGame];
     });
@@ -352,6 +380,20 @@ extern "C" void MacOS_DismissSplash() {
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)app {
     return YES;
+}
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication*)sender {
+    if (!TheGameEngine) {
+        return NSTerminateNow;
+    }
+
+    requestGameQuit();
+    return NSTerminateCancel;
+}
+
+- (MacBOOL)windowShouldClose:(NSWindow*)sender {
+    requestGameQuit();
+    return NO;
 }
 
 extern "C" bool MacOS_ToggleFullscreen();
