@@ -616,7 +616,7 @@ bool DX8Wrapper::Toggle_Windowed() {
 		s_windowedWidth = ResolutionWidth;
 		s_windowedHeight = ResolutionHeight;
 
-		NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+		NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar | NSApplicationPresentationDisableProcessSwitching;
 		[win setStyleMask:NSWindowStyleMaskBorderless];
 		
 		NSScreen* screen = [win screen] ?: [NSScreen mainScreen];

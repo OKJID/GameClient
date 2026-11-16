@@ -396,11 +396,11 @@ extern "C" void MacOS_DismissSplash() {
     return NO;
 }
 
-extern "C" bool MacOS_ToggleFullscreen();
+extern "C" void MacOS_ToggleFullscreenWithHint();
 
 - (BOOL)windowShouldZoom:(NSWindow *)window toFrame:(NSRect)newFrame {
     // Intercept green "zoom" button to trigger borderless fullscreen
-    MacOS_ToggleFullscreen();
+    MacOS_ToggleFullscreenWithHint();
     return NO; // Prevent default macOS zoom
 }
 

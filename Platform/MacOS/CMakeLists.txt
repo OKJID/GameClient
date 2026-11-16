@@ -333,6 +333,7 @@ function(macos_platform_add_game_glue target)
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyImport.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyText.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSPngWriter.mm
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSRichMessageBox.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSMouse.mm
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
     )
@@ -355,6 +356,7 @@ function(macos_platform_add_game_glue target)
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyExport.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyImport.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSHotkeyText.cpp
+        ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Main/MacOSRichMessageBox.cpp
         ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Source/Input/MacOSGameClientFactory.cpp
         PROPERTIES
             SKIP_PRECOMPILE_HEADERS ON

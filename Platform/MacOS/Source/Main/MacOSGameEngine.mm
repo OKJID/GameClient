@@ -42,6 +42,8 @@ extern MacOSMouse *TheMacOSMouse;
 #include "Common/GlobalData.h"
 #include "Common/System/NativeFileSystem.h"
 #include "GameClient/Display.h"
+#include "GameClient/GameText.h"
+#include "MacOSRichMessageBox.h"
 
 extern HWND ApplicationHWnd;
 
@@ -61,6 +63,7 @@ extern HWND ApplicationHWnd;
 #include "../Audio/MacOSAudioManager.h"
 
 extern DWORD TheMessageTime;
+extern "C" bool MacOS_ToggleFullscreen();
 
 static const char* GameModeName(GameMode mode)
 {
@@ -371,6 +374,97 @@ static bool IsInsideContentView(NSEvent* event)
 	return NSPointInRect(location, contentView.bounds);
 }
 
+class FullscreenExitHint
+{
+public:
+	void show()
+	{
+		close();
+
+		if (TheDisplay == nullptr || TheDisplay->getWindowed() || TheGameText == nullptr) {
+			return;
+		}
+
+		m_box.show(
+			TheGameText->fetchOrSubstitute("GUI:MacFullscreenHintTitle", L"Full Screen"),
+			TheGameText->fetchOrSubstitute("GUI:MacFullscreenHintBody",
+				L"To return to windowed mode, press\n"
+				L"{gold}**Control + Command + F**{/}  (⌃⌘F)\n\n"
+				L"**Command + Tab** (⌘⇥) does not work in full screen mode."));
+	}
+
+	void close()
+	{
+		m_box.close();
+	}
+
+private:
+	MacOSRichMessageBox m_box;
+};
+
+static FullscreenExitHint s_fullscreenExitHint;
+
+extern "C" void MacOS_ToggleFullscreenWithHint()
+{
+	if (TheDisplay == nullptr) {
+		return;
+	}
+
+	s_fullscreenExitHint.close();
+	MacOS_ToggleFullscreen();
+	s_fullscreenExitHint.show();
+}
+
+class FullscreenShortcut
+{
+public:
+	bool consume(NSEvent* event)
+	{
+		const NSEventType type = [event type];
+		if (type != NSEventTypeKeyDown && type != NSEventTypeKeyUp) {
+			return false;
+		}
+
+		if ([event keyCode] != FKeyCode) {
+			return false;
+		}
+
+		if (type == NSEventTypeKeyUp) {
+			return releaseHeldKey();
+		}
+
+		if (!hasShortcutModifiers([event modifierFlags])) {
+			return false;
+		}
+
+		m_isKeyHeld = true;
+		if (![event isARepeat]) {
+			MacOS_ToggleFullscreenWithHint();
+		}
+		return true;
+	}
+
+private:
+	bool releaseHeldKey()
+	{
+		const bool wasHeld = m_isKeyHeld;
+		m_isKeyHeld = false;
+		return wasHeld;
+	}
+
+	static bool hasShortcutModifiers(NSEventModifierFlags flags)
+	{
+		const NSEventModifierFlags shortcutFlags = NSEventModifierFlagControl | NSEventModifierFlagCommand;
+		const NSEventModifierFlags consideredFlags = shortcutFlags | NSEventModifierFlagOption | NSEventModifierFlagShift;
+		return (flags & consideredFlags) == shortcutFlags;
+	}
+
+	static const unsigned short FKeyCode = 3;
+	bool m_isKeyHeld = false;
+};
+
+static FullscreenShortcut s_fullscreenShortcut;
+
 // ── serviceWindowsOS() mirrors Win32GameEngine lines 140-175 ──
 // NSEvent polling replaces PeekMessage/GetMessage/DispatchMessage
 
@@ -389,6 +483,9 @@ void MacOSGameEngine::serviceWindowsOS()
 			unsigned int timeMs = timeGetTime();
 			TheMessageTime = timeMs;
 			NSEventType type = [event type];
+			if (s_fullscreenShortcut.consume(event)) {
+				continue;
+			}
 			
 			if (type == NSEventTypeKeyDown || type == NSEventTypeKeyUp) {
 				if (TheMacOSKeyboard) {
