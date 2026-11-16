@@ -1413,7 +1413,8 @@ FontCharsClass::Store_GDI_Char (WCHAR ch)
 	}
 
     CGContextRef context = (CGContextRef)MemDC;
-    CTFontRef ctFont = (CTFontRef)GDIFont;
+    const bool drawsWithUnicodeFont = ch >= 256 && AlternateUnicodeFont != nullptr && AlternateUnicodeFont != this && AlternateUnicodeFont->GDIFont != nullptr;
+    CTFontRef ctFont = (CTFontRef)(drawsWithUnicodeFont ? AlternateUnicodeFont->GDIFont : GDIFont);
 
     CGContextClearRect(context, CGRectMake(0, 0, width, height));
     CGContextSetGrayFillColor(context, 1.0, 1.0);
