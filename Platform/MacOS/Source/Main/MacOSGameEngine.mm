@@ -41,14 +41,18 @@ extern MacOSMouse *TheMacOSMouse;
 #include "GameLogic/GameLogic.h"
 #include "Common/GlobalData.h"
 #include "Common/System/NativeFileSystem.h"
+#include "GameClient/Display.h"
 
 extern HWND ApplicationHWnd;
 
 #include "../System/MacOSLocalFileSystem.h"
+#include "../Utils/MacDebug.h"
 #include "StdDevice/Common/StdBIGFileSystem.h"
 #include <unistd.h>
 #include <strings.h>
 #include <cerrno>
+#include <algorithm>
+#include <mach/mach.h>
 
 #include "GameNetwork/LANAPICallbacks.h"
 #if defined(RTS_ZEROHOUR)
@@ -124,6 +128,175 @@ private:
 
 static GameStateTrail s_gameStateTrail;
 
+static const char* ThermalStateName(NSProcessInfoThermalState state)
+{
+	switch (state) {
+		case NSProcessInfoThermalStateNominal: return "nominal";
+		case NSProcessInfoThermalStateFair: return "fair";
+		case NSProcessInfoThermalStateSerious: return "serious";
+		case NSProcessInfoThermalStateCritical: return "critical";
+	}
+	return "unknown";
+}
+
+static unsigned long long PhysicalFootprintMB()
+{
+	task_vm_info_data_t info;
+	mach_msg_type_number_t count = TASK_VM_INFO_COUNT;
+	if (task_info(mach_task_self(), TASK_VM_INFO, (task_info_t)&info, &count) != KERN_SUCCESS) {
+		return 0;
+	}
+
+	return info.phys_footprint / (1024 * 1024);
+}
+
+class FramePaceTrail
+{
+public:
+	void update()
+	{
+		const double now = CACurrentMediaTime();
+		if (m_minuteStart == 0.0) {
+			startMinute(now);
+			return;
+		}
+
+		recordFrame(now);
+
+		if (now - m_secondStart >= 1.0) {
+			closeSecond(now);
+		}
+
+		if (now - m_minuteStart >= 60.0) {
+			logMinute(now);
+			startMinute(now);
+		}
+	}
+
+private:
+	void startMinute(double now)
+	{
+		m_minuteStart = now;
+		m_secondStart = now;
+		m_lastFrame = now;
+		m_framesThisSecond = 0;
+		m_framesThisMinute = 0;
+		m_minSecondFps = -1.0;
+		m_maxFrameSeconds = 0.0;
+		m_logicFrameAtMinuteStart = currentLogicFrame();
+	}
+
+	void recordFrame(double now)
+	{
+		m_maxFrameSeconds = std::max(m_maxFrameSeconds, now - m_lastFrame);
+		m_lastFrame = now;
+		++m_framesThisSecond;
+		++m_framesThisMinute;
+	}
+
+	void closeSecond(double now)
+	{
+		const double secondFps = m_framesThisSecond / (now - m_secondStart);
+		if (m_minSecondFps < 0.0 || secondFps < m_minSecondFps) {
+			m_minSecondFps = secondFps;
+		}
+
+		m_framesThisSecond = 0;
+		m_secondStart = now;
+		logThermalChange();
+		logDisplayChange();
+	}
+
+	void logMinute(double now)
+	{
+		NSProcessInfo* processInfo = [NSProcessInfo processInfo];
+		DEBUG_PERF_MAC(("minute fps avg=%.1f min1s=%.1f maxFrameMs=%.1f logicFrames=%u thermal=%s lowPower=%d footprintMB=%llu mode=%s",
+			m_framesThisMinute / (now - m_minuteStart),
+			m_minSecondFps,
+			m_maxFrameSeconds * 1000.0,
+			logicFramesThisMinute(),
+			ThermalStateName(processInfo.thermalState),
+			processInfo.isLowPowerModeEnabled ? 1 : 0,
+			PhysicalFootprintMB(),
+			TheGameLogic != nullptr ? GameModeName(TheGameLogic->getGameMode()) : "none"));
+	}
+
+	void logThermalChange()
+	{
+		NSProcessInfo* processInfo = [NSProcessInfo processInfo];
+		const NSProcessInfoThermalState state = processInfo.thermalState;
+		if (state == m_thermalState) {
+			return;
+		}
+
+		m_thermalState = state;
+		DEBUG_PERF_MAC(("thermal=%s lowPower=%d logicFrame=%u",
+			ThermalStateName(state),
+			processInfo.isLowPowerModeEnabled ? 1 : 0,
+			currentLogicFrame()));
+	}
+
+	void logDisplayChange()
+	{
+		char description[256];
+		describeDisplay(description, sizeof(description));
+		if (m_display == description) {
+			return;
+		}
+
+		m_display = description;
+		DEBUG_PERF_MAC(("display %s", description));
+	}
+
+	static void describeDisplay(char* buffer, size_t size)
+	{
+		NSWindow* window = (__bridge NSWindow*)ApplicationHWnd;
+		NSScreen* screen = window != nil ? window.screen : nil;
+		if (screen == nil || TheDisplay == nullptr) {
+			snprintf(buffer, size, "(none)");
+			return;
+		}
+
+		snprintf(buffer, size, "screen=\"%s\" points=%.0fx%.0f scale=%.0f maxHz=%ld render=%dx%d windowed=%d",
+			screen.localizedName.UTF8String,
+			screen.frame.size.width,
+			screen.frame.size.height,
+			screen.backingScaleFactor,
+			(long)screen.maximumFramesPerSecond,
+			TheDisplay->getWidth(),
+			TheDisplay->getHeight(),
+			TheDisplay->getWindowed() ? 1 : 0);
+	}
+
+	UnsignedInt logicFramesThisMinute() const
+	{
+		const UnsignedInt frame = currentLogicFrame();
+		if (frame < m_logicFrameAtMinuteStart) {
+			return frame;
+		}
+
+		return frame - m_logicFrameAtMinuteStart;
+	}
+
+	static UnsignedInt currentLogicFrame()
+	{
+		return TheGameLogic != nullptr ? TheGameLogic->getFrame() : 0;
+	}
+
+	double m_minuteStart = 0.0;
+	double m_secondStart = 0.0;
+	double m_lastFrame = 0.0;
+	double m_minSecondFps = -1.0;
+	double m_maxFrameSeconds = 0.0;
+	int m_framesThisSecond = 0;
+	int m_framesThisMinute = 0;
+	UnsignedInt m_logicFrameAtMinuteStart = 0;
+	NSProcessInfoThermalState m_thermalState = (NSProcessInfoThermalState)-1;
+	std::string m_display;
+};
+
+static FramePaceTrail s_framePaceTrail;
+
 // ── Constructor/Destructor (mirrors Win32GameEngine) ──
 
 MacOSGameEngine::MacOSGameEngine()
@@ -182,6 +355,7 @@ void MacOSGameEngine::update()
 		serviceWindowsOS();
 		GameEngine::update();
 		s_gameStateTrail.update();
+		s_framePaceTrail.update();
 	}
 }
 
