@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Combine
 import Security
 
 enum SteamCMDState: Equatable {
@@ -65,6 +66,11 @@ struct SteamCredentials {
     let password: String
 }
 
+enum SteamLoginOutcome {
+    case accepted(SteamCredentials)
+    case rejected(SteamCredentials)
+}
+
 class SteamCMDManager: ObservableObject {
     @Published var state: SteamCMDState = .idle
     @Published var consoleLog: String = ""
@@ -74,6 +80,8 @@ class SteamCMDManager: ObservableObject {
 
     var lastUsername: String = ""
 
+    let loginOutcome = PassthroughSubject<SteamLoginOutcome, Never>()
+
     static let appID = "2732960"
 
     private var process: Process?
@@ -81,6 +89,7 @@ class SteamCMDManager: ObservableObject {
     private var downloadObservation: NSKeyValueObservation?
     private var startedAt: Date?
     private var pendingCredentials: SteamCredentials?
+    private var credentialsAwaitingVerdict: SteamCredentials?
 
     private var elapsedSeconds: Double {
         guard let startedAt else { return 0 }
@@ -178,25 +187,27 @@ class SteamCMDManager: ObservableObject {
     func startDownload(username: String, password: String) {
         guard !state.isRunning else { return }
 
+        let accountName = username.trimmingCharacters(in: .whitespacesAndNewlines)
+
         consoleLog = ""
-        lastUsername = username
+        lastUsername = accountName
         startedAt = Date()
         Analytics.logSteamDownloadStarted(needsSteamCMD: !isSteamCMDInstalled)
 
         if RosettaInstaller.isRequired(toRun: steamCMDBinary) {
-            requestRosetta(username: username, password: password)
+            requestRosetta(username: accountName, password: password)
             return
         }
 
         if !isSteamCMDInstalled {
             installSteamCMD { [weak self] success in
                 guard let self, success else { return }
-                self.runSteamCMD(username: username, password: password)
+                self.runSteamCMD(username: accountName, password: password)
             }
             return
         }
 
-        runSteamCMD(username: username, password: password)
+        runSteamCMD(username: accountName, password: password)
     }
 
     // MARK: - Rosetta
@@ -337,7 +348,10 @@ class SteamCMDManager: ObservableObject {
     // MARK: - SteamCMD Execution
 
     private func runSteamCMD(username: String, password: String) {
-        DispatchQueue.main.async { self.state = .authenticating }
+        DispatchQueue.main.async {
+            self.state = .authenticating
+            self.credentialsAwaitingVerdict = SteamCredentials(username: username, password: password)
+        }
         appendLog("[*] Launching SteamCMD...\n")
 
         do {
@@ -392,6 +406,7 @@ class SteamCMDManager: ObservableObject {
                 self.inputPipe = nil
 
                 if proc.terminationStatus == 0 {
+                    self.settleLogin(SteamLoginOutcome.accepted)
                     self.appendLog("\n[✓] Vanilla download completed successfully!\n")
                     self.reorganizeAssets()
                     self.cleanEAPatchFiles()
@@ -450,6 +465,7 @@ class SteamCMDManager: ObservableObject {
         }
 
         if lower.contains("update state") {
+            settleLogin(SteamLoginOutcome.accepted)
             let lines = text.components(separatedBy: "\n")
             for line in lines where line.lowercased().contains("update state") {
                 let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -459,14 +475,41 @@ class SteamCMDManager: ObservableObject {
         }
 
         if lower.contains("validating") {
+            settleLogin(SteamLoginOutcome.accepted)
             DispatchQueue.main.async { self.state = .validating }
             return
         }
 
-        if lower.contains("login failure") || lower.contains("invalid password") {
-            fail("Authentication failed — check credentials")
-            process?.terminate()
+        abortOnLoginFailure(lower)
+    }
+
+    private func abortOnLoginFailure(_ lower: String) {
+        if lower.contains("rate limit exceeded") {
+            abortLogin("Too many login attempts — Steam paused logins for a while, try again later")
             return
+        }
+
+        if lower.contains("invalid password") {
+            settleLogin(SteamLoginOutcome.rejected)
+            abortLogin("Steam rejected the password — sign in with your Steam account name, not email")
+            return
+        }
+
+        if lower.contains("login failure") {
+            abortLogin("Authentication failed — check credentials")
+        }
+    }
+
+    private func abortLogin(_ message: String) {
+        fail(message)
+        process?.terminate()
+    }
+
+    private func settleLogin(_ outcome: @escaping (SteamCredentials) -> SteamLoginOutcome) {
+        DispatchQueue.main.async {
+            guard let credentials = self.credentialsAwaitingVerdict else { return }
+            self.credentialsAwaitingVerdict = nil
+            self.loginOutcome.send(outcome(credentials))
         }
     }
 

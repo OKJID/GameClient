@@ -294,6 +294,12 @@ class LauncherViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        steamCMD.loginOutcome
+            .sink { [weak self] outcome in
+                self?.rememberSteamLogin(outcome)
+            }
+            .store(in: &cancellables)
+
         assetPatcher.$state
             .removeDuplicates()
             .sink { [weak self] state in
@@ -445,9 +451,22 @@ class LauncherViewModel: ObservableObject {
         storedPasswordAccount = nil
     }
 
-    func saveCredentials() {
-        guard !steamUsername.isEmpty, !steamPassword.isEmpty else { return }
-        KeychainHelper.save(account: steamUsername, password: steamPassword)
+    private func rememberSteamLogin(_ outcome: SteamLoginOutcome) {
+        switch outcome {
+        case .accepted(let credentials):
+            KeychainHelper.save(account: credentials.username, password: credentials.password)
+        case .rejected(let credentials):
+            forgetRejectedPassword(credentials)
+        }
+    }
+
+    private func forgetRejectedPassword(_ credentials: SteamCredentials) {
+        guard KeychainHelper.load(account: credentials.username) == credentials.password else { return }
+
+        KeychainHelper.delete(account: credentials.username)
+
+        guard storedPasswordAccount == credentials.username else { return }
+        storedPasswordAccount = nil
     }
 
     private func reportDiskAccessDenied() {

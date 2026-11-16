@@ -745,7 +745,6 @@ struct MainView: View {
             && !viewModel.modInstaller.isBusy
 
         Button(action: {
-            viewModel.saveCredentials()
             viewModel.steamCMD.startDownload(
                 username: viewModel.steamUsername,
                 password: viewModel.steamPassword
