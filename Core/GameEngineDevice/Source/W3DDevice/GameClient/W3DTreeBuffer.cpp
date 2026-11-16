@@ -92,9 +92,6 @@ enum
 #include "GameClient/GameClient.h"
 
 #ifdef __APPLE__
-#include "Common/ThingTemplate.h"
-#include "GameClient/Drawable.h"
-
 extern "C" void MacOS_CrashTrailMark(const char* text);
 #endif
 
@@ -120,16 +117,6 @@ static void markTreeTypeNotAddedMac(const char* reason, const W3DTreeDrawModuleD
 	AsciiString text;
 	text.format("tree type not added (%s): model '%s', texture '%s', types %d",
 		reason, data->m_modelName.str(), data->m_textureName.str(), numTreeTypes);
-	markTreeProbeMac(text);
-}
-
-static void markTreeTypeWithoutDataMac(Int treeNdx, Int treeType, Int numTreeTypes, Int numTrees, DrawableID treeDrawableID, const Object* unit)
-{
-	const Drawable* treeDrawable = TheGameClient->findDrawableByID(treeDrawableID);
-	const char* treeName = treeDrawable != nullptr ? treeDrawable->getTemplate()->getName().str() : "?";
-	AsciiString text;
-	text.format("tree %d of type %d has no data (types %d, trees %d), tree '%s', unit '%s'",
-		treeNdx, treeType, numTreeTypes, numTrees, treeName, unit->getTemplate()->getName().str());
 	markTreeProbeMac(text);
 }
 #endif
@@ -1174,11 +1161,6 @@ void W3DTreeBuffer::unitMoved(Object* unit)
 				delta.set(m_trees[treeNdx].location.X, m_trees[treeNdx].location.Y, m_trees[treeNdx].location.Z);
 				delta.sub(pos);
 				if (radius * radius > delta.lengthSqr()) {
-#ifdef __APPLE__
-					if (m_treeTypes[m_trees[treeNdx].treeType].m_data == nullptr) {
-						markTreeTypeWithoutDataMac(treeNdx, m_trees[treeNdx].treeType, m_numTreeTypes, m_numTrees, m_trees[treeNdx].drawableID, unit);
-					}
-#endif
 					bool canTopple = unit->getCrusherLevel() > 1;
 					if (canTopple && m_treeTypes[m_trees[treeNdx].treeType].m_data->m_doTopple) {
 						// Give a vector with direction to thing.
