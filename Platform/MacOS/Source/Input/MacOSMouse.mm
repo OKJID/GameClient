@@ -83,8 +83,25 @@ void MacOSMouse::confineCursorToWindow(void) {
     return;
   }
 
-  NSRect contentRect = [window contentRectForFrameRect:[window frame]];
+  NSRect frameRect = [window frame];
+  NSRect contentRect = [window contentRectForFrameRect:frameRect];
   NSPoint mousePos = [NSEvent mouseLocation];
+
+  // A left-button press on the title bar starts a native window drag. Warping the
+  // cursor into the content area during that drag drags the window down with it,
+  // so stand down until the button is released.
+  static bool s_titleBarDrag = false;
+  static bool s_leftWasDown = false;
+  const bool leftButtonDown = ([NSEvent pressedMouseButtons] & 1) != 0;
+  if (!leftButtonDown) {
+    s_titleBarDrag = false;
+  } else if (!s_leftWasDown && NSPointInRect(mousePos, frameRect) && !NSPointInRect(mousePos, contentRect)) {
+    s_titleBarDrag = true;
+  }
+  s_leftWasDown = leftButtonDown;
+  if (s_titleBarDrag) {
+    return;
+  }
 
   if (NSPointInRect(mousePos, contentRect)) {
     return;
