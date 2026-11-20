@@ -112,6 +112,20 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 
 		if (bDoRequest)
 		{
+#ifdef __APPLE__
+			if (requestPolicy == EStatsRequestPolicy::RESPECT_CACHE_ALLOW_REQUEST)
+			{
+				const bool bRequestInFlight = m_playerStatsRequestWaiters.contains(userID);
+				m_playerStatsRequestWaiters[userID].push_back(cb);
+				if (bRequestInFlight)
+				{
+					return;
+				}
+
+				cb = [this, userID](bool bFound, PSPlayerStats stats) { NotifyPlayerStatsRequestWaiters(userID, bFound, stats); };
+			}
+#endif
+
 			std::string strURI = std::format("{}/{}", NGMP_OnlineServicesManager::GetAPIEndpoint("PlayerStats"), userID);
 			const uint64_t cacheRevision = AdvancePlayerStatsCacheRevision(userID);
 
@@ -199,6 +213,14 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 								return;
 							}
 
+#ifdef __APPLE__
+							PSPlayerStats cachedStats;
+							if (!TryCachePlayerStats(stats, cacheRevision) && getPlayerStatsFromCache(userID, &cachedStats))
+							{
+								cb(true, cachedStats);
+								return;
+							}
+#else
 							if (!TryCachePlayerStats(stats, cacheRevision))
 							{
 								PSPlayerStats cachedStats;
@@ -206,6 +228,7 @@ void NGMP_OnlineServices_StatsInterface::findPlayerStatsByID(int64_t userID, std
 								cb(found, cachedStats);
 								return;
 							}
+#endif
 
 							cb(true, stats);
 						}
@@ -502,6 +525,25 @@ void NGMP_OnlineServices_StatsInterface::MarkPlayerStatsCacheStale(int64_t userI
 	entry.cacheRevision = ++m_nextStatsCacheRevision;
 	NetworkLog(ELogVerbosity::LOG_DEBUG, "[StatsCache] Marked stats stale for user %lld", userID);
 }
+
+#ifdef __APPLE__
+void NGMP_OnlineServices_StatsInterface::NotifyPlayerStatsRequestWaiters(int64_t userID, bool bFound, const PSPlayerStats& stats)
+{
+	auto waitersIt = m_playerStatsRequestWaiters.find(userID);
+	if (waitersIt == m_playerStatsRequestWaiters.end())
+	{
+		return;
+	}
+
+	const std::vector<std::function<void(bool, PSPlayerStats)>> waiters = std::move(waitersIt->second);
+	m_playerStatsRequestWaiters.erase(waitersIt);
+
+	for (const auto& waiter : waiters)
+	{
+		waiter(bFound, stats);
+	}
+}
+#endif
 
 void NGMP_OnlineServices_StatsInterface::UpdateMyStats(const PSPlayerStats& stats)
 {

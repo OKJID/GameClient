@@ -498,9 +498,15 @@ private:
 	uint64_t AdvancePlayerStatsUpdateRevision(int64_t userID);
 	bool TryCachePlayerStats(const PSPlayerStats& stats, uint64_t expectedRevision);
 	void MarkPlayerStatsCacheStale(int64_t userID);
+#ifdef __APPLE__
+	void NotifyPlayerStatsRequestWaiters(int64_t userID, bool bFound, const PSPlayerStats& stats);
+#endif
 
 private:
 	std::unordered_map<int64_t, PlayerStatsCacheEntry> m_playerStatsCache;
+#ifdef __APPLE__
+	std::unordered_map<int64_t, std::vector<std::function<void(bool, PSPlayerStats)>>> m_playerStatsRequestWaiters;
+#endif
 	uint64_t m_nextStatsCacheRevision = 0;
 	uint64_t m_nextStatsUpdateRevision = 0;
 	static constexpr std::chrono::minutes STATS_CACHE_TTL{ 10 };
