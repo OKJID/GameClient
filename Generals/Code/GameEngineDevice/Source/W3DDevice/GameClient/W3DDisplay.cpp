@@ -3213,6 +3213,7 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 		pref["Resolution"] = resStr;
 	}
 	pref["Windowed"] = isWindowed ? "yes" : "no";
+	pref["MacFullscreen"] = isWindowed ? "no" : "yes";
 	pref.write();
 }
 

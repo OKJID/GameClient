@@ -90,6 +90,7 @@ public:
 #ifdef __APPLE__
 	Real getMaxCameraHeight(Real iniHeight) const;
 	Bool getCommandAsControl() const;
+	Bool getMacFullscreen() const;
 #endif
 	Bool getSendDelay();
 	Int getFirewallBehavior();

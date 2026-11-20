@@ -43,6 +43,7 @@ extern MacOSMouse *TheMacOSMouse;
 #include "Common/System/NativeFileSystem.h"
 #include "GameClient/Display.h"
 #include "GameClient/GameText.h"
+#include "Common/OptionPreferences.h"
 #include "MacOSRichMessageBox.h"
 
 extern HWND ApplicationHWnd;
@@ -300,6 +301,35 @@ private:
 
 static FramePaceTrail s_framePaceTrail;
 
+class SavedFullscreenRestore
+{
+public:
+	void restoreOnFirstFrame()
+	{
+		if (m_isDone) {
+			return;
+		}
+
+		m_isDone = true;
+
+		if (TheDisplay == nullptr || !TheDisplay->getWindowed()) {
+			return;
+		}
+
+		if (!OptionPreferences().getMacFullscreen()) {
+			return;
+		}
+
+		DEBUG_INFO_MAC(("FULLSCREEN: Options.ini has MacFullscreen = yes, entering full screen on startup"));
+		MacOS_ToggleFullscreen();
+	}
+
+private:
+	bool m_isDone = false;
+};
+
+static SavedFullscreenRestore s_savedFullscreenRestore;
+
 // ── Constructor/Destructor (mirrors Win32GameEngine) ──
 
 MacOSGameEngine::MacOSGameEngine()
@@ -356,6 +386,7 @@ void MacOSGameEngine::update()
 {
 	@autoreleasepool {
 		serviceWindowsOS();
+		s_savedFullscreenRestore.restoreOnFirstFrame();
 		GameEngine::update();
 		s_gameStateTrail.update();
 		s_framePaceTrail.update();

@@ -512,6 +512,18 @@ Bool OptionPreferences::getCommandAsControl() const
 
 	return FALSE;
 }
+
+Bool OptionPreferences::getMacFullscreen() const
+{
+	OptionPreferences::const_iterator it = find("MacFullscreen");
+	if (it == end())
+		return FALSE;
+
+	if (stricmp(it->second.str(), "yes") == 0)
+		return TRUE;
+
+	return FALSE;
+}
 #endif
 
 Bool OptionPreferences::usesSystemMapDir()
