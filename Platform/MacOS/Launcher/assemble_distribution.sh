@@ -18,8 +18,8 @@
 #   - the notary keychain profile "generals-online", set up once with
 #     xcrun notarytool store-credentials generals-online --apple-id <Apple ID> --team-id GUDMPDW2D2
 
-VERSION="2.5.11"
-BUILD="42"
+VERSION="2.5.12"
+BUILD="43"
 
 if [ -f ".env" ]; then
     set -a
