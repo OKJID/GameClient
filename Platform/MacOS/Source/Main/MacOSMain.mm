@@ -117,6 +117,7 @@ static void requestGameQuit() {
 extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed);
 extern "C" void MacOS_UpdateMetalDeviceScreenSize(int width, int height);
 extern "C" void MacOS_DiscardPendingMouseDown();
+extern "C" void MacOS_SyncFullscreenWindowLevel();
 
 // ── Content view ──
 
@@ -150,6 +151,14 @@ extern "C" void MacOS_DiscardPendingMouseDown();
     dispatch_async(dispatch_get_main_queue(), ^{
         [self runGame];
     });
+}
+
+- (void)applicationDidBecomeActive:(NSNotification*)notification {
+    MacOS_SyncFullscreenWindowLevel();
+}
+
+- (void)applicationDidResignActive:(NSNotification*)notification {
+    MacOS_SyncFullscreenWindowLevel();
 }
 
 // The press that starts dragging the window edge lands inside the content view, but

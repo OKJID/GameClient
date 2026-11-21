@@ -603,6 +603,26 @@ extern "C" void MacOS_InitWindowedState(bool isWindowed, int xRes, int yRes) {
 	s_windowedHeight = yRes;
 }
 
+static NSApplicationPresentationOptions Fullscreen_Presentation_Options()
+{
+	NSApplicationPresentationOptions hiddenSystemChrome = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar;
+
+	if (@available(macOS 27.0, *)) {
+		return hiddenSystemChrome | NSApplicationPresentationDisableScreenCornerInteractions;
+	}
+
+	return hiddenSystemChrome | NSApplicationPresentationDisableProcessSwitching;
+}
+
+static NSWindowLevel Fullscreen_Window_Level()
+{
+	if ([NSApp isActive]) {
+		return NSMainMenuWindowLevel + 1;
+	}
+
+	return NSNormalWindowLevel;
+}
+
 bool DX8Wrapper::Toggle_Windowed() {
 	if (!_Hwnd) return false;
 
@@ -616,7 +636,7 @@ bool DX8Wrapper::Toggle_Windowed() {
 		s_windowedWidth = ResolutionWidth;
 		s_windowedHeight = ResolutionHeight;
 
-		NSApp.presentationOptions = NSApplicationPresentationHideDock | NSApplicationPresentationHideMenuBar | NSApplicationPresentationDisableProcessSwitching;
+		NSApp.presentationOptions = Fullscreen_Presentation_Options();
 		[win setStyleMask:NSWindowStyleMaskBorderless];
 		
 		NSScreen* screen = [win screen] ?: [NSScreen mainScreen];
@@ -642,6 +662,15 @@ bool DX8Wrapper::Toggle_Windowed() {
 extern "C" bool MacOS_ToggleFullscreen() {
 	WW3D::Toggle_Windowed();
 	return true;
+}
+
+extern "C" void MacOS_SyncFullscreenWindowLevel() {
+	if (!_Hwnd || DX8Wrapper_IsWindowed) {
+		return;
+	}
+
+	NSWindow* win = (__bridge NSWindow*)_Hwnd;
+	[win setLevel:Fullscreen_Window_Level()];
 }
 
 static void Resize_Back_Buffer(HWND hwnd, int width, int height)
@@ -700,7 +729,7 @@ void DX8Wrapper::Resize_And_Position_Window()
 
 	if (!IsWindowed) {
 		[win setFrame:screen.frame display:YES animate:NO];
-		[win setLevel:NSMainMenuWindowLevel + 1];
+		[win setLevel:Fullscreen_Window_Level()];
 	} else {
 		[win setLevel:NSNormalWindowLevel];
 		NSRect contentRect = NSMakeRect(0, 0, ResolutionWidth / backBufferScale, ResolutionHeight / backBufferScale);
