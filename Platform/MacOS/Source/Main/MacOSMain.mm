@@ -372,12 +372,13 @@ static NSString* ModSplashPath() {
 }
 
 extern "C" void MacOS_DismissSplash() {
-    if (!g_splashWindow) {
-        return;
+    // The main window starts at alpha 0 and is only revealed here. If the splash
+    // image was missing there is no splash window, but the main window still
+    // needs to become visible.
+    if (g_splashWindow) {
+        [g_splashWindow orderOut:nil];
+        g_splashWindow = nil;
     }
-
-    [g_splashWindow orderOut:nil];
-    g_splashWindow = nil;
 
     NSWindow *mainWindow = (__bridge NSWindow *)ApplicationHWnd;
     if (mainWindow) {
