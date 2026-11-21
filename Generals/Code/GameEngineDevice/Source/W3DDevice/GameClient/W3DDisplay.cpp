@@ -3206,6 +3206,10 @@ extern "C" void MacOS_ApplyDisplayResolution(int w, int h, bool isWindowed) {
 	TheWritableGlobalData->m_windowed = isWindowed;
 	TheDisplay->setWindowed(isWindowed);
 
+	if (TheMouse) {
+		TheMouse->refreshCursorCapture();
+	}
+
 	OptionPreferences pref;
 	if (isWindowed) {
 		AsciiString resStr;
