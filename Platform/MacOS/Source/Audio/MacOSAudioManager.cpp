@@ -1015,6 +1015,23 @@ void MacOSAudioManager::pauseAudio(AudioAffect which) {
             avbridge_pause(pa.playerID);
         }
     }
+
+    removePendingPlayRequests();
+}
+
+void MacOSAudioManager::removePendingPlayRequests() {
+    int removed = 0;
+    for (auto it = m_audioRequests.begin(); it != m_audioRequests.end();) {
+        AudioRequest *req = *it;
+        if (!req || req->m_request != AR_Play) {
+            ++it;
+            continue;
+        }
+        deleteInstance(req);
+        it = m_audioRequests.erase(it);
+        ++removed;
+    }
+    DEBUG_AUDIO_MAC(("removePendingPlayRequests: %d play requests dropped", removed));
 }
 
 void MacOSAudioManager::resumeAudio(AudioAffect which) {

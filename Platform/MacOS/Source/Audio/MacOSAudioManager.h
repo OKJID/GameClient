@@ -110,6 +110,7 @@ protected:
   void stopAudioEvent(AudioHandle handle);
   void stopMusic(Bool shouldFade);
   void stopAllSpeech();
+  void removePendingPlayRequests();
   void processFadingList();
   void processPlayingList();
   void updatePositionalSource(PlayingAudio &pa);
