@@ -482,8 +482,14 @@ bool MetalDevice8::InitMetal(void *windowHandle) {
   // Always disable displaySync — it causes nextDrawable to block on VSync,
   // which deadlocks our single-threaded game loop (can't pump events while
   // waiting for VSync). Frame rate is controlled by FramePacer instead.
-  layer.displaySyncEnabled = NO;
-  fprintf(stderr, "[MetalDevice8] VSync: OFF (frame rate controlled by FramePacer)\n");
+  // GENERALS_VSYNC=1 opts back into display sync to remove tearing. nextDrawable
+  // then waits at most one refresh (and times out after 1s when occluded, which
+  // BeginScene already handles as a skipped frame).
+  const char *vsyncEnv = getenv("GENERALS_VSYNC");
+  const bool vsyncOn = vsyncEnv && vsyncEnv[0] == '1';
+  layer.displaySyncEnabled = vsyncOn ? YES : NO;
+  fprintf(stderr, "[MetalDevice8] VSync: %s\n",
+          vsyncOn ? "ON (GENERALS_VSYNC=1)" : "OFF (frame rate controlled by FramePacer)");
 
   m_MetalLayer = (__bridge_retained void *)layer;
 
