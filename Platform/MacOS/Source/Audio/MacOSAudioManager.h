@@ -133,6 +133,7 @@ protected:
 
   int loadAudioBuffer(const AsciiString& path, bool forceMono = false);
   std::string getPhysicalPathForStream(const std::string& vfsPath) const;
+  std::string extractStreamToAudioCache(const std::string& vfsPath) const;
   void stopSourceAndFree(PlayingAudio &pa);
   PlayingAudio* findFreeSource(int priorityToDemand, SourceKind kind);
   PlayingAudio* findSourceByHandle(AudioHandle handle);

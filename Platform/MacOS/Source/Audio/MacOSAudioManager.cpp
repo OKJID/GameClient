@@ -521,6 +521,10 @@ std::string MacOSAudioManager::getPhysicalPathForStream(const std::string& vfsPa
         return safePath;
     }
 
+    return extractStreamToAudioCache(vfsPath);
+}
+
+std::string MacOSAudioManager::extractStreamToAudioCache(const std::string& vfsPath) const {
     if (!TheFileSystem) return "";
 
     std::string pathToTry = vfsPath;
@@ -936,8 +940,12 @@ void MacOSAudioManager::friend_forcePlayAudioEventRTS(const AudioEventRTS *event
     float pitch = eventCopy.getPitchShift() > 0 ? eventCopy.getPitchShift() : 1.0f;
 
     if (isStream) {
-        std::string pathStr = NativeFileSystem::get_safe_path(filename.str());
-        avbridge_playStream(pathStr.c_str(), gain, pitch, false);
+        const std::string cachedPath = extractStreamToAudioCache(filename.str());
+        if (cachedPath.empty()) {
+            DEBUG_AUDIO_MAC(("friend_forcePlayAudioEventRTS: Failed to extract stream %s", filename.str()));
+            return;
+        }
+        avbridge_playStream(cachedPath.c_str(), gain, pitch, false);
     } else {
         avbridge_play(bufID, gain, pitch, false);
     }
