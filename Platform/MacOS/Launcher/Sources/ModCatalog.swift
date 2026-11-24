@@ -61,7 +61,7 @@ final class ModCatalog: ObservableObject, ApiResource {
     }
 
     private static func profiles(from entries: [ModCatalogEntry]) -> [GameProfile] {
-        var usedIDs = Set(GameProfile.baseGames.map(\.id.rawValue))
+        var usedIDs = Set((GameProfile.baseGames.map(\.id) + [.ownMod]).map(\.rawValue))
 
         return entries
             .filter(\.isAcceptable)

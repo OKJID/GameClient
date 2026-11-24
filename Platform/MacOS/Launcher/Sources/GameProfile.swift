@@ -70,6 +70,12 @@ struct GameID: RawRepresentable, Hashable, Identifiable {
     var id: String { rawValue }
 }
 
+enum GameKind {
+    case base
+    case mod
+    case ownMod
+}
+
 struct ModSpec {
     let baseGameID: GameID
     let dirName: String
@@ -122,11 +128,18 @@ struct GameProfile: Identifiable {
     let localeFileName: String
     let onlineSettingsRelativePath: String?
     let supportedSettings: Set<SettingKey>
+    let kind: GameKind
     let mod: ModSpec?
 
     var isMod: Bool { mod != nil }
+    var isOwnMod: Bool { kind == .ownMod }
+    var extendsBaseGame: Bool { kind != .base }
 
     var baseProfile: GameProfile {
+        if isOwnMod {
+            return GameProfile.profile(for: OwnModProfile.baseGameID)
+        }
+
         guard let mod else { return self }
         return GameProfile.profile(for: mod.baseGameID)
     }
@@ -335,6 +348,7 @@ extension GameProfile {
             .altEndpoint,
             .verboseLogging
         ],
+        kind: .base,
         mod: nil
     )
 
@@ -370,6 +384,7 @@ extension GameProfile {
             .cameraMaxHeightLocal,
             .verboseLogging
         ],
+        kind: .base,
         mod: nil
     )
 
@@ -380,28 +395,45 @@ extension GameProfile {
         theme: LauncherTheme,
         mod: ModSpec
     ) -> GameProfile {
-        let base = GameProfile.zeroHour
-
-        return GameProfile(
+        GameProfile.zeroHour.derived(
             id: id,
             displayName: displayName,
             shortName: shortName,
-            logsArchivePrefix: base.logsArchivePrefix,
             theme: theme,
-            userDataDirName: base.userDataDirName,
-            requiredArchive: base.requiredArchive,
-            forbiddenArchive: base.forbiddenArchive,
-            bundleName: base.bundleName,
-            executableName: base.executableName,
-            worldBuilderExecutableName: base.worldBuilderExecutableName,
-            patchAssetsDirName: base.patchAssetsDirName,
-            patchMarkers: base.patchMarkers,
-            localeLanguages: base.localeLanguages,
-            localeRequiredFiles: base.localeRequiredFiles,
-            localeDirName: base.localeDirName,
-            localeFileName: base.localeFileName,
-            onlineSettingsRelativePath: base.onlineSettingsRelativePath,
-            supportedSettings: base.supportedSettings,
+            kind: .mod,
+            mod: mod
+        )
+    }
+
+    func derived(
+        id: GameID,
+        displayName: String,
+        shortName: String,
+        theme: LauncherTheme,
+        kind: GameKind,
+        mod: ModSpec?
+    ) -> GameProfile {
+        GameProfile(
+            id: id,
+            displayName: displayName,
+            shortName: shortName,
+            logsArchivePrefix: logsArchivePrefix,
+            theme: theme,
+            userDataDirName: userDataDirName,
+            requiredArchive: requiredArchive,
+            forbiddenArchive: forbiddenArchive,
+            bundleName: bundleName,
+            executableName: executableName,
+            worldBuilderExecutableName: worldBuilderExecutableName,
+            patchAssetsDirName: patchAssetsDirName,
+            patchMarkers: patchMarkers,
+            localeLanguages: localeLanguages,
+            localeRequiredFiles: localeRequiredFiles,
+            localeDirName: localeDirName,
+            localeFileName: localeFileName,
+            onlineSettingsRelativePath: onlineSettingsRelativePath,
+            supportedSettings: supportedSettings,
+            kind: kind,
             mod: mod
         )
     }
@@ -436,7 +468,11 @@ extension GameProfile {
     }
 
     static func profile(for id: GameID) -> GameProfile {
-        all.first { $0.id == id } ?? .zeroHour
+        if id == .ownMod {
+            return OwnModProfile.profile
+        }
+
+        return all.first { $0.id == id } ?? .zeroHour
     }
 
     static func installDirectory(for id: GameID, under root: URL) -> URL? {

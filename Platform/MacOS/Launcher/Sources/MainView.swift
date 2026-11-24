@@ -396,7 +396,7 @@ struct MainView: View {
     private func _buildModSwitcherSection() -> some View {
         let mods = viewModel.availableMods
 
-        if !mods.isEmpty {
+        if !mods.isEmpty || viewModel.isOwnModAvailable {
             _buildModSectionHeader()
 
             ScrollViewReader { proxy in
@@ -409,6 +409,10 @@ struct MainView: View {
                         }
 
                         _buildModRequestButton()
+
+                        if viewModel.isOwnModAvailable {
+                            _buildOwnModRow()
+                        }
                     }
                     .padding(.top, 2)
                     .padding(.bottom, modListOverscroll)
@@ -566,6 +570,17 @@ struct MainView: View {
         .onHover { inside in
             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
+    }
+
+    private func _buildOwnModRow() -> some View {
+        OwnModSwitcherRow(
+            isSelected: viewModel.selectedGameID == .ownMod,
+            isReady: viewModel.ownMod.state.isLaunchable,
+            width: switcherButtonWidth,
+            height: switcherButtonHeight,
+            onSelect: { viewModel.selectGame(.ownMod) }
+        )
+        .id(GameID.ownMod.rawValue)
     }
 
     private func _switcherOpacity(isEnabled: Bool, isInstalledMod: Bool, isMod: Bool) -> Double {
@@ -992,14 +1007,12 @@ struct MainView: View {
     private func _buildBottomAction() -> some View {
         if let installing = viewModel.installingMod {
             _buildModBusyAction(installing)
+        } else if viewModel.selectedProfile.isOwnMod {
+            _buildOwnModAction()
         } else if viewModel.selectedProfile.isMod {
             _buildModAction(viewModel.selectedProfile)
         } else if viewModel.canLaunch {
-            HStack(spacing: 12) {
-                _buildLaunchButton()
-                _buildWorldBuilderButton()
-                GuideHintButton(anchor: GuideAnchor.launch)
-            }
+            _buildLaunchRow()
         } else if viewModel.assetPatcher.state.isRunning {
             _buildProgressButton(viewModel.assetPatcher.state.statusText)
         } else if viewModel.resourceCopier.state.isRunning {
@@ -1014,6 +1027,24 @@ struct MainView: View {
             }
         } else {
             _buildTargetRequiredHint()
+        }
+    }
+
+    private func _buildLaunchRow() -> some View {
+        HStack(spacing: 12) {
+            _buildLaunchButton()
+            _buildWorldBuilderButton()
+            GuideHintButton(anchor: GuideAnchor.launch)
+        }
+    }
+
+    private func _buildOwnModAction() -> some View {
+        OwnModPanel(
+            controller: viewModel.ownMod,
+            theme: viewModel.selectedProfile.theme,
+            onHowItWorks: { viewModel.openGuide(article: OwnModGuide.articleID, source: "own_mod") }
+        ) {
+            _buildLaunchRow()
         }
     }
 
@@ -1149,11 +1180,7 @@ struct MainView: View {
                     .foregroundColor(.white.opacity(0.75))
             }
 
-            HStack(spacing: 12) {
-                _buildLaunchButton()
-                _buildWorldBuilderButton()
-                GuideHintButton(anchor: GuideAnchor.launch)
-            }
+            _buildLaunchRow()
 
             HStack(spacing: 12) {
                 _buildModAboutButton(profile)
@@ -1283,7 +1310,7 @@ struct MainView: View {
     }
 
     private var _worldBuilderIconName: String {
-        if viewModel.selectedProfile.isMod {
+        if viewModel.selectedProfile.extendsBaseGame {
             return "worldbuilder_mod"
         }
 

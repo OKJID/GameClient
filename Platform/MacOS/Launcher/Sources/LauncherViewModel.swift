@@ -171,6 +171,9 @@ class LauncherViewModel: ObservableObject {
     var updateChecker = UpdateChecker()
     var launcherUpdater = LauncherUpdater()
     var announcements = AnnouncementsFeed()
+    lazy var ownMod = OwnModController { [weak self] in
+        OwnModValidationContext(installRoot: self?.installRootURL)
+    }
     lazy var apiSync = ApiSync(resources: [
         updateChecker, announcements, ModCatalog.shared, ModAboutCatalog.shared, LocaleCatalog.shared,
         DonationsCatalog.shared, HotkeyPresetCatalog.shared, GuideCatalog.shared
@@ -212,6 +215,10 @@ class LauncherViewModel: ObservableObject {
         }.store(in: &cancellables)
 
         modInstaller.objectWillChange.sink { [weak self] _ in
+            self?.objectWillChange.send()
+        }.store(in: &cancellables)
+
+        ownMod.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }.store(in: &cancellables)
 
@@ -563,6 +570,7 @@ class LauncherViewModel: ObservableObject {
 
     private func invalidateValidation() {
         validationEpoch += 1
+        ownMod.revalidate()
     }
 
     private func syncValidationCache() {
@@ -580,7 +588,7 @@ class LauncherViewModel: ObservableObject {
 
     var selectedProfile: GameProfile {
         let profile = GameProfile.profile(for: selectedGameID)
-        guard profile.isMod, !isBaseReady(for: profile) else { return profile }
+        guard profile.extendsBaseGame, !isBaseReady(for: profile) else { return profile }
         return profile.baseProfile
     }
 
@@ -632,6 +640,10 @@ class LauncherViewModel: ObservableObject {
 
     var availableMods: [GameProfile] {
         GameProfile.mods.filter { isBaseReady(for: $0) }
+    }
+
+    var isOwnModAvailable: Bool {
+        isBaseReady(for: OwnModProfile.profile)
     }
 
     var installingMod: GameProfile? {
@@ -822,6 +834,10 @@ class LauncherViewModel: ObservableObject {
             guard isModInstalled(selectedProfile), !isModDamaged(selectedProfile) else { return false }
         }
 
+        if selectedProfile.isOwnMod {
+            guard ownMod.state.isLaunchable else { return false }
+        }
+
         switch activeTab {
         case .steam: return areSteamAssetsValid && isPatchReady
             && !steamCMD.state.isRunning && !assetPatcher.state.isRunning
@@ -956,7 +972,7 @@ class LauncherViewModel: ObservableObject {
         }
 
         let arguments: [String]
-        switch _modArguments(for: profile) {
+        switch _launchArguments(for: profile) {
         case .success(let modArguments):
             arguments = modArguments
         case .failure(let error):
@@ -1006,7 +1022,7 @@ class LauncherViewModel: ObservableObject {
 
         let profile = selectedProfile
         let arguments: [String]
-        switch _modArguments(for: profile) {
+        switch _launchArguments(for: profile) {
         case .success(let modArguments):
             arguments = modArguments
         case .failure(let error):
@@ -1051,11 +1067,13 @@ class LauncherViewModel: ObservableObject {
     private enum ModLaunchError: Error {
         case folderMissing
         case configMissing
+        case ownMod(OwnModLaunchFailure)
 
         var analyticsReason: String {
             switch self {
             case .folderMissing: return "mod_folder_missing"
             case .configMissing: return "mod_config_missing"
+            case .ownMod(let failure): return failure.analyticsReason
             }
         }
 
@@ -1063,8 +1081,14 @@ class LauncherViewModel: ObservableObject {
             switch self {
             case .folderMissing: return L10n.alerts.modFolderMissing
             case .configMissing: return String(format: L10n.alerts.modConfigMissing, profile.displayName, ModSpec.configFileName)
+            case .ownMod(let failure): return failure.message
             }
         }
+    }
+
+    private func _launchArguments(for profile: GameProfile) -> Result<[String], ModLaunchError> {
+        guard profile.isOwnMod else { return _modArguments(for: profile) }
+        return ownMod.launchArguments().mapError(ModLaunchError.ownMod)
     }
 
     private func _modArguments(for profile: GameProfile) -> Result<[String], ModLaunchError> {
