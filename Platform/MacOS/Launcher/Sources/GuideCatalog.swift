@@ -26,6 +26,10 @@ struct GuideArticle: Decodable, Equatable, Identifiable {
         locales[language] ?? locales["en"]
     }
 
+    func textLanguage(for language: String) -> String {
+        locales[language] != nil ? language : "en"
+    }
+
     func isVisible(build: Int) -> Bool {
         guard let minBuild else { return true }
         return build >= minBuild

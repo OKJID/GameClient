@@ -3,6 +3,7 @@ import WebKit
 
 struct GuideArticleWebView: NSViewRepresentable {
     let html: String
+    let language: String
     let accent: Color
     let articleID: String
     let onLink: (LauncherLink) -> Void
@@ -36,7 +37,7 @@ struct GuideArticleWebView: NSViewRepresentable {
     private func document() -> String {
         """
         <!DOCTYPE html>
-        <html><head><meta charset="utf-8">
+        <html lang="\(language)" dir="\(textDirection())"><head><meta charset="utf-8">
         <meta http-equiv="Content-Security-Policy"
               content="default-src 'none'; img-src data: https:; style-src 'unsafe-inline'; font-src data:;">
         <style>
@@ -50,7 +51,7 @@ struct GuideArticleWebView: NSViewRepresentable {
           h2 { font-size: 15px; }
           h3 { font-size: 13px; }
           p { margin: 0 0 10px; }
-          ul, ol { margin: 0 0 12px; padding-left: 22px; }
+          ul, ol { margin: 0 0 12px; padding-inline-start: 22px; }
           li { margin: 4px 0; }
           a { color: \(accentHex()); font-weight: 700; text-decoration: underline; }
           b, strong { color: #ffffff; }
@@ -61,12 +62,18 @@ struct GuideArticleWebView: NSViewRepresentable {
           }
           .note {
             margin: 12px 0; padding: 10px 12px; border-radius: 6px;
-            background: rgba(255,255,255,0.04); border-left: 3px solid \(accentHex());
+            background: rgba(255,255,255,0.04); border-inline-start: 3px solid \(accentHex());
           }
           img { max-width: 100%; border-radius: 6px; }
         </style></head>
         <body>\(html)</body></html>
         """
+    }
+
+    private static let rightToLeftLanguages: Set<String> = ["ar"]
+
+    private func textDirection() -> String {
+        Self.rightToLeftLanguages.contains(language) ? "rtl" : "ltr"
     }
 
     private func accentHex() -> String {

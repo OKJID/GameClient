@@ -162,6 +162,7 @@ struct GuidePageView: View {
 
             GuideArticleWebView(
                 html: text?.body ?? "",
+                language: article.textLanguage(for: language),
                 accent: accent,
                 articleID: article.id,
                 onLink: viewModel.follow
