@@ -3,11 +3,13 @@ import SwiftUI
 struct OwnModSwitcherRow: View {
     let isSelected: Bool
     let isReady: Bool
+    let banner: NSImage?
     let width: CGFloat
     let height: CGFloat
     let onSelect: () -> Void
 
     private let theme = LauncherTheme.ownMod
+    private let bannerOpacity: Double = 0.55
 
     private var foreground: Color { isSelected ? .white : theme.accentSoft }
 
@@ -59,8 +61,34 @@ struct OwnModSwitcherRow: View {
     }
 
     private func _buildBackground() -> some View {
-        LeftFlushShape(radius: 10)
-            .fill(isSelected ? theme.accent.opacity(0.85) : theme.panel.opacity(0.75))
+        ZStack {
+            LeftFlushShape(radius: 10)
+                .fill(isSelected ? theme.accent.opacity(0.85) : theme.panel.opacity(0.75))
+
+            if let banner {
+                _buildBanner(banner)
+            }
+        }
+    }
+
+    private func _buildBanner(_ banner: NSImage) -> some View {
+        ZStack {
+            Image(nsImage: banner)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .opacity(bannerOpacity)
+
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0.6), location: 0),
+                    .init(color: .clear, location: 0.7)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+        .frame(width: width, height: height)
+        .clipShape(LeftFlushShape(radius: 10))
     }
 
     private func _buildBorder() -> some View {

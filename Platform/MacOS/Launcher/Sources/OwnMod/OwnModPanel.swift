@@ -19,14 +19,37 @@ struct OwnModPanel<LaunchRow: View>: View {
     }
 
     private let pathMaxWidth: CGFloat = 460
+    private let bannerOpacity: Double = 0.40
+    private let bannerBlur: CGFloat = 1
 
     var body: some View {
         _buildContent()
             .padding(.horizontal, 30)
             .padding(.vertical, 12)
-            .background(theme.panel.opacity(0.55))
+            .background(_buildBackground())
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(theme.accent.opacity(0.35), lineWidth: 1))
+    }
+
+    private func _buildBackground() -> some View {
+        ZStack {
+            theme.panel.opacity(0.55)
+
+            if let banner = controller.banner {
+                Image(nsImage: banner)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .blur(radius: bannerBlur)
+                    .opacity(bannerOpacity)
+
+                RadialGradient(
+                    colors: [.clear, .black.opacity(0.45)],
+                    center: .center,
+                    startRadius: 60,
+                    endRadius: 360
+                )
+            }
+        }
     }
 
     @ViewBuilder

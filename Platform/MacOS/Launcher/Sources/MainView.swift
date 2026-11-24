@@ -576,6 +576,7 @@ struct MainView: View {
         OwnModSwitcherRow(
             isSelected: viewModel.selectedGameID == .ownMod,
             isReady: viewModel.ownMod.state.isLaunchable,
+            banner: viewModel.ownMod.banner,
             width: switcherButtonWidth,
             height: switcherButtonHeight,
             onSelect: { viewModel.selectGame(.ownMod) }
@@ -1310,7 +1311,11 @@ struct MainView: View {
     }
 
     private var _worldBuilderIconName: String {
-        if viewModel.selectedProfile.extendsBaseGame {
+        if viewModel.selectedProfile.isOwnMod {
+            return OwnModProfile.worldBuilderIconName
+        }
+
+        if viewModel.selectedProfile.isMod {
             return "worldbuilder_mod"
         }
 
