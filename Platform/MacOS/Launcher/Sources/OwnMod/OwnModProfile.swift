@@ -20,6 +20,16 @@ extension LauncherTheme {
 
 enum OwnModProfile {
     static let baseGameID = GameID.zeroHour
+    static let worldBuilderIconName = "worldbuilder_own_mod"
+
+    static var replaysRelativePath: String {
+        guard let folder = UserDefaultsOwnModFolderStore().load() else {
+            return "Replays"
+        }
+
+        let spec = OwnModSpec(folder: folder, baseGameID: baseGameID)
+        return "Replays/\(spec.userDataSubdirName)"
+    }
 
     static var profile: GameProfile {
         GameProfile.profile(for: baseGameID).derived(

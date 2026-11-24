@@ -30,6 +30,7 @@
 #include "Common/CRCDebug.h"
 #include "Common/LocalFileSystem.h"
 #include "Common/Recorder.h"
+#include "Common/System/NativeFileSystem.h"
 #include "Common/version.h"
 #include "GameClient/ClientInstance.h"
 #include "GameClient/TerrainVisual.h" // for TERRAIN_LOD_MIN definition
@@ -1079,6 +1080,9 @@ Int parseMod(char *args[], Int num)
 
 		if (statBuf.st_mode & _S_IFDIR)
 		{
+#ifdef __APPLE__
+			modPath.set(NativeFileSystem::get_engine_path(modPath.str()).c_str());
+#endif
 			if (!modPath.endsWith("\\") && !modPath.endsWith("/"))
 				modPath.concat('\\');
 			DEBUG_LOG(("Mod dir is '%s'.", modPath.str()));

@@ -3,6 +3,10 @@ import Foundation
 struct OwnModSpec: Equatable {
     let folder: URL
     let baseGameID: GameID
+
+    var userDataSubdirName: String {
+        folder.path.split(separator: "/").joined(separator: "_")
+    }
 }
 
 enum OwnModState: Equatable {

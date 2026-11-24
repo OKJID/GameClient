@@ -1073,6 +1073,34 @@ AsciiString GlobalData::getPath_UserData() const
 
 #ifdef __APPLE__
 //-------------------------------------------------------------------------------------------------
+static AsciiString lastModPathComponent(const AsciiString& modDir)
+{
+	const char *separator = modDir.reverseFind('\\');
+	return AsciiString(separator != nullptr ? separator + 1 : modDir.str());
+}
+
+//-------------------------------------------------------------------------------------------------
+static AsciiString flattenedModPath(const AsciiString& modDir)
+{
+	AsciiString flattened;
+	for (const char *cursor = modDir.str(); *cursor != '\0'; ++cursor)
+	{
+		if (*cursor != '\\')
+		{
+			flattened.concat(*cursor);
+			continue;
+		}
+
+		if (flattened.isNotEmpty())
+		{
+			flattened.concat('_');
+		}
+	}
+
+	return flattened;
+}
+
+//-------------------------------------------------------------------------------------------------
 AsciiString GlobalData::getModUserDataSubdir() const
 {
 	AsciiString modDir = m_modDir;
@@ -1086,16 +1114,8 @@ AsciiString GlobalData::getModUserDataSubdir() const
 		return AsciiString::TheEmptyString;
 	}
 
-	const char *modName = modDir.str();
-	for (const char *cursor = modDir.str(); *cursor != '\0'; ++cursor)
-	{
-		if (*cursor == '\\' || *cursor == '/')
-		{
-			modName = cursor + 1;
-		}
-	}
-
-	AsciiString subdir(modName);
+	const Bool isIdentifiedByManifest = m_modId.isNotEmpty();
+	AsciiString subdir = isIdentifiedByManifest ? lastModPathComponent(modDir) : flattenedModPath(modDir);
 	subdir.concat('\\');
 	return subdir;
 }

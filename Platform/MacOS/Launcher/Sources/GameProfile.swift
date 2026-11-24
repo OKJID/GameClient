@@ -155,6 +155,10 @@ struct GameProfile: Identifiable {
     }
 
     var replaysRelativePath: String {
+        if isOwnMod {
+            return OwnModProfile.replaysRelativePath
+        }
+
         guard let mod else { return "Replays" }
         return "Replays/\(mod.dirName)"
     }
